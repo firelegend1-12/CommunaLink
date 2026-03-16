@@ -1,0 +1,530 @@
+INTRODUCTION
+Background
+	In the rapidly evolving digital era, Electronic Governance (e-Governance) has emerged as a global standard for modern public administration. Across the world, governments are transitioning from traditional, paper-based bureaucracies to sophisticated digital platforms to enhance transparency, accountability, and citizen engagement. This shift is driven by the Fourth Industrial Revolution, where data is considered the new oil, and the ability to process information instantly is synonymous with effective governance [1]. The integration of Information and Communication Technology (ICT) in government operations allows for faster data retrieval, secure record-keeping, and improved responsiveness to public needs, ensuring that no community is left behind in the global march toward digitalization.
+	In the context of the Philippines, the push for digital transformation is not merely a trend but a legislative mandate. The passage of Republic Act 11032, also known as the "Ease of Doing Business and Efficient Government Service Delivery Act of 2018," compels all government units to streamline their procedures and adopt automated systems to reduce paperwork [2]. As an archipelagic nation, the Philippines relies heavily on its Local Government Units (LGUs) to deliver essential services to the grassroots level. The Barangay, defined as the smallest political unit in the country, serves as the primary planning and implementing unit of government policies, plans, programs, projects, and activities in the community [3]. It is the first line of defense in maintaining peace and order and the primary point of contact for citizens seeking government assistance.
+	However, despite these national mandates and the critical role they play, a significant "digital divide" persists. While major cities in the Philippines have begun adopting "Smart City" technologies, many barangays especially those in provincial and far-flung areas remain tied to obsolete administrative practices. A vast number of these units still lack the necessary financial resources and technical infrastructure to modernize, forcing them to rely on manual handwritten logbooks, physical filing cabinets, and fragmented Excel spreadsheets to manage vital crucial data [4]. These traditional methods are come with risks: paper records are vulnerable to physical damage from natural disasters such as floods or fires, they are prone to human error and redundancy, and they make data retrieval a time-consuming, labor-intensive process that slow down decision-making.
+	Locally, this struggle is evident in Barangay Pakiad, a community in the Municipality of Oton, Iloilo. Currently, the barangay administration operates without a centralized information system. The officials rely on manual record-keeping for managing resident profiles, processing business permits, and issuing clearances. This lack of digitization creates a bottleneck in service delivery; simple requests for documents can take longer than necessary due to the time spent searching through physical piles of paper. Furthermore, the absence of a secure, digital database raises concerns regarding data privacy and security, as physical logbooks can be easily misplaced or accessed by unauthorized personnel.
+	The problem is further compounded by the lack of a modern mechanism for community engagement, particularly in incident reporting. In times of emergencies or community disputes, residents often have no choice but to physically visit the barangay hall or rely on unverified channels to report issues. This delay in communication can have serious consequences for public safety and disaster response.
+	To address these multifaceted inefficiencies, the researchers propose the development of "CommunaLink: Online Barangay Management System." This project aims to bridge the technological gap in Barangay Pakiad by introducing a centralized, cloud-based platform. By migrating from manual logs to a secure Google Cloud SQL database, the system will ensure data integrity, prevent loss, and streamline administrative workflows. Moreover, the integration of an Incident Reporting System using geolocation technology will empower residents to participate actively in community safety, creating a governance model that is not only efficient and transparent but also responsive to the digital needs of the modern Filipino [5].
+Rationale
+	The transition toward digital governance is a necessity for modern public administration. Despite national mandates like the Ease of Doing Business Act, Barangay Pakiad remains burdened by manual, paper-based workflows that are inherently prone to redundancy, data loss, and administrative bottlenecks. The primary rationale for developing "CommunaLink" is to bridge this digital divide by providing a centralized platform that streamlines operations. By digitizing these processes, the system aims to eliminate the frustration residents feel when processing documents, ultimately restoring efficiency and trust in local governance.
+	Furthermore, the system addresses a critical need for public safety and community responsiveness. Traditional incident reporting relies on physical presence or unverified communication, delaying responses during emergencies. By integrating a Geolocation-based Incident Reporting System using the Google Maps API, CommunaLink provides real-time situational awareness. It empowers residents to report hazards or crimes accurately and instantly, transforming them from passive recipients of aid into active participants in community security.
+	Finally, the vulnerability of physical records to natural disasters such as floods or fires necessitates a secure, digital transition. Migrating to a Cloud-Based Database ensures that vital constituent data is encrypted, backed up, and protected from calamities, safeguarding the barangay’s institutional memory. Moreover, leveraging the Google Cloud Free Tier infrastructure makes this modernization highly sustainable and cost-effective. This proves that robust, enterprise-level governance solutions can be deployed with minimal capital expenditure, providing a practical and replicable model for other resource-constrained barangays.
+
+
+Objectives of the Study
+            This study aims to develop an online barangay management system that empowers barangays to improve operational efficiency and community responsiveness through the use of technology.
+Specifically, it further aims to:
+1.	Develop and implement a structured and centralized web-based management system, capable of digitizing and managing barangay administrative records like:
+a.	Resident profiles
+b.	Properties 
+c.	Official documents
+2.	Implement an incident reporting system using Google Maps Platform with “conversational interface (Chat)” and interactive mapping functionalities, leveraging it’s accurate, up-to-date location pinpointing while also enhancing location identification for emergency response.
+3.	Enhance “Chat” feature so it won’t be limited by implementing request functions that facilitates and generates barangay service functions such as:
+a.	Online document requests
+b.	Incident reporting
+c.	Business permits 
+d.	Clearances
+e.	Certificates
+4.	Implement a secure user management system with Role-based Access Control (RBAC) and secure authentication, ensuring that only authorized personnel can view, Create, Read, Update and Delete (CRUD) barangay data.
+5.	Integrate a comprehensive monitoring dashboard that provides real-time analytics, incident tracking, and business monitoring to support data-driven decision-making for barangay officials.
+6.	Enhance the system’s security and performance by implementing robust measures such as:
+a.	Input validation
+b.	Cross-Site Request Forgery (CSRF) protection, 
+c.	Rate limiting
+d.	Security headers 
+e.	Database query optimization.
+7.	To make use of Google Cloud’s Free Tier service infrastructure to implement the CommunaLink system for long-term sustainability and cost-effectiveness.
+Significance of the Study 
+This study is significant for several stakeholders, particularly in the context of barangay governance and community engagement: 
+o	Barangay Officials will benefit from streamlined data management, enhanced decision making, and easier access to organized information, improving their efficiency in daily tasks and strategic planning. 
+o	Residents will gain access to a simple, safe, and convenient platform for reporting incidents, which promotes transparency, fosters community involvement, and ensures their concerns are formally documented and addressed in a timely manner contributing directly to improve community safety and responsiveness. 
+o	Local Government Units can adopt this project as a prototype for digital transformation, particularly in underserved or low-budget areas, demonstrating a viable model for localized e-governance. The barangay can leverage the map feature for future planning and preparedness. 
+o	Future Researchers and Developers may use this study as a foundation for improving or extending digital tools for local governance, particularly in rural settings with similar connectivity and resource constraints. 
+Conceptual Framework
+Fig. 1. 
+Conceptual Framework Input Process Output
+	This figure illustrates the Conceptual Framework of the study using the Input-Process-Output (IPO) model. It outlines the systematic flow where gathered requirements, technical resources, and resident data (Input) undergo the software development, coding, and testing phases (Process). The framework culminates in the deployment of the CommunaLink web application (Output), designed to streamline barangay administrative tasks and facilitate real-time incident reporting.
+
+
+
+Scope and Delimitations of the Study
+            This project’s scope includes developing and implementing an “Online Barangay Management System” using Google Cloud’s infrastructure and Google Cloud SQL for database. The system will perform administrative tasks including Create, Read, Update, Delete (CRUD) operations to manage data for the automated generation of the barangay’s official documents. The system will be optimized for flexible access. The system will run using web browsers with intuitive and responsive design that is optimized for both user interfaces for administrators, (via desktop) and residents (via mobile web app) through the incident reporting feature.
+           The Incident reporting system is designed to assist requests and expedite response through geolocation mapping. This feature allows residents to swiftly note and record "what happened," "when," and "where," along with multimedia attachments. Residents (via mobile web app) and barangay administrators (via desktop), will have different interfaces and access levels in the system. Residents can have the ability to submit new reports, request for documents and monitor their current status, while administrators can view, manage requests, and analyze incident reports to enable effective dispatch and strategic planning. To ensure accurate and dependable incident records, validation procedures will be implemented to verify the integrity of submitted data.
+            As part of the project, a simple web-based Graphical User Interface (GUI) will be developed to interact with the system and allow for the barangay administrators to access and manage all barangay related information. The barangay hall's current infrastructure will be used to set up the project. Google Cloud Platform, a cloud-based infrastructure will be set up on one of the barangay’s personnel. A full thorough testing phase will be conducted to ensure the system works as intended.
+            The overall effectiveness of this project is subjected to a number of existing variables and constraints. Since the CommunaLink system operates as a cloud-based web application, its effectiveness is contingent upon the availability of a reliable internet connection (minimum of 3G/4G or 5 Mbps broadband) for both the Barangay Administration and the residents. To fully utilize the platform's features, particularly the geolocation-based Incident Reporting System, end-users are expected to possess an adequate modern smartphone device capable of running standard mobile web browsers (e.g., Google Chrome or Safari). Specifically, devices should ideally operate on Android 10.0 or iOS 13 and above, with at least 3GB of RAM and GPS functionality enabled. Furthermore, the accuracy of incident reports relies heavily on the quality of data provided by the user; reports submitted with vague descriptions, poor internet connectivity, or disabled location services may result in lower report accuracy or manual tagging errors. Compatibility issues across various web browsers and android versions may also affect the system’s performance and accessibility. Finally, this project also acknowledges the significance of time, and resources to be invested in requirements for the initial setup and user training. It is also a necessity for the ongoing maintenance and upgrades to ensure that the system remains functional.
+Review of Related Literature
+            Traditional manual methods, which mostly rely on handwritten logs, physical filing systems and unconventional use of software tools like Microsoft’s Word, and Excel for record keeping are one of the most prominent strategies [6], [7]. These solutions are widely used especially those in remote locations where internet connections still struggle, offering disadvantages in preserving official documents, property records and profiles. In response to these challenges various initiatives for the improvement of barangays have been developed.
+Foreign Studies
+Neighbourhood Alert System
+            From the well know Citizen app, the Neighborhood Alert System is an IoT-based system that is designed to enhance community safety through real-time information sharing. The system’s purpose is to create a vigilant well-informed public by providing immediate, location-based alerts for incidents such as, crimes, emergencies and natural disasters. This empowers the residents by fostering a collaborative, community driven safety network, with features like interactive map for visualizing incident location patterns, citizen and law enforcement action with the tools needed to understand and to respond effectively.
+            The system is built using robust modern technologies, including React framework for user interface, Node.js for backend support and Firebase for real-time database synchronization. It’s main feature however, is the integration of machine learning that uses NLP or Natural Language Processing. This allows the system to automatically analyze text reports of users while accurately classifying the type of incident thereof. This intelligent classification ensures that alerts were sent to users in real-time, filtering non related information to deliver critical and relevant information [8].
+WSU-Alert Emergency Response System.
+            A project adopted as a direct response to the growing safety concerns the students of Walter Sisulu University in South Africa is facing. Modern issues like crimes, gender-based violence and medical emergencies tend to seek a more modern approach in which the University’s traditional approach is now proving to be dangerously inefficient. WSU- alert is a mobile-based Emergency Response System specifically tailored to the campus environment. The system’s primary purpose is to empower the students with real-time reporting with GPS capability to reduce response time and provide a more secure campus experience.
+            The system follows a structured Design Science Research Methodology and was carefully engineered to cater a user-friendly approach. In it’s system lies a unique feature, the “dual action emergency alert”. This alert when pressed initiates a direct call to the appropriate emergency service be it, security or medical and transmits the user’s live location to the dispatcher’s tracking system. The system was developed using Java and Kotlin as the primary languages with Firebase for the database Google Maps API and Amazon Web Service for hosting, and deployment [9].
+Local Studies
+Enhancing Local Governance and Disaster Resilience through a Data-Driven Barangay Information System
+	In a more recent study, Dacutanan et al. (2026) introduced a data-driven approach to local governance that specifically integrates disaster resilience into the barangay information system. Recognizing the Philippines' vulnerability to natural calamities, this project moved beyond simple record-keeping to include features for hazard mapping and risk assessment.
+	The system utilizes a centralized dashboard that allows barangay officials to visualize demographic data alongside hazard-prone areas. This integration enables proactive planning and faster response times during emergencies. The researchers emphasized that a modern Barangay Information System (BIS) must not only serve administrative functions but also act as a crucial tool for disaster risk reduction and management (DRRM). The system’s implementation demonstrated a marked improvement in the barangay’s ability to allocate resources effectively during crisis situations[10].
+BALANGAY: A Web-Based Document Request and Incident Reporting System with Decision Support 
+            BALANGAY, a web-based solution that seeks to solve and automate barangay operations making public services more accessible at the local barangay level.  It specifically addresses issuance of official documents (resident profile, certificate, permit, etc.), incident reporting and generation of official document. Recognizing the challenges and inefficiencies of the manual paper-based administrative workflow. This platform serves as a centralized hub for all the resident and officials to transform the data gathered into a strategic tool for a better community planning and program development.
+          The BALANGAY system is built on two pillars: document request and incident reporting. Residents can avail the service using the online portal, eliminating the need for multiple physical visits to the barangay hall. The system also provides formal channel a for incident reporting such as, minor disputes between neighbors to public concerns. The most innovative feature of the BALANGAY would be its integrated Decision Support System (DSS) which aggregates the incident report data and visualizes it as an incident heat map. It graphically identifies areas with high to low concentrations of reported issues which help in data-driven insight for reactive problem solving.
+            The software was tested with the quality model ISO 9126 attaining a score of 4.45 on a scale of 5. It also added a rudimentary decision-support function to assist staff in prioritizing their responses to incidents in terms of urgency. Residents feedback said that the system decreased traffic at the barangay hall while promoting a more transparent processing of documents [11].
+Barangay Constituents Information and Services Management System (BCISMS)
+            BCISMS or The Barangay Constituents Information and Services Management System is a centralized digital platform designed to address the significant inefficiencies of manual record-keeping in local barangay operations whose traditional paper-based methods for issuing certificates and managing resident data are slow and prone to errors often leading to record redundancy and long transaction periods. To create a tool that enhances the speed and reliability of administrative tasks, and improving the delivery of services to the community. BCISMS features, rapid record searching, health information management, automated report generation, and graphical analysis of the barangay census. 
+            The system followed an Iterative Development Model, a process that involves building and refining the software in repeated cycles. Officials from five barangays of Talisay City were interviewed to ground the layout of the study. The system was tested by two distinct groups using internationally recognized standards: IT experts evaluated its technical quality using McCall's Software Quality Model, while barangay officials judged its practical use against the ISO/IEC 9126-1:2000 criteria, meeting a comprehensive validation [12].
+Development and Evaluation of a Web-Based Resident Information Management System
+	Melendres and Aranda (2024) developed a Web-Based Resident Information Management System (WRIMS) to address the persistent challenges of manual record-keeping in local government units. The study highlights how traditional paper-based methods lead to data redundancy, loss of records, and slow service delivery. WRIMS was designed to automate the management of resident profiles, issuance of clearances, and generation of blotter reports.
+	Using the Agile methodology, the system was built with PHP and MySQL to ensure flexibility and data integrity. The system underwent rigorous testing using ISO 25010 standards, receiving an "Excellent" rating from end-users for its functional suitability and usability. The study concluded that migrating to a web-based platform significantly reduces the processing time for certificates and improves the overall security of the barangay’s data archives[13].
+Synthesis
+	The reviewed foreign and local studies share a common goal: to leverage technological advancement to overcome the inefficiencies of traditional, manual processes in community governance. Both demonstrate a clear trend toward digitization, improving service delivery, enhancing public safety, and promoting community engagement. However, they differ in their primary focus and technological application.
+	The foreign studies emphasize the development of advanced, real-time safety systems designed for critical incident responses. The Neighbourhood Alert System utilizes high-tech solutions with Natural Language Processing to intelligently classify user reports, while the WSU-Alert system provides "dual-action" features for immediate emergency transmission. These systems showcase how modern technology can be used to create safety networks that benefit the people.
+	The local studies, on the other hand, are well-established in solving specific administrative problems within the barangays. Melendres and Aranda (2024) and Dacutanan et al. (2026) focus on digitizing core functionalities like official document requests, record management, and resident profiling to eliminate paper-based redundancies. Dacutanan et al. (2026) notably advances this by integrating disaster resilience and hazard mapping, demonstrating a step forward in using collected data for smarter local planning and risk reduction.
+	Despite these advancements, gaps still exist. Existing platforms tend to specialize either in robust administration (like WRIMS) or specific incident/disaster management (like the Neighbourhood Alert or Dacutanan's resilience system), rarely offering a fully integrated solution with direct resident engagement.
+	This is the gap that CommunaLink is uniquely designed to fill. CommunaLink merges incident reporting, document requests, and announcements, whilst keeping barangay administrative functions a priority. Unlike the reviewed local studies which primarily focus on official-led data management, CommunaLink introduces a "conversational" interface for residents, promoting active community participation. By combining the administrative strengths of systems like WRIMS with the safety features of incident reporting, CommunaLink offers a powerful, scalable solution for the modernization of governance.
+MATERIALS AND METHODS
+Research Design and Methods
+	This study employs a descriptive research method to systematically assess the effectiveness and usability of the developed "CommunaLink" system. The researchers will utilize a structured survey questionnaire as the primary data collection instrument, designed to gather numerical feedback from the respondents. This approach allows for the objective measurement of the system's performance in terms of functionality, efficiency, and user satisfaction. The assessment will be conducted by the intended end-users specifically the barangay officials and residents whose responses will be quantified to determine if the developed application successfully meets the operational standards and requirements of Barangay Pakiad.
+Respondents of the Study
+The respondents of this study consist of two distinct groups: the Barangay Officials of Barangay Pakiad, Oton, Iloilo, and the residents of the said barangay.
+•	Population and Sampling: The researchers utilized Total Enumeration for the Barangay Officials (N=10), as the system is designed for their administrative use. For the residents, Purposive Sampling was employed to select participants (N=30) who own smartphones and have internet access, as these are prerequisites for using the Incident Reporting System.
+•	Inclusion Criteria:
+o	Officials: Must be a currently elected or appointed official/staff of Barangay Pakiad.  They will provide feedback on the system’s efficiency, usability, and effectiveness in their daily operations. 
+o	Residents: Must be a bona fide resident of Barangay Pakiad, at least 18 years old, and capable of operating a mobile web browser. They will provide input on how user-friendly the reporting system is, how transparent the procedure is, how well status updates work, and how satisfied they are with the system overall.
+Evaluation Tools: 
+Surveys/Questionnaires: 
+o	Purpose: To get organized, measurable input from a larger sample of respondents on how they perceived the usability of the system, its efficacy, and overall satisfaction. 
+o	Content: Questions will cover aspects such as ease of navigation, clarity of features, reliability, perceived time savings, and overall satisfaction. 
+	To provide a qualitative interpretation of these gathered results, the calculated weighted mean for each category will be evaluated using a specific scoring continuum. This allows the researchers to translate numerical averages into descriptive ratings, as shown in the scale below:
+Mean of Scale
+The questionnaire will be interpreted using the following mean of scale:
+1.0-	1.80 	Poor
+1.81 – 2.60	Fair
+2.61 – 3.40	Good
+3.41 – 4.20	Very Good
+4.21 – 5.0 	Excellent
+Materials and Equipment
+Database Management System (DBMS): Google Cloud SQL 
+             Google Cloud SQL (MySQL) will be used as the relational database for the Barangay Management and Incident Reporting System, providing a secure, highly scalable and reliable data storage for all internal records of the barangay including resident information, certificates, permits, ID and other official documents [14]. 
+Cloud Platform: Google Cloud 
+             Google Cloud will be used as the cloud infrastructure for hosting the online Barangay Incident Reporting System. Cloud services like App Engine standard for application development, Cloud SQL for database service and Cloud Storage for multimedia attachments will be leveraged. This choice ensures that the scalability, reliability and cost-effectiveness meet the intended usage [15]. 
+Mapping & Geolocation: Google Maps API 
+             Google Maps API will be used along with other various APIs. JavaScript API for map display, Geocoding API for search location these, will enable core functionality of the Incident Reporting System which includes geolocation pinpointing for incident locations and data visualization on maps [16]. 
+Mobile Accessibility
+            The Incident reporting system is designed to be a mobile-responsive web application, through mobile web browsers. This approach ensures compatibility and interoperability with ease of access to residents without any installation 
+Hardware Specifications 
+Hardware	Type
+Processor  	Intel Core i3 10th gen or newer / AMD Ryzen 3 5th gen or newer 
+Memory 	Minimum 4 GB 
+Storage 	Minimum 250 GB Hard Disk Drive (HDD) or Solid-State Drive (SSD) 
+Graphics Card 	Integrated or 750 MB of Discrete Graphics 
+Internet Connection 	Broadband with a minimum download speed of 8 Mbps.  
+TABLE I.
+ HARDWARE SPECIFICATIONS
+Software Specifications 
+Software 	Type 
+Operating System:  	Windows 10 or 11 
+Web Server: 	Google App Engine 
+Integrated Development Environment (IDE) 	Visual Studio Code 
+Programming Languages:
+•	Front-end: HTML, CSS, JavaScript
+•	Back-end: PHP
+Database:  	Google Cloud SQL (MySQL) 
+TABLE II.
+ SOFTWARE SPECIFICATIONS
+System Requirements
+Details of Technologies to be Used 
+            The tools used to create the proposed project serves as a crucial part of the researcher’s project. It is the backbone of the functionality and its efficiency. The software and hardware tools used to enable the processes, provide accurate and reliable output ensuring the systems stability, speed and availability. The following are the tools used for the development of the system. 
+Frontend Development: HTML, CSS, and JavaScript
+	The user interface of the CommunaLink system will be constructed using the fundamental web technologies: HyperText Markup Language (HTML) for semantic structure [17], Cascading Style Sheets (CSS) for visual presentation and responsiveness [18], and JavaScript for client-side interactivity [19]. The combination of these technologies ensures that the system provides a consistent, user-friendly experience across various devices, effectively supporting the mobile-first approach required for the Incident Reporting System.
+Backend Development: Server-side Logic (PHP)
+	Hypertext Preprocessor (PHP) has been selected as the primary server-side scripting language for the system's backend architecture. PHP will be responsible for executing the application's business logic, securely processing user requests, and managing data interactions with the Google Cloud SQL database [20]. Its widespread compatibility and robust integration with MySQL databases make it an optimal choice for handling the dynamic data requirements of both the Barangay Management and Incident Reporting modules.
+
+ 
+Schedule Feasibility  
+Fig. 3. 
+Gantt Chart
+          The Gantt Chart above shows the timeline of the project indicating the beginning up to the until the end of the summer capstone. The researchers use the Gantt Chart as guidelines timeline and keep track of the project’s progress.  
+Analysis and Design 
+Feasibility Analysis 
+	The researchers possess the required knowledge and experience in web development, the use of largely documented and supported platform like Google Cloud offer great resource to help mitigate technical risks and prevent delays in the deployment.
+Operational Feasibility 
+	The proposed system effectively integrates with the current operations, by streamlining routine tasks, allows for a more direct community service. It is a simple, user-friendly design allows residents to use effortlessly. This set-up promotes the adoption for both the barangay staff and the community. 
+Economic Feasibility  
+	The proposed system is highly economical, the use of Google Cloud’s Free Tier enables services like hosting and data management to run with minimal to no cost. The development will not possess labor expenses which provides instant return on investment.  
+ 
+Prototype Building Procedures
+System Development Life Cycle (SDLC) 
+Fig. 2. 
+Iterative Model
+            The researchers will use Iterative Model to develop the system. This model provides a simple and intuitive development cycle which provides the researchers with manageable tasks. This model is appropriate to use for the because the process requires thorough review until the system is ready for full implementation. 
+Initial Planning system 
+          The first stages of development, the researchers will brainstorm about the problems that need resolution. The researchers will decide whether the problem to be examined should come inside the school campus or outside. The researchers will browse through past projects of their seniors considering a revamp of their project to be the researcher’s project. The researchers will brainstorm about current connections inside and outside the campus and will try to contact them for information. The researchers will jot down all possible problems to be solved along with the requirements for feasibility like place, time, complexity of the problem, and the existing technology for the problem. 
+Planning
+           The initial planning will be concluded, and the project will be conducted outside the campus, at a barangay of one of the researchers. According to a source in the Barangay They are in need of a Barangay Management System, this system should also be sustainable and affordable; however, the researchers also identified the need for an incident reporting system. The researchers decided that the incident reporting system could be introduced with the Barangay Management System as a complementary feature. The researchers have decided that the project is feasible and is within the researchers’ capabilities.
+           Identification for the system will be completed, and the researchers will go through an in-depth planning of functions and features for the system. The researchers will brainstorm about the main idea of the system, how the system should operate, where the system shall operate, and to what extent the system shall operate. To fully understand, the researchers will conduct a preliminary trial of the technology stack it will use to confirm its feasibility on the study. Changes are assumed in this planning stage.
+Activity 	Cost 
+Hardware  
+•	Computer 
+Printer Ink 	 
+₱ 15,000.00 
+₱ 1000.00 
+Software 
+•	Operating System 
+•	Productivity Suite  
+Cloud Platform 	 
+₱ 1,900.00 
+₱ 3,800.00 
+₱ 0.00 (Recurring) 
+Labor and other Expenses  
+•	Labor 
+•	Staff Training 
+Maintenance 	 
+₱ 0.00 
+₱ 2,000.00 
+₱ 3,000.00 
+Total Cost: ₱ 26,700 
+TABLE III. 
+ESTIMATED COST
+Return of Investment Calculations
+Selling Price: ₱ 35,000
+Calculations:
+Profit (Selling Price – Total Cost) 
+₱ 35,000 – ₱ 26,700 = ₱ 8,300 
+ROI % (Profit/Total Cost x 100) 
+₱ 8,300 / ₱ 26,700 * 100 = 0.31 or 31 %
+TABLE III. 
+RETURN ON INVESTMENT
+
+Cost and Benefit Analysis 
+	The table shows the estimated total and cost of the proposed system when implementing the “CommunaLink: Barangay Management and Incident Reporting System”. The system requires funds for Hardware requirements which totals to the cost of ₱16,000. Software requirements which totals to the cost of ₱ 5,700, and other expenses which total to the cost of ₱5,000 which all in all comes to the sum of ₱26,700, The researchers plan to make a fixed selling price of ₱ 35,000 for the whole system and coming updates in the future which will be a receiving profit of ₱ 8,300 with a Return of Investment of 31%.
+System Architecture Diagram 
+Fig. 4. 
+System Architecture Diagram
+	The system will be accessed by the barangay admins and residents through a web browser, which sends their queries to the central web server. Processing the requests determines what to be done, the server serves as the brain. The server handles specialized services of Google, map handling, file storing, and database management.
+Data and Process Modelling 
+Fig. 5. 
+Context Diagram
+	The figure shows the Context Diagram illustrating the interaction between the admin, residents and the system. Residents can log unto the system, submit incident reports, official documents, receive updates. 
+Object Modeling
+
+Fig. 6. 
+Use-case Diagram
+	Figure shows the Use Case Diagram illustrates the procedures for how the client and admin interact in the system.
+Entity Relationship Diagram 
+Fig. 7.
+Entity Relationship Diagram
+	The figure shows the Entity Relationship Diagram, for the CommunaLink: Online Barangay and Management System. It focuses on the main components of the system with the tables: Users, Residents, Announcements, Events, Incidents, Businesses, Business Transactions, Business permits, Document Requests, Chat Messages, and Activity Logs. The Users (admin) table admits each of the resident’s profile information on which can also be linked to the table of Residents. This allows resident only features like submitting incident reports or requesting official documents. They are the key role since they involve in various important actions. The Users (admin) has the control post announcements, organize events, and communicate through a chat feature in the system. The Business, Business Transactions and Business Permits table handles the business registration and permit processing. The Document Requests table manages residents’ requests for certificates or other barangay-issued documents, while the Chat Messages table supports communication between residents and barangay officials for coordination and transparency. When a resident files a request of business permits, official documents, admin changes the system logs everything, when it was made and why ensuring accountability and traceability across operations.
+
+
+
+
+
+Admin Flowchart
+Fig. 8.
+Admin Flowchart
+	Figure 8, shows the admin system flow. To login, the admin will input their correct account. Upon successful login admins will be presented with 3 key functions, Manage Residents, allowing for full Create, Read, Update, and Delete. Manage Incident Reports, will be assigned to update report status based on their progress from Pending, Declined, In Progress, Resolved, to Rejected. Document Requests are operations involving inputting payment amounts and updating payment status upon request. These changes of data will then be forwarded to the database which in turn notifies the Residents about the changes, then it concludes the session.
+
+
+
+
+
+
+
+
+
+
+Resident Flowchart
+Fig. 9. 
+Resident Flowchart
+	Figure 9, shows the resident system flow, to login the resident will input their correct account. Upon successful login residents will be presented with 3 key functions, Report Incident, allowing the user to pin locations and insert multimedia as evidence for the authentication. Request Documents, a feature within the resident system wherein user can opt for request of official documents. Submitted Reports, users can verify the status of their submission. Within the Submitted Reports is a Report Incident, a shortcut made that brings you back to the “Report Incident” feature. These changes of data are then forwarded to the database which in turn notifies the involved recipients like the Admins about the changes, then it concludes the session. 
+
+
+
+
+
+
+
+
+ 
+
+ Resident Registration Flowchart
+Fig. 10.
+ Resident Registration Flowchart
+	Figure 10, shows the resident registration flow, to register the resident will input their credentials with an email and a password. Upon successful registration, resident user is redirected to the main login/register page then it concludes the session. 
+Deployment
+	The system will be installed and set up in the target environment, after which the system is officially launched.
+Before the system will be available, several steps will be completed:
+•	Environment Setup: Google Cloud Platform integration will be finalized. This includes the Google App Engine configuration for the web server, the Google Cloud SQL for the database and the Google Cloud Storage for multimedia file handling.
+•	Data Initialization: Essential data will be loaded into the system with coordination with the barangay officials. This includes admin accounts for the barangay officials, bulk loading of the resident data, if possible, to make the system ready for deployment.
+•	Final User Acceptance Testing (UAT) Sign-off: The selected participants of the testing will provide a final sign-off, confirming that the system meets the quality, standards, and requirements needed for operational use.
+The system will be launched using a phased rollout to manage the transition effectively:
+•	Internal System Rollout: This rollout will be deployed first to the barangay official’s admin candidates and staff. This step would allow them to become familiar with the new layout of the administrative dashboard, document generation, user features before the resident interaction begins.
+•	Public System Launch: Following the successful internal rollout, Incident Reporting System will be launched to the residents. This can be announced via community notice board, broadcast messaging through their emails. The Residents will be guided on how to register and use the web-app for document requests and incident filing.
+•	Training: A training session will be conducted for the barangay to ensure they are proficient with all the features and functions of the application. The residents will be given simple user guides and materials for easy adoption.
+Post-Deployment Support:
+	Extensive support will be available for the barangay after the official launching for a period of two to four weeks. This will provide support to any misunderstandings, unforeseen issues, to ensure the system’s stability. The researchers will actively monitor the system’s performance and logs during this phase to adhere to any concern.
+Iteration
+	The system will be continuously improved based on user feedback, updates and enhancements will be implemented to ensure the system meets the requirements. 
+Iterative Cycle
+The Improvement process will follow a structured cycle:
+1.	Feedback Collection: Surveys will be gathered from both barangay officials and residents through a live form and through a built-in form in the system. 
+2.	Analysis and Prioritization: At the end of each month, the researchers will review collected feedback, issues and suggestions. These will be categorized based on their content and urgency on the system.
+3.	Planning and Development: Based on the categorized list, the researchers will plan the next step for enhancements This could range from minor bug fixes, minor tweaks to the interface to adding new features.
+4.	Testing and Deployment of Updates: Any change will be tested and will be thoroughly addressed in a different environment platform before deploying to the main server. This ensures that updates will not introduce new problems the system. Cycle repeats the process to continually adapt to the changing needs of the barangay.
+Testing 
+	A set of testing will be conducted to ensure the system’s functionality and reliability. Testing shall meet requirements such as system testing and user acceptance testing. 
+
+System Testing: 
+•	How it will be conducted: A Comprehensive testing will involve executing end-to-end scenarios. This will simulate real-world usage, covering all functional requirements, testing the performance under expected load, testing security vulnerabilities, and overall usability. Testing will be done by the researchers along with dedicated testers. 
+•	Purpose: To verify that the integrated system meets all the standard requirements. 
+User Acceptance Testing (UAT): 
+•	How it will be conducted: The last phase of testing will include real users. 
+o	Respondents: Selected Barangay officials for the Barangay Management System, and a selected representative group of residents for the Incident reporting system will be asked. 
+o	Methodology: Users will be walked through the whole system after that they will be asked to do test cases that reflect their daily tasks and typical scenarios. They will also perform free-form testing to explore the system as they see fit. 
+o	Feedback Collection: Questionnaires will be handed to them after the testing. The questionnaires will include Likert scale for satisfaction and a comment section at the last page. 
+•	Purpose: To obtain firsthand feedback from the intended users, it is also to let them know that the system is already in line for deployment.  
+Evaluation 
+	Evaluation is dedicated to systematically assessing the overall success, effectiveness, efficiency, and user satisfaction of the Barangay Management and Incident Reporting System. 
+Evaluation Process: 
+The evaluation process will focus on a multi-dimensional assessment, aiming to: 
+•	Verify Usability: Determine how user friendly and intuitive the system is for Barangay officials and residents. 
+•	Verify Functionality: To confirm that all implemented features and functionalities work correctly and meet the requirements. 
+•	Measuring Efficiency: Evaluate the system’s effectiveness compared to previous methods. 
+•	User Satisfaction: To measure the level of satisfaction among both administrative users and residents with their experience on the system. 
+•	Determine Impact: Analyze the system's impact on data integrity, enhancing communication, increasing community responsiveness, and contributing to more effective local governance in the Barangay. 
+Data Presentation and Analysis
+          The data collected during the User Acceptance Testing (UAT) phase will be analyzed using both quantitative and qualitative methods to evaluate the system's usability, functionality, efficiency, and user satisfaction.
+•	Quantitative Analysis: Data from the Likert scale questions on the survey questionnaires will be analyzed using descriptive statistics. Mean scores, standard deviations, and frequency distributions will be calculated for each criterion (e.g., usability, functionality, satisfaction) for both Barangay Officials/Staff and Resident respondent groups. This will provide measurable insights into user perceptions and system performance. Spreadsheet software will be used for these calculations.
+•	Qualitative Analysis: Open-ended comments and suggestions gathered from the questionnaires and potentially during testing observations will undergo thematic analysis. This process involves identifying, coding, and categorizing recurring themes, patterns, and specific points of feedback related to user experience, system strengths, weaknesses, and areas for improvement. This analysis will provide richer context to the quantitative findings and inform future iterations of the system table.
+
+
+Ethical Considerations 
+	The researchers are committed to upholding the highest ethical standards. The following considerations have been integrated into the research protocol in compliance with the Data Privacy Act of 2012:
+•	Voluntary Participation: Participation is entirely voluntary. Respondents have the right to withdraw at any time without penalty.
+•	Informed Consent: A "Certificate of Consent" will be provided to all participants. The Informed Consent Form and Questionnaires have been translated into the local dialect (Hiligaynon/Kinaray-a) for improved comprehension.
+•	Privacy and Confidentiality: Strict confidentiality will be observed. All data collected (names, survey responses) will be anonymized and stored securely in the Google Cloud SQL database with restricted access. Research data such as survey responses and feedbacks forms will be stored in password-protected cloud storage (Google Drive) or encrypted local storage, accessible only to the researchers. All data will be used solely for this study and will be permanently shredded or deleted upon the project’s completion.
+•	Risks, Discomforts, and Duration: The risks are minimal. The primary discomfort is the time commitment required. 
+•	Duration of Participation: The data gathering and system testing are expected to take approximately 15 to 20 minutes per respondent.
+•	Who to Contact: Participants who have questions or concerns regarding the study may contact the research team leader, Godwin Moses O. Reyes, at gmreyes@usa.edu.ph, 09380942445 or the Research Adviser, Mrs. Juana Suzy Amor G. Lobaton, jsalobaton@usa.edu.ph. 
+
+
+
+
+
+
+
+
+
+References
+[1] R. U. Mendoza, E. Ilac, A. J. Zapanta, and M. A. B. D. Tam, "Preparing the Philippines for the Fourth Industrial Revolution: A Scoping Study," Philippine Institute for Development Studies (PIDS), Discussion Paper Series 2018-11, 2018. [Online]. Available: https://pidswebs.pids.gov.ph/CDN/PUBLICATIONS/pidsdps1811.pdf
+[2] Republic Act No. 11032: Ease of Doing Business and Efficient Government Service Delivery Act of 2018, Official Gazette of the Republic of the Philippines, May 28, 2018. [Online]. Available: https://www.officialgazette.gov.ph/2018/05/28/republic-act-no-11032/
+[3] "Barangay," Official Gazette of the Republic of the Philippines. [Online]. Available: https://www.officialgazette.gov.ph/about/gov/local-government-units/barangay/
+[4] U. M. Melendres and K. M. Aranda, "Development and Evaluation of a Web-Based Resident Information Management System," Journal of Computer, Software, and Program, vol. 1, no. 1, pp. 14–22, 2024. [Online]. Available: https://doi.org/10.69739/jcsp.v1i1.50
+[5] R. A. Dacutanan, E. Delos Reyes II, E. Patiga, M. E. Bustillo, and A. M. C. Paculaba, "Enhancing Local Governance and Disaster Resilience through a Data-Driven Barangay Information System," Int. J. Inform. Inf. Sys. and Comp. Eng., vol. 7, no. 2, pp. 232–244, Jan. 2026. [Online]. Available: https://ojs.unikom.ac.id/index.php/injiiscom/article/view/16317
+[6] Microsoft, “Microsoft Word - Word Processing Software,” Microsoft 365. Accessed: Aug. 30, 2025. [Online]. Available: https://www.microsoft.com/en-us/microsoft-365/word 
+[7] Microsoft, “Microsoft Excel Spreadsheet Software,” Microsoft 365. Accessed: Aug. 30, 2025. [Online]. Available: https://www.microsoft.com/en-us/microsoft-365/excel 
+[8] P. Pranay, S. V. N. Kishore, R. Rohith, R. Vijitha, R. Ala, and T. Zaid, "Neighbourhood Safety
+Alarm System," International Journal on Science and Technology (IJSAT), vol. 11, no. 1, Jun. 2022.
+[9] M. Gongwana and W. T. Vambe, "WSU-Alert: Emergency Response System (ERS) for Students," in IST-Africa 2024 Conference Proceedings (IST-Africa), 2024, doi: 10.23919/ISTAfrica60682.2024.10557997.
+[10] R. A. Dacutanan, E. Delos Reyes II, E. Patiga, M. E. Bustillo, and A. M. C. Paculaba," Enhancing Local Governance and Disaster Resilience through a Data-Driven Barangay Information System," Int. J. Inform. Inf. Sys. and Comp. Eng., vol. 7, no. 2, pp. 232–244, Jan. 2026. [Online]. Available: https://ojs.unikom.ac.id/index.php/injiiscom/article/view/16317. Accessed: Feb. 26, 2026.
+[11] M. T. T. Bautista, A. K. B. Bolonos, U. J. Camba, L. M. De Guzman, M. L. I. Goh, M. C. F. Raguro, and L. S. Tolentino, "BALANGAY: A Web-Based Document Request and Incident Reporting System with Decision Support for Barangay Program Development," in 2022 IEEE 14th International Conference on Humanoid, Nanotechnology, Information Technology, Communication and Control, Environment, and Management (HNICEM), 2022, pp. 1-6, doi: 10.1109/HNICEM57413.2022.10109437.
+[12] T. T. Villones, "Barangay Constituents Information and Services Management System," International Journal of Computer Science and Mobile Computing (IJCSMC), vol. 10, no. 4,
+pp. 63–66, Apr. 2021, doi: 10.47760/ijcsmc.2021.v10i04.009.
+[13] U. M. Melendres and K. M. Aranda, "Development and Evaluation of a Web-Based Resident Information Management System," Journal of Computer, Software, and Program, vol. 1, no. 1, pp. 14–22, 2024. [Online]. Available: https://doi.org/10.69739/jcsp.v1i1.50
+[14] Google, "Cloud SQL for MySQL," Google Cloud. Accessed: Sep. 2, 2025. [Online]. Available: https://cloud.google.com/sql
+[15] Google, "Google Cloud Computing Services," Google Cloud. Accessed: Sep. 2, 2025. [Online]. Available: https://cloud.google.com/
+[16] Google, "Google Maps Platform Documentation," Google Developers. Accessed: Sep. 2, 2025. [Online]. Available: https://developers.google.com/maps/documentation
+[17] MDN Web Docs, "HTML: HyperText Markup Language," Mozilla Developer Network. Accessed: Sep. 2, 2025. [Online]. Available: https://developer.mozilla.org/en-US/docs/Web/HTML
+[18] MDN Web Docs, "CSS: Cascading Style Sheets," Mozilla Developer Network. Accessed: Sep. 2, 2025. [Online]. Available: https://developer.mozilla.org/en-US/docs/Web/CSS
+[19] MDN Web Docs, "JavaScript," Mozilla Developer Network. Accessed: Sep. 2, 2025. [Online]. Available: https://developer.mozilla.org/en-US/docs/Web/JavaScript
+[20] The PHP Group, "What is PHP?," PHP Manual. Accessed: Sep. 3, 2025. [Online]. Available: https://www.php.net/manual/en/intro-whatis.php
+[21] IBM, "What is CRUD?," IBM Technology. Accessed: Sep. 2, 2025. [Online]. Available: https://www.ibm.com/topics/crud
+[22] MDN Web Docs, "Geolocation API," Mozilla Developer Network. Accessed: Sep. 2, 2025. [Online]. Available: https://developer.mozilla.org/en-US/docs/Web/API/Geolocation_API
+[23] United Nations Department of Economic and Social Affairs, "E-Government Survey 2022: The Future of Digital Government," United Nations, New York, 2022. [Online]. Available: https://publicadministration.un.org/egovkb/en-us/Reports/UN-E-Government-Survey-2022
+[24] ISO/IEC 25010:2011, "Systems and software engineering — Systems and software Quality Requirements and Evaluation (SQuaRE) — System and software quality models," International Organization for Standardization, Mar. 2011. [Online]. Available: https://www.iso.org/standard/35733.html
+[25] Republic Act No. 10173: Data Privacy Act of 2012, Official Gazette of the Republic of the Philippines, Aug. 15, 2012. [Online]. Available: https://www.officialgazette.gov.ph/2012/08/15/republic-act-no-10173/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+APPENDICES
+Appendix A: Technical Approval Sheet
+
+
+
+
+Appendix B:
+ Ethics Clearance
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix C: 
+LETTER TO THE BARANGGAY
+
+
+
+
+Appendix D: 
+Consultation Form
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix E:
+Definition of Terms
+For better understanding of the study, the following terms are defined conceptually and operationally:
+•	Barangay: The smallest administrative division in the Philippines, serving as the primary political and governance unit at the community level. Barangays are responsible for the implementation of government policies, delivering services near to the community and maintaining public order within their jurisdiction [1].
+•	Barangay Incident Reporting System: The proposed online web application integration for citizen-initiated incident reporting. This citizen-centered system enhances the barangay's response to emergencies by utilizing new and mature technologies which supports better documentation and tracking of community issues.
+•	Barangay Management System: Online web application component, designed for administrative data management. This component handles all the essential tasks for the barangay to function properly, generating official documents, clearances, certificates, and organizing internal records which reduces paperwork by digitization.
+•	CommunaLink: The title of the proposed online web application that combines barangay data management and incident reports in one platform. It is designed for barangay admins to carry out their everyday tasks and for residents to create a more connected, efficient, and responsive local governance system.
+•	CRUD (Create, Read, Update, Delete): Fundamental operations for persistent storage, allowing users to manage data records [21]. Admins should be able to manage resident profiles, business information, and official documents via CRUD functions. For the Incident Reporting System, it allows the creation and retrieval of incident reports with status updates.
+•	Electronic Governance (e-Governance): The application of IT for delivering government services. Operationally, it refers to the shift from manual logbooks to the web-based platform proposed in this study [22].
+•	Geolocation: The identification of the real-world geographic location of an object, such as a mobile phone or internet-connected computer [23]. The Incident Reporting System heavily relies on geolocation which enables residents to pin a location identifying the incident. The barangay uses this capability to enhance response and planning.
+Standards Used
+•	ISO/IEC 25010: The software quality standard used to evaluate the system's functional suitability, performance efficiency, compatibility, usability, reliability, security, maintainability, and portability [24].
+•	Data Privacy Act of 2012 (R.A. 10173): The legal standard observed to ensure the protection and confidentiality of the personal information collected from the residents of the Barangay Pakiad [25].
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix F: 
+Images of Admin Interface
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix G: 
+Images of Resident Interface
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix G:
+Program Sample Codes
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CURRICULUM VITAE 
+ 
+
