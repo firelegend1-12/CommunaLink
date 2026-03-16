@@ -1,0 +1,40 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/*.log
+*.log
+
+# Cache
+cache/*
+!cache/.gitkeep
+
+# Uploads (optional - uncomment if you don't want to track uploads)
+# uploads/*
+# admin/images/*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+debug_*.log
+debug_*.json
+
+# Vendor (if using Composer)
+vendor/
+
+# Node modules (if using npm)
+node_modules/
+

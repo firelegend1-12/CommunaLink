@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+  <!-- Yellow circle background -->
+  <circle cx="150" cy="150" r="140" fill="#fcd34d" />
+  
+  <!-- Blue shape (left) -->
+  <path d="M150 50 C100 80, 50 150, 80 250 C120 230, 140 180, 150 150 Z" fill="#1d4ed8" />
+  
+  <!-- Red shape (right) -->
+  <path d="M150 50 C200 80, 250 150, 220 250 C180 230, 160 180, 150 150 Z" fill="#dc2626" />
+  
+  <!-- Red circle (person) -->
+  <circle cx="150" cy="100" r="30" fill="#dc2626" />
+  
+  <!-- Arms -->
+  <path d="M120 120 C100 140, 80 180, 60 200" stroke="#dc2626" stroke-width="12" stroke-linecap="round" />
+  <path d="M180 120 C200 140, 220 180, 240 200" stroke="#dc2626" stroke-width="12" stroke-linecap="round" />
+  
+  <!-- Legs -->
+  <path d="M140 150 C130 180, 120 220, 110 250" stroke="#dc2626" stroke-width="12" stroke-linecap="round" />
+  <path d="M160 150 C170 180, 180 220, 190 250" stroke="#dc2626" stroke-width="12" stroke-linecap="round" />
+</svg> 
