@@ -201,4 +201,53 @@ if (!$resident) {
   </div>
 </div>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const submitBtn = document.querySelector('button[type="submit"]');
+    
+    const formMessage = document.createElement('div');
+    formMessage.style.display = 'none';
+    formMessage.className = 'mb-4';
+    form.insertBefore(formMessage, submitBtn.closest('.flex.justify-end'));
+
+    if (form && submitBtn) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            submitBtn.disabled = true;
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Submitting...';
+            formMessage.style.display = 'none';
+
+            fetch('submit-document-request.php', {
+                method: 'POST',
+                body: new FormData(form)
+            })
+            .then(response => response.json())
+            .then(data => {
+                formMessage.style.display = 'block';
+                if (data.success) {
+                    formMessage.className = 'p-4 mb-4 rounded-md font-medium bg-green-100 text-green-700 border-l-4 border-green-500';
+                    formMessage.innerHTML = '<i class="fas fa-check-circle mr-2"></i>' + data.message + ' Redirecting...';
+                    setTimeout(() => window.location.href = 'my-requests.php', 1500);
+                } else {
+                    formMessage.className = 'p-4 mb-4 rounded-md font-medium bg-red-100 text-red-700 border-l-4 border-red-500';
+                    formMessage.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>' + (data.error || 'Submission failed');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                formMessage.style.display = 'block';
+                formMessage.className = 'p-4 mb-4 rounded-md font-medium bg-red-100 text-red-700 border-l-4 border-red-500';
+                formMessage.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>Network error occurred.';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+        });
+    }
+});
+</script>
+
 <?php require_once 'partials/footer.php'; ?> 
