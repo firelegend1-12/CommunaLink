@@ -821,3 +821,53 @@ button,
         -webkit-overflow-scrolling: touch;
     }
 }
+
+/* --- Mobile Card Grid Refinement (Phase 3) --- */
+.mobile-grid-2col {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.standard-card {
+    background-color: var(--card-bg, #ffffff);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s;
+    height: 100%;
+}
+
+.standard-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+@media (max-width: 767px) {
+    .mobile-grid-2col {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+    }
+    
+    .standard-card {
+        padding: 12px !important;
+    }
+
+    /* Prevent text overflow in small cards */
+    .standard-card h3,
+    .standard-card h4 {
+        font-size: 0.95rem !important;
+        line-height: 1.2;
+    }
+    
+    .standard-card p {
+        font-size: 0.8rem !important;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+}

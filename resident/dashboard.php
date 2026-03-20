@@ -105,88 +105,13 @@ require_once 'partials/header.php';
 .recent-reports-header { display: flex; align-items: center; margin-bottom: 20px; }
 .recent-reports-header i { font-size: 1.5rem; margin-right: 12px; color: var(--accent-blue); }
 .recent-reports-header h2 { margin: 0; font-size: 1.5rem; font-weight: 600; }
-.reports-list { display: flex; flex-direction: column; }
-.report-item { display: flex; align-items: flex-start; padding: 20px 0; border-bottom: 1px solid var(--border-color); }
-.report-item:last-child { border-bottom: none; }
-.report-icon { font-size: 1.2rem; color: var(--text-secondary); margin-right: 20px; padding-top: 4px; }
-.report-details { flex-grow: 1; }
-.report-details h4 { margin: 0 0 4px; font-size: 1.1rem; font-weight: 600; }
-.report-details p { margin: 0 0 4px; color: var(--text-secondary); font-size: 0.95rem; }
-.report-details .location { font-size: 0.85rem; font-style: italic; }
-.report-status { margin-left: 20px; }
-.status-badge { padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; }
-.status-badge.status-pending { background-color: #fffbe6; color: #f7b924; }
-.status-badge.status-approved { background-color: #e6f7ff; color: #1890ff; }
-.status-badge.status-resolved { background-color: #f6ffed; color: #52c41a; }
-.status-badge.status-rejected { background-color: #fff1f0; color: #f5222d; }
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 30px;
-    align-items: start; /* Independent scaling for both containers */
+/* Global grid and card styles are now in resident.css */
+
+@media (max-width: 480px) {
+    /* On very small phones, maybe single column is better? 
+       But user insisted on 2-column max. I'll stick to 2. */
 }
-.recent-reports, .latest-announcements {
-    background-color: var(--card-bg);
-    border-radius: 12px;
-    padding: 30px;
-    box-shadow: 0 4px 12px var(--shadow-color);
-}
-.recent-reports-header, .announcements-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 20px;
-}
-.recent-reports-header i, .announcements-header i {
-    font-size: 1.5rem;
-    margin-right: 12px;
-    color: var(--accent-blue);
-}
-.recent-reports-header h2, .announcements-header h2 {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 600;
-    flex-grow: 1;
-}
-.view-all-btn {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--accent-blue);
-    text-decoration: none;
-    transition: color 0.2s ease;
-}
-.view-all-btn:hover {
-    color: var(--accent-blue-dark);
-}
-.announcement-item {
-    display: flex;
-    align-items: flex-start;
-    padding: 15px 0;
-    border-bottom: 1px solid var(--border-color);
-}
-.announcement-item:last-child {
-    border-bottom: none;
-}
-.announcement-icon {
-    font-size: 1.2rem;
-    color: var(--text-secondary);
-    margin-right: 20px;
-    padding-top: 4px;
-}
-.announcement-details h4 {
-    margin: 0 0 4px;
-    font-size: 1rem;
-    font-weight: 600;
-}
-.announcement-details p {
-    margin: 0 0 8px;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-.announcement-meta {
-    font-size: 0.8rem;
-    font-style: italic;
-    color: var(--text-secondary);
-}
+
 </style>
 
 <section class="welcome-banner">
@@ -246,23 +171,24 @@ require_once 'partials/header.php';
             <h2>Recent Incident Reports</h2>
             <a href="my-reports.php" class="view-all-btn">View All</a>
         </div>
-        <div class="reports-list">
+        <div class="mobile-grid-2col">
             <?php if (empty($recentIncidents)): ?>
                 <div class="report-item-empty"><p style="padding: 20px 0; color: #666;">No recent incidents reported.</p></div>
             <?php else: ?>
                 <?php foreach ($recentIncidents as $inc): ?>
-                    <div class="report-item">
-                        <div class="report-icon"><i class="fas fa-bell"></i></div>
-                        <div class="report-details">
-                            <h4><?= htmlspecialchars($inc['type']) ?></h4>
-                            <p><?= htmlspecialchars($inc['description']) ?></p>
-                            <p class="location"><?= htmlspecialchars($inc['location']) ?></p>
-                            <span class="announcement-meta">Reported: <?= date('M d, Y h:i A', strtotime($inc['reported_at'])) ?></span>
-                        </div>
-                        <div class="report-status">
-                            <span class="status-badge status-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $inc['status']))) ?>">
+                    <div class="standard-card">
+                        <div class="report-card-header">
+                            <div class="report-card-icon"><i class="fas fa-exclamation-circle"></i></div>
+                            <span class="status-badge status-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $inc['status']))) ?>" style="font-size: 0.7rem;">
                                 <?= htmlspecialchars($inc['status']) ?>
                             </span>
+                        </div>
+                        <div class="report-card-body">
+                            <h4><?= htmlspecialchars($inc['type']) ?></h4>
+                            <p><?= htmlspecialchars($inc['description']) ?></p>
+                        </div>
+                        <div class="report-card-footer">
+                            <span class="report-card-date"><?= date('M d, Y', strtotime($inc['reported_at'])) ?></span>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -276,22 +202,24 @@ require_once 'partials/header.php';
             <h2>Recent Document Requests</h2>
             <a href="my-requests.php" class="view-all-btn">View All</a>
         </div>
-        <div class="reports-list">
+        <div class="mobile-grid-2col">
             <?php if (empty($recentRequests)): ?>
                 <div class="report-item-empty"><p style="padding: 20px 0; color: #666;">No recent document requests.</p></div>
             <?php else: ?>
                 <?php foreach ($recentRequests as $req): ?>
-                    <div class="report-item">
-                        <div class="report-icon"><i class="fas fa-file-alt"></i></div>
-                        <div class="report-details">
-                            <h4><?= htmlspecialchars($req['document_type']) ?></h4>
-                            <p>Purpose: <?= htmlspecialchars($req['purpose']) ?></p>
-                            <span class="announcement-meta">Requested: <?= date('M d, Y h:i A', strtotime($req['date_requested'])) ?></span>
-                        </div>
-                        <div class="report-status">
-                            <span class="status-badge status-<?= htmlspecialchars(strtolower($req['status'] ?? 'pending')) ?>">
+                    <div class="standard-card">
+                        <div class="report-card-header">
+                            <div class="report-card-icon" style="background-color: #f0fdf4; color: #16a34a;"><i class="fas fa-file-alt"></i></div>
+                            <span class="status-badge status-<?= htmlspecialchars(strtolower($req['status'] ?? 'pending')) ?>" style="font-size: 0.7rem;">
                                 <?= htmlspecialchars($req['status'] ?? 'Pending') ?>
                             </span>
+                        </div>
+                        <div class="report-card-body">
+                            <h4><?= htmlspecialchars($req['document_type']) ?></h4>
+                            <p>Purpose: <?= htmlspecialchars($req['purpose']) ?></p>
+                        </div>
+                        <div class="report-card-footer">
+                            <span class="report-card-date"><?= date('M d, Y', strtotime($req['date_requested'])) ?></span>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -300,6 +228,5 @@ require_once 'partials/header.php';
     </section>
 </div>
 
-</script>
 
 <?php require_once 'partials/footer.php'; ?> 
