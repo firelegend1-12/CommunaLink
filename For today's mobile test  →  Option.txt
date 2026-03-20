@@ -1,0 +1,3 @@
+For today's mobile test  →  Option 1 (Local Network)
+For showing your adviser →  Option 2 (ngrok) free
+For final submission     →  Option 3 (Google Cloud)
