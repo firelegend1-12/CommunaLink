@@ -223,7 +223,7 @@ try {
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm font-medium text-gray-900">
                                                         <?= htmlspecialchars($ann['title']) ?>
-                                                        <?php if ($ann['is_auto_generated']): ?>
+                                                        <?php if ($ann['is_auto_generated'] ?? 0): ?>
                                                             <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
                                                                 <i class="fas fa-robot mr-1"></i>Auto
                                                             </span>
