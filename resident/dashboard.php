@@ -17,17 +17,19 @@ require_role('resident');
 $page_title = "Resident Dashboard";
 $user_fullname = $_SESSION['fullname'] ?? 'Resident';
 
-// --- Fetch Recent Incidents (Placeholder) ---
-// In the future, this will come from the database
-$incidents = [
-    [
-        'type' => 'Traffic',
-        'details' => 'dasdasasazxczxc',
-        'location' => 'Location: Poblacion North, Oton, Iloilo, Western Visayas, 5020, Philippines',
-        'reported_at' => 'Reported: Jul 01, 2025 11:29 AM',
-        'status' => 'Pending'
-    ]
-];
+require_once '../config/database.php';
+
+// Fetch Recent Document Requests
+$stmtReq = $pdo->prepare("SELECT * FROM document_requests WHERE requested_by_user_id = ? ORDER BY date_requested DESC LIMIT 3");
+$stmtReq->execute([$_SESSION['user_id']]);
+$recentRequests = $stmtReq->fetchAll(PDO::FETCH_ASSOC);
+
+// Fetch Recent Incident Reports
+$stmtInc = $pdo->prepare("SELECT id, type, description, location, reported_at, status FROM incidents WHERE resident_user_id = ? ORDER BY reported_at DESC LIMIT 3");
+$stmtInc->execute([$_SESSION['user_id']]);
+$recentIncidents = $stmtInc->fetchAll(PDO::FETCH_ASSOC);
+
+// --- Placeholder removed, replaced with real query above ---
 
 require_once 'partials/header.php';
 ?>
@@ -73,6 +75,7 @@ require_once 'partials/header.php';
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
     gap: 30px;
+    align-items: start; /* Independent scaling for both containers */
 }
 .recent-reports, .latest-announcements {
     background-color: var(--card-bg);
@@ -179,132 +182,60 @@ require_once 'partials/header.php';
             <h2>Recent Incident Reports</h2>
             <a href="my-reports.php" class="view-all-btn">View All</a>
         </div>
-        <div class="reports-list" id="reports-list">
-            <div class="report-item-empty"><p>Loading recent reports...</p></div>
+        <div class="reports-list">
+            <?php if (empty($recentIncidents)): ?>
+                <div class="report-item-empty"><p style="padding: 20px 0; color: #666;">No recent incidents reported.</p></div>
+            <?php else: ?>
+                <?php foreach ($recentIncidents as $inc): ?>
+                    <div class="report-item">
+                        <div class="report-icon"><i class="fas fa-bell"></i></div>
+                        <div class="report-details">
+                            <h4><?= htmlspecialchars($inc['type']) ?></h4>
+                            <p><?= htmlspecialchars($inc['description']) ?></p>
+                            <p class="location"><?= htmlspecialchars($inc['location']) ?></p>
+                            <span class="announcement-meta">Reported: <?= date('M d, Y h:i A', strtotime($inc['reported_at'])) ?></span>
+                        </div>
+                        <div class="report-status">
+                            <span class="status-badge status-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $inc['status']))) ?>">
+                                <?= htmlspecialchars($inc['status']) ?>
+                            </span>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
     </section>
 
-    <section class="latest-announcements">
-        <div class="announcements-header">
-            <i class="fas fa-bullhorn"></i>
-            <h2>Latest Announcements</h2>
-            <a href="announcements.php" class="view-all-btn">View All</a>
+    <section class="recent-reports">
+        <div class="recent-reports-header">
+            <i class="fas fa-file-signature"></i>
+            <h2>Recent Document Requests</h2>
+            <a href="my-requests.php" class="view-all-btn">View All</a>
         </div>
-        <div class="announcements-list" id="announcements-list">
-             <div class="announcement-item-empty"><p>Loading announcements...</p></div>
+        <div class="reports-list">
+            <?php if (empty($recentRequests)): ?>
+                <div class="report-item-empty"><p style="padding: 20px 0; color: #666;">No recent document requests.</p></div>
+            <?php else: ?>
+                <?php foreach ($recentRequests as $req): ?>
+                    <div class="report-item">
+                        <div class="report-icon"><i class="fas fa-file-alt"></i></div>
+                        <div class="report-details">
+                            <h4><?= htmlspecialchars($req['document_type']) ?></h4>
+                            <p>Purpose: <?= htmlspecialchars($req['purpose']) ?></p>
+                            <span class="announcement-meta">Requested: <?= date('M d, Y h:i A', strtotime($req['date_requested'])) ?></span>
+                        </div>
+                        <div class="report-status">
+                            <span class="status-badge status-<?= htmlspecialchars(strtolower($req['status'] ?? 'pending')) ?>">
+                                <?= htmlspecialchars($req['status'] ?? 'Pending') ?>
+                            </span>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
     </section>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const reportsList = document.getElementById('reports-list');
-    const announcementsList = document.getElementById('announcements-list');
-    
-    function escapeHTML(str) {
-        return str ? str.replace(/[&<>"']/g, match => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[match]) : '';
-    }
-
-    async function fetchRecentIncidents() {
-        try {
-            const response = await fetch('../api/incidents.php?action=get_my_reports');
-            const data = await response.json();
-
-            reportsList.innerHTML = ''; // Clear loading message
-
-            if (data.success && data.reports.length > 0) {
-                // Show up to 3 most recent reports
-                data.reports.slice(0, 3).forEach(report => {
-                    const reportDiv = document.createElement('div');
-                    reportDiv.className = 'report-item';
-
-                    const formattedDate = new Date(report.reported_at).toLocaleString('en-US', {
-                        month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true
-                    });
-                    
-                    const statusClass = 'status-' + report.status.toLowerCase().replace(' ', '-');
-
-                    reportDiv.innerHTML = `
-                        <div class="report-icon">
-                            <i class="fas fa-bell"></i>
-                        </div>
-                        <div class="report-details">
-                            <h4>${escapeHTML(report.type)}</h4>
-                            <p>${escapeHTML(report.description)}</p>
-                            <p class="location">Location: ${escapeHTML(report.location)}</p>
-                            <p class="timestamp">Reported: ${formattedDate}</p>
-                        </div>
-                        <div class="report-status">
-                            <span class="status-badge status-${escapeHTML(report.status.toLowerCase())}">
-                                ${escapeHTML(report.status)}
-                            </span>
-                        </div>
-                    `;
-                    reportsList.appendChild(reportDiv);
-                });
-            } else if (data.success) {
-                reportsList.innerHTML = `
-                    <div class="report-item-empty">
-                        <p>No recent incidents reported.</p>
-                    </div>
-                `;
-            } else {
-                 reportsList.innerHTML = `
-                    <div class="report-item-empty">
-                        <p>Could not load reports. ${escapeHTML(data.error)}</p>
-                    </div>
-                `;
-            }
-        } catch (error) {
-            console.error("Error fetching recent incidents:", error);
-             reportsList.innerHTML = `
-                <div class="report-item-empty">
-                    <p>An error occurred while loading reports.</p>
-                </div>
-            `;
-        }
-    }
-
-    async function fetchLatestAnnouncements() {
-        try {
-            const response = await fetch('../api/announcements.php?action=get_latest');
-            const data = await response.json();
-
-            announcementsList.innerHTML = ''; 
-
-            if (data.success && data.announcements.length > 0) {
-                data.announcements.forEach(ann => {
-                    const annDiv = document.createElement('div');
-                    annDiv.className = 'announcement-item';
-
-                    const formattedDate = new Date(ann.created_at).toLocaleDateString('en-US', {
-                        month: 'long', day: 'numeric', year: 'numeric'
-                    });
-
-                    annDiv.innerHTML = `
-                        <div class="announcement-icon"><i class="fas fa-newspaper"></i></div>
-                        <div class="announcement-details">
-                            <h4>${escapeHTML(ann.title)}</h4>
-                            <p>${escapeHTML(ann.content.substring(0, 100))}...</p>
-                            <span class="announcement-meta">${formattedDate} by ${escapeHTML(ann.author_name)}</span>
-                        </div>
-                    `;
-                    announcementsList.appendChild(annDiv);
-                });
-            } else if (data.success) {
-                announcementsList.innerHTML = `<div class="announcement-item-empty"><p>No new announcements.</p></div>`;
-            } else {
-                 announcementsList.innerHTML = `<div class="announcement-item-empty"><p>Could not load announcements.</p></div>`;
-            }
-        } catch (error) {
-            console.error("Error fetching announcements:", error);
-            announcementsList.innerHTML = `<div class="announcement-item-empty"><p>An error occurred.</p></div>`;
-        }
-    }
-
-    fetchRecentIncidents();
-    fetchLatestAnnouncements();
-});
 </script>
 
 <?php require_once 'partials/footer.php'; ?> 
