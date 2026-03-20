@@ -328,9 +328,6 @@ function getAnnouncementStats() {
             SELECT 
                 COUNT(*) as total_announcements,
                 COUNT(CASE WHEN status = 'active' THEN 1 END) as active_announcements,
-                COUNT(CASE WHEN status = 'scheduled' THEN 1 END) as scheduled_announcements,
-                COUNT(CASE WHEN is_auto_generated = 1 THEN 1 END) as auto_generated,
-                COUNT(CASE WHEN category = 'business' THEN 1 END) as business_announcements,
                 COUNT(CASE WHEN priority = 'urgent' THEN 1 END) as urgent_announcements
             FROM announcements
         ");
