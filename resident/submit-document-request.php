@@ -7,7 +7,9 @@ require_once '../config/database.php';
 require_role('resident');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    redirect_to('barangay-services.php');
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'error' => 'Invalid request method.']);
+    exit;
 }
 
 // Validate and sanitize input
@@ -40,14 +42,16 @@ $residence_type = sanitize_input($_POST['residence_type'] ?? '');
 
 // Validate required fields
 if (!$resident_id || empty($document_type) || empty($purpose)) {
-    $_SESSION['error_message'] = "Please fill in all required fields.";
-    redirect_to('barangay-services.php');
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'error' => 'Please fill in all required fields.']);
+    exit;
 }
 
 // Verify that the resident_id matches the logged-in user
 if ($resident_id != ($_SESSION['resident_id'] ?? null)) {
-    $_SESSION['error_message'] = "Invalid request.";
-    redirect_to('barangay-services.php');
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'error' => 'Invalid request credentials.']);
+    exit;
 }
 
 try {
@@ -96,13 +100,17 @@ try {
     // Log the activity
     log_activity('Document Request Submitted', "New {$document_type} request submitted by resident ID {$resident_id}.", $_SESSION['user_id'] ?? null);
 
-    $_SESSION['success_message'] = "Your {$document_type} request has been submitted successfully! Request ID: {$request_id}. You will be notified once it's ready for pickup.";
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => true,
+        'message' => "Your {$document_type} request has been submitted successfully! You will be notified once it is ready."
+    ]);
+    exit;
 
 } catch (PDOException $e) {
     error_log("Document request submission error: " . $e->getMessage());
-    $_SESSION['error_message'] = "An error occurred while submitting your request. Please try again.";
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'error' => 'An error occurred while submitting your request. Please try again.']);
+    exit;
 }
-
-// Redirect back to the services page
-redirect_to('barangay-services.php');
 ?> 
