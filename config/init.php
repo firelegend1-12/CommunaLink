@@ -377,6 +377,26 @@ try {
         $pdo->exec("ALTER TABLE `activity_logs` ADD COLUMN `new_value` TEXT DEFAULT NULL AFTER old_value;");
     }
 
+    // --- Performance Optimizations (Indexes) ---
+    $performance_indexes = [
+        ['table' => 'incidents', 'name' => 'idx_incidents_reported_at', 'columns' => 'reported_at'],
+        ['table' => 'incidents', 'name' => 'idx_incidents_status', 'columns' => 'status'],
+        ['table' => 'document_requests', 'name' => 'idx_docreq_date_requested', 'columns' => 'date_requested'],
+        ['table' => 'document_requests', 'name' => 'idx_docreq_status', 'columns' => 'status'],
+        ['table' => 'announcements', 'name' => 'idx_announcements_created_at', 'columns' => 'created_at'],
+        ['table' => 'residents', 'name' => 'idx_residents_name', 'columns' => 'last_name, first_name'],
+        ['table' => 'business_transactions', 'name' => 'idx_biztrans_status', 'columns' => 'status']
+    ];
+
+    foreach ($performance_indexes as $idx) {
+        // Safely check if index exists
+        $stmt = $pdo->prepare("SHOW INDEX FROM `{$idx['table']}` WHERE Key_name = ?");
+        $stmt->execute([$idx['name']]);
+        if ($stmt->rowCount() == 0) {
+            $pdo->exec("CREATE INDEX `{$idx['name']}` ON `{$idx['table']}` ({$idx['columns']})");
+        }
+    }
+
 } catch (PDOException $e) {
     $_SESSION['error_message'] = "Database connection failed: " . $e->getMessage();
     // If we are in a page inside 'pages' folder, the path to index should be relative
