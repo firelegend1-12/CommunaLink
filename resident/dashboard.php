@@ -37,7 +37,26 @@ try {
     $bannerAnnouncements = [];
 }
 
-// --- Placeholder removed, replaced with real query above ---
+$resident_id = $_SESSION['resident_id'] ?? null;
+if (!$resident_id && isset($_SESSION['user_id'])) {
+    $resident_id = get_resident_id($pdo, $_SESSION['user_id']);
+    if ($resident_id) {
+        $_SESSION['resident_id'] = $resident_id;
+    }
+}
+
+// Fetch Latest Alerts (Notifications) for Banner Ticker
+try {
+    if ($resident_id) {
+        $stmtAlerts = $pdo->prepare("SELECT message FROM notifications WHERE resident_id = ? ORDER BY created_at DESC LIMIT 5");
+        $stmtAlerts->execute([$resident_id]);
+        $bannerAlerts = $stmtAlerts->fetchAll(PDO::FETCH_COLUMN);
+    } else {
+        $bannerAlerts = [];
+    }
+} catch (Exception $e) {
+    $bannerAlerts = [];
+}
 
 require_once 'partials/header.php';
 ?>
@@ -50,45 +69,86 @@ require_once 'partials/header.php';
 .welcome-text .quote { font-style: italic; margin-top: 16px; opacity: 0.8; }
 .welcome-logo { text-align: center; color: rgba(255, 255, 255, 0.8); }
 .barangay-logo-big { height: 100px; width: 100px; background-color: rgba(255, 255, 255, 0.2); border-radius: 50%; margin: 0 auto 10px; border: 3px solid var(--text-light); }
-/* Banner Announcements Ticker */
-.banner-announcements {
+/* Banner Tickers Container */
+.banner-tickers-container {
     flex: 1;
     margin: 0 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    min-width: 0;
+}
+
+/* Banner Announcements & Alerts Ticker Setup */
+.banner-announcements,
+.banner-alerts {
     background: rgba(255,255,255,0.13);
     border: 1.5px solid rgba(255,255,255,0.25);
     border-radius: 12px;
-    padding: 18px 20px;
+    padding: 14px 20px;
     overflow: hidden;
     align-self: stretch;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    min-width: 0;
+    position: relative; /* for absolute children or pseudo */
 }
-.banner-announcements .ann-label {
+
+.banner-alerts {
+    background: rgba(255,100,100,0.15);
+    border-color: rgba(255,200,200,0.3);
+}
+
+.banner-announcements .ann-label,
+.banner-alerts .ann-label {
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    opacity: 0.7;
-    margin-bottom: 10px;
+    opacity: 0.9;
+    margin-bottom: 8px;
     display: flex;
     align-items: center;
     gap: 6px;
 }
-.banner-announcements .ann-ticker { overflow: hidden; white-space: nowrap; width: 100%; }
-.banner-announcements .ann-ticker-inner {
+
+.banner-announcements .ann-ticker,
+.banner-alerts .ann-ticker {
+    overflow: hidden; 
+    white-space: nowrap; 
+    width: 100%;
+    position: relative;
+    mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+}
+
+.banner-announcements .ann-ticker-inner,
+.banner-alerts .ann-ticker-inner {
     display: inline-block;
-    animation: ticker-scroll 20s linear infinite;
-    font-size: 20px;
+    animation: ticker-scroll 25s linear infinite;
+    font-size: 18px;
     font-weight: 500;
     opacity: 0.95;
     white-space: nowrap;
+    will-change: transform;
 }
-.banner-announcements .ann-sep { margin: 0 24px; opacity: 0.45; }
+
+.banner-announcements .ann-ticker-inner:hover,
+.banner-alerts .ann-ticker-inner:hover {
+    animation-play-state: paused;
+}
+
+.banner-announcements .ann-sep,
+.banner-alerts .ann-sep { 
+    margin: 0 32px; 
+    opacity: 0.5; 
+    font-size: 0.6em;
+    vertical-align: middle;
+}
+
 @keyframes ticker-scroll {
-    0%   { transform: translateX(100%); }
-    100% { transform: translateX(-100%); }
+    0%   { transform: translate3d(0, 0, 0); }
+    100% { transform: translate3d(-50%, 0, 0); }
 }
 .quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; margin-bottom: 30px; }
 .action-card { display: block; background-color: var(--card-bg); border-radius: 12px; padding: 30px; box-shadow: 0 4px 12px var(--shadow-color); transition: transform 0.2s ease, box-shadow 0.2s ease; text-decoration: none; color: var(--text-light); position: relative; overflow: hidden; }
@@ -121,19 +181,49 @@ require_once 'partials/header.php';
         <p class="quote">“Your barangay is your home. Let's keep it safe and thriving!”</p>
     </div>
 
-    <div class="banner-announcements">
-        <div class="ann-label"><i class="fas fa-bullhorn"></i> Barangay Announcements</div>
-        <div class="ann-ticker">
-            <span class="ann-ticker-inner">
-                <?php if (empty($bannerAnnouncements)): ?>
-                    <span>No current announcements &mdash; stay tuned!</span>
-                <?php else: ?>
-                    <?php foreach ($bannerAnnouncements as $title): ?>
-                        <?= htmlspecialchars($title) ?><span class="ann-sep">&#9679;</span>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </span>
+    <div class="banner-tickers-container">
+        <?php if (!empty($bannerAnnouncements)): ?>
+        <div class="banner-announcements mb-3">
+            <div class="announcement-ticker w-full">
+                <div class="ann-ticker-container flex w-full">
+                    <div class="ann-ticker-label text-yellow-300">
+                        <i class="fas fa-bullhorn animate-pulse"></i> <span>Announcements</span>
+                    </div>
+                    <div class="ann-ticker-content flex-grow">
+                        <div class="ann-ticker-inner">
+                            <?php foreach ($bannerAnnouncements as $ann_title): ?>
+                                <span class="ticker-item">
+                                    <?= htmlspecialchars($ann_title) ?>
+                                    <a href="notifications.php" class="ticker-link ml-2 text-white text-xs font-semibold px-2 py-1 rounded-full bg-white/20 hover:bg-white/30 transition-colors">Read more</a>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
+        <?php endif; ?>
+
+        <?php if (!empty($bannerAlerts)): ?>
+        <div class="banner-alerts">
+            <div class="announcement-ticker w-full">
+                <div class="ann-ticker-container flex w-full" style="background: rgba(255, 100, 100, 0.2); border-color: rgba(255, 200, 200, 0.4);">
+                    <div class="ann-ticker-label text-red-200">
+                        <i class="fas fa-bell animate-pulse"></i> <span>Alerts</span>
+                    </div>
+                    <div class="ann-ticker-content flex-grow">
+                        <div class="ann-ticker-inner">
+                            <?php foreach ($bannerAlerts as $alertMsg): ?>
+                                <span class="ticker-item">
+                                    <?= htmlspecialchars($alertMsg) ?>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 
     <div class="welcome-logo">
@@ -171,7 +261,7 @@ require_once 'partials/header.php';
             <h2>Recent Incident Reports</h2>
             <a href="my-reports.php" class="view-all-btn">View All</a>
         </div>
-        <div class="mobile-grid-2col">
+        <div class="responsive-card-grid">
             <?php if (empty($recentIncidents)): ?>
                 <div class="report-item-empty"><p style="padding: 20px 0; color: #666;">No recent incidents reported.</p></div>
             <?php else: ?>
@@ -202,7 +292,7 @@ require_once 'partials/header.php';
             <h2>Recent Document Requests</h2>
             <a href="my-requests.php" class="view-all-btn">View All</a>
         </div>
-        <div class="mobile-grid-2col">
+        <div class="responsive-card-grid">
             <?php if (empty($recentRequests)): ?>
                 <div class="report-item-empty"><p style="padding: 20px 0; color: #666;">No recent document requests.</p></div>
             <?php else: ?>
