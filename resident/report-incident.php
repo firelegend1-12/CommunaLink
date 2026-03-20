@@ -70,7 +70,15 @@ require_once 'partials/header.php';
             </div>
         </form>
     </div>
-    <div id="map" style="height: 550px; width: 100%; border: 2px solid #ccc; background-color: #f0f0f0;">
+    
+    <!-- Geolocation Button -->
+    <div style="margin-bottom: 12px; text-align: right;">
+        <button type="button" id="locate-btn" style="background-color: #2563eb; color: white; padding: 10px 16px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <i class="fas fa-crosshairs"></i> Find My Exact Location
+        </button>
+    </div>
+
+    <div id="map" style="height: 550px; width: 100%; border: 2px solid #ccc; background-color: #f0f0f0; border-radius: 8px;">
         <div style="padding: 20px; text-align: center; color: #666;">
             <i class="fas fa-map" style="font-size: 2rem; margin-bottom: 10px;"></i><br>
             Loading map... Please wait.
@@ -152,6 +160,56 @@ window.initGoogleMap = async function() {
             infoWindow.open(map, marker);
         }
     });
+
+    // Setup "Find My Location" hardware listener
+    const locateBtn = document.getElementById('locate-btn');
+    if (locateBtn) {
+        locateBtn.addEventListener('click', () => {
+            if (navigator.geolocation) {
+                locateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Locating precise GPS...';
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const pos = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                        };
+                        map.setCenter(pos);
+                        map.setZoom(18); // Zoom in extremely close to their roof
+                        
+                        latInput.value = pos.lat;
+                        lonInput.value = pos.lng;
+
+                        if (marker) {
+                            marker.setPosition(pos);
+                        } else {
+                            marker = new Marker({
+                                position: pos,
+                                map: map,
+                                draggable: true,
+                                title: "Your Generated Location"
+                            });
+                            marker.addListener("dragend", () => {
+                                const newPos = marker.getPosition();
+                                latInput.value = newPos.lat();
+                                lonInput.value = newPos.lng();
+                            });
+                        }
+                        locateBtn.innerHTML = '<i class="fas fa-check"></i> Location Locked!';
+                        setTimeout(() => locateBtn.innerHTML = '<i class="fas fa-crosshairs"></i> Find My Exact Location', 3000);
+                    },
+                    (error) => {
+                        let msg = "The Geolocation service failed.";
+                        if (error.code === 1) msg = "Please allow location permissions in your browser.";
+                        alert("Error: " + msg);
+                        locateBtn.innerHTML = '<i class="fas fa-crosshairs"></i> Find My Exact Location';
+                    }, 
+                    { enableHighAccuracy: true }
+                );
+            } else {
+                alert("Error: Your browser doesn't support the HTML5 geolocation standard.");
+            }
+        });
+    }
 };
 
 // Application logic (Form and Upload listeners)

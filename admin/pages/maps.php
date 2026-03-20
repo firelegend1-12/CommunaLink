@@ -86,6 +86,8 @@ $title = "Maps";
     let lastIncidentDataHash = '';
     let infoWindow;
 
+    let clusterer = null;
+
     function initMap() {
         const center = { lat: 10.710827350642523, lng: 122.51720118954563 };
         map = new google.maps.Map(document.getElementById('incident-map'), {
@@ -104,11 +106,15 @@ $title = "Maps";
         infoWindow = new google.maps.InfoWindow();
 
         fetchAndUpdateReports();
-        setInterval(fetchAndUpdateReports, 1000);
+        setInterval(fetchAndUpdateReports, 30000);
     }
 
     function clearMarkers() {
-        markers.forEach(m => m.setMap(null));
+        if (clusterer) {
+            clusterer.clearMarkers();
+        } else {
+            markers.forEach(m => m.setMap(null));
+        }
         markers = [];
     }
 
@@ -165,6 +171,14 @@ $title = "Maps";
 
         if (!foundOpen) {
             lastOpenIncidentId = null;
+        }
+
+        // Apply Clustering!
+        if (clusterer) {
+            clusterer.clearMarkers();
+            clusterer.addMarkers(markers);
+        } else {
+            clusterer = new markerClusterer.MarkerClusterer({ map, markers });
         }
     }
 
@@ -248,6 +262,8 @@ $title = "Maps";
     <?php
     $apiKey = function_exists('env') ? env('GOOGLE_MAPS_API_KEY', 'AIzaSyDSePOKkt_W5bY7YsYaEJrMoSRWxTMGnuI') : 'AIzaSyDSePOKkt_W5bY7YsYaEJrMoSRWxTMGnuI';
     ?>
+    <!-- Marker Clusterer CDN -->
+    <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=<?php echo $apiKey; ?>&callback=initMap" async defer></script>
 </body>
 </html> 
