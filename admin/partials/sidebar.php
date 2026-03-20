@@ -191,13 +191,15 @@ if ($hour >= 12 && $hour < 18) {
                     <button onclick="toggleDropdown('report-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
                         <i class="fas fa-flag mr-3 text-lg <?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                         Report
+                        <span id="report-unread-dot" class="chat-unread-dot"></span>
                         <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200" id="report-chevron"></i>
                     </button>
                     <div id="report-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? 'block' : 'none'; ?>">
                         <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/incident-reports.php' : 'incident-reports.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'incident-reports.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/incident-reports.php' : 'incident-reports.php'; ?>" class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'incident-reports.php' ? 'bg-gray-900 text-white' : ''; ?>">
                                 <i class="fas fa-bullhorn mr-2 text-gray-400"></i>
                                 Incident Reports
+                                <span id="incident-reports-badge" class="chat-unread-badge"></span>
                             </a>
                         </div>
                         <div>
@@ -234,19 +236,22 @@ if ($hour >= 12 && $hour < 18) {
                     <button onclick="toggleDropdown('business-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['business-records.php', 'business-transactions.php', 'business-monitoring.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
                         <i class="fas fa-store mr-3 text-lg <?php echo $current_page === 'business-records.php' || $current_page === 'business-transactions.php' || $current_page === 'business-monitoring.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                         Business
+                        <span id="biz-unread-dot" class="chat-unread-dot"></span>
                         <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200" id="business-chevron"></i>
                     </button>
                     <div id="business-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['business-records.php', 'business-transactions.php', 'business-monitoring.php']) ? 'block' : 'none'; ?>">
                         <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/business-records.php' : 'business-records.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'business-records.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/business-records.php' : 'business-records.php'; ?>" class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'business-records.php' ? 'bg-gray-900 text-white' : ''; ?>">
                                 <i class="fas fa-list-alt mr-2 text-gray-400"></i>
                                 Business Records
+                                <span id="biz-records-badge" class="chat-unread-badge"></span>
                             </a>
                         </div>
                         <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/business-transactions.php' : 'business-transactions.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'business-transactions.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/business-transactions.php' : 'business-transactions.php'; ?>" class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'business-transactions.php' ? 'bg-gray-900 text-white' : ''; ?>">
                                 <i class="fas fa-exchange-alt mr-2 text-gray-400"></i>
                                 Transactions
+                                <span id="biz-transactions-badge" class="chat-unread-badge"></span>
                             </a>
                         </div>
                         <div>
@@ -362,10 +367,29 @@ if ($hour >= 12 && $hour < 18) {
 
 <script>
 (function() {
-    // Determine the correct API path based on current directory depth
     const apiBase = '<?php echo ($current_dir === "pages") ? "../../api/chat.php" : "../api/chat.php"; ?>';
+    const notifBase = '<?php echo ($current_dir === "pages") ? "../../api/notifications.php" : "../api/notifications.php"; ?>';
     const dot   = document.getElementById('admin-unread-dot');
     const badge = document.getElementById('chat-unread-badge');
+
+    // Business badge elements
+    const bizDot        = document.getElementById('biz-unread-dot');
+    const bizRecBadge   = document.getElementById('biz-records-badge');
+    const bizTxBadge    = document.getElementById('biz-transactions-badge');
+
+    function showBadge(el, count) {
+        if (!el) return;
+        if (count > 0) {
+            el.textContent    = count > 99 ? '99+' : count;
+            el.style.display  = 'inline-block';
+        } else {
+            el.style.display  = 'none';
+        }
+    }
+    function showDot(el, visible) {
+        if (!el) return;
+        el.style.display = visible ? 'inline-block' : 'none';
+    }
 
     function updateUnreadBadge() {
         fetch(apiBase + '?action=get_unread_count')
@@ -373,20 +397,44 @@ if ($hour >= 12 && $hour < 18) {
             .then(data => {
                 if (!data.success) return;
                 const count = data.unread || 0;
-                if (count > 0) {
-                    badge.textContent = count > 99 ? '99+' : count;
-                    badge.style.display = 'inline-block';
-                    dot.style.display   = 'inline-block';
-                } else {
-                    badge.style.display = 'none';
-                    dot.style.display   = 'none';
-                }
+                showBadge(badge, count);
+                showDot(dot, count > 0);
             })
             .catch(() => {});
     }
 
-    // Run immediately then poll every 10 seconds
+    function updateBusinessBadges() {
+        fetch(notifBase + '?action=get_business_counts')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) return;
+                showBadge(bizRecBadge, data.businesses || 0);
+                showBadge(bizTxBadge,  data.transactions || 0);
+                showDot(bizDot, (data.total || 0) > 0);
+            })
+            .catch(() => {});
+    }
+
+    function updateIncidentBadges() {
+        fetch(notifBase + '?action=get_incident_counts')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) return;
+                const count = data.incidents || 0;
+                showBadge(document.getElementById('incident-reports-badge'), count);
+                showDot(document.getElementById('report-unread-dot'), count > 0);
+            })
+            .catch(() => {});
+    }
+
+    // Expose so admin/pages/chat.php can trigger immediate refresh
+    window.updateUnreadBadge = updateUnreadBadge;
+
     updateUnreadBadge();
-    setInterval(updateUnreadBadge, 10000);
+    updateBusinessBadges();
+    updateIncidentBadges();
+    setInterval(updateUnreadBadge,    10000);
+    setInterval(updateBusinessBadges, 10000);
+    setInterval(updateIncidentBadges, 10000);
 })();
 </script> 
