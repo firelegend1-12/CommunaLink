@@ -29,6 +29,14 @@ $stmtInc = $pdo->prepare("SELECT id, type, description, location, reported_at, s
 $stmtInc->execute([$_SESSION['user_id']]);
 $recentIncidents = $stmtInc->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch Latest Announcements for Banner Ticker
+try {
+    $stmtAnn = $pdo->query("SELECT title FROM announcements ORDER BY created_at DESC LIMIT 5");
+    $bannerAnnouncements = $stmtAnn->fetchAll(PDO::FETCH_COLUMN);
+} catch (Exception $e) {
+    $bannerAnnouncements = [];
+}
+
 // --- Placeholder removed, replaced with real query above ---
 
 require_once 'partials/header.php';
@@ -42,6 +50,46 @@ require_once 'partials/header.php';
 .welcome-text .quote { font-style: italic; margin-top: 16px; opacity: 0.8; }
 .welcome-logo { text-align: center; color: rgba(255, 255, 255, 0.8); }
 .barangay-logo-big { height: 100px; width: 100px; background-color: rgba(255, 255, 255, 0.2); border-radius: 50%; margin: 0 auto 10px; border: 3px solid var(--text-light); }
+/* Banner Announcements Ticker */
+.banner-announcements {
+    flex: 1;
+    margin: 0 32px;
+    background: rgba(255,255,255,0.13);
+    border: 1.5px solid rgba(255,255,255,0.25);
+    border-radius: 12px;
+    padding: 18px 20px;
+    overflow: hidden;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+.banner-announcements .ann-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    opacity: 0.7;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.banner-announcements .ann-ticker { overflow: hidden; white-space: nowrap; width: 100%; }
+.banner-announcements .ann-ticker-inner {
+    display: inline-block;
+    animation: ticker-scroll 20s linear infinite;
+    font-size: 20px;
+    font-weight: 500;
+    opacity: 0.95;
+    white-space: nowrap;
+}
+.banner-announcements .ann-sep { margin: 0 24px; opacity: 0.45; }
+@keyframes ticker-scroll {
+    0%   { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
 .quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; margin-bottom: 30px; }
 .action-card { display: block; background-color: var(--card-bg); border-radius: 12px; padding: 30px; box-shadow: 0 4px 12px var(--shadow-color); transition: transform 0.2s ease, box-shadow 0.2s ease; text-decoration: none; color: var(--text-light); position: relative; overflow: hidden; }
 .action-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px var(--shadow-color); }
@@ -147,6 +195,22 @@ require_once 'partials/header.php';
         <p>Welcome to your Resident Dashboard</p>
         <p class="quote">“Your barangay is your home. Let's keep it safe and thriving!”</p>
     </div>
+
+    <div class="banner-announcements">
+        <div class="ann-label"><i class="fas fa-bullhorn"></i> Barangay Announcements</div>
+        <div class="ann-ticker">
+            <span class="ann-ticker-inner">
+                <?php if (empty($bannerAnnouncements)): ?>
+                    <span>No current announcements &mdash; stay tuned!</span>
+                <?php else: ?>
+                    <?php foreach ($bannerAnnouncements as $title): ?>
+                        <?= htmlspecialchars($title) ?><span class="ann-sep">&#9679;</span>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </span>
+        </div>
+    </div>
+
     <div class="welcome-logo">
         <img src="../assets/images/barangay-logo.png" alt="Barangay Logo" class="barangay-logo-big" style="object-fit:cover;">
     </div>
