@@ -8,6 +8,7 @@
 require_once '../config/init.php';
 require_once '../includes/functions.php';
 require_once '../includes/auth.php';
+require_once '../includes/cache_manager.php';
 
 // Check if user is logged in
 require_login();
@@ -15,88 +16,108 @@ require_login();
 // Page title
 $page_title = "Dashboard - CommuniLink";
 
-try {
-    // Fetch latest transactions
-    $stmt = $pdo->query("SELECT * FROM business_transactions WHERE status IS NOT NULL AND status != '' AND status != 'DELETED' ORDER BY application_date DESC LIMIT 4");
-    $latest_transactions = $stmt->fetchAll();
+// Initialize cache manager (Using file driver for Free Tier compatibility)
+init_cache_manager(['cache_dir' => '../cache/']);
 
-    // Fetch population stats
-    $stmt = $pdo->query("SELECT 
-                    COUNT(*) as total_population, 
-                    SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) as male_count,
-                    SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) as female_count
-                  FROM residents");
-    $population_stats = $stmt->fetch();
+$cache_key = 'admin_dashboard_stats';
+// Try fetching from file cache
+$cached_data = cache_get($cache_key, 'file');
 
-    // Fetch age group data for chart
-    $stmt = $pdo->query("SELECT 
-        CASE
-            WHEN age BETWEEN 0 AND 12 THEN '0-12 (Kids)'
-            WHEN age BETWEEN 13 AND 19 THEN '13-19 (Teens)'
-            WHEN age BETWEEN 20 AND 39 THEN '20-39 (Young Adults)'
-            WHEN age BETWEEN 40 AND 59 THEN '40-59 (Adults)'
-            ELSE '60+ (Seniors)'
-        END AS age_group,
-        COUNT(*) AS count
-    FROM residents
-    GROUP BY age_group
-    ORDER BY age_group");
-    $age_group_data = $stmt->fetchAll();
-    $age_labels = json_encode(array_column($age_group_data, 'age_group'));
-    $age_counts = json_encode(array_column($age_group_data, 'count'));
+if ($cached_data) {
+    // Extract variables into current symbol table
+    extract($cached_data);
+} else {
+    try {
+        // Fetch latest transactions
+        $stmt = $pdo->query("SELECT * FROM business_transactions WHERE status IS NOT NULL AND status != '' AND status != 'DELETED' ORDER BY application_date DESC LIMIT 4");
+        $latest_transactions = $stmt->fetchAll();
 
-    // Generate last 12 months labels
-    $month_labels = [];
-    for ($i = 11; $i >= 0; $i--) {
-        $month_labels[] = date('M Y', strtotime("-{$i} months"));
+        // Fetch population stats
+        $stmt = $pdo->query("SELECT 
+                        COUNT(*) as total_population, 
+                        SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) as male_count,
+                        SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) as female_count
+                      FROM residents");
+        $population_stats = $stmt->fetch();
+
+        // Fetch age group data for chart
+        $stmt = $pdo->query("SELECT 
+            CASE
+                WHEN age BETWEEN 0 AND 12 THEN '0-12 (Kids)'
+                WHEN age BETWEEN 13 AND 19 THEN '13-19 (Teens)'
+                WHEN age BETWEEN 20 AND 39 THEN '20-39 (Young Adults)'
+                WHEN age BETWEEN 40 AND 59 THEN '40-59 (Adults)'
+                ELSE '60+ (Seniors)'
+            END AS age_group,
+            COUNT(*) AS count
+        FROM residents
+        GROUP BY age_group
+        ORDER BY age_group");
+        $age_group_data = $stmt->fetchAll();
+        $age_labels = json_encode(array_column($age_group_data, 'age_group'));
+        $age_counts = json_encode(array_column($age_group_data, 'count'));
+
+        // Generate last 12 months labels
+        $month_labels = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $month_labels[] = date('M Y', strtotime("-{$i} months"));
+        }
+        // Residents added per month (last 12 months)
+        $resident_counts_map = array_fill_keys($month_labels, 0);
+        try {
+            $stmt = $pdo->query("SELECT DATE_FORMAT(created_at, '%b %Y') as month, COUNT(*) as count FROM residents WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH) GROUP BY month");
+            $rows = $stmt->fetchAll();
+            foreach ($rows as $row) {
+                $resident_counts_map[$row['month']] = (int)$row['count'];
+            }
+        } catch (PDOException $e) {}
+        $resident_months = json_encode(array_keys($resident_counts_map));
+        $resident_counts = json_encode(array_values($resident_counts_map));
+        // Businesses added per month (last 12 months)
+        $business_counts_map = array_fill_keys($month_labels, 0);
+        try {
+            $stmt = $pdo->query("SELECT DATE_FORMAT(created_at, '%b %Y') as month, COUNT(*) as count FROM businesses WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH) GROUP BY month");
+            $rows = $stmt->fetchAll();
+            foreach ($rows as $row) {
+                $business_counts_map[$row['month']] = (int)$row['count'];
+            }
+        } catch (PDOException $e) {}
+        $business_months = json_encode(array_keys($business_counts_map));
+        $business_counts = json_encode(array_values($business_counts_map));
+
+        // Fetch quick stats for dashboard cards
+        // Total Businesses
+        $business_count = $pdo->query("SELECT COUNT(*) FROM businesses")->fetchColumn();
+        // Pending Requests (documents)
+        $pending_doc_requests = $pdo->query("SELECT COUNT(*) FROM document_requests WHERE status = 'Pending'")->fetchColumn();
+        // Pending Requests (business transactions)
+        $pending_biz_requests = $pdo->query("SELECT COUNT(*) FROM business_transactions WHERE status = 'PENDING'")->fetchColumn();
+        $pending_requests = $pending_doc_requests + $pending_biz_requests;
+        // Active Incidents
+        $active_incidents = $pdo->query("SELECT COUNT(*) FROM incidents WHERE status IN ('Pending', 'In Progress')")->fetchColumn();
+        // Upcoming Events
+        $upcoming_events = $pdo->query("SELECT COUNT(*) FROM events WHERE event_date >= CURDATE()") ? $pdo->query("SELECT COUNT(*) FROM events WHERE event_date >= CURDATE()")->fetchColumn() : 0;
+
+        $stats_to_cache = compact(
+            'latest_transactions', 'population_stats', 'age_group_data',
+            'age_labels', 'age_counts', 'resident_months', 'resident_counts',
+            'business_months', 'business_counts', 'business_count',
+            'pending_requests', 'active_incidents', 'upcoming_events'
+        );
+        cache_set($cache_key, $stats_to_cache, 900, 'file'); // 15 mins cache
+        
+    } catch (PDOException $e) {
+        // On error, set default values to prevent page crash
+        $latest_transactions = [];
+        $population_stats = ['total_population' => 0, 'male_count' => 0, 'female_count' => 0];
+        $age_labels = '[]';
+        $age_counts = '[]';
+        $business_count = 0;
+        $pending_requests = 0;
+        $active_incidents = 0;
+        $upcoming_events = 0;
+        // error_log("Dashboard DB Error: " . $e->getMessage());
     }
-    // Residents added per month (last 12 months)
-    $resident_counts_map = array_fill_keys($month_labels, 0);
-    try {
-        $stmt = $pdo->query("SELECT DATE_FORMAT(created_at, '%b %Y') as month, COUNT(*) as count FROM residents WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH) GROUP BY month");
-        $rows = $stmt->fetchAll();
-        foreach ($rows as $row) {
-            $resident_counts_map[$row['month']] = (int)$row['count'];
-        }
-    } catch (PDOException $e) {}
-    $resident_months = json_encode(array_keys($resident_counts_map));
-    $resident_counts = json_encode(array_values($resident_counts_map));
-    // Businesses added per month (last 12 months)
-    $business_counts_map = array_fill_keys($month_labels, 0);
-    try {
-        $stmt = $pdo->query("SELECT DATE_FORMAT(created_at, '%b %Y') as month, COUNT(*) as count FROM businesses WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH) GROUP BY month");
-        $rows = $stmt->fetchAll();
-        foreach ($rows as $row) {
-            $business_counts_map[$row['month']] = (int)$row['count'];
-        }
-    } catch (PDOException $e) {}
-    $business_months = json_encode(array_keys($business_counts_map));
-    $business_counts = json_encode(array_values($business_counts_map));
-
-    // Fetch quick stats for dashboard cards
-    // Total Businesses
-    $business_count = $pdo->query("SELECT COUNT(*) FROM businesses")->fetchColumn();
-    // Pending Requests (documents)
-    $pending_doc_requests = $pdo->query("SELECT COUNT(*) FROM document_requests WHERE status = 'Pending'")->fetchColumn();
-    // Pending Requests (business transactions)
-    $pending_biz_requests = $pdo->query("SELECT COUNT(*) FROM business_transactions WHERE status = 'PENDING'")->fetchColumn();
-    $pending_requests = $pending_doc_requests + $pending_biz_requests;
-    // Active Incidents
-    $active_incidents = $pdo->query("SELECT COUNT(*) FROM incidents WHERE status IN ('Pending', 'In Progress')")->fetchColumn();
-    // Upcoming Events
-    $upcoming_events = $pdo->query("SELECT COUNT(*) FROM events WHERE event_date >= CURDATE()") ? $pdo->query("SELECT COUNT(*) FROM events WHERE event_date >= CURDATE()")->fetchColumn() : 0;
-} catch (PDOException $e) {
-    // On error, set default values to prevent page crash
-    $latest_transactions = [];
-    $population_stats = ['total_population' => 0, 'male_count' => 0, 'female_count' => 0];
-    $age_labels = '[]';
-    $age_counts = '[]';
-    $business_count = 0;
-    $pending_requests = 0;
-    $active_incidents = 0;
-    $upcoming_events = 0;
-    // You might want to log the error message
-    // error_log("Dashboard DB Error: " . $e->getMessage());
 }
 
 // Function to get sunset time
