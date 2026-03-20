@@ -14,11 +14,11 @@ require_role('resident');
 $page_title = "Live Chat";
 $user_fullname = $_SESSION['fullname'] ?? 'Resident';
 
-// --- Placeholder Data ---
-$messages = [
-    ['sender' => 'Barangay Admin', 'text' => 'Good morning! How can we help you today?', 'time' => '10:46 AM', 'is_me' => false],
-    ['sender' => $user_fullname, 'text' => 'Hello, I need assistance with my barangay clearance.', 'time' => '10:45 AM', 'is_me' => true],
-];
+// Dynamically resolve admin user ID for use in JS
+require_once '../config/database.php';
+$stmtAdmin = $pdo->query("SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+$adminUser = $stmtAdmin ? $stmtAdmin->fetch(PDO::FETCH_ASSOC) : null;
+$admin_user_id = $adminUser ? (int)$adminUser['id'] : 1;
 
 require_once 'partials/header.php';
 ?>
@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatForm = document.getElementById('chat-form');
     const messageInput = document.getElementById('message-input');
     
-    const ADMIN_ID = 4; // Updated to match actual admin user ID
+    const ADMIN_ID = <?php echo $admin_user_id; ?>;
     let lastMessageId = 0;
 
     function escapeHTML(str) {
