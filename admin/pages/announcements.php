@@ -11,6 +11,7 @@ $priority_filter = isset($_GET['priority']) ? $_GET['priority'] : '';
 
 try {
     // Build query with filters
+    $sql = "SELECT a.*, u.fullname as author_name FROM announcements a JOIN users u ON a.user_id = u.id WHERE 1=1";
     $params = [];
 
     if ($status_filter) {
@@ -57,7 +58,11 @@ try {
             <header class="bg-white shadow-sm z-10">
                 <div class="px-4 sm:px-6 lg:px-8">
                     <div class="flex items-center justify-between h-16">
-                        <h1 class="text-2xl font-semibold text-gray-800"><?= $page_title ?></h1>
+                        <div class="flex items-center">
+                            <span class="text-gray-500">Announcements</span>
+                            <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
+                            <h1 class="text-2xl font-semibold text-gray-800">All Announcements</h1>
+                        </div>
                     </div>
                 </div>
             </header>
