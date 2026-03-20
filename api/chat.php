@@ -50,6 +50,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } else {
             $response = ['error' => 'Missing message or recipient.'];
         }
+
+    } elseif ($_POST['action'] === 'mark_as_read' && isset($_POST['sender_id'])) {
+        // Mark all messages from a specific resident as read
+        $sender_id = intval($_POST['sender_id']);
+        $admin_id  = getAdminId($pdo);
+        try {
+            $stmt = $pdo->prepare(
+                "UPDATE chat_messages SET is_read = 1
+                 WHERE sender_id = ? AND receiver_id = ? AND is_read = 0"
+            );
+            $stmt->execute([$sender_id, $admin_id]);
+            $response = ['success' => true, 'marked' => $stmt->rowCount()];
+        } catch (PDOException $e) {
+            $response = ['error' => 'Database error: ' . $e->getMessage()];
+        }
     }
 
 } elseif ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action'])) {

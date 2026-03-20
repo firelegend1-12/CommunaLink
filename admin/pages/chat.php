@@ -253,6 +253,18 @@ $messages = [
             if (messagePollingInterval) clearInterval(messagePollingInterval);
         }
 
+        function markMessagesRead(partnerId) {
+            const fd = new FormData();
+            fd.append('action', 'mark_as_read');
+            fd.append('sender_id', partnerId);
+            fetch('../../api/chat.php', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(() => {
+                    if (typeof updateUnreadBadge === 'function') updateUnreadBadge();
+                })
+                .catch(() => {});
+        }
+
         function selectConversation(userId, fullname) {
             activePartnerId = userId;
             chatWindow.classList.remove('hidden');
@@ -262,6 +274,8 @@ $messages = [
             fetchMessages(userId);
             stopMessagePolling();
             startMessagePolling(userId);
+            // Mark all unread messages from this resident as read
+            markMessagesRead(userId);
         }
 
         chatForm.addEventListener('submit', async function(e) {
