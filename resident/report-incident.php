@@ -2,6 +2,7 @@
 session_start();
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
+require_once '../config/env_loader.php';
 
 // This is already in header.php, but for safety.
 if (!function_exists('require_role')) {
@@ -69,7 +70,15 @@ require_once 'partials/header.php';
             </div>
         </form>
     </div>
-    <div id="map" style="height: 550px; width: 100%; border: 2px solid #ccc; background-color: #f0f0f0;">
+    
+    <!-- Geolocation Button -->
+    <div style="margin-bottom: 12px; text-align: right;">
+        <button type="button" id="locate-btn" style="background-color: #2563eb; color: white; padding: 10px 16px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <i class="fas fa-crosshairs"></i> Find My Exact Location
+        </button>
+    </div>
+
+    <div id="map" style="height: 550px; width: 100%; border: 2px solid #ccc; background-color: #f0f0f0; border-radius: 8px;">
         <div style="padding: 20px; text-align: center; color: #666;">
             <i class="fas fa-map" style="font-size: 2rem; margin-bottom: 10px;"></i><br>
             Loading map... Please wait.
@@ -78,83 +87,132 @@ require_once 'partials/header.php';
 </div>
 
 <script>
-// Simple and reliable map initialization
-function initializeMap() {
-    console.log('Starting map initialization...');
-    
+let map;
+let marker;
+
+// Lazy-loading intersection observer function
+function initLazyMap() {
     const mapDiv = document.getElementById('map');
-    if (!mapDiv) {
-        console.error('Map div not found!');
-        return;
-    }
-    
-    // Clear loading message
-    mapDiv.innerHTML = '';
-    
-    // Check if Leaflet is available
-    if (typeof L === 'undefined') {
-        console.error('Leaflet not loaded!');
-        mapDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Error: Map library not loaded. Please refresh the page.</div>';
-        return;
-    }
-    
-    try {
-        // Remove previous map instance if it exists
-        if (window._leaflet_map_instance) {
-            window._leaflet_map_instance.remove();
-            window._leaflet_map_instance = null;
-        }
-        window._leaflet_map_instance = L.map('map', {
-            center: [10.7104, 122.5118],
-            zoom: 15,
-            zoomControl: true
-        });
-        const map = window._leaflet_map_instance;
-        
-        console.log('Map created successfully');
-        
-        // Add tile layer
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
-        
-        console.log('Tile layer added');
-        
-        // Get form elements
-        const latInput = document.getElementById('latitude');
-        const lonInput = document.getElementById('longitude');
-        let marker = null;
-        
-        // Add click handler
-        map.on('click', function(e) {
-            console.log('Map clicked at:', e.latlng);
-            const { lat, lng } = e.latlng;
-            latInput.value = lat;
-            lonInput.value = lng;
-            
-            if (marker) {
-                marker.setLatLng(e.latlng);
-            } else {
-                marker = L.marker(e.latlng, {draggable: true}).addTo(map);
-                marker.on('dragend', function(event) {
-                    const position = marker.getLatLng();
-                    latInput.value = position.lat;
-                    lonInput.value = position.lng;
-                });
-            }
-            marker.bindPopup("<b>Location of Incident</b><br>You can drag this marker.").openPopup();
-        });
-        
-        console.log('Map initialization complete');
-        
-    } catch (error) {
-        console.error('Map initialization failed:', error);
-        mapDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Error: Failed to initialize map. Please refresh the page.</div>';
-    }
+    if (!mapDiv) return;
+
+    mapDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;"><i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 10px;"></i><br>Loading Google Maps...</div>';
+
+    // Inject Google Maps script dynamically
+    const script = document.createElement('script');
+    const apiKey = "<?php echo function_exists('env') ? env('GOOGLE_MAPS_API_KEY', 'AIzaSyDSePOKkt_W5bY7YsYaEJrMoSRWxTMGnuI') : 'AIzaSyDSePOKkt_W5bY7YsYaEJrMoSRWxTMGnuI'; ?>";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&callback=initGoogleMap`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
 }
 
-// File input handling
+// Global callback for Google Maps API
+window.initGoogleMap = async function() {
+    console.log('Google Maps API Loaded.');
+    const { Map } = await google.maps.importLibrary("maps");
+    const { Marker } = await google.maps.importLibrary("marker");
+
+    const mapDiv = document.getElementById('map');
+    if (!mapDiv) return;
+    mapDiv.innerHTML = ''; // Clear loading text
+
+    // Set map to default coordinates (e.g., Iloilo coordinates)
+    const initialLocation = { lat: 10.7104, lng: 122.5118 };
+
+    map = new Map(mapDiv, {
+        center: initialLocation,
+        zoom: 15,
+        mapTypeId: 'satellite', // Changed to Satellite view as requested
+        mapTypeControl: true,
+        streetViewControl: false,
+    });
+
+    // Form inputs
+    const latInput = document.getElementById('latitude');
+    const lonInput = document.getElementById('longitude');
+
+    // Add click listener
+    map.addListener('click', (e) => {
+        const clickedLocation = e.latLng;
+        latInput.value = clickedLocation.lat();
+        lonInput.value = clickedLocation.lng();
+
+        if (marker) {
+            marker.setPosition(clickedLocation);
+        } else {
+            marker = new Marker({
+                position: clickedLocation,
+                map: map,
+                draggable: true,
+                title: "Incident Location"
+            });
+
+            // Update on drag
+            marker.addListener('dragend', () => {
+                const pos = marker.getPosition();
+                latInput.value = pos.lat();
+                lonInput.value = pos.lng();
+            });
+            
+            const infoWindow = new google.maps.InfoWindow({
+                content: "<b>Location of Incident</b><br>You can drag this marker."
+            });
+            infoWindow.open(map, marker);
+        }
+    });
+
+    // Setup "Find My Location" hardware listener
+    const locateBtn = document.getElementById('locate-btn');
+    if (locateBtn) {
+        locateBtn.addEventListener('click', () => {
+            if (navigator.geolocation) {
+                locateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Locating precise GPS...';
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const pos = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                        };
+                        map.setCenter(pos);
+                        map.setZoom(18); // Zoom in extremely close to their roof
+                        
+                        latInput.value = pos.lat;
+                        lonInput.value = pos.lng;
+
+                        if (marker) {
+                            marker.setPosition(pos);
+                        } else {
+                            marker = new Marker({
+                                position: pos,
+                                map: map,
+                                draggable: true,
+                                title: "Your Generated Location"
+                            });
+                            marker.addListener("dragend", () => {
+                                const newPos = marker.getPosition();
+                                latInput.value = newPos.lat();
+                                lonInput.value = newPos.lng();
+                            });
+                        }
+                        locateBtn.innerHTML = '<i class="fas fa-check"></i> Location Locked!';
+                        setTimeout(() => locateBtn.innerHTML = '<i class="fas fa-crosshairs"></i> Find My Exact Location', 3000);
+                    },
+                    (error) => {
+                        let msg = "The Geolocation service failed.";
+                        if (error.code === 1) msg = "Please allow location permissions in your browser.";
+                        alert("Error: " + msg);
+                        locateBtn.innerHTML = '<i class="fas fa-crosshairs"></i> Find My Exact Location';
+                    }, 
+                    { enableHighAccuracy: true }
+                );
+            } else {
+                alert("Error: Your browser doesn't support the HTML5 geolocation standard.");
+            }
+        });
+    }
+};
+
+// Application logic (Form and Upload listeners)
 function initFileInput() {
     const fileInput = document.getElementById('media');
     const fileNameDisplay = document.getElementById('file-name');
@@ -168,7 +226,6 @@ function initFileInput() {
     });
 }
 
-// Form submission
 function initForm() {
     const form = document.getElementById('incident-form');
     const messageDiv = document.getElementById('form-message');
@@ -226,33 +283,26 @@ function initForm() {
     }
 }
 
-// Initialize everything when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing...');
-    
-    // Initialize form and file input immediately
     initFileInput();
     initForm();
     
-    // Try to initialize map immediately
-    initializeMap();
-    
-    // If map didn't initialize, try again after delays
-    setTimeout(function() {
-        const mapDiv = document.getElementById('map');
-        if (mapDiv && !mapDiv.querySelector('.leaflet-container')) {
-            console.log('Retrying map initialization...');
-            initializeMap();
-        }
-    }, 1000);
-    
-    setTimeout(function() {
-        const mapDiv = document.getElementById('map');
-        if (mapDiv && !mapDiv.querySelector('.leaflet-container')) {
-            console.log('Final map initialization attempt...');
-            initializeMap();
-        }
-    }, 3000);
+    // Lazy Load Observer setup
+    const mapDiv = document.getElementById('map');
+    if (mapDiv && 'IntersectionObserver' in window) {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    initLazyMap();
+                    observer.unobserve(mapDiv); // Only load once
+                }
+            });
+        }, { threshold: 0.1 });
+        observer.observe(mapDiv);
+    } else {
+        // Fallback for browsers without IntersectionObserver
+        initLazyMap();
+    }
 });
 </script>
 
