@@ -139,10 +139,12 @@ $page_title = "Sign In - CommuniLink";
                     
                     // Display rate limit information
                     $rate_limit_info = get_login_rate_limit_info();
-                    if ($rate_limit_info['enabled'] && $rate_limit_info['current_attempts'] > 0) {
-                        $remaining = (int)$rate_limit_info['remaining_attempts'];
+                    if ($rate_limit_info['enabled']) {
                         $is_locked = !empty($rate_limit_info['is_locked']);
-                        if ($remaining > 0 && !$is_locked) {
+                        $remaining = (int)$rate_limit_info['remaining_attempts'];
+                        
+                        // We only show the countdown if NOT locked and attempts > 0
+                        if (!$is_locked && $rate_limit_info['current_attempts'] > 0 && $remaining > 0) {
                             $severityClass = $remaining <= 2 ? 'style="border-left-color:#ef4444;background-color:rgba(239,68,68,0.12);color:#fca5a5;"' : '';
                             echo '<div class="alert alert-warning" ' . $severityClass . '>
                                     <p style="display:flex;align-items:center;gap:.5rem;margin:0;">
@@ -150,7 +152,8 @@ $page_title = "Sign In - CommuniLink";
                                         <span>Login attempts remaining: <strong style="color:#fbbf24">' . $remaining . '</strong></span>
                                     </p>
                                   </div>';
-                        } elseif ($is_locked) {
+                        } elseif ($is_locked && empty($login_err)) {
+                            // Only show this banner if the generic $login_err isn't already warning us
                             $minutes = ceil($rate_limit_info['lockout_remaining'] / 60);
                             echo '<div class="alert alert-error"><p>🚫 Account temporarily locked. Please try again in ' . $minutes . ' minutes.</p></div>';
                         }
