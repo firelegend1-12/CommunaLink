@@ -7,6 +7,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] !== 'admin')) {
 
 include_once '../../config/database.php';
 include_once '../../includes/functions.php';
+include_once '../../config/env_loader.php';
 
 $title = "Maps";
 ?>
@@ -18,7 +19,6 @@ $title = "Maps";
     <title><?php echo $title; ?> - Barangay Management System</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         #incident-map { height: 500px; width: 100%; border-radius: 0.75rem; }
@@ -72,63 +72,71 @@ $title = "Maps";
                         <div id="incident-map" class="border border-gray-200 rounded-lg"></div>
                         <div class="legend">
                             <div class="flex items-center gap-2 mb-1"><span class="inline-block w-4 h-4 rounded-full bg-blue-600"></span> Incident Report</div>
-                            <div class="flex items-center gap-2"><img src="https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png" class="w-4 h-6" alt="Barangay Center"> Barangay Center</div>
+                            <div class="flex items-center gap-2"><img src="http://maps.google.com/mapfiles/ms/icons/red-dot.png" class="w-4 h-6" alt="Barangay Center" style="object-fit:contain;"> Barangay Center</div>
                         </div>
                     </div>
                 </div>
             </main>
         </div>
     </div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-    const map = L.map('incident-map').setView([10.710827350642523, 122.51720118954563], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
-
-    // Add a default marker for the barangay center
-    L.marker([10.710827350642523, 122.51720118954563]).addTo(map)
-        .bindPopup('<b>Barangay Center</b>');
-
-    let allReports = [];
+    let map;
     let markers = [];
     let lastOpenIncidentId = null;
-    let lastOpenLatLng = null;
     let lastIncidentDataHash = '';
+    let infoWindow;
+
+    function initMap() {
+        const center = { lat: 10.710827350642523, lng: 122.51720118954563 };
+        map = new google.maps.Map(document.getElementById('incident-map'), {
+            center: center,
+            zoom: 14,
+            mapTypeId: 'hybrid'
+        });
+
+        // Add a default marker for the barangay center
+        new google.maps.Marker({
+            position: center,
+            map: map,
+            title: 'Barangay Center'
+        });
+
+        infoWindow = new google.maps.InfoWindow();
+
+        fetchAndUpdateReports();
+        setInterval(fetchAndUpdateReports, 1000);
+    }
 
     function clearMarkers() {
-        markers.forEach(m => map.removeLayer(m));
+        markers.forEach(m => m.setMap(null));
         markers = [];
     }
 
     function addMarkers(reports) {
-        // Find if a popup is open and record its incident ID and latlng
-        let openPopupIncidentId = null;
-        let openPopupLatLng = null;
-        if (map._popup && map._popup._isOpen) {
-            // Try to find the marker with an open popup
-            markers.forEach(m => {
-                if (m.getPopup() && m.getPopup().isOpen()) {
-                    openPopupIncidentId = m.incidentId;
-                    openPopupLatLng = m.getLatLng();
-                }
-            });
-        }
         clearMarkers();
         let foundOpen = false;
+        
         reports.forEach(report => {
             if (report.latitude && report.longitude) {
                 const lat = parseFloat(report.latitude);
                 const lng = parseFloat(report.longitude);
                 if (isNaN(lat) || isNaN(lng)) return;
-                const marker = L.circleMarker([lat, lng], {
-                    radius: 10,
-                    color: '#2563eb',
-                    fillColor: '#2563eb',
-                    fillOpacity: 0.85,
-                    weight: 2
-                }).addTo(map);
+                
+                const pos = { lat, lng };
+
+                const marker = new google.maps.Marker({
+                    position: pos,
+                    map: map,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        fillColor: '#2563eb',
+                        fillOpacity: 0.85,
+                        strokeWeight: 2,
+                        strokeColor: '#2563eb',
+                        scale: 8
+                    }
+                });
+
                 let locationText = report.location;
                 if (lat && lng) {
                     locationText = `GPS: ${lat}, ${lng}`;
@@ -139,33 +147,24 @@ $title = "Maps";
                      ${locationText}<br>
                      ${report.description}<br>
                      <small>Reported: ${report.reported_at}</small>`;
-                marker.bindPopup(popupContent);
-                marker.incidentId = report.id;
-                marker.on('popupopen', function() {
+
+                marker.addListener("click", () => {
+                    infoWindow.setContent(popupContent);
+                    infoWindow.open(map, marker);
                     lastOpenIncidentId = report.id;
-                    lastOpenLatLng = marker.getLatLng();
                 });
-                marker.on('popupclose', function() {
-                    if (lastOpenIncidentId === report.id) {
-                        lastOpenIncidentId = null;
-                        lastOpenLatLng = null;
-                    }
-                });
-                // If this marker's popup should be open, open it
-                if (
-                    (openPopupIncidentId && openPopupIncidentId === report.id && openPopupLatLng && marker.getLatLng().equals(openPopupLatLng)) ||
-                    (lastOpenIncidentId === report.id && lastOpenLatLng && marker.getLatLng().equals(lastOpenLatLng))
-                ) {
-                    marker.openPopup();
+
+                if (lastOpenIncidentId === report.id) {
+                    infoWindow.setContent(popupContent);
+                    infoWindow.open(map, marker);
                     foundOpen = true;
                 }
                 markers.push(marker);
             }
         });
-        // If the previously open marker is gone, clear the state
+
         if (!foundOpen) {
             lastOpenIncidentId = null;
-            lastOpenLatLng = null;
         }
     }
 
@@ -173,22 +172,20 @@ $title = "Maps";
         document.getElementById('report-count').textContent = `Showing ${count} report${count === 1 ? '' : 's'}`;
     }
 
+    let allReports = [];
     function filterReports(range) {
         let filtered = [];
         const now = new Date();
-        const fromDate = document.getElementById('date-from').value ? new Date(document.getElementById('date-from').value) : null;
-        const toDate = document.getElementById('date-to').value ? new Date(document.getElementById('date-to').value) : null;
+        const fromDateDom = document.getElementById('date-from').value;
+        const toDateDom = document.getElementById('date-to').value;
+        const fromDate = fromDateDom ? new Date(fromDateDom) : null;
+        const toDate = toDateDom ? new Date(toDateDom) : null;
+
         allReports.forEach(report => {
             if (!report.reported_at) return;
             const reported = new Date(report.reported_at);
             let match = false;
-            if (fromDate && reported < fromDate) return;
-            if (toDate) {
-                // Add 1 day to include the end date
-                let toDatePlus = new Date(toDate);
-                toDatePlus.setDate(toDatePlus.getDate() + 1);
-                if (reported >= toDatePlus) return;
-            }
+            
             if (range === 'overall' && !fromDate && !toDate) {
                 match = true;
             } else if (range === 'today') {
@@ -205,9 +202,20 @@ $title = "Maps";
                 const yearAgo = new Date(now);
                 yearAgo.setFullYear(now.getFullYear() - 1);
                 match = reported >= yearAgo && reported <= now;
-            } else if (fromDate || toDate) {
-                match = true;
             }
+
+            if (fromDate && reported < fromDate) match = false;
+            if (toDate) {
+                let toDatePlus = new Date(toDate);
+                toDatePlus.setDate(toDatePlus.getDate() + 1);
+                if (reported >= toDatePlus) match = false;
+            }
+            if ((fromDate || toDate) && range === 'overall') {
+                match = true;
+                if (fromDate && reported < fromDate) match = false;
+                if (toDate && reported >= new Date(new Date(toDate).setDate(new Date(toDate).getDate() + 1))) match = false;
+            }
+
             if (match) filtered.push(report);
         });
         addMarkers(filtered);
@@ -218,7 +226,8 @@ $title = "Maps";
     document.getElementById('date-from').onchange = () => filterReports(document.getElementById('filter-range').value);
     document.getElementById('date-to').onchange = () => filterReports(document.getElementById('filter-range').value);
     document.getElementById('center-barangay').onclick = () => {
-        map.setView([10.710827350642523, 122.51720118954563], 17);
+        map.setCenter({ lat: 10.710827350642523, lng: 122.51720118954563 });
+        map.setZoom(17);
     };
 
     function fetchAndUpdateReports() {
@@ -226,7 +235,6 @@ $title = "Maps";
             .then(res => res.json())
             .then(data => {
                 if (data.incidents) {
-                    // Compare new data to previous
                     const newHash = JSON.stringify(data.incidents.map(i => ({id:i.id,lat:i.latitude,lng:i.longitude,updated:i.reported_at,status:i.status})));
                     if (newHash !== lastIncidentDataHash) {
                         allReports = data.incidents;
@@ -236,8 +244,10 @@ $title = "Maps";
                 }
             });
     }
-    fetchAndUpdateReports();
-    setInterval(fetchAndUpdateReports, 1000);
     </script>
+    <?php
+    $apiKey = function_exists('env') ? env('GOOGLE_MAPS_API_KEY', 'AIzaSyDSePOKkt_W5bY7YsYaEJrMoSRWxTMGnuI') : 'AIzaSyDSePOKkt_W5bY7YsYaEJrMoSRWxTMGnuI';
+    ?>
+    <script src="https://maps.googleapis.com/maps/api/js?key=<?php echo $apiKey; ?>&callback=initMap" async defer></script>
 </body>
 </html> 
