@@ -15,6 +15,9 @@ $user_id = $_SESSION['user_id'];
 if (isset($_POST['add_announcement'])) {
     $title = sanitize_input($_POST['title']);
     $content = sanitize_input($_POST['content']);
+    $status = sanitize_input($_POST['status'] ?? 'active');
+    $is_urgent = isset($_POST['is_urgent']) ? 1 : 0;
+    $priority = $is_urgent ? 'urgent' : 'normal';
     $image_path = null;
 
     if (empty($title) || empty($content)) {
@@ -54,11 +57,11 @@ if (isset($_POST['add_announcement'])) {
     }
 
     try {
-        $stmt = $pdo->prepare("INSERT INTO announcements (user_id, title, content, image_path) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$user_id, $title, $content, $image_path]);
+        $stmt = $pdo->prepare("INSERT INTO announcements (user_id, title, content, image_path, status, priority) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$user_id, $title, $content, $image_path, $status, $priority]);
         // Log add (readable format)
         $new_str = '';
-        foreach (['title' => $title, 'content' => $content, 'image_path' => $image_path] as $k => $v) {
+        foreach (['title' => $title, 'content' => $content, 'image_path' => $image_path, 'status' => $status, 'priority' => $priority] as $k => $v) {
             if ($v) $new_str .= "$k: $v\n";
         }
         log_activity_db(
@@ -84,6 +87,9 @@ if (isset($_POST['update_announcement'])) {
     $announcement_id = filter_input(INPUT_POST, 'announcement_id', FILTER_VALIDATE_INT);
     $title = sanitize_input($_POST['title']);
     $content = sanitize_input($_POST['content']);
+    $status = sanitize_input($_POST['status'] ?? 'active');
+    $is_urgent = isset($_POST['is_urgent']) ? 1 : 0;
+    $priority = $is_urgent ? 'urgent' : 'normal';
     $image_path = null;
 
     if (!$announcement_id || empty($title) || empty($content)) {
@@ -130,6 +136,8 @@ if (isset($_POST['update_announcement'])) {
         $new_data = [
             'title' => $title,
             'content' => $content,
+            'status' => $status,
+            'priority' => $priority,
             'image_path' => $image_path ?? $old_data['image_path']
         ];
         // Only log changed fields
@@ -147,11 +155,11 @@ if (isset($_POST['update_announcement'])) {
         foreach ($changed_old as $k => $v) $old_str .= "$k: $v\n";
         foreach ($changed_new as $k => $v) $new_str .= "$k: $v\n";
         if ($image_path) {
-            $stmt = $pdo->prepare("UPDATE announcements SET title = ?, content = ?, image_path = ? WHERE id = ?");
-            $stmt->execute([$title, $content, $image_path, $announcement_id]);
+            $stmt = $pdo->prepare("UPDATE announcements SET title = ?, content = ?, status = ?, priority = ?, image_path = ? WHERE id = ?");
+            $stmt->execute([$title, $content, $status, $priority, $image_path, $announcement_id]);
         } else {
-            $stmt = $pdo->prepare("UPDATE announcements SET title = ?, content = ? WHERE id = ?");
-            $stmt->execute([$title, $content, $announcement_id]);
+            $stmt = $pdo->prepare("UPDATE announcements SET title = ?, content = ?, status = ?, priority = ? WHERE id = ?");
+            $stmt->execute([$title, $content, $status, $priority, $announcement_id]);
         }
         // Log update (only if something changed)
         if (!empty($changed_old)) {

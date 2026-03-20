@@ -30,7 +30,11 @@ try {
             <header class="bg-white shadow-sm z-10">
                 <div class="px-4 sm:px-6 lg:px-8">
                     <div class="flex items-center justify-between h-16">
-                        <h1 class="text-2xl font-semibold text-gray-800"><?= $page_title ?></h1>
+                        <div class="flex items-center">
+                            <a href="announcements.php" class="text-gray-500 hover:text-gray-700">Announcements</a>
+                            <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
+                            <h1 class="text-2xl font-semibold text-gray-800"><?= $page_title ?></h1>
+                        </div>
                     </div>
                 </div>
             </header>

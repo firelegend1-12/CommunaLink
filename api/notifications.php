@@ -47,6 +47,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action'])) {
         } catch (PDOException $e) {
             $response = ['error' => 'Database error: ' . $e->getMessage()];
         }
+    } elseif ($_GET['action'] === 'get_events_counts') {
+        try {
+            // Events happening today or tomorrow
+            $stmtEvt = $pdo->query("SELECT COUNT(*) FROM events WHERE event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 1 DAY)");
+            $upcomingEvents = (int)$stmtEvt->fetchColumn();
+            $response = [
+                'success' => true,
+                'events'  => $upcomingEvents,
+            ];
+        } catch (PDOException $e) {
+            $response = ['error' => 'Database error: ' . $e->getMessage()];
+        }
     }
 }
 

@@ -30,16 +30,15 @@ function createBusinessAnnouncement($template_name, $data = [], $user_id = null)
         // Create announcement
         $stmt = $pdo->prepare("
             INSERT INTO announcements (
-                title, content, category, priority, target_audience, 
+                title, content, priority, target_audience, 
                 user_id, is_auto_generated, related_business_id, 
                 related_permit_number, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, 'active', NOW())
+            ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, 'active', NOW())
         ");
         
         $stmt->execute([
             $title,
             $content,
-            $template['category'],
             $template['priority'],
             $template['target_audience'],
             $user_id ?? $_SESSION['user_id'] ?? 1,
@@ -328,9 +327,6 @@ function getAnnouncementStats() {
             SELECT 
                 COUNT(*) as total_announcements,
                 COUNT(CASE WHEN status = 'active' THEN 1 END) as active_announcements,
-                COUNT(CASE WHEN status = 'scheduled' THEN 1 END) as scheduled_announcements,
-                COUNT(CASE WHEN is_auto_generated = 1 THEN 1 END) as auto_generated,
-                COUNT(CASE WHEN category = 'business' THEN 1 END) as business_announcements,
                 COUNT(CASE WHEN priority = 'urgent' THEN 1 END) as urgent_announcements
             FROM announcements
         ");

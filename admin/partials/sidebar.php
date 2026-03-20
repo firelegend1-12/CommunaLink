@@ -61,115 +61,17 @@ if ($hour >= 12 && $hour < 18) {
         </div>
         
         <!-- JavaScript for dropdown functionality -->
-        <style>
-            /* Ensure sidebar maintains consistent size */
-            .sidebar-container {
-                width: 16rem !important;
-                min-width: 16rem !important;
-                max-width: 16rem !important;
-                flex-shrink: 0 !important;
-            }
-            
-            .admin-dropdown .dropdown-container {
-                border-left: 3px solid #3b82f6;
-            }
-            .admin-dropdown .dropdown-container button {
-                border-left: 3px solid transparent;
-            }
-            .admin-dropdown .dropdown-container button:hover {
-                border-left-color: #3b82f6;
-            }
-
-            /* Chat notification badges */
-            .chat-unread-dot {
-                display: none;
-                width: 9px;
-                height: 9px;
-                background: #ef4444;
-                border-radius: 50%;
-                margin-left: 6px;
-                flex-shrink: 0;
-                animation: pulse-dot 1.5s infinite;
-            }
-            @keyframes pulse-dot {
-                0%, 100% { opacity: 1; transform: scale(1); }
-                50%       { opacity: 0.55; transform: scale(1.3); }
-            }
-            .chat-unread-badge {
-                display: none;
-                background: #ef4444;
-                color: #fff;
-                font-size: 10px;
-                font-weight: 700;
-                border-radius: 999px;
-                min-width: 18px;
-                height: 18px;
-                padding: 0 5px;
-                line-height: 18px;
-                text-align: center;
-                margin-left: auto;
-                flex-shrink: 0;
-            }
-        </style>
+        <!-- External Sidebar Assets -->
+        <?php $asset_path = ($current_dir === 'pages') ? '../../assets' : '../assets'; ?>
+        <link rel="stylesheet" href="<?php echo $asset_path; ?>/css/admin-sidebar.min.css?v=<?= filemtime(__DIR__ . '/../../assets/css/admin-sidebar.min.css') ?>">
         <script>
-            // Dropdown toggle function
-            function toggleDropdown(dropdownId) {
-                const contentId = dropdownId.replace('-dropdown', '-content');
-                const chevronId = dropdownId.replace('-dropdown', '-chevron');
-                const content = document.getElementById(contentId);
-                const chevron = document.getElementById(chevronId);
-                
-                if (content && chevron) {
-                    if (content.style.display === 'none' || content.style.display === '') {
-                        content.style.display = 'block';
-                        chevron.style.transform = 'rotate(180deg)';
-                    } else {
-                        content.style.display = 'none';
-                        chevron.style.transform = 'rotate(0deg)';
-                    }
-                }
-            }
-            
-            // Ensure Alpine.js is properly initialized
-            document.addEventListener('DOMContentLoaded', function() {
-                if (typeof Alpine !== 'undefined') {
-                    // Alpine.js is available
-                } else {
-                    // Fallback: manually handle dropdowns if Alpine.js fails
-                    console.log('Alpine.js not available, using fallback');
-                    const currentPage = '<?php echo $current_page; ?>';
-                    
-                    // Define which pages should open which dropdowns
-                    const dropdownConfig = {
-                        'incident-reports.php': 'report-dropdown',
-                        'maps.php': 'report-dropdown',
-                        'business-records.php': 'business-dropdown',
-                        'business-transactions.php': 'business-dropdown',
-                        'business-monitoring.php': 'business-dropdown',
-                        'new-barangay-clearance.php': 'document-dropdown',
-                        'new-certificate-of-indigency.php': 'document-dropdown',
-                        'new-certificate-of-residency.php': 'document-dropdown',
-                        'new-barangay-business-clearance.php': 'document-dropdown',
-
-                        'user-management.php': 'admin-dropdown',
-                        'chat.php': 'admin-dropdown',
-                        'logs.php': 'admin-dropdown',
-                        'rate-limiting.php': 'admin-dropdown',
-                        'performance.php': 'admin-dropdown',
-
-                    };
-                    
-                    // Open the appropriate dropdown if current page matches
-                    if (dropdownConfig[currentPage]) {
-                        const dropdownId = dropdownConfig[currentPage];
-                        const dropdown = document.getElementById(dropdownId);
-                        if (dropdown) {
-                            dropdown.classList.remove('hidden');
-                        }
-                    }
-                }
-            });
+            window.sidebarConfig = {
+                currentPage: '<?php echo $current_page; ?>',
+                apiBase: '<?php echo ($current_dir === "pages") ? "../../api/chat.php" : "../api/chat.php"; ?>',
+                notifBase: '<?php echo ($current_dir === "pages") ? "../../api/notifications.php" : "../api/notifications.php"; ?>'
+            };
         </script>
+        <script src="<?php echo $asset_path; ?>/js/admin-sidebar.min.js?v=<?= filemtime(__DIR__ . '/../../assets/js/admin-sidebar.min.js') ?>" defer></script>
 
         <!-- Navigation Links -->
         <div class="flex-grow px-4 py-2 mt-4">
@@ -211,19 +113,30 @@ if ($hour >= 12 && $hour < 18) {
                     </div>
                 </div>
 
-                <!-- Announcements Link -->
-                <a href="<?php echo ($current_dir === 'admin') ? 'pages/announcements.php' : 'announcements.php'; ?>" class="<?php echo $current_page === 'announcements.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                    <i class="fas fa-newspaper mr-3 text-lg <?php echo $current_page === 'announcements.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
-                    Announcements
-                </a>
-                
-
-                
-                <!-- Events Link -->
-                <a href="<?php echo ($current_dir === 'admin') ? 'pages/events.php' : 'events.php'; ?>" class="<?php echo $current_page === 'events.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                    <i class="fas fa-calendar-alt mr-3 text-lg <?php echo $current_page === 'events.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
-                    Events
-                </a>
+                <!-- Announcements Dropdown -->
+                <div id="announcement-dropdown" class="dropdown-container">
+                    <button onclick="toggleDropdown('announcement-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['announcements.php', 'events.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
+                        <i class="fas fa-bullhorn mr-3 text-lg <?php echo in_array($current_page, ['announcements.php', 'events.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
+                        Announcements
+                        <span id="events-unread-dot" class="chat-unread-dot"></span>
+                        <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200" id="announcement-chevron"></i>
+                    </button>
+                    <div id="announcement-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['announcements.php', 'events.php']) ? 'block' : 'none'; ?>">
+                        <div>
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/announcements.php' : 'announcements.php'; ?>" class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'announcements.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                                <i class="fas fa-newspaper mr-2 text-gray-400"></i>
+                                All Announcements
+                            </a>
+                        </div>
+                        <div>
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/events.php' : 'events.php'; ?>" class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'events.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                                <i class="fas fa-calendar-alt mr-2 text-gray-400"></i>
+                                Events
+                                <span id="events-badge" class="chat-unread-badge"></span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
                 
                 <!-- Monitoring of Request Link -->
                 <a href="<?php echo ($current_dir === 'admin') ? 'pages/monitoring-of-request.php' : 'monitoring-of-request.php'; ?>" class="<?php echo $current_page === 'monitoring-of-request.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
@@ -364,77 +277,4 @@ if ($hour >= 12 && $hour < 18) {
         </div>
     </div>
 </div>
-
-<script>
-(function() {
-    const apiBase = '<?php echo ($current_dir === "pages") ? "../../api/chat.php" : "../api/chat.php"; ?>';
-    const notifBase = '<?php echo ($current_dir === "pages") ? "../../api/notifications.php" : "../api/notifications.php"; ?>';
-    const dot   = document.getElementById('admin-unread-dot');
-    const badge = document.getElementById('chat-unread-badge');
-
-    // Business badge elements
-    const bizDot        = document.getElementById('biz-unread-dot');
-    const bizRecBadge   = document.getElementById('biz-records-badge');
-    const bizTxBadge    = document.getElementById('biz-transactions-badge');
-
-    function showBadge(el, count) {
-        if (!el) return;
-        if (count > 0) {
-            el.textContent    = count > 99 ? '99+' : count;
-            el.style.display  = 'inline-block';
-        } else {
-            el.style.display  = 'none';
-        }
-    }
-    function showDot(el, visible) {
-        if (!el) return;
-        el.style.display = visible ? 'inline-block' : 'none';
-    }
-
-    function updateUnreadBadge() {
-        fetch(apiBase + '?action=get_unread_count')
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success) return;
-                const count = data.unread || 0;
-                showBadge(badge, count);
-                showDot(dot, count > 0);
-            })
-            .catch(() => {});
-    }
-
-    function updateBusinessBadges() {
-        fetch(notifBase + '?action=get_business_counts')
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success) return;
-                showBadge(bizRecBadge, data.businesses || 0);
-                showBadge(bizTxBadge,  data.transactions || 0);
-                showDot(bizDot, (data.total || 0) > 0);
-            })
-            .catch(() => {});
-    }
-
-    function updateIncidentBadges() {
-        fetch(notifBase + '?action=get_incident_counts')
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success) return;
-                const count = data.incidents || 0;
-                showBadge(document.getElementById('incident-reports-badge'), count);
-                showDot(document.getElementById('report-unread-dot'), count > 0);
-            })
-            .catch(() => {});
-    }
-
-    // Expose so admin/pages/chat.php can trigger immediate refresh
-    window.updateUnreadBadge = updateUnreadBadge;
-
-    updateUnreadBadge();
-    updateBusinessBadges();
-    updateIncidentBadges();
-    setInterval(updateUnreadBadge,    10000);
-    setInterval(updateBusinessBadges, 10000);
-    setInterval(updateIncidentBadges, 10000);
-})();
-</script> 
+
