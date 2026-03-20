@@ -6,24 +6,21 @@ require_once '../../includes/business_announcement_functions.php';
 $page_title = "Manage Announcements";
 
 // Get filters
-$category_filter = isset($_GET['category']) ? $_GET['category'] : '';
-$status_filter = isset($_GET['status']) ? $_GET['status'] : '';
+$status_filter   = isset($_GET['status'])   ? $_GET['status']   : '';
+$priority_filter = isset($_GET['priority']) ? $_GET['priority'] : '';
 
 try {
     // Build query with filters
-    $sql = "SELECT a.*, u.fullname as author_name FROM announcements a JOIN users u ON a.user_id = u.id WHERE 1=1";
     $params = [];
-    
-    if ($category_filter) {
-        $sql .= " AND a.category = ?";
-        $params[] = $category_filter;
-    }
-    
 
-    
     if ($status_filter) {
         $sql .= " AND a.status = ?";
         $params[] = $status_filter;
+    }
+
+    if ($priority_filter) {
+        $sql .= " AND a.priority = ?";
+        $params[] = $priority_filter;
     }
     
     $sql .= " ORDER BY a.created_at DESC";
@@ -121,16 +118,7 @@ try {
                 <!-- Filters -->
                 <div class="bg-white rounded-lg shadow p-6 mb-6">
                     <div class="flex flex-wrap items-center gap-4">
-                        <div>
-                            <label for="category-filter" class="block text-sm font-medium text-gray-700">Category</label>
-                            <select id="category-filter" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                                <option value="">All Categories</option>
-                                <option value="general" <?php echo $category_filter === 'general' ? 'selected' : ''; ?>>General</option>
-                                <option value="business" <?php echo $category_filter === 'business' ? 'selected' : ''; ?>>Business</option>
-                                <option value="emergency" <?php echo $category_filter === 'emergency' ? 'selected' : ''; ?>>Emergency</option>
-                                <option value="event" <?php echo $category_filter === 'event' ? 'selected' : ''; ?>>Event</option>
-                            </select>
-                        </div>
+
                         
 
                         
@@ -139,8 +127,16 @@ try {
                             <select id="status-filter" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                                 <option value="">All Status</option>
                                 <option value="active" <?php echo $status_filter === 'active' ? 'selected' : ''; ?>>Active</option>
-                                <option value="scheduled" <?php echo $status_filter === 'scheduled' ? 'selected' : ''; ?>>Scheduled</option>
-                                <option value="expired" <?php echo $status_filter === 'expired' ? 'selected' : ''; ?>>Expired</option>
+                                <option value="draft"  <?php echo $status_filter === 'draft'  ? 'selected' : ''; ?>>Draft</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="priority-filter" class="block text-sm font-medium text-gray-700">Priority</label>
+                            <select id="priority-filter" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                                <option value="">All Priority</option>
+                                <option value="urgent" <?php echo $priority_filter === 'urgent' ? 'selected' : ''; ?>>Urgent</option>
+                                <option value="normal" <?php echo $priority_filter === 'normal' ? 'selected' : ''; ?>>Normal</option>
                             </select>
                         </div>
                         
@@ -170,7 +166,6 @@ try {
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
 
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Author</th>
@@ -193,12 +188,7 @@ try {
                                                             </span>
                                                         <?php endif; ?>
                                                     </div>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                        <?= ucfirst($ann['category'] ?? 'general') ?>
-                                                    </span>
-                                                </td>
+
 
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <?php 
@@ -238,7 +228,7 @@ try {
                                                                  class="fixed z-50 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5"
                                                                  :style="'top: ' + top + 'px; left: ' + left + 'px;'">
                                                                 <div class="py-1">
-                                                                    <button @click="editModal = true; editingAnnouncement = {id: <?= $ann['id'] ?>, title: '<?= htmlspecialchars(addslashes($ann['title'])) ?>', content: '<?= str_replace(array('\r', '\n'), array('\\r', '\\n'), htmlspecialchars(addslashes($ann['content']))) ?>', category: '<?= $ann['category'] ?? 'general' ?>', priority: '<?= $ann['priority'] ?? 'normal' ?>', status: '<?= $ann['status'] ?? 'active' ?>'}; open = false;" class="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100">Edit</button>
+                                                                    <button @click="editModal = true; editingAnnouncement = {id: <?= $ann['id'] ?>, title: '<?= htmlspecialchars(addslashes($ann['title'])) ?>', content: '<?= str_replace(array('\r', '\n'), array('\\r', '\\n'), htmlspecialchars(addslashes($ann['content']))) ?>', priority: '<?= $ann['priority'] ?? 'normal' ?>', status: '<?= $ann['status'] ?? 'active' ?>'}; open = false;" class="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100">Edit</button>
                                                                     <button @click="deleteModal = true; announcementIdToDelete = <?= $ann['id'] ?>; open = false;" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">Delete</button>
                                                                 </div>
                                                             </div>
@@ -267,15 +257,7 @@ try {
                         <label for="title" class="block text-sm font-medium text-gray-700">Title</label>
                         <input type="text" name="title" id="title" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     </div>
-                    <div>
-                        <label for="category" class="block text-sm font-medium text-gray-700">Category</label>
-                        <select name="category" id="category" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                            <option value="general">General</option>
-                            <option value="event">Event</option>
-                            <option value="emergency">Emergency</option>
-                            <option value="business">Business</option>
-                        </select>
-                    </div>
+
                     <div>
                         <label for="content" class="block text-sm font-medium text-gray-700">Content</label>
                         <textarea name="content" id="content" rows="6" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
@@ -334,15 +316,7 @@ try {
                         <label for="edit_title" class="block text-sm font-medium text-gray-700">Title</label>
                         <input type="text" name="title" id="edit_title" x-bind:value="editingAnnouncement?.title" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     </div>
-                    <div>
-                        <label for="edit_category" class="block text-sm font-medium text-gray-700">Category</label>
-                        <select name="category" id="edit_category" x-model="editingAnnouncement.category" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                            <option value="general">General</option>
-                            <option value="event">Event</option>
-                            <option value="emergency">Emergency</option>
-                            <option value="business">Business</option>
-                        </select>
-                    </div>
+
                     <div>
                         <label for="edit_content" class="block text-sm font-medium text-gray-700">Content</label>
                         <textarea name="content" id="edit_content" rows="6" x-bind:value="editingAnnouncement?.content" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
@@ -385,12 +359,12 @@ try {
     });
     
     function applyFilters() {
-        const category = document.getElementById('category-filter').value;
-        const status = document.getElementById('status-filter').value;
+        const status   = document.getElementById('status-filter').value;
+        const priority = document.getElementById('priority-filter').value;
         
         const params = new URLSearchParams();
-        if (category) params.append('category', category);
-        if (status) params.append('status', status);
+        if (status)   params.append('status', status);
+        if (priority) params.append('priority', priority);
         
         window.location.href = 'announcements.php?' + params.toString();
     }

@@ -30,16 +30,15 @@ function createBusinessAnnouncement($template_name, $data = [], $user_id = null)
         // Create announcement
         $stmt = $pdo->prepare("
             INSERT INTO announcements (
-                title, content, category, priority, target_audience, 
+                title, content, priority, target_audience, 
                 user_id, is_auto_generated, related_business_id, 
                 related_permit_number, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, 'active', NOW())
+            ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, 'active', NOW())
         ");
         
         $stmt->execute([
             $title,
             $content,
-            $template['category'],
             $template['priority'],
             $template['target_audience'],
             $user_id ?? $_SESSION['user_id'] ?? 1,
