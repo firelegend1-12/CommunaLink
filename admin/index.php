@@ -351,7 +351,6 @@ $today_quote = $quotes[array_rand($quotes)];
                                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resident</th>
                                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody class="bg-white divide-y divide-gray-200" id="transactions-table-body">
@@ -363,7 +362,7 @@ $today_quote = $quotes[array_rand($quotes)];
                                                 </tr>
                                             <?php else: ?>
                                                 <?php foreach ($latest_transactions as $trans): ?>
-                                                    <tr>
+                                                    <tr class="hover:bg-gray-50 cursor-pointer transition duration-150" onclick="window.location.href='pages/business-transactions.php'">
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo htmlspecialchars($trans['id']); ?></td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($trans['transaction_type']); ?></td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo htmlspecialchars($trans['owner_name']); ?></td>
@@ -373,13 +372,6 @@ $today_quote = $quotes[array_rand($quotes)];
                                                                 <?php echo $trans['status'] === 'APPROVED' ? 'bg-green-100 text-green-800' : ($trans['status'] === 'REJECTED' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'); ?>">
                                                                 <?php echo htmlspecialchars($trans['status']); ?>
                                                             </span>
-                                                        </td>
-                                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium flex space-x-2">
-                                                            <a href="pages/view-transaction.php?id=<?= $trans['id'] ?>" class="text-blue-600 hover:text-blue-900 border border-blue-200 px-2 py-1 rounded bg-blue-50 transition" title="View"><i class="fas fa-eye"></i></a>
-                                                            <?php if ($trans['status'] === 'PENDING'): ?>
-                                                                <button onclick="alert('Inline Approve coming soon!')" class="text-green-600 hover:text-green-900 border border-green-200 px-2 py-1 rounded bg-green-50 transition" title="Approve"><i class="fas fa-check"></i></button>
-                                                                <button onclick="alert('Inline Reject coming soon!')" class="text-red-600 hover:text-red-900 border border-red-200 px-2 py-1 rounded bg-red-50 transition" title="Reject"><i class="fas fa-times"></i></button>
-                                                            <?php endif; ?>
                                                         </td>
                                                     </tr>
                                                 <?php endforeach; ?>
@@ -421,25 +413,6 @@ $today_quote = $quotes[array_rand($quotes)];
                     
                     <!-- Right Column (1/3 width on large screens) -->
                     <div class="space-y-6">
-                        <!-- Today's Quote -->
-                        <div class="bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow p-6 text-white">
-                            <div class="flex items-center mb-4">
-                                <i class="fas fa-quote-left text-white text-opacity-50 text-2xl"></i>
-                                <h3 class="ml-2 text-lg font-medium">Today's Quote</h3>
-                            </div>
-                            <p class="text-white text-opacity-90 italic mb-4">"<?php echo $today_quote; ?>"</p>
-                        </div>
-                        
-                            <div class="flex justify-between items-center text-sm mb-2 opacity-80">
-                                <span><i class="fas fa-sun text-yellow-400 mr-2"></i>Sunset in Oton:</span>
-                                <span class="font-bold"><?= $sunset_info['sunset_time'] ?></span>
-                            </div>
-                            <div class="w-full bg-gray-600 rounded-full h-2">
-                                <div class="bg-gradient-to-r from-yellow-400 to-orange-500 h-2 rounded-full" style="width: <?= min(100, max(0, 100 - ($sunset_info['hours_until'] * 8))) ?>%"></div>
-                            </div>
-                            <p class="text-xs text-right mt-2 text-gray-400"><?= $sunset_info['hours_until'] ?> hr <?= $sunset_info['minutes_until'] ?> min left of daylight</p>
-                        </div>
-                        
                         <!-- Quick Actions -->
                         <div class="bg-white rounded-lg shadow p-4">
                             <div class="flex items-center mb-3">
@@ -469,7 +442,28 @@ $today_quote = $quotes[array_rand($quotes)];
                                 </a>
                             </div>
                         </div>
+
+                        <!-- Today's Quote -->
+                        <div class="bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow p-6 text-white">
+                            <div class="flex items-center mb-4">
+                                <i class="fas fa-quote-left text-white text-opacity-50 text-2xl"></i>
+                                <h3 class="ml-2 text-lg font-medium">Today's Quote</h3>
+                            </div>
+                            <p class="text-white text-opacity-90 italic mb-4">"<?php echo $today_quote; ?>"</p>
+                        </div>
                         
+                        <!-- Sunset Info -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <div class="flex justify-between items-center text-sm mb-2 opacity-80">
+                                <span><i class="fas fa-sun text-yellow-400 mr-2"></i>Sunset in Oton:</span>
+                                <span class="font-bold"><?= $sunset_info['sunset_time'] ?></span>
+                            </div>
+                            <div class="w-full bg-gray-600 rounded-full h-2">
+                                <div class="bg-gradient-to-r from-yellow-400 to-orange-500 h-2 rounded-full" style="width: <?= min(100, max(0, 100 - ($sunset_info['hours_until'] * 8))) ?>%"></div>
+                            </div>
+                            <p class="text-xs text-right mt-2 text-gray-400"><?= $sunset_info['hours_until'] ?> hr <?= $sunset_info['minutes_until'] ?> min left of daylight</p>
+                        </div>
+
                         <!-- Upcoming Events & Reminders -->
                         <?php
                         // Fetch next 5 upcoming events
