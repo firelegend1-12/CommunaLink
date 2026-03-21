@@ -8,8 +8,8 @@ require_once '../../includes/auth.php';
 
 header('Content-Type: application/json');
 
-// Check if user is logged in as admin
-if (!is_logged_in() || $_SESSION['role'] !== 'admin') {
+// Check if user is logged in as an authorized official
+if (!is_admin_or_official()) {
     echo json_encode(['success' => false, 'error' => 'Unauthorized']);
     exit;
 }
@@ -41,10 +41,10 @@ try {
     }
 
     // 2. Fetch Recent Document Requests (Last 5)
-    $stmt = $pdo->prepare("SELECT id, document_type, status, requested_at 
+    $stmt = $pdo->prepare("SELECT id, document_type, status, date_requested as requested_at 
                            FROM document_requests 
                            WHERE resident_id = ? 
-                           ORDER BY requested_at DESC 
+                           ORDER BY date_requested DESC 
                            LIMIT 5");
     $stmt->execute([$id]);
     $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);

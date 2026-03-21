@@ -8,8 +8,8 @@ require_once '../../includes/auth.php';
 
 header('Content-Type: application/json');
 
-// Check if user is logged in as admin
-if (!is_logged_in() || $_SESSION['role'] !== 'admin') {
+// Check if user is logged in as an authorized official
+if (!is_admin_or_official()) {
     echo json_encode(['success' => false, 'error' => 'Unauthorized']);
     exit;
 }

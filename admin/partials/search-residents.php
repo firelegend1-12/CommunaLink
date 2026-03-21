@@ -4,7 +4,11 @@ require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 
 header('Content-Type: application/json');
-require_login();
+
+if (!is_admin_or_official()) {
+    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+    exit;
+}
 
 $search_query = isset($_GET['search']) ? sanitize_input($_GET['search']) : '';
 $sql = "SELECT *, CASE WHEN id_number IS NOT NULL AND id_number != '' THEN id_number ELSE CONCAT('BR-', YEAR(created_at), '-', LPAD(id, 4, '0')) END AS display_id_number FROM residents";

@@ -9,14 +9,11 @@ require_once '../../includes/auth.php';
 
 require_login();
 
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin'])) {
+if (!is_admin_or_official()) {
     header('Content-Type: application/json');
     echo json_encode([
         'success' => false,
-        'error' => 'Not authorized or session expired. Please log in again.',
-        'session' => $_SESSION,
-        'user_id' => isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null,
-        'role' => isset($_SESSION['role']) ? $_SESSION['role'] : null
+        'error' => 'Not authorized or session expired. Please log in again.'
     ]);
     exit;
 }

@@ -4,7 +4,7 @@ require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 
 // Check for admin role
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin'])) {
+if (!is_admin_or_official()) {
     $_SESSION['error_message'] = "You are not authorized to perform this action.";
     redirect_to('../pages/announcements.php');
 }

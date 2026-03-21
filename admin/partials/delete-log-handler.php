@@ -2,7 +2,7 @@
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 
-if (!is_logged_in() || $_SESSION['role'] !== 'admin') {
+if (!is_admin_or_official()) {
     $_SESSION['error_message'] = 'Unauthorized.';
     header('Location: ../pages/logs.php');
     exit;

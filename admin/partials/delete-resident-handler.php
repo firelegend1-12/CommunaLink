@@ -5,7 +5,7 @@ require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 
 // Only allow admin
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin'])) {
+if (!is_admin_or_official()) {
     header('Location: ../../index.php');
     exit;
 }
