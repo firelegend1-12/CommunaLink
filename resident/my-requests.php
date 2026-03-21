@@ -26,43 +26,70 @@ if (!$resident_id) {
 }
 
 require_once '../config/database.php';
-$stmt = $pdo->prepare("SELECT document_type, purpose, date_requested, status, remarks, details FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC");
-$stmt->execute([$resident_id]);
-$requests = $stmt->fetchAll();
-?>
-<div class="max-w-6xl mx-auto px-4 py-8 mt-4">
-    <h1 class="text-3xl font-bold mb-8 text-blue-700">My Requests</h1>
-    
-    /* Global grid and card styles are now in resident.css */
-    </style>
+// Get document requests
+$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, remarks, details FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC");
+$stmtDoc->execute([$resident_id]);
+$docRequests = $stmtDoc->fetchAll();
 
-    <div id="requests-grid-container" class="responsive-card-grid">
-    <?php if (empty($requests)): ?>
-        <div class="col-span-full py-20 text-center text-gray-400">
+// Get business transactions
+$stmtBiz = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, remarks FROM business_transactions WHERE resident_id = ? ORDER BY application_date DESC");
+$stmtBiz->execute([$resident_id]);
+$bizRequests = $stmtBiz->fetchAll();
+?>
+<div class="max-w-4xl mx-auto px-4 py-8 mt-4">
+    <h1 class="text-3xl font-bold mb-8 text-blue-700">My Requests</h1>
+
+    <div id="requests-grid-container" class="space-y-4">
+    <?php if (empty($docRequests) && empty($bizRequests)): ?>
+        <div class="py-20 text-center text-gray-400">
             <i class="fas fa-folder-open text-5xl mb-4 block opacity-20"></i>
             <p>You have not submitted any requests yet.</p>
         </div>
     <?php else: ?>
-        <?php foreach ($requests as $req): ?>
-            <?php 
-                $details = json_decode($req['details'], true) ?? [];
-                $status = $req['status'] ?? 'Pending';
-                
-                $badgeClass = 'pending';
-                if (in_array($status, ['Approved', 'Ready for Pickup', 'Completed'])) $badgeClass = 'approved';
-                elseif ($status === 'Rejected') $badgeClass = 'rejected';
-                elseif ($status === 'Processing') $badgeClass = 'processing';
-            ?>
+        <?php 
+        // Helper to get badge class
+        function getBadgeClass($status) {
+            $status = strtolower($status);
+            if (in_array($status, ['approved', 'ready for pickup', 'completed'])) return 'approved';
+            if ($status === 'rejected') return 'rejected';
+            if ($status === 'processing') return 'processing';
+            return 'pending';
+        }
+
+        // Render Document Requests
+        foreach ($docRequests as $req): 
+            $badgeClass = getBadgeClass($req['status'] ?? 'Pending');
+        ?>
             <div class="mobile-card">
                 <div class="mobile-card-header">
                     <h3 class="mobile-card-title"><?= htmlspecialchars($req['document_type']) ?></h3>
-                    <span class="mobile-card-badge <?= $badgeClass ?>"><?= htmlspecialchars($status) ?></span>
+                    <span class="mobile-card-badge <?= $badgeClass ?>"><?= htmlspecialchars($req['status'] ?? 'Pending') ?></span>
                 </div>
                 <div class="mobile-card-desc"><?= htmlspecialchars($req['purpose']) ?> <?= !empty($req['remarks']) ? ' - ' . htmlspecialchars($req['remarks']) : '' ?></div>
                 <div class="mobile-card-meta">
                     <div class="mobile-card-meta-item">
                         <i class="far fa-clock"></i>
                         <span><?= date('M d, Y', strtotime($req['date_requested'])) ?></span>
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
+
+        <?php 
+        // Render Business Transactions
+        foreach ($bizRequests as $req): 
+            $badgeClass = getBadgeClass($req['status'] ?? 'Pending');
+        ?>
+            <div class="mobile-card">
+                <div class="mobile-card-header">
+                    <h3 class="mobile-card-title"><?= htmlspecialchars($req['business_name']) ?></h3>
+                    <span class="mobile-card-badge <?= $badgeClass ?>"><?= htmlspecialchars($req['status'] ?? 'Pending') ?></span>
+                </div>
+                <div class="mobile-card-desc"><?= htmlspecialchars($req['transaction_type'] ?? 'Business Transaction') ?> <?= !empty($req['remarks']) ? ' - ' . htmlspecialchars($req['remarks']) : '' ?></div>
+                <div class="mobile-card-meta">
+                    <div class="mobile-card-meta-item">
+                        <i class="far fa-clock"></i>
+                        <span><?= date('M d, Y', strtotime($req['application_date'])) ?></span>
                     </div>
                 </div>
             </div>
@@ -77,73 +104,93 @@ function renderRequestsTable(docRequests, bizRequests) {
     let cards = '';
     
     if (docRequests.length === 0 && bizRequests.length === 0) {
-        grid.innerHTML = `<div class="col-span-full py-20 text-center text-gray-400">
+        cards = `<div class="py-20 text-center text-gray-400">
             <i class="fas fa-folder-open text-5xl mb-4 block opacity-20"></i>
             <p>You have not submitted any requests yet.</p>
         </div>`;
-        return;
+    } else {
+        // Document requests
+        docRequests.forEach(function(req) {
+            let status = req.status || 'Pending';
+            let badgeClass = 'pending';
+            let sLower = status.toLowerCase();
+            if (["approved","ready for pickup","completed"].includes(sLower)) badgeClass = 'approved';
+            else if (sLower === 'rejected') badgeClass = 'rejected';
+            else if (sLower === 'processing') badgeClass = 'processing';
+            
+            cards += `<div class="mobile-card">
+                <div class="mobile-card-header">
+                    <h3 class="mobile-card-title">${escapeHTML(req.document_type)}</h3>
+                    <span class="mobile-card-badge ${badgeClass}">${status}</span>
+                </div>
+                <div class="mobile-card-desc">${escapeHTML(req.purpose || 'Document Request')} ${req.remarks ? ' - ' + escapeHTML(req.remarks) : ''}</div>
+                <div class="mobile-card-meta">
+                    <div class="mobile-card-meta-item">
+                        <i class="far fa-clock"></i>
+                        <span>${new Date(req.date_requested).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
+                </div>
+            </div>`;
+        });
+
+        // Business transactions
+        bizRequests.forEach(function(req) {
+            let status = req.status || 'PENDING';
+            let badgeClass = 'pending';
+            let sLower = status.toLowerCase();
+            if (["approved","completed","ready for pickup"].includes(sLower)) badgeClass = 'approved';
+            else if (sLower === 'rejected') badgeClass = 'rejected';
+            else if (sLower === 'processing') badgeClass = 'processing';
+            
+            cards += `<div class="mobile-card">
+                <div class="mobile-card-header">
+                    <h3 class="mobile-card-title">${escapeHTML(req.business_name)}</h3>
+                    <span class="mobile-card-badge ${badgeClass}">${status}</span>
+                </div>
+                <div class="mobile-card-desc">${escapeHTML(req.transaction_type || 'Business Transaction')} ${req.remarks ? ' - ' + escapeHTML(req.remarks) : ''}</div>
+                <div class="mobile-card-meta">
+                    <div class="mobile-card-meta-item">
+                        <i class="far fa-clock"></i>
+                        <span>${new Date(req.application_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
+                </div>
+            </div>`;
+        });
     }
-
-    // Document requests
-    docRequests.forEach(function(req) {
-        let status = req.status || 'Pending';
-        let statusClass = 'bg-gray-100 text-gray-700';
-        let badgeClass = 'pending';
-        if (["Approved","Ready for Pickup","Completed"].includes(status)) badgeClass = 'approved';
-        else if (status === 'Rejected') badgeClass = 'rejected';
-        else if (status === 'Processing') badgeClass = 'processing';
-        
-        cards += `<div class="mobile-card">
-            <div class="mobile-card-header">
-                <h3 class="mobile-card-title">${req.document_type}</h3>
-                <span class="mobile-card-badge ${badgeClass}">${status}</span>
-            </div>
-            <div class="mobile-card-desc">${req.purpose || 'Document Request'} ${req.remarks ? ' - ' + req.remarks : ''}</div>
-            <div class="mobile-card-meta">
-                <div class="mobile-card-meta-item">
-                    <i class="far fa-clock"></i>
-                    <span>${new Date(req.date_requested).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                </div>
-            </div>
-        </div>`;
-    });
-
-    // Business transactions
-    bizRequests.forEach(function(req) {
-        let status = req.status || 'PENDING';
-        let badgeClass = 'pending';
-        if (["APPROVED","Completed","Ready for Pickup"].includes(status)) badgeClass = 'approved';
-        else if (["REJECTED","Rejected"].includes(status)) badgeClass = 'rejected';
-        else if (["PROCESSING","Processing"].includes(status)) badgeClass = 'processing';
-        
-        cards += `<div class="mobile-card">
-            <div class="mobile-card-header">
-                <h3 class="mobile-card-title">${req.business_name}</h3>
-                <span class="mobile-card-badge ${badgeClass}">${status}</span>
-            </div>
-            <div class="mobile-card-desc">${req.transaction_type || 'Business Transaction'} ${req.remarks ? ' - ' + req.remarks : ''}</div>
-            <div class="mobile-card-meta">
-                <div class="mobile-card-meta-item">
-                    <i class="far fa-clock"></i>
-                    <span>${new Date(req.application_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                </div>
-            </div>
-        </div>`;
-    });
     
-    // Diff to prevent flicker
+    // Diff update
     if (grid.innerHTML !== cards) {
         grid.innerHTML = cards;
     }
 }
-setInterval(function() {
+
+function fetchUpdates() {
     fetch('partials/fetch-live-updates.php')
         .then(res => res.json())
         .then(data => {
             if (data.doc_requests && data.biz_requests) {
                 renderRequestsTable(data.doc_requests, data.biz_requests);
             }
-        });
-}, 5000);
+        })
+        .catch(err => console.error('Error fetching updates:', err));
+}
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, function(match) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[match];
+    });
+}
+
+// Initial fetch
+fetchUpdates();
+// Polling
+setInterval(fetchUpdates, 5000);
 </script>
 <?php require_once 'partials/footer.php'; ?> 

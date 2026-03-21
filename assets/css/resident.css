@@ -442,6 +442,119 @@ body {
     text-decoration: underline;
 }
 
+/* === Dashboard Specific "Recent" List Items (Image 3) === */
+.dashboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.dashboard-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 24px 0;
+    border-bottom: 1px solid #f1f3f5;
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+.dashboard-item:last-child {
+    border-bottom: none;
+}
+
+.dashboard-item-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #495057;
+    font-size: 1.2rem;
+    margin-right: 20px;
+    flex-shrink: 0;
+}
+
+.dashboard-item-content {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.dashboard-item-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #343a40;
+    margin-bottom: 6px;
+    display: block;
+}
+
+.dashboard-item-desc {
+    font-size: 0.95rem;
+    color: #6c757d;
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.dashboard-item-meta {
+    font-size: 0.85rem;
+    color: #868e96;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.dashboard-item-meta span {
+    display: block;
+}
+
+.dashboard-item-status {
+    position: absolute;
+    top: 24px;
+    right: 0;
+}
+
+.status-text-badge {
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-text-badge.pending { color: #ffd8a8; }
+.status-text-badge.approved { color: #63e6be; }
+.status-text-badge.rejected { color: #ff8787; }
+.status-text-badge.processing { color: #74c0fc; }
+.status-text-badge.in-progress { color: #495057; }
+
+/* Dashboard Header adjustments to match image */
+.recent-reports-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 15px;
+}
+
+.recent-reports-header h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #212529;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.view-all-link {
+    font-size: 0.9rem;
+    color: #5c7cfa;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.view-all-link:hover {
+    text-decoration: underline;
+}
+
 /* === Footer === */
 .dashboard-footer {
     background-color: var(--header-bg);
