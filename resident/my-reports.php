@@ -81,34 +81,7 @@ require_once 'partials/header.php';
     </div>
     
     <div class="reports-list" id="reports-list">
-        <?php if (empty($reports)): ?>
-            <div style="text-align: center; padding: 30px; color: #666; background: #fff; border-radius: 12px;">You have not submitted any reports yet.</div>
-        <?php else: ?>
-            <?php foreach ($reports as $report): ?>
-                <?php 
-                    $statusClass = strtolower(str_replace(' ', '-', $report['status']));
-                    $formattedDate = date('M d, Y', strtotime($report['reported_at']));
-                ?>
-                <div class="mobile-card" onclick="window.location.href='report-details.php?id=<?= $report['id'] ?>'" style="cursor:pointer;">
-                    <div class="mobile-card-header">
-                        <h3 class="mobile-card-title"><?= htmlspecialchars($report['type']) ?></h3>
-                        <span class="mobile-card-badge <?= $statusClass ?>"><?= htmlspecialchars($report['status']) ?></span>
-                    </div>
-                    <div class="mobile-card-desc"><?= htmlspecialchars($report['description'] ?: $report['type']) ?></div>
-                    <div class="mobile-card-meta">
-                        <div class="mobile-card-meta-item">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <span><?= htmlspecialchars($report['location']) ?></span>
-                        </div>
-                        <div class="mobile-card-meta-item">
-                            <i class="far fa-clock"></i>
-                            <span><?= $formattedDate ?></span>
-                        </div>
-                    </div>
-                    <i class="fas fa-chevron-right mobile-card-chevron"></i>
-                </div>
-            <?php endforeach; ?>
-        <?php endif; ?>
+        <div style="text-align: center; padding: 30px; color: #666;">Loading reports...</div>
     </div>
 </div>
 

@@ -263,7 +263,7 @@ require_once 'partials/header.php';
             </h2>
             <a href="my-reports.php" class="view-all-link">View All</a>
         </div>
-        <div class="dashboard-list">
+        <div class="responsive-card-grid">
             <?php if (empty($recentIncidents)): ?>
                 <div class="p-8 text-center text-gray-400">No recent incidents reported.</div>
             <?php else: ?>
@@ -302,7 +302,7 @@ require_once 'partials/header.php';
             </h2>
             <a href="my-requests.php" class="view-all-link">View All</a>
         </div>
-        <div class="dashboard-list">
+        <div class="responsive-card-grid">
             <?php if (empty($recentRequests)): ?>
                 <div class="p-8 text-center text-gray-400">No recent document requests.</div>
             <?php else: ?>
