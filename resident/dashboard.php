@@ -37,7 +37,26 @@ try {
     $bannerAnnouncements = [];
 }
 
-// --- Placeholder removed, replaced with real query above ---
+$resident_id = $_SESSION['resident_id'] ?? null;
+if (!$resident_id && isset($_SESSION['user_id'])) {
+    $resident_id = get_resident_id($pdo, $_SESSION['user_id']);
+    if ($resident_id) {
+        $_SESSION['resident_id'] = $resident_id;
+    }
+}
+
+// Fetch Latest Alerts (Notifications) for Banner Ticker
+try {
+    if ($resident_id) {
+        $stmtAlerts = $pdo->prepare("SELECT message FROM notifications WHERE resident_id = ? ORDER BY created_at DESC LIMIT 5");
+        $stmtAlerts->execute([$resident_id]);
+        $bannerAlerts = $stmtAlerts->fetchAll(PDO::FETCH_COLUMN);
+    } else {
+        $bannerAlerts = [];
+    }
+} catch (Exception $e) {
+    $bannerAlerts = [];
+}
 
 require_once 'partials/header.php';
 ?>
@@ -50,45 +69,86 @@ require_once 'partials/header.php';
 .welcome-text .quote { font-style: italic; margin-top: 16px; opacity: 0.8; }
 .welcome-logo { text-align: center; color: rgba(255, 255, 255, 0.8); }
 .barangay-logo-big { height: 100px; width: 100px; background-color: rgba(255, 255, 255, 0.2); border-radius: 50%; margin: 0 auto 10px; border: 3px solid var(--text-light); }
-/* Banner Announcements Ticker */
-.banner-announcements {
+/* Banner Tickers Container */
+.banner-tickers-container {
     flex: 1;
     margin: 0 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    min-width: 0;
+}
+
+/* Banner Announcements & Alerts Ticker Setup */
+.banner-announcements,
+.banner-alerts {
     background: rgba(255,255,255,0.13);
     border: 1.5px solid rgba(255,255,255,0.25);
     border-radius: 12px;
-    padding: 18px 20px;
+    padding: 14px 20px;
     overflow: hidden;
     align-self: stretch;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    min-width: 0;
+    position: relative; /* for absolute children or pseudo */
 }
-.banner-announcements .ann-label {
+
+.banner-alerts {
+    background: rgba(255,100,100,0.15);
+    border-color: rgba(255,200,200,0.3);
+}
+
+.banner-announcements .ann-label,
+.banner-alerts .ann-label {
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    opacity: 0.7;
-    margin-bottom: 10px;
+    opacity: 0.9;
+    margin-bottom: 8px;
     display: flex;
     align-items: center;
     gap: 6px;
 }
-.banner-announcements .ann-ticker { overflow: hidden; white-space: nowrap; width: 100%; }
-.banner-announcements .ann-ticker-inner {
+
+.banner-announcements .ann-ticker,
+.banner-alerts .ann-ticker {
+    overflow: hidden; 
+    white-space: nowrap; 
+    width: 100%;
+    position: relative;
+    mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+}
+
+.banner-announcements .ann-ticker-inner,
+.banner-alerts .ann-ticker-inner {
     display: inline-block;
-    animation: ticker-scroll 20s linear infinite;
-    font-size: 20px;
+    animation: ticker-scroll 25s linear infinite;
+    font-size: 18px;
     font-weight: 500;
     opacity: 0.95;
     white-space: nowrap;
+    will-change: transform;
 }
-.banner-announcements .ann-sep { margin: 0 24px; opacity: 0.45; }
+
+.banner-announcements .ann-ticker-inner:hover,
+.banner-alerts .ann-ticker-inner:hover {
+    animation-play-state: paused;
+}
+
+.banner-announcements .ann-sep,
+.banner-alerts .ann-sep { 
+    margin: 0 32px; 
+    opacity: 0.5; 
+    font-size: 0.6em;
+    vertical-align: middle;
+}
+
 @keyframes ticker-scroll {
-    0%   { transform: translateX(100%); }
-    100% { transform: translateX(-100%); }
+    0%   { transform: translate3d(0, 0, 0); }
+    100% { transform: translate3d(-50%, 0, 0); }
 }
 .quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; margin-bottom: 30px; }
 .action-card { display: block; background-color: var(--card-bg); border-radius: 12px; padding: 30px; box-shadow: 0 4px 12px var(--shadow-color); transition: transform 0.2s ease, box-shadow 0.2s ease; text-decoration: none; color: var(--text-light); position: relative; overflow: hidden; }
@@ -105,88 +165,13 @@ require_once 'partials/header.php';
 .recent-reports-header { display: flex; align-items: center; margin-bottom: 20px; }
 .recent-reports-header i { font-size: 1.5rem; margin-right: 12px; color: var(--accent-blue); }
 .recent-reports-header h2 { margin: 0; font-size: 1.5rem; font-weight: 600; }
-.reports-list { display: flex; flex-direction: column; }
-.report-item { display: flex; align-items: flex-start; padding: 20px 0; border-bottom: 1px solid var(--border-color); }
-.report-item:last-child { border-bottom: none; }
-.report-icon { font-size: 1.2rem; color: var(--text-secondary); margin-right: 20px; padding-top: 4px; }
-.report-details { flex-grow: 1; }
-.report-details h4 { margin: 0 0 4px; font-size: 1.1rem; font-weight: 600; }
-.report-details p { margin: 0 0 4px; color: var(--text-secondary); font-size: 0.95rem; }
-.report-details .location { font-size: 0.85rem; font-style: italic; }
-.report-status { margin-left: 20px; }
-.status-badge { padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; }
-.status-badge.status-pending { background-color: #fffbe6; color: #f7b924; }
-.status-badge.status-approved { background-color: #e6f7ff; color: #1890ff; }
-.status-badge.status-resolved { background-color: #f6ffed; color: #52c41a; }
-.status-badge.status-rejected { background-color: #fff1f0; color: #f5222d; }
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 30px;
-    align-items: start; /* Independent scaling for both containers */
+/* Global grid and card styles are now in resident.css */
+
+@media (max-width: 480px) {
+    /* On very small phones, maybe single column is better? 
+       But user insisted on 2-column max. I'll stick to 2. */
 }
-.recent-reports, .latest-announcements {
-    background-color: var(--card-bg);
-    border-radius: 12px;
-    padding: 30px;
-    box-shadow: 0 4px 12px var(--shadow-color);
-}
-.recent-reports-header, .announcements-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 20px;
-}
-.recent-reports-header i, .announcements-header i {
-    font-size: 1.5rem;
-    margin-right: 12px;
-    color: var(--accent-blue);
-}
-.recent-reports-header h2, .announcements-header h2 {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 600;
-    flex-grow: 1;
-}
-.view-all-btn {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--accent-blue);
-    text-decoration: none;
-    transition: color 0.2s ease;
-}
-.view-all-btn:hover {
-    color: var(--accent-blue-dark);
-}
-.announcement-item {
-    display: flex;
-    align-items: flex-start;
-    padding: 15px 0;
-    border-bottom: 1px solid var(--border-color);
-}
-.announcement-item:last-child {
-    border-bottom: none;
-}
-.announcement-icon {
-    font-size: 1.2rem;
-    color: var(--text-secondary);
-    margin-right: 20px;
-    padding-top: 4px;
-}
-.announcement-details h4 {
-    margin: 0 0 4px;
-    font-size: 1rem;
-    font-weight: 600;
-}
-.announcement-details p {
-    margin: 0 0 8px;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-.announcement-meta {
-    font-size: 0.8rem;
-    font-style: italic;
-    color: var(--text-secondary);
-}
+
 </style>
 
 <section class="welcome-banner">
@@ -196,19 +181,49 @@ require_once 'partials/header.php';
         <p class="quote">“Your barangay is your home. Let's keep it safe and thriving!”</p>
     </div>
 
-    <div class="banner-announcements">
-        <div class="ann-label"><i class="fas fa-bullhorn"></i> Barangay Announcements</div>
-        <div class="ann-ticker">
-            <span class="ann-ticker-inner">
-                <?php if (empty($bannerAnnouncements)): ?>
-                    <span>No current announcements &mdash; stay tuned!</span>
-                <?php else: ?>
-                    <?php foreach ($bannerAnnouncements as $title): ?>
-                        <?= htmlspecialchars($title) ?><span class="ann-sep">&#9679;</span>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </span>
+    <div class="banner-tickers-container">
+        <?php if (!empty($bannerAnnouncements)): ?>
+        <div class="banner-announcements mb-3">
+            <div class="announcement-ticker w-full">
+                <div class="ann-ticker-container flex w-full">
+                    <div class="ann-ticker-label text-yellow-300">
+                        <i class="fas fa-bullhorn animate-pulse"></i> <span>Announcements</span>
+                    </div>
+                    <div class="ann-ticker-content flex-grow">
+                        <div class="ann-ticker-inner">
+                            <?php foreach ($bannerAnnouncements as $ann_title): ?>
+                                <span class="ticker-item">
+                                    <?= htmlspecialchars($ann_title) ?>
+                                    <a href="notifications.php" class="ticker-link ml-2 text-white text-xs font-semibold px-2 py-1 rounded-full bg-white/20 hover:bg-white/30 transition-colors">Read more</a>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
+        <?php endif; ?>
+
+        <?php if (!empty($bannerAlerts)): ?>
+        <div class="banner-alerts">
+            <div class="announcement-ticker w-full">
+                <div class="ann-ticker-container flex w-full" style="background: rgba(255, 100, 100, 0.2); border-color: rgba(255, 200, 200, 0.4);">
+                    <div class="ann-ticker-label text-red-200">
+                        <i class="fas fa-bell animate-pulse"></i> <span>Alerts</span>
+                    </div>
+                    <div class="ann-ticker-content flex-grow">
+                        <div class="ann-ticker-inner">
+                            <?php foreach ($bannerAlerts as $alertMsg): ?>
+                                <span class="ticker-item">
+                                    <?= htmlspecialchars($alertMsg) ?>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 
     <div class="welcome-logo">
@@ -240,27 +255,36 @@ require_once 'partials/header.php';
 </section>
 
 <div class="dashboard-grid">
-    <section class="recent-reports">
+    <section class="recent-reports mt-8 bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
         <div class="recent-reports-header">
-            <i class="fas fa-history"></i>
-            <h2>Recent Incident Reports</h2>
-            <a href="my-reports.php" class="view-all-btn">View All</a>
+            <h2>
+                <i class="fas fa-history text-blue-600"></i>
+                Recent Incident Reports
+            </h2>
+            <a href="my-reports.php" class="view-all-link">View All</a>
         </div>
-        <div class="reports-list">
+        <div class="dashboard-list">
             <?php if (empty($recentIncidents)): ?>
-                <div class="report-item-empty"><p style="padding: 20px 0; color: #666;">No recent incidents reported.</p></div>
+                <div class="p-8 text-center text-gray-400">No recent incidents reported.</div>
             <?php else: ?>
                 <?php foreach ($recentIncidents as $inc): ?>
-                    <div class="report-item">
-                        <div class="report-icon"><i class="fas fa-bell"></i></div>
-                        <div class="report-details">
-                            <h4><?= htmlspecialchars($inc['type']) ?></h4>
-                            <p><?= htmlspecialchars($inc['description']) ?></p>
-                            <p class="location"><?= htmlspecialchars($inc['location']) ?></p>
-                            <span class="announcement-meta">Reported: <?= date('M d, Y h:i A', strtotime($inc['reported_at'])) ?></span>
+                    <?php 
+                        $statusClass = strtolower(str_replace(' ', '-', $inc['status']));
+                    ?>
+                    <div class="dashboard-item">
+                        <div class="dashboard-item-icon">
+                            <i class="fas fa-bell"></i>
                         </div>
-                        <div class="report-status">
-                            <span class="status-badge status-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $inc['status']))) ?>">
+                        <div class="dashboard-item-content">
+                            <span class="dashboard-item-title"><?= htmlspecialchars($inc['type']) ?></span>
+                            <div class="dashboard-item-desc"><?= htmlspecialchars($inc['description']) ?></div>
+                            <div class="dashboard-item-meta">
+                                <span>Coordinates: <?= htmlspecialchars($inc['location']) ?></span>
+                                <span>Reported: <?= date('M d, Y h:i A', strtotime($inc['reported_at'])) ?></span>
+                            </div>
+                        </div>
+                        <div class="dashboard-item-status">
+                            <span class="status-text-badge <?= $statusClass ?>">
                                 <?= htmlspecialchars($inc['status']) ?>
                             </span>
                         </div>
@@ -270,26 +294,35 @@ require_once 'partials/header.php';
         </div>
     </section>
 
-    <section class="recent-reports">
+    <section class="recent-reports mt-8 bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
         <div class="recent-reports-header">
-            <i class="fas fa-file-signature"></i>
-            <h2>Recent Document Requests</h2>
-            <a href="my-requests.php" class="view-all-btn">View All</a>
+            <h2>
+                <i class="fas fa-file-signature text-green-600"></i>
+                Recent Document Requests
+            </h2>
+            <a href="my-requests.php" class="view-all-link">View All</a>
         </div>
-        <div class="reports-list">
+        <div class="dashboard-list">
             <?php if (empty($recentRequests)): ?>
-                <div class="report-item-empty"><p style="padding: 20px 0; color: #666;">No recent document requests.</p></div>
+                <div class="p-8 text-center text-gray-400">No recent document requests.</div>
             <?php else: ?>
                 <?php foreach ($recentRequests as $req): ?>
-                    <div class="report-item">
-                        <div class="report-icon"><i class="fas fa-file-alt"></i></div>
-                        <div class="report-details">
-                            <h4><?= htmlspecialchars($req['document_type']) ?></h4>
-                            <p>Purpose: <?= htmlspecialchars($req['purpose']) ?></p>
-                            <span class="announcement-meta">Requested: <?= date('M d, Y h:i A', strtotime($req['date_requested'])) ?></span>
+                    <?php 
+                        $statusClass = strtolower(str_replace(' ', '-', $req['status'] ?? 'pending'));
+                    ?>
+                    <div class="dashboard-item">
+                        <div class="dashboard-item-icon">
+                            <i class="fas fa-file-alt"></i>
                         </div>
-                        <div class="report-status">
-                            <span class="status-badge status-<?= htmlspecialchars(strtolower($req['status'] ?? 'pending')) ?>">
+                        <div class="dashboard-item-content">
+                            <span class="dashboard-item-title"><?= htmlspecialchars($req['document_type']) ?></span>
+                            <div class="dashboard-item-desc">Purpose: <?= htmlspecialchars($req['purpose']) ?></div>
+                            <div class="dashboard-item-meta">
+                                <span>Requested: <?= date('M d, Y h:i A', strtotime($req['date_requested'])) ?></span>
+                            </div>
+                        </div>
+                        <div class="dashboard-item-status">
+                            <span class="status-text-badge <?= $statusClass ?>">
                                 <?= htmlspecialchars($req['status'] ?? 'Pending') ?>
                             </span>
                         </div>
@@ -300,6 +333,5 @@ require_once 'partials/header.php';
     </section>
 </div>
 
-</script>
 
 <?php require_once 'partials/footer.php'; ?> 

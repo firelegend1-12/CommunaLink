@@ -5,16 +5,6 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
 
-// This function should be in functions.php or auth.php, but for now it's here
-if (!function_exists('require_role')) {
-    function require_role($role) {
-        if (!is_logged_in() || $_SESSION['role'] !== $role) {
-            redirect_to('../index.php');
-        }
-    }
-}
-
-
 require_role('resident');
 
 $page_title = $page_title ?? "Resident Portal"; // Allow pages to set their own title
@@ -135,10 +125,17 @@ if ($resident_id) {
     </style>
 </head>
 <body>
+    <!-- Sidebar overlay — darkens background when sidebar is open on mobile -->
+    <div id="sidebar-overlay"></div>
+
     <div class="page-container">
         <?php include 'sidebar.php'; ?>
         <div class="main-content">
             <header class="main-header">
+                <!-- Hamburger toggle button (mobile only) -->
+                <button class="hamburger-btn" id="hamburger-btn" aria-label="Open navigation menu" aria-expanded="false">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <div class="header-menu relative">
                     <!-- Notification Bell -->
                     <div class="relative group" id="notif-bell-wrapper">
@@ -173,8 +170,44 @@ if ($resident_id) {
             </header>
             <main class="page-main"> 
             <script>
-            // Toggle notification dropdown
             document.addEventListener('DOMContentLoaded', function() {
+                // --- Off-Canvas Sidebar Toggle ---
+                const hamburgerBtn = document.getElementById('hamburger-btn');
+                const overlay = document.getElementById('sidebar-overlay');
+                const body = document.body;
+
+                function openSidebar() {
+                    body.classList.add('sidebar-open');
+                    hamburgerBtn.setAttribute('aria-expanded', 'true');
+                }
+
+                function closeSidebar() {
+                    body.classList.remove('sidebar-open');
+                    hamburgerBtn.setAttribute('aria-expanded', 'false');
+                }
+
+                if (hamburgerBtn) {
+                    hamburgerBtn.addEventListener('click', function() {
+                        body.classList.contains('sidebar-open') ? closeSidebar() : openSidebar();
+                    });
+                }
+
+                // Close sidebar when clicking overlay
+                if (overlay) {
+                    overlay.addEventListener('click', closeSidebar);
+                }
+
+                // Close sidebar when any nav link is tapped (smooth mobile UX)
+                document.querySelectorAll('.sidebar .nav-link').forEach(function(link) {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 768) {
+                            closeSidebar();
+                        }
+                    });
+                });
+
+                // Toggle notification dropdown
+
                 const bell = document.getElementById('notif-bell');
                 const dropdown = document.getElementById('notif-dropdown');
                 const wrapper = document.getElementById('notif-bell-wrapper');

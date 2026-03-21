@@ -12,11 +12,8 @@ if (!$resident_id) {
     // Try to get resident ID from user_id if resident_id is not set
     if (isset($_SESSION['user_id'])) {
         require_once '../config/database.php';
-        $stmt = $pdo->prepare("SELECT id FROM residents WHERE user_id = ?");
-        $stmt->execute([$_SESSION['user_id']]);
-        $resident = $stmt->fetch();
-        if ($resident) {
-            $resident_id = $resident['id'];
+        $resident_id = get_resident_id($pdo, $_SESSION['user_id']);
+        if ($resident_id) {
             $_SESSION['resident_id'] = $resident_id; // Set it for future use
         }
     }
@@ -29,120 +26,171 @@ if (!$resident_id) {
 }
 
 require_once '../config/database.php';
-$stmt = $pdo->prepare("SELECT document_type, purpose, date_requested, status, remarks, details FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC");
-$stmt->execute([$resident_id]);
-$requests = $stmt->fetchAll();
+// Get document requests
+$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, remarks, details FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC");
+$stmtDoc->execute([$resident_id]);
+$docRequests = $stmtDoc->fetchAll();
+
+// Get business transactions
+$stmtBiz = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, remarks FROM business_transactions WHERE resident_id = ? ORDER BY application_date DESC");
+$stmtBiz->execute([$resident_id]);
+$bizRequests = $stmtBiz->fetchAll();
 ?>
-<div class="max-w-4xl mx-auto bg-white rounded-lg shadow p-8 mt-8">
-    <h1 class="text-2xl font-bold mb-6 text-blue-700">My Requests</h1>
-    <div id="requests-table-container">
-    <?php if (empty($requests)): ?>
-        <div class="text-gray-600">You have not submitted any document requests yet.</div>
+<div class="max-w-4xl mx-auto px-4 py-8 mt-4">
+    <h1 class="text-3xl font-bold mb-8 text-blue-700">My Requests</h1>
+
+    <div id="requests-grid-container" class="space-y-4">
+    <?php if (empty($docRequests) && empty($bizRequests)): ?>
+        <div class="py-20 text-center text-gray-400">
+            <i class="fas fa-folder-open text-5xl mb-4 block opacity-20"></i>
+            <p>You have not submitted any requests yet.</p>
+        </div>
     <?php else: ?>
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200" id="requests-table">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Document/Business</th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Purpose/Transaction</th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date Requested</th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Remarks</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200" id="requests-table-body">
-                <?php foreach ($requests as $req): ?>
-                <?php 
-                    $details = json_decode($req['details'], true) ?? [];
-                    $application_type = $details['application_type'] ?? '';
-                    $urgency = $details['urgency'] ?? '';
-                ?>
-                <tr>
-                    <td class="px-4 py-2 text-sm text-gray-800">Document</td>
-                    <td class="px-4 py-2 text-sm text-gray-800"><?php echo htmlspecialchars($req['document_type']); ?></td>
-                    <td class="px-4 py-2 text-sm text-gray-600"><?php echo htmlspecialchars($req['purpose']); ?></td>
-                    <td class="px-4 py-2 text-sm text-gray-600"><?php echo date('M d, Y H:i', strtotime($req['date_requested'])); ?></td>
-                    <td class="px-4 py-2 text-sm">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                            <?php
-                                if ($req['status'] === 'Approved' || $req['status'] === 'Ready for Pickup' || $req['status'] === 'Completed') echo 'bg-green-100 text-green-800';
-                                elseif ($req['status'] === 'Rejected') echo 'bg-red-100 text-red-800';
-                                elseif ($req['status'] === 'Processing') echo 'bg-yellow-100 text-yellow-800';
-                                else echo 'bg-gray-100 text-gray-800';
-                            ?>">
-                            <?php echo htmlspecialchars($req['status']); ?>
-                        </span>
-                    </td>
-                    <td class="px-4 py-2 text-sm text-gray-600">
-                        <?php if ($application_type): ?>
-                            <div><strong>Type:</strong> <?php echo htmlspecialchars($application_type); ?></div>
-                        <?php endif; ?>
-                        <?php if ($urgency): ?>
-                            <div><strong>Urgency:</strong> <?php echo htmlspecialchars($urgency); ?></div>
-                        <?php endif; ?>
-                    </td>
-                    <td class="px-4 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($req['remarks'] ?? ''); ?></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
+        <?php 
+        // Helper to get badge class
+        function getBadgeClass($status) {
+            $status = strtolower($status);
+            if (in_array($status, ['approved', 'ready for pickup', 'completed'])) return 'approved';
+            if ($status === 'rejected') return 'rejected';
+            if ($status === 'processing') return 'processing';
+            return 'pending';
+        }
+
+        // Render Document Requests
+        foreach ($docRequests as $req): 
+            $badgeClass = getBadgeClass($req['status'] ?? 'Pending');
+        ?>
+            <div class="mobile-card">
+                <div class="mobile-card-header">
+                    <h3 class="mobile-card-title"><?= htmlspecialchars($req['document_type']) ?></h3>
+                    <span class="mobile-card-badge <?= $badgeClass ?>"><?= htmlspecialchars($req['status'] ?? 'Pending') ?></span>
+                </div>
+                <div class="mobile-card-desc"><?= htmlspecialchars($req['purpose']) ?> <?= !empty($req['remarks']) ? ' - ' . htmlspecialchars($req['remarks']) : '' ?></div>
+                <div class="mobile-card-meta">
+                    <div class="mobile-card-meta-item">
+                        <i class="far fa-clock"></i>
+                        <span><?= date('M d, Y', strtotime($req['date_requested'])) ?></span>
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
+
+        <?php 
+        // Render Business Transactions
+        foreach ($bizRequests as $req): 
+            $badgeClass = getBadgeClass($req['status'] ?? 'Pending');
+        ?>
+            <div class="mobile-card">
+                <div class="mobile-card-header">
+                    <h3 class="mobile-card-title"><?= htmlspecialchars($req['business_name']) ?></h3>
+                    <span class="mobile-card-badge <?= $badgeClass ?>"><?= htmlspecialchars($req['status'] ?? 'Pending') ?></span>
+                </div>
+                <div class="mobile-card-desc"><?= htmlspecialchars($req['transaction_type'] ?? 'Business Transaction') ?> <?= !empty($req['remarks']) ? ' - ' . htmlspecialchars($req['remarks']) : '' ?></div>
+                <div class="mobile-card-meta">
+                    <div class="mobile-card-meta-item">
+                        <i class="far fa-clock"></i>
+                        <span><?= date('M d, Y', strtotime($req['application_date'])) ?></span>
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
     <?php endif; ?>
     </div>
 </div>
 <script>
 function renderRequestsTable(docRequests, bizRequests) {
-    let tbody = document.getElementById('requests-table-body');
-    if (!tbody) return;
-    let rows = '';
-    // Document requests
-    docRequests.forEach(function(req) {
-        let details = {};
-        try { details = JSON.parse(req.details || '{}'); } catch(e) {}
-        let application_type = details.application_type || '';
-        let urgency = details.urgency || '';
-        let statusClass = 'bg-gray-100 text-gray-800';
-        if (["Approved","Ready for Pickup","Completed"].includes(req.status)) statusClass = 'bg-green-100 text-green-800';
-        else if (req.status === 'Rejected') statusClass = 'bg-red-100 text-red-800';
-        else if (req.status === 'Processing') statusClass = 'bg-yellow-100 text-yellow-800';
-        rows += `<tr>
-            <td class='px-4 py-2 text-sm text-gray-800'>Document</td>
-            <td class='px-4 py-2 text-sm text-gray-800'>${req.document_type}</td>
-            <td class='px-4 py-2 text-sm text-gray-600'>${req.purpose}</td>
-            <td class='px-4 py-2 text-sm text-gray-600'>${new Date(req.date_requested).toLocaleString()}</td>
-            <td class='px-4 py-2 text-sm'><span class='px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}'>${req.status}</span></td>
-            <td class='px-4 py-2 text-sm text-gray-600'>${application_type ? `<div><strong>Type:</strong> ${application_type}</div>` : ''}${urgency ? `<div><strong>Urgency:</strong> ${urgency}</div>` : ''}</td>
-            <td class='px-4 py-2 text-sm text-gray-500'>${req.remarks || ''}</td>
-        </tr>`;
-    });
-    // Business transactions
-    bizRequests.forEach(function(req) {
-        let statusClass = 'bg-gray-100 text-gray-800';
-        if (["APPROVED","Completed","Ready for Pickup"].includes(req.status)) statusClass = 'bg-green-100 text-green-800';
-        else if (["REJECTED","Rejected"].includes(req.status)) statusClass = 'bg-red-100 text-red-800';
-        else if (["PROCESSING","Processing"].includes(req.status)) statusClass = 'bg-yellow-100 text-yellow-800';
-        rows += `<tr>
-            <td class='px-4 py-2 text-sm text-purple-800'>Business</td>
-            <td class='px-4 py-2 text-sm text-gray-800'>${req.business_name}</td>
-            <td class='px-4 py-2 text-sm text-gray-600'>${req.transaction_type}</td>
-            <td class='px-4 py-2 text-sm text-gray-600'>${new Date(req.application_date).toLocaleString()}</td>
-            <td class='px-4 py-2 text-sm'><span class='px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}'>${req.status}</span></td>
-            <td class='px-4 py-2 text-sm text-gray-600'>${req.business_type}</td>
-            <td class='px-4 py-2 text-sm text-gray-500'>${req.remarks || ''}</td>
-        </tr>`;
-    });
-    tbody.innerHTML = rows;
+    let grid = document.getElementById('requests-grid-container');
+    if (!grid) return;
+    let cards = '';
+    
+    if (docRequests.length === 0 && bizRequests.length === 0) {
+        cards = `<div class="py-20 text-center text-gray-400">
+            <i class="fas fa-folder-open text-5xl mb-4 block opacity-20"></i>
+            <p>You have not submitted any requests yet.</p>
+        </div>`;
+    } else {
+        // Document requests
+        docRequests.forEach(function(req) {
+            let status = req.status || 'Pending';
+            let badgeClass = 'pending';
+            let sLower = status.toLowerCase();
+            if (["approved","ready for pickup","completed"].includes(sLower)) badgeClass = 'approved';
+            else if (sLower === 'rejected') badgeClass = 'rejected';
+            else if (sLower === 'processing') badgeClass = 'processing';
+            
+            cards += `<div class="mobile-card">
+                <div class="mobile-card-header">
+                    <h3 class="mobile-card-title">${escapeHTML(req.document_type)}</h3>
+                    <span class="mobile-card-badge ${badgeClass}">${status}</span>
+                </div>
+                <div class="mobile-card-desc">${escapeHTML(req.purpose || 'Document Request')} ${req.remarks ? ' - ' + escapeHTML(req.remarks) : ''}</div>
+                <div class="mobile-card-meta">
+                    <div class="mobile-card-meta-item">
+                        <i class="far fa-clock"></i>
+                        <span>${new Date(req.date_requested).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
+                </div>
+            </div>`;
+        });
+
+        // Business transactions
+        bizRequests.forEach(function(req) {
+            let status = req.status || 'PENDING';
+            let badgeClass = 'pending';
+            let sLower = status.toLowerCase();
+            if (["approved","completed","ready for pickup"].includes(sLower)) badgeClass = 'approved';
+            else if (sLower === 'rejected') badgeClass = 'rejected';
+            else if (sLower === 'processing') badgeClass = 'processing';
+            
+            cards += `<div class="mobile-card">
+                <div class="mobile-card-header">
+                    <h3 class="mobile-card-title">${escapeHTML(req.business_name)}</h3>
+                    <span class="mobile-card-badge ${badgeClass}">${status}</span>
+                </div>
+                <div class="mobile-card-desc">${escapeHTML(req.transaction_type || 'Business Transaction')} ${req.remarks ? ' - ' + escapeHTML(req.remarks) : ''}</div>
+                <div class="mobile-card-meta">
+                    <div class="mobile-card-meta-item">
+                        <i class="far fa-clock"></i>
+                        <span>${new Date(req.application_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
+                </div>
+            </div>`;
+        });
+    }
+    
+    // Diff update
+    if (grid.innerHTML !== cards) {
+        grid.innerHTML = cards;
+    }
 }
-setInterval(function() {
+
+function fetchUpdates() {
     fetch('partials/fetch-live-updates.php')
         .then(res => res.json())
         .then(data => {
             if (data.doc_requests && data.biz_requests) {
                 renderRequestsTable(data.doc_requests, data.biz_requests);
             }
-        });
-}, 5000);
+        })
+        .catch(err => console.error('Error fetching updates:', err));
+}
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, function(match) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[match];
+    });
+}
+
+// Initial fetch
+fetchUpdates();
+// Polling
+setInterval(fetchUpdates, 5000);
 </script>
 <?php require_once 'partials/footer.php'; ?> 

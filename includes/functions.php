@@ -165,4 +165,23 @@ if (!function_exists('require_role')) {
             redirect_to('../index.php');
         }
     }
+}
+
+/**
+ * Retrieve the resident ID for a given user ID
+ *
+ * @param PDO $pdo Database connection
+ * @param int $user_id User ID
+ * @return int|null Resident ID, or null if not found
+ */
+function get_resident_id($pdo, $user_id) {
+    try {
+        $stmt = $pdo->prepare("SELECT id FROM residents WHERE user_id = ?");
+        $stmt->execute([$user_id]);
+        $resident = $stmt->fetch();
+        return $resident ? $resident['id'] : null;
+    } catch (PDOException $e) {
+        error_log("Error fetching resident ID: " . $e->getMessage());
+        return null;
+    }
 } 
