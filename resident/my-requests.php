@@ -49,47 +49,42 @@ function renderTimeline(status) {
     let isRejected = false;
     
     let normalizeStatus = status.toLowerCase();
-    if (["approved", "ready for pickup", "ready"].includes(normalizeStatus)) activeStep = 3;
+    if (["approved", "ready for pickup", "ready", "completed"].includes(normalizeStatus)) activeStep = 3;
+    if (normalizeStatus === "completed") activeStep = 4;
     else if (normalizeStatus === "processing") activeStep = 2;
-    else if (normalizeStatus === "completed") activeStep = 4;
     else if (normalizeStatus === "rejected") { activeStep = 4; isRejected = true; }
     
     let color = isRejected ? 'text-red-500 border-red-500 bg-red-50' : 'text-blue-600 border-blue-600 bg-blue-50';
-    let lineColors = [
-        activeStep >= 2 ? (isRejected ? 'bg-red-500' : 'bg-blue-600') : 'bg-gray-200',
-        activeStep >= 3 ? (isRejected ? 'bg-red-500' : 'bg-blue-600') : 'bg-gray-200',
-        activeStep >= 4 ? (isRejected ? 'bg-red-500' : 'bg-blue-600') : 'bg-gray-200'
-    ];
     
     return `
-    <div class="mt-4 px-2">
+    <div class="mt-6 px-1">
         <div class="flex items-center justify-between relative">
-            <div class="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10"></div>
-            <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 ${isRejected ? 'bg-red-500' : 'bg-blue-600'} -z-10 transition-all" style="width: ${(activeStep - 1) * 33.3}%"></div>
+            <div class="absolute left-0 top-3 transform -translate-y-1/2 w-full h-1 bg-gray-100 -z-10 rounded-full"></div>
+            <div class="absolute left-0 top-3 transform -translate-y-1/2 h-1 ${isRejected ? 'bg-red-500' : 'bg-blue-600'} -z-10 transition-all rounded-full" style="width: ${(activeStep - 1) * 33.3}%"></div>
             
-            <div class="flex flex-col items-center">
-                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 1 ? color : 'border-gray-300 bg-white'} flex items-center justify-center text-xs font-bold ring-2 ring-white z-10">
+            <div class="flex flex-col items-center w-1/4">
+                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 1 ? color : 'border-gray-300 bg-white'} flex items-center justify-center text-[10px] font-bold ring-4 ring-white z-10">
                     ${activeStep > 1 && !isRejected ? '<i class="fas fa-check"></i>' : '1'}
                 </div>
-                <span class="text-[10px] mt-1 font-semibold ${activeStep >= 1 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Submitted</span>
+                <span class="text-[9px] mt-2 font-bold uppercase tracking-tighter w-full text-center leading-none ${activeStep >= 1 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Submitted</span>
             </div>
-            <div class="flex flex-col items-center">
-                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 2 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-xs font-bold ring-2 ring-white z-10">
+            <div class="flex flex-col items-center w-1/4">
+                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 2 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-[10px] font-bold ring-4 ring-white z-10">
                     ${activeStep > 2 && !isRejected ? '<i class="fas fa-check"></i>' : '2'}
                 </div>
-                <span class="text-[10px] mt-1 font-semibold ${activeStep >= 2 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Processing</span>
+                <span class="text-[9px] mt-2 font-bold uppercase tracking-tighter w-full text-center leading-none ${activeStep >= 2 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Processing</span>
             </div>
-            <div class="flex flex-col items-center">
-                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 3 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-xs font-bold ring-2 ring-white z-10">
+            <div class="flex flex-col items-center w-1/4">
+                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 3 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-[10px] font-bold ring-4 ring-white z-10">
                     ${activeStep > 3 && !isRejected ? '<i class="fas fa-check"></i>' : '3'}
                 </div>
-                <span class="text-[10px] mt-1 font-semibold ${activeStep >= 3 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Ready</span>
+                <span class="text-[9px] mt-2 font-bold uppercase tracking-tighter w-full text-center leading-none ${activeStep >= 3 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Ready</span>
             </div>
-            <div class="flex flex-col items-center">
-                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 4 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-xs font-bold ring-2 ring-white z-10">
+            <div class="flex flex-col items-center w-1/4">
+                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 4 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-[10px] font-bold ring-4 ring-white z-10">
                     ${isRejected ? '<i class="fas fa-times text-red-500"></i>' : (activeStep >= 4 ? '<i class="fas fa-check"></i>' : '4')}
                 </div>
-                <span class="text-[10px] mt-1 font-semibold ${activeStep >= 4 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">${isRejected ? 'Rejected' : 'Completed'}</span>
+                <span class="text-[9px] mt-2 font-bold uppercase tracking-tighter w-full text-center leading-none ${activeStep >= 4 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">${isRejected ? 'Rejected' : 'Done'}</span>
             </div>
         </div>
     </div>`;
@@ -114,18 +109,21 @@ function renderRequestsTable(docRequests, bizRequests) {
             else if (status === 'Rejected') badgeClass = 'rejected';
             else if (status === 'Processing') badgeClass = 'processing';
             
-            cards += `<div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition">
+            cards += `<div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition cursor-pointer group" onclick="window.location.href='request-details.php?id=${req.id}'">
                 <div>
                     <div class="flex justify-between items-start mb-2">
-                        <h3 class="font-bold text-gray-800 line-clamp-2">${escapeHTML(req.document_type)}</h3>
-                        <span class="text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap mobile-card-badge ${badgeClass}">${escapeHTML(status)}</span>
+                        <h3 class="font-bold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors">${escapeHTML(req.document_type)}</h3>
+                        <span class="text-[10px] font-extrabold px-2 py-1 rounded-md whitespace-nowrap mobile-card-badge ${badgeClass} uppercase tracking-tight">${escapeHTML(status)}</span>
                     </div>
-                    <div class="text-sm text-gray-500 mb-3 line-clamp-2">${escapeHTML(req.purpose || 'Document Request')} ${req.remarks ? ' - ' + escapeHTML(req.remarks) : ''}</div>
+                    <div class="text-xs text-gray-500 mb-3 line-clamp-1">${escapeHTML(req.purpose || 'Document Request')} ${req.remarks ? ' - ' + escapeHTML(req.remarks) : ''}</div>
                 </div>
                 ${renderTimeline(status)}
-                <div class="flex items-center text-xs text-gray-400 mt-5 pt-3 border-t border-gray-50">
-                    <i class="far fa-clock mr-1"></i>
-                    <span>${new Date(req.date_requested).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                <div class="flex items-center justify-between text-[10px] text-gray-400 mt-5 pt-3 border-t border-gray-50">
+                    <div class="flex items-center">
+                        <i class="far fa-clock mr-1"></i>
+                        <span>${new Date(req.date_requested).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
+                    <span class="text-blue-500 font-bold group-hover:underline">View Details <i class="fas fa-chevron-right ml-1"></i></span>
                 </div>
             </div>`;
         });
@@ -138,18 +136,21 @@ function renderRequestsTable(docRequests, bizRequests) {
             else if (["REJECTED","Rejected"].includes(status)) badgeClass = 'rejected';
             else if (["PROCESSING","Processing"].includes(status)) badgeClass = 'processing';
             
-            cards += `<div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition">
+            cards += `<div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition cursor-pointer group" onclick="window.location.href='business-details.php?id=${req.id}'">
                 <div>
                     <div class="flex justify-between items-start mb-2">
-                        <h3 class="font-bold text-gray-800 line-clamp-2">${escapeHTML(req.business_name)}</h3>
-                        <span class="text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap mobile-card-badge ${badgeClass}">${escapeHTML(status)}</span>
+                        <h3 class="font-bold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors">${escapeHTML(req.business_name)}</h3>
+                        <span class="text-[10px] font-extrabold px-2 py-1 rounded-md whitespace-nowrap mobile-card-badge ${badgeClass} uppercase tracking-tight">${escapeHTML(status)}</span>
                     </div>
-                    <div class="text-sm text-gray-500 mb-3 line-clamp-2">${escapeHTML(req.transaction_type || 'Business Transaction')} ${req.remarks ? ' - ' + escapeHTML(req.remarks) : ''}</div>
+                    <div class="text-xs text-gray-500 mb-3 line-clamp-1">${escapeHTML(req.transaction_type || 'Business Transaction')} ${req.remarks ? ' - ' + escapeHTML(req.remarks) : ''}</div>
                 </div>
                 ${renderTimeline(status)}
-                <div class="flex items-center text-xs text-gray-400 mt-5 pt-3 border-t border-gray-50">
-                    <i class="far fa-clock mr-1"></i>
-                    <span>${new Date(req.application_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                <div class="flex items-center justify-between text-[10px] text-gray-400 mt-5 pt-3 border-t border-gray-50">
+                    <div class="flex items-center">
+                        <i class="far fa-clock mr-1"></i>
+                        <span>${new Date(req.application_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
+                    <span class="text-blue-500 font-bold group-hover:underline">View Details <i class="fas fa-chevron-right ml-1"></i></span>
                 </div>
             </div>`;
         });
