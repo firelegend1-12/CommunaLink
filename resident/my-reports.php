@@ -14,6 +14,20 @@ require_role('resident');
 $page_title = "My Incident Reports";
 $user_fullname = $_SESSION['fullname'] ?? 'Resident';
 
+require_once '../config/database.php';
+
+$resident_user_id = $_SESSION['user_id'] ?? null;
+$reports = [];
+if ($resident_user_id) {
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM incidents WHERE resident_user_id = ? ORDER BY reported_at DESC");
+        $stmt->execute([$resident_user_id]);
+        $reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        $reports = [];
+    }
+}
+
 require_once 'partials/header.php';
 ?>
 <style>
