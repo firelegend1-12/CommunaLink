@@ -2,16 +2,8 @@
 /**
  * Events Management - Modernized
  */
-require_once '../../config/init.php';
+require_once '../partials/admin_auth.php';
 require_once '../../includes/functions.php';
-
-require_login();
-
-// Check if user is admin
-if ($_SESSION['role'] !== 'admin') {
-    header("Location: ../../index.php");
-    exit();
-}
 
 $page_title = "Manage Events";
 

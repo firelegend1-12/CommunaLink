@@ -2,16 +2,12 @@
 /**
  * User Management - Modernized
  */
-require_once '../../config/init.php';
+require_once '../partials/admin_auth.php';
 require_once '../../includes/functions.php';
-require_once '../../includes/auth.php';
-require_once '../../includes/permission_checker.php';
 
-require_login();
-
-// Check if user is admin
+// Note: Advanced User Management is typically restricted to the 'admin' role
 if ($_SESSION['role'] !== 'admin') {
-    header("Location: ../../index.php");
+    header("Location: dashboard.php");
     exit();
 }
 

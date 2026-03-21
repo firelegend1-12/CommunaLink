@@ -4,14 +4,13 @@
  * Main landing page after successful login
  */
 
-// Include authentication system
-require_once '../config/init.php';
+// Include admin authentication and session management
+require_once 'partials/admin_auth.php';
+
+// Page-specific requirements
 require_once '../includes/functions.php';
 require_once '../includes/auth.php';
 require_once '../includes/cache_manager.php';
-
-// Check if user is logged in
-require_login();
 
 // Page title
 $page_title = "Dashboard - CommuniLink";
