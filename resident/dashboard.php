@@ -20,7 +20,7 @@ $user_fullname = $_SESSION['fullname'] ?? 'Resident';
 require_once '../config/database.php';
 
 // Fetch Recent Document Requests
-$stmtReq = $pdo->prepare("SELECT * FROM document_requests WHERE requested_by_user_id = ? ORDER BY date_requested DESC LIMIT 3");
+$stmtReq = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status FROM document_requests WHERE requested_by_user_id = ? ORDER BY date_requested DESC LIMIT 3");
 $stmtReq->execute([$_SESSION['user_id']]);
 $recentRequests = $stmtReq->fetchAll(PDO::FETCH_ASSOC);
 

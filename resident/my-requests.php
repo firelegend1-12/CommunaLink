@@ -40,99 +40,120 @@ $bizRequests = $stmtBiz->fetchAll();
     <h1 class="text-3xl font-bold mb-8 text-blue-700">My Requests</h1>
 
     <div id="requests-grid-container" class="responsive-card-grid">
-    <?php if (empty($requests)): ?>
-        <div class="col-span-full py-20 text-center text-gray-400">
-            <i class="fas fa-folder-open text-5xl mb-4 block opacity-20"></i>
-            <p>You have not submitted any requests yet.</p>
-        </div>
-    <?php else: ?>
-        <?php foreach ($requests as $req): ?>
-            <?php 
-                $details = json_decode($req['details'], true) ?? [];
-                $status = $req['status'] ?? 'Pending';
-                
-                $badgeClass = 'pending';
-                if (in_array($status, ['Approved', 'Ready for Pickup', 'Completed'])) $badgeClass = 'approved';
-                elseif ($status === 'Rejected') $badgeClass = 'rejected';
-                elseif ($status === 'Processing') $badgeClass = 'processing';
-            ?>
-            <div class="mobile-card">
-                <div class="mobile-card-header">
-                    <h3 class="mobile-card-title"><?= htmlspecialchars($req['document_type']) ?></h3>
-                    <span class="mobile-card-badge <?= $badgeClass ?>"><?= htmlspecialchars($status) ?></span>
-                </div>
-                <div class="mobile-card-desc"><?= htmlspecialchars($req['purpose']) ?> <?= !empty($req['remarks']) ? ' - ' . htmlspecialchars($req['remarks']) : '' ?></div>
-                <div class="mobile-card-meta">
-                    <div class="mobile-card-meta-item">
-                        <i class="far fa-clock"></i>
-                        <span><?= date('M d, Y', strtotime($req['date_requested'])) ?></span>
-                    </div>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    <?php endif; ?>
+        <!-- Rendered by JS on load -->
     </div>
 </div>
 <script>
+function renderTimeline(status) {
+    let activeStep = 1;
+    let isRejected = false;
+    
+    let normalizeStatus = status.toLowerCase();
+    if (["approved", "ready for pickup", "ready"].includes(normalizeStatus)) activeStep = 3;
+    else if (normalizeStatus === "processing") activeStep = 2;
+    else if (normalizeStatus === "completed") activeStep = 4;
+    else if (normalizeStatus === "rejected") { activeStep = 4; isRejected = true; }
+    
+    let color = isRejected ? 'text-red-500 border-red-500 bg-red-50' : 'text-blue-600 border-blue-600 bg-blue-50';
+    let lineColors = [
+        activeStep >= 2 ? (isRejected ? 'bg-red-500' : 'bg-blue-600') : 'bg-gray-200',
+        activeStep >= 3 ? (isRejected ? 'bg-red-500' : 'bg-blue-600') : 'bg-gray-200',
+        activeStep >= 4 ? (isRejected ? 'bg-red-500' : 'bg-blue-600') : 'bg-gray-200'
+    ];
+    
+    return `
+    <div class="mt-4 px-2">
+        <div class="flex items-center justify-between relative">
+            <div class="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10"></div>
+            <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 ${isRejected ? 'bg-red-500' : 'bg-blue-600'} -z-10 transition-all" style="width: ${(activeStep - 1) * 33.3}%"></div>
+            
+            <div class="flex flex-col items-center">
+                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 1 ? color : 'border-gray-300 bg-white'} flex items-center justify-center text-xs font-bold ring-2 ring-white z-10">
+                    ${activeStep > 1 && !isRejected ? '<i class="fas fa-check"></i>' : '1'}
+                </div>
+                <span class="text-[10px] mt-1 font-semibold ${activeStep >= 1 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Submitted</span>
+            </div>
+            <div class="flex flex-col items-center">
+                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 2 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-xs font-bold ring-2 ring-white z-10">
+                    ${activeStep > 2 && !isRejected ? '<i class="fas fa-check"></i>' : '2'}
+                </div>
+                <span class="text-[10px] mt-1 font-semibold ${activeStep >= 2 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Processing</span>
+            </div>
+            <div class="flex flex-col items-center">
+                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 3 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-xs font-bold ring-2 ring-white z-10">
+                    ${activeStep > 3 && !isRejected ? '<i class="fas fa-check"></i>' : '3'}
+                </div>
+                <span class="text-[10px] mt-1 font-semibold ${activeStep >= 3 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Ready</span>
+            </div>
+            <div class="flex flex-col items-center">
+                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 4 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-xs font-bold ring-2 ring-white z-10">
+                    ${isRejected ? '<i class="fas fa-times text-red-500"></i>' : (activeStep >= 4 ? '<i class="fas fa-check"></i>' : '4')}
+                </div>
+                <span class="text-[10px] mt-1 font-semibold ${activeStep >= 4 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">${isRejected ? 'Rejected' : 'Completed'}</span>
+            </div>
+        </div>
+    </div>`;
+}
+
 function renderRequestsTable(docRequests, bizRequests) {
     let grid = document.getElementById('requests-grid-container');
     if (!grid) return;
     let cards = '';
     
     if (docRequests.length === 0 && bizRequests.length === 0) {
-        cards = `<div class="py-20 text-center text-gray-400">
+        cards = `<div class="col-span-full py-20 text-center text-gray-400">
             <i class="fas fa-folder-open text-5xl mb-4 block opacity-20"></i>
             <p>You have not submitted any requests yet.</p>
         </div>`;
-        return;
-    }
-
-    // Document requests
-    docRequests.forEach(function(req) {
-        let status = req.status || 'Pending';
-        let statusClass = 'bg-gray-100 text-gray-700';
-        let badgeClass = 'pending';
-        if (["Approved","Ready for Pickup","Completed"].includes(status)) badgeClass = 'approved';
-        else if (status === 'Rejected') badgeClass = 'rejected';
-        else if (status === 'Processing') badgeClass = 'processing';
-        
-        cards += `<div class="mobile-card">
-            <div class="mobile-card-header">
-                <h3 class="mobile-card-title">${req.document_type}</h3>
-                <span class="mobile-card-badge ${badgeClass}">${status}</span>
-            </div>
-            <div class="mobile-card-desc">${req.purpose || 'Document Request'} ${req.remarks ? ' - ' + req.remarks : ''}</div>
-            <div class="mobile-card-meta">
-                <div class="mobile-card-meta-item">
-                    <i class="far fa-clock"></i>
+    } else {
+        // Document requests
+        docRequests.forEach(function(req) {
+            let status = req.status || 'Pending';
+            let badgeClass = 'pending';
+            if (["Approved","Ready for Pickup","Completed"].includes(status)) badgeClass = 'approved';
+            else if (status === 'Rejected') badgeClass = 'rejected';
+            else if (status === 'Processing') badgeClass = 'processing';
+            
+            cards += `<div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition">
+                <div>
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="font-bold text-gray-800 line-clamp-2">${escapeHTML(req.document_type)}</h3>
+                        <span class="text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap mobile-card-badge ${badgeClass}">${escapeHTML(status)}</span>
+                    </div>
+                    <div class="text-sm text-gray-500 mb-3 line-clamp-2">${escapeHTML(req.purpose || 'Document Request')} ${req.remarks ? ' - ' + escapeHTML(req.remarks) : ''}</div>
+                </div>
+                ${renderTimeline(status)}
+                <div class="flex items-center text-xs text-gray-400 mt-5 pt-3 border-t border-gray-50">
+                    <i class="far fa-clock mr-1"></i>
                     <span>${new Date(req.date_requested).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                 </div>
-            </div>
-        </div>`;
-    });
+            </div>`;
+        });
 
-    // Business transactions
-    bizRequests.forEach(function(req) {
-        let status = req.status || 'PENDING';
-        let badgeClass = 'pending';
-        if (["APPROVED","Completed","Ready for Pickup"].includes(status)) badgeClass = 'approved';
-        else if (["REJECTED","Rejected"].includes(status)) badgeClass = 'rejected';
-        else if (["PROCESSING","Processing"].includes(status)) badgeClass = 'processing';
-        
-        cards += `<div class="mobile-card">
-            <div class="mobile-card-header">
-                <h3 class="mobile-card-title">${req.business_name}</h3>
-                <span class="mobile-card-badge ${badgeClass}">${status}</span>
-            </div>
-            <div class="mobile-card-desc">${req.transaction_type || 'Business Transaction'} ${req.remarks ? ' - ' + req.remarks : ''}</div>
-            <div class="mobile-card-meta">
-                <div class="mobile-card-meta-item">
-                    <i class="far fa-clock"></i>
+        // Business transactions
+        bizRequests.forEach(function(req) {
+            let status = req.status || 'PENDING';
+            let badgeClass = 'pending';
+            if (["APPROVED","Completed","Ready for Pickup"].includes(status)) badgeClass = 'approved';
+            else if (["REJECTED","Rejected"].includes(status)) badgeClass = 'rejected';
+            else if (["PROCESSING","Processing"].includes(status)) badgeClass = 'processing';
+            
+            cards += `<div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition">
+                <div>
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="font-bold text-gray-800 line-clamp-2">${escapeHTML(req.business_name)}</h3>
+                        <span class="text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap mobile-card-badge ${badgeClass}">${escapeHTML(status)}</span>
+                    </div>
+                    <div class="text-sm text-gray-500 mb-3 line-clamp-2">${escapeHTML(req.transaction_type || 'Business Transaction')} ${req.remarks ? ' - ' + escapeHTML(req.remarks) : ''}</div>
+                </div>
+                ${renderTimeline(status)}
+                <div class="flex items-center text-xs text-gray-400 mt-5 pt-3 border-t border-gray-50">
+                    <i class="far fa-clock mr-1"></i>
                     <span>${new Date(req.application_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                 </div>
-            </div>
-        </div>`;
-    });
+            </div>`;
+        });
+    }
     
     // Diff to prevent flicker
     if (grid.innerHTML !== cards) {
