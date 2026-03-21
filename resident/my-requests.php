@@ -26,15 +26,18 @@ if (!$resident_id) {
 }
 
 require_once '../config/database.php';
-$stmt = $pdo->prepare("SELECT document_type, purpose, date_requested, status, remarks, details FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC");
-$stmt->execute([$resident_id]);
-$requests = $stmt->fetchAll();
+// Get document requests
+$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, remarks, details FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC");
+$stmtDoc->execute([$resident_id]);
+$docRequests = $stmtDoc->fetchAll();
+
+// Get business transactions
+$stmtBiz = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, remarks FROM business_transactions WHERE resident_id = ? ORDER BY application_date DESC");
+$stmtBiz->execute([$resident_id]);
+$bizRequests = $stmtBiz->fetchAll();
 ?>
-<div class="max-w-6xl mx-auto px-4 py-8 mt-4">
+<div class="max-w-4xl mx-auto px-4 py-8 mt-4">
     <h1 class="text-3xl font-bold mb-8 text-blue-700">My Requests</h1>
-    
-    /* Global grid and card styles are now in resident.css */
-    </style>
 
     <div id="requests-grid-container" class="responsive-card-grid">
     <?php if (empty($requests)): ?>
@@ -77,7 +80,7 @@ function renderRequestsTable(docRequests, bizRequests) {
     let cards = '';
     
     if (docRequests.length === 0 && bizRequests.length === 0) {
-        grid.innerHTML = `<div class="col-span-full py-20 text-center text-gray-400">
+        cards = `<div class="py-20 text-center text-gray-400">
             <i class="fas fa-folder-open text-5xl mb-4 block opacity-20"></i>
             <p>You have not submitted any requests yet.</p>
         </div>`;
@@ -136,14 +139,34 @@ function renderRequestsTable(docRequests, bizRequests) {
         grid.innerHTML = cards;
     }
 }
-setInterval(function() {
+
+function fetchUpdates() {
     fetch('partials/fetch-live-updates.php')
         .then(res => res.json())
         .then(data => {
             if (data.doc_requests && data.biz_requests) {
                 renderRequestsTable(data.doc_requests, data.biz_requests);
             }
-        });
-}, 5000);
+        })
+        .catch(err => console.error('Error fetching updates:', err));
+}
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, function(match) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[match];
+    });
+}
+
+// Initial fetch
+fetchUpdates();
+// Polling
+setInterval(fetchUpdates, 5000);
 </script>
 <?php require_once 'partials/footer.php'; ?> 

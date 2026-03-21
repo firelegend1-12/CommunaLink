@@ -255,30 +255,38 @@ require_once 'partials/header.php';
 </section>
 
 <div class="dashboard-grid">
-    <section class="recent-reports">
+    <section class="recent-reports mt-8 bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
         <div class="recent-reports-header">
-            <i class="fas fa-history"></i>
-            <h2>Recent Incident Reports</h2>
-            <a href="my-reports.php" class="view-all-btn">View All</a>
+            <h2>
+                <i class="fas fa-history text-blue-600"></i>
+                Recent Incident Reports
+            </h2>
+            <a href="my-reports.php" class="view-all-link">View All</a>
         </div>
         <div class="responsive-card-grid">
             <?php if (empty($recentIncidents)): ?>
-                <div class="report-item-empty"><p style="padding: 20px 0; color: #666;">No recent incidents reported.</p></div>
+                <div class="p-8 text-center text-gray-400">No recent incidents reported.</div>
             <?php else: ?>
                 <?php foreach ($recentIncidents as $inc): ?>
-                    <div class="standard-card">
-                        <div class="report-card-header">
-                            <div class="report-card-icon"><i class="fas fa-exclamation-circle"></i></div>
-                            <span class="status-badge status-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $inc['status']))) ?>" style="font-size: 0.7rem;">
+                    <?php 
+                        $statusClass = strtolower(str_replace(' ', '-', $inc['status']));
+                    ?>
+                    <div class="dashboard-item">
+                        <div class="dashboard-item-icon">
+                            <i class="fas fa-bell"></i>
+                        </div>
+                        <div class="dashboard-item-content">
+                            <span class="dashboard-item-title"><?= htmlspecialchars($inc['type']) ?></span>
+                            <div class="dashboard-item-desc"><?= htmlspecialchars($inc['description']) ?></div>
+                            <div class="dashboard-item-meta">
+                                <span>Coordinates: <?= htmlspecialchars($inc['location']) ?></span>
+                                <span>Reported: <?= date('M d, Y h:i A', strtotime($inc['reported_at'])) ?></span>
+                            </div>
+                        </div>
+                        <div class="dashboard-item-status">
+                            <span class="status-text-badge <?= $statusClass ?>">
                                 <?= htmlspecialchars($inc['status']) ?>
                             </span>
-                        </div>
-                        <div class="report-card-body">
-                            <h4><?= htmlspecialchars($inc['type']) ?></h4>
-                            <p><?= htmlspecialchars($inc['description']) ?></p>
-                        </div>
-                        <div class="report-card-footer">
-                            <span class="report-card-date"><?= date('M d, Y', strtotime($inc['reported_at'])) ?></span>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -286,30 +294,37 @@ require_once 'partials/header.php';
         </div>
     </section>
 
-    <section class="recent-reports">
+    <section class="recent-reports mt-8 bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
         <div class="recent-reports-header">
-            <i class="fas fa-file-signature"></i>
-            <h2>Recent Document Requests</h2>
-            <a href="my-requests.php" class="view-all-btn">View All</a>
+            <h2>
+                <i class="fas fa-file-signature text-green-600"></i>
+                Recent Document Requests
+            </h2>
+            <a href="my-requests.php" class="view-all-link">View All</a>
         </div>
         <div class="responsive-card-grid">
             <?php if (empty($recentRequests)): ?>
-                <div class="report-item-empty"><p style="padding: 20px 0; color: #666;">No recent document requests.</p></div>
+                <div class="p-8 text-center text-gray-400">No recent document requests.</div>
             <?php else: ?>
                 <?php foreach ($recentRequests as $req): ?>
-                    <div class="standard-card">
-                        <div class="report-card-header">
-                            <div class="report-card-icon" style="background-color: #f0fdf4; color: #16a34a;"><i class="fas fa-file-alt"></i></div>
-                            <span class="status-badge status-<?= htmlspecialchars(strtolower($req['status'] ?? 'pending')) ?>" style="font-size: 0.7rem;">
+                    <?php 
+                        $statusClass = strtolower(str_replace(' ', '-', $req['status'] ?? 'pending'));
+                    ?>
+                    <div class="dashboard-item">
+                        <div class="dashboard-item-icon">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <div class="dashboard-item-content">
+                            <span class="dashboard-item-title"><?= htmlspecialchars($req['document_type']) ?></span>
+                            <div class="dashboard-item-desc">Purpose: <?= htmlspecialchars($req['purpose']) ?></div>
+                            <div class="dashboard-item-meta">
+                                <span>Requested: <?= date('M d, Y h:i A', strtotime($req['date_requested'])) ?></span>
+                            </div>
+                        </div>
+                        <div class="dashboard-item-status">
+                            <span class="status-text-badge <?= $statusClass ?>">
                                 <?= htmlspecialchars($req['status'] ?? 'Pending') ?>
                             </span>
-                        </div>
-                        <div class="report-card-body">
-                            <h4><?= htmlspecialchars($req['document_type']) ?></h4>
-                            <p>Purpose: <?= htmlspecialchars($req['purpose']) ?></p>
-                        </div>
-                        <div class="report-card-footer">
-                            <span class="report-card-date"><?= date('M d, Y', strtotime($req['date_requested'])) ?></span>
                         </div>
                     </div>
                 <?php endforeach; ?>
