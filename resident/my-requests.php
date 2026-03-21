@@ -12,11 +12,8 @@ if (!$resident_id) {
     // Try to get resident ID from user_id if resident_id is not set
     if (isset($_SESSION['user_id'])) {
         require_once '../config/database.php';
-        $stmt = $pdo->prepare("SELECT id FROM residents WHERE user_id = ?");
-        $stmt->execute([$_SESSION['user_id']]);
-        $resident = $stmt->fetch();
-        if ($resident) {
-            $resident_id = $resident['id'];
+        $resident_id = get_resident_id($pdo, $_SESSION['user_id']);
+        if ($resident_id) {
             $_SESSION['resident_id'] = $resident_id; // Set it for future use
         }
     }
@@ -39,7 +36,7 @@ $requests = $stmt->fetchAll();
     /* Global grid and card styles are now in resident.css */
     </style>
 
-    <div id="requests-grid-container" class="mobile-grid-2col">
+    <div id="requests-grid-container" class="responsive-card-grid">
     <?php if (empty($requests)): ?>
         <div class="col-span-full py-20 text-center text-gray-400">
             <i class="fas fa-folder-open text-5xl mb-4 block opacity-20"></i>
@@ -50,30 +47,23 @@ $requests = $stmt->fetchAll();
             <?php 
                 $details = json_decode($req['details'], true) ?? [];
                 $status = $req['status'] ?? 'Pending';
-                $statusClass = 'bg-gray-100 text-gray-700';
-                if (in_array($status, ['Approved', 'Ready for Pickup', 'Completed'])) $statusClass = 'bg-green-100 text-green-700';
-                elseif ($status === 'Rejected') $statusClass = 'bg-red-100 text-red-700';
-                elseif ($status === 'Processing') $statusClass = 'bg-yellow-100 text-yellow-700';
+                
+                $badgeClass = 'pending';
+                if (in_array($status, ['Approved', 'Ready for Pickup', 'Completed'])) $badgeClass = 'approved';
+                elseif ($status === 'Rejected') $badgeClass = 'rejected';
+                elseif ($status === 'Processing') $badgeClass = 'processing';
             ?>
-            <div class="standard-card">
-                <div class="request-card-header">
-                    <div class="request-type-icon doc-icon"><i class="fas fa-file-invoice"></i></div>
-                    <span class="status-badge <?= $statusClass ?>"><?= htmlspecialchars($status) ?></span>
+            <div class="mobile-card">
+                <div class="mobile-card-header">
+                    <h3 class="mobile-card-title"><?= htmlspecialchars($req['document_type']) ?></h3>
+                    <span class="mobile-card-badge <?= $badgeClass ?>"><?= htmlspecialchars($status) ?></span>
                 </div>
-                <div class="request-card-body">
-                    <h3><?= htmlspecialchars($req['document_type']) ?></h3>
-                    <p class="purpose"><?= htmlspecialchars($req['purpose']) ?></p>
-                </div>
-                <div class="request-meta">
-                    <div class="meta-item">
-                        <i class="far fa-calendar-alt"></i>
-                        <span>Requested:</span> <?= date('M d, Y', strtotime($req['date_requested'])) ?>
+                <div class="mobile-card-desc"><?= htmlspecialchars($req['purpose']) ?> <?= !empty($req['remarks']) ? ' - ' . htmlspecialchars($req['remarks']) : '' ?></div>
+                <div class="mobile-card-meta">
+                    <div class="mobile-card-meta-item">
+                        <i class="far fa-clock"></i>
+                        <span><?= date('M d, Y', strtotime($req['date_requested'])) ?></span>
                     </div>
-                    <?php if (!empty($req['remarks'])): ?>
-                        <div class="remarks-box">
-                            <strong>Note:</strong> <?= htmlspecialchars($req['remarks']) ?>
-                        </div>
-                    <?php endif; ?>
                 </div>
             </div>
         <?php endforeach; ?>
@@ -98,25 +88,22 @@ function renderRequestsTable(docRequests, bizRequests) {
     docRequests.forEach(function(req) {
         let status = req.status || 'Pending';
         let statusClass = 'bg-gray-100 text-gray-700';
-        if (["Approved","Ready for Pickup","Completed"].includes(status)) statusClass = 'bg-green-100 text-green-700';
-        else if (status === 'Rejected') statusClass = 'bg-red-100 text-red-700';
-        else if (status === 'Processing') statusClass = 'bg-yellow-100 text-yellow-700';
+        let badgeClass = 'pending';
+        if (["Approved","Ready for Pickup","Completed"].includes(status)) badgeClass = 'approved';
+        else if (status === 'Rejected') badgeClass = 'rejected';
+        else if (status === 'Processing') badgeClass = 'processing';
         
-        cards += `<div class="standard-card">
-            <div class="request-card-header">
-                <div class="request-type-icon doc-icon"><i class="fas fa-file-invoice"></i></div>
-                <span class="status-badge ${statusClass}">${status}</span>
+        cards += `<div class="mobile-card">
+            <div class="mobile-card-header">
+                <h3 class="mobile-card-title">${req.document_type}</h3>
+                <span class="mobile-card-badge ${badgeClass}">${status}</span>
             </div>
-            <div class="request-card-body">
-                <h3>${req.document_type}</h3>
-                <p class="purpose">${req.purpose}</p>
-            </div>
-            <div class="request-meta">
-                <div class="meta-item">
-                    <i class="far fa-calendar-alt"></i>
-                    <span>Requested:</span> ${new Date(req.date_requested).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            <div class="mobile-card-desc">${req.purpose || 'Document Request'} ${req.remarks ? ' - ' + req.remarks : ''}</div>
+            <div class="mobile-card-meta">
+                <div class="mobile-card-meta-item">
+                    <i class="far fa-clock"></i>
+                    <span>${new Date(req.date_requested).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                 </div>
-                ${req.remarks ? `<div class="remarks-box"><strong>Note:</strong> ${req.remarks}</div>` : ''}
             </div>
         </div>`;
     });
@@ -124,30 +111,30 @@ function renderRequestsTable(docRequests, bizRequests) {
     // Business transactions
     bizRequests.forEach(function(req) {
         let status = req.status || 'PENDING';
-        let statusClass = 'bg-gray-100 text-gray-700';
-        if (["APPROVED","Completed","Ready for Pickup"].includes(status)) statusClass = 'bg-green-100 text-green-700';
-        else if (["REJECTED","Rejected"].includes(status)) statusClass = 'bg-red-100 text-red-700';
-        else if (["PROCESSING","Processing"].includes(status)) statusClass = 'bg-yellow-100 text-yellow-700';
+        let badgeClass = 'pending';
+        if (["APPROVED","Completed","Ready for Pickup"].includes(status)) badgeClass = 'approved';
+        else if (["REJECTED","Rejected"].includes(status)) badgeClass = 'rejected';
+        else if (["PROCESSING","Processing"].includes(status)) badgeClass = 'processing';
         
-        cards += `<div class="standard-card">
-            <div class="request-card-header">
-                <div class="request-type-icon biz-icon"><i class="fas fa-briefcase"></i></div>
-                <span class="status-badge ${statusClass}">${status}</span>
+        cards += `<div class="mobile-card">
+            <div class="mobile-card-header">
+                <h3 class="mobile-card-title">${req.business_name}</h3>
+                <span class="mobile-card-badge ${badgeClass}">${status}</span>
             </div>
-            <div class="request-card-body">
-                <h3>${req.business_name}</h3>
-                <p class="purpose">${req.transaction_type}</p>
-            </div>
-            <div class="request-meta">
-                <div class="meta-item">
-                    <i class="far fa-calendar-alt"></i>
-                    <span>Requested:</span> ${new Date(req.application_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            <div class="mobile-card-desc">${req.transaction_type || 'Business Transaction'} ${req.remarks ? ' - ' + req.remarks : ''}</div>
+            <div class="mobile-card-meta">
+                <div class="mobile-card-meta-item">
+                    <i class="far fa-clock"></i>
+                    <span>${new Date(req.application_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                 </div>
-                ${req.remarks ? `<div class="remarks-box"><strong>Note:</strong> ${req.remarks}</div>` : ''}
             </div>
         </div>`;
     });
-    grid.innerHTML = cards;
+    
+    // Diff to prevent flicker
+    if (grid.innerHTML !== cards) {
+        grid.innerHTML = cards;
+    }
 }
 setInterval(function() {
     fetch('partials/fetch-live-updates.php')

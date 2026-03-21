@@ -5,16 +5,6 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
 
-// This function should be in functions.php or auth.php, but for now it's here
-if (!function_exists('require_role')) {
-    function require_role($role) {
-        if (!is_logged_in() || $_SESSION['role'] !== $role) {
-            redirect_to('../index.php');
-        }
-    }
-}
-
-
 require_role('resident');
 
 $page_title = $page_title ?? "Resident Portal"; // Allow pages to set their own title
