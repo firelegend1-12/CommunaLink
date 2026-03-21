@@ -1,10 +1,14 @@
 <?php
+/**
+ * Edit User Page - Modernized
+ */
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 
-// Check if user is logged in and is admin
 require_login();
+
+// Check if user is admin
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     redirect_to('../index.php');
 }
@@ -12,328 +16,201 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 $user_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 $user = null;
 $error_message = '';
-$success_message = '';
 
-// Handle form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!csrf_validate()) {
-        $error_message = "Invalid security token. Please refresh the page and try again.";
-    } else {
-        $user_id = filter_input(INPUT_POST, 'user_id', FILTER_VALIDATE_INT);
-        $username = sanitize_input($_POST['username']);
-        $fullname = sanitize_input($_POST['fullname']);
-        $email = sanitize_input($_POST['email']);
-        $role = sanitize_input($_POST['role']);
-        $official_position = sanitize_input($_POST['official_position'] ?? '');
-        $new_password = $_POST['new_password'];
-
-        // Process role selection
-        if ($role === 'official') {
-            if (empty($official_position)) {
-                $error_message = "Please select an official position.";
-            } else {
-                $final_role = $official_position;
-            }
-        } else {
-            $final_role = $role;
-        }
-
-        if (!$user_id) {
-            $error_message = "Invalid user ID.";
-        } else {
-            try {
-                // Get current user data
-                $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
-                $stmt->execute([$user_id]);
-                $current_user = $stmt->fetch();
-                
-                if (!$current_user) {
-                    $error_message = "User not found.";
-                } else {
-                    // Check if username is already taken by another user
-                    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
-                    $stmt->execute([$username, $user_id]);
-                    if ($stmt->rowCount() > 0) {
-                        $error_message = "Username already taken by another user.";
-                    } else {
-                        // Check if email is already taken by another user
-                        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
-                        $stmt->execute([$email, $user_id]);
-                        if ($stmt->rowCount() > 0) {
-                            $error_message = "Email already taken by another user.";
-                        } else {
-                            // Prepare changes array for logging
-                            $changes = [];
-                            if ($current_user['username'] !== $username) $changes[] = "username";
-                            if ($current_user['fullname'] !== $fullname) $changes[] = "fullname";
-                            if ($current_user['email'] !== $email) $changes[] = "email";
-                            if ($current_user['role'] !== $final_role) $changes[] = "role";
-                            if (!empty($new_password)) $changes[] = "password";
-
-                            // Check if there are actual changes to make
-                            if (empty($changes) && empty($new_password)) {
-                                // No changes needed, consider this a success
-                                $update_success = true;
-                            } else {
-                                // Changes detected, perform the update
-                                try {
-                                    if (!empty($new_password)) {
-                                        $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-                                        $stmt = $pdo->prepare("UPDATE users SET username = ?, fullname = ?, email = ?, password = ?, role = ? WHERE id = ?");
-                                        $stmt->execute([$username, $fullname, $email, $hashed_password, $final_role, $user_id]);
-                                    } else {
-                                        $stmt = $pdo->prepare("UPDATE users SET username = ?, fullname = ?, email = ?, role = ? WHERE id = ?");
-                                        $stmt->execute([$username, $fullname, $email, $final_role, $user_id]);
-                                    }
-                                    $update_success = true;
-                                } catch (PDOException $e) {
-                                    $error_message = "Database error: " . $e->getMessage();
-                                    $update_success = false;
-                                }
-                            }
-                            
-                            if ($update_success) {
-                                if (!empty($changes)) {
-                                    $changes_text = implode(", ", $changes);
-                                    log_activity_db($pdo, 'edit', 'user', $user_id, "User updated: {$changes_text}");
-                                }
-                                $_SESSION['success_message'] = !empty($changes) ? "User updated successfully." : "No changes detected.";
-                                header('Location: user-management.php');
-                                exit;
-                            } else {
-                                $error_message = "Failed to update user. Please try again.";
-                            }
-                        }
-                    }
-                }
-            } catch (PDOException $e) {
-                $error_message = "Database error: " . $e->getMessage();
-            }
-        }
-    }
-}
-
-// Fetch user data
-if (!$user && $user_id) {
+if ($user_id) {
     try {
         $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
         $stmt->execute([$user_id]);
         $user = $stmt->fetch();
         
         if (!$user) {
-            $error_message = "User not found.";
+            $error_message = "User account not discovered in the registry.";
         }
     } catch (PDOException $e) {
-        $error_message = "Database error occurred while fetching user.";
+        $error_message = "Database synchronization failed.";
     }
 }
 
-$page_title = "Edit User - CommuniLink";
+$page_title = "Manage Account Profile";
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title><?php echo $page_title; ?> - CommuniLink</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        [x-cloak] { display: none !important; }
+        .form-input {
+            transition: all 0.2s ease;
+        }
+        .form-input:focus {
+            transform: translateY(-1px);
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="flex h-screen overflow-hidden">
+<body class="bg-[#F8FAFC] min-h-screen text-[#1E293B]">
+    <div class="flex h-screen overflow-hidden" x-data="{ 
+        role: '<?= $user ? (in_array($user['role'], ['admin', 'resident']) ? $user['role'] : 'official') : '' ?>',
+        officialPosition: '<?= $user && !in_array($user['role'], ['admin', 'resident']) ? $user['role'] : '' ?>',
+        showPassword: false
+    }">
+        <!-- Sidebar Navigation -->
         <?php include '../partials/sidebar.php'; ?>
         
+        <!-- Main Content -->
         <div class="flex flex-col flex-1 overflow-hidden">
-            <header class="bg-white shadow-sm z-10">
+            <!-- Top Header -->
+            <header class="bg-white/80 backdrop-blur-md shadow-sm z-10 border-b border-slate-200">
                 <div class="px-4 sm:px-6 lg:px-8">
                     <div class="flex items-center justify-between h-16">
-                        <div class="flex items-center">
-                            <a href="user-management.php" class="text-gray-500 hover:text-gray-700 mr-4">
-                                <i class="fas fa-arrow-left"></i>
+                        <div class="flex items-center gap-4">
+                            <a href="user-management.php" class="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition">
+                                <i class="fas fa-arrow-left text-sm"></i>
                             </a>
-                            <h1 class="text-2xl font-semibold text-gray-800">Edit User</h1>
+                            <h1 class="text-xl font-bold text-slate-900 tracking-tight">Modify Account</h1>
                         </div>
                         
-                        <div class="relative">
-                            <div class="flex items-center space-x-2 text-sm text-gray-600">
-                                <span><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
-                                <div class="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-white">
-                                    <?php echo substr($_SESSION['fullname'], 0, 1); ?>
-                                </div>
-                            </div>
-                        </div>
+                        <?php include '../partials/user-dropdown.php'; ?>
                     </div>
                 </div>
             </header>
             
-            <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
-                <?php if ($error_message): ?>
-                    <?php echo display_error($error_message); ?>
-                <?php endif; ?>
-                
-                <?php if ($success_message): ?>
-                    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4">
-                        <p><?php echo htmlspecialchars($success_message); ?></p>
-                    </div>
-                <?php endif; ?>
-                
-                <?php if ($user): ?>
-                    <div class="max-w-2xl mx-auto">
-                        <div class="bg-white rounded-lg shadow p-6">
-                            <form method="POST" action="edit-user.php">
-                                <?php echo csrf_field(); ?>
-                                <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['id']); ?>">
-                                
-                                <div class="space-y-6">
+            <!-- Page Content -->
+            <main class="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-12">
+                <div class="max-w-2xl mx-auto">
+                    <?php if ($error_message): ?>
+                        <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-6 mb-8 rounded-r-2xl shadow-sm">
+                            <i class="fas fa-exclamation-circle mr-3"></i>
+                            <span class="font-bold uppercase tracking-widest text-xs"><?= $error_message ?></span>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ($user): ?>
+                        <div class="bg-white rounded-[2.5rem] shadow-xl shadow-indigo-100/40 border border-slate-200 overflow-hidden">
+                            <div class="px-10 py-10 bg-gradient-to-br from-indigo-600 to-indigo-800 text-white relative">
+                                <div class="absolute right-10 top-10 opacity-10"><i class="fas fa-user-cog text-8xl"></i></div>
+                                <div class="flex items-center gap-6">
+                                    <div class="h-20 w-20 rounded-[1.5rem] bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl font-black border border-white/30 shadow-inner">
+                                        <?= strtoupper(substr($user['fullname'], 0, 1)) ?>
+                                    </div>
                                     <div>
-                                        <h3 class="text-lg font-medium text-gray-900 mb-4">User Information</h3>
+                                        <h2 class="text-2xl font-black tracking-tight"><?= htmlspecialchars($user['fullname']) ?></h2>
+                                        <div class="flex items-center gap-2 mt-1">
+                                            <span class="bg-white/20 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest">@<?= htmlspecialchars($user['username']) ?></span>
+                                            <span class="bg-emerald-400 w-2 h-2 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+                                            <span class="text-[10px] font-bold opacity-80 uppercase tracking-tighter">Verified System Access</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <form action="edit-user.php" method="POST" class="p-10 space-y-10">
+                                <?php echo csrf_field(); ?>
+                                <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div class="space-y-6">
+                                        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Profile Information</h3>
                                         
-                                        <div class="mb-4">
-                                            <label for="username" class="block text-sm font-medium text-gray-700 mb-2">Username</label>
-                                            <input type="text" id="username" name="username" 
-                                                   value="<?php echo htmlspecialchars($user['username']); ?>" 
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                                                   required>
+                                        <div>
+                                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Full Identity Name</label>
+                                            <input type="text" name="fullname" value="<?= htmlspecialchars($user['fullname']) ?>" required 
+                                                   class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm">
                                         </div>
                                         
-                                        <div class="mb-4">
-                                            <label for="fullname" class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-                                            <input type="text" id="fullname" name="fullname" 
-                                                   value="<?php echo htmlspecialchars($user['fullname']); ?>" 
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                                                   required>
+                                        <div>
+                                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">System Handle (Username)</label>
+                                            <input type="text" name="username" value="<?= htmlspecialchars($user['username']) ?>" required 
+                                                   class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm">
                                         </div>
                                         
-                                        <div class="mb-4">
-                                            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                                            <input type="email" id="email" name="email" 
-                                                   value="<?php echo htmlspecialchars($user['email']); ?>" 
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                                                   required>
-                                        </div>
-                                        
-                                        <div class="mb-4">
-                                            <label for="role" class="block text-sm font-medium text-gray-700 mb-2">Role</label>
-                                            <select id="role" name="role" 
-                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                                                    required onchange="toggleOfficialPosition()">
-                                                <option value="">Select a role</option>
-                                                <option value="resident" <?php echo $user['role'] === 'resident' ? 'selected' : ''; ?>>Resident</option>
-                                                <option value="admin" <?php echo $user['role'] === 'admin' ? 'selected' : ''; ?>>Admin</option>
-                                                <option value="official" <?php echo in_array($user['role'], ['barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod']) ? 'selected' : ''; ?>>Official</option>
-                                            </select>
-                                            
-                                            <!-- Role Color Legend -->
-                                            <div class="mt-2 flex flex-wrap gap-2">
-                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                                                    <span class="w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
-                                                    Resident
-                                                </span>
-                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-                                                    <span class="w-2 h-2 bg-red-500 rounded-full mr-1"></span>
-                                                    Admin
-                                                </span>
-                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200" style="background-color: #f3e8ff; color: #6b21a8; border-color: #c4b5fd;">
-                                                    <span class="w-2 h-2 bg-purple-500 rounded-full mr-1" style="background-color: #8b5cf6;"></span>
-                                                    Official
-                                                </span>
-                                            </div>
-                                        </div>
-                                        
-                                        <div id="officialPositionDiv" class="mb-4 <?php echo in_array($user['role'], ['barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod']) ? '' : 'hidden'; ?>">
-                                            <label for="official_position" class="block text-sm font-medium text-gray-700 mb-2">Official Position</label>
-                                            <select id="official_position" name="official_position" 
-                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                <option value="">Select official position</option>
-                                                <option value="barangay-captain" <?php echo $user['role'] === 'barangay-captain' ? 'selected' : ''; ?>>Barangay Captain</option>
-                                                <option value="kagawad" <?php echo $user['role'] === 'kagawad' ? 'selected' : ''; ?>>Kagawad</option>
-                                                <option value="barangay-secretary" <?php echo $user['role'] === 'barangay-secretary' ? 'selected' : ''; ?>>Barangay Secretary</option>
-                                                <option value="barangay-treasurer" <?php echo $user['role'] === 'barangay-treasurer' ? 'selected' : ''; ?>>Barangay Treasurer</option>
-                                                <option value="barangay-tanod" <?php echo $user['role'] === 'barangay-tanod' ? 'selected' : ''; ?>>Barangay Tanod</option>
-                                            </select>
-                                        </div>
-                                        
-                                        <div class="mb-4">
-                                            <label for="new_password" class="block text-sm font-medium text-gray-700 mb-2">New Password (leave blank to keep current)</label>
-                                            <input type="password" id="new_password" name="new_password" 
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                                                   minlength="8">
-                                            <p class="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
+                                        <div>
+                                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Connectivity (Email)</label>
+                                            <input type="email" name="email" value="<?= htmlspecialchars($user['email']) ?>" required 
+                                                   class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm">
                                         </div>
                                     </div>
                                     
-                                    <div>
-                                        <h3 class="text-lg font-medium text-gray-900 mb-4">Account Information</h3>
+                                    <div class="space-y-6">
+                                        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Access & Security</h3>
                                         
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-2">Account Created</label>
-                                                <input type="text" value="<?php echo date('M d, Y h:i A', strtotime($user['created_at'])); ?>" 
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500" 
-                                                       readonly>
+                                        <div>
+                                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Authorization Role</label>
+                                            <select name="role" x-model="role" required 
+                                                    class="form-input w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 transition shadow-sm appearance-none">
+                                                <option value="resident">Resident</option>
+                                                <option value="official">Official / Staff</option>
+                                                <option value="admin">System Admin</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div x-show="role === 'official'" x-cloak x-transition>
+                                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Assigned Position</label>
+                                            <select name="official_position" x-model="officialPosition" :required="role === 'official'"
+                                                    class="form-input w-full bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-sm font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 transition shadow-sm appearance-none">
+                                                <option value="">Select official position...</option>
+                                                <option value="barangay-captain">Barangay Captain</option>
+                                                <option value="kagawad">Kagawad</option>
+                                                <option value="barangay-secretary">Barangay Secretary</option>
+                                                <option value="barangay-treasurer">Barangay Treasurer</option>
+                                                <option value="barangay-tanod">Barangay Tanod</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="pt-4">
+                                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Reset Credential</label>
+                                            <div class="relative">
+                                                <input :type="showPassword ? 'text' : 'password'" name="new_password" 
+                                                       class="form-input w-full bg-rose-50 border border-rose-100 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-rose-500 transition shadow-sm"
+                                                       placeholder="Leave blank to maintain current">
+                                                <button type="button" @click="showPassword = !showPassword" class="absolute right-5 top-1/2 -translate-y-1/2 text-rose-300 hover:text-rose-500 transition">
+                                                    <i class="fas" :class="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+                                                </button>
                                             </div>
-                                            
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-2">Last Login</label>
-                                                <input type="text" value="<?php echo $user['last_login'] ? date('M d, Y h:i A', strtotime($user['last_login'])) : 'Never'; ?>" 
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500" 
-                                                       readonly>
-                                            </div>
+                                            <p class="text-[9px] font-bold text-rose-400 mt-2 px-1 italic text-center uppercase tracking-tighter">Force a security refresh by entering a new password</p>
                                         </div>
                                     </div>
                                 </div>
                                 
-                                <div class="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-200">
-                                    <a href="user-management.php" 
-                                       class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                        Cancel
-                                    </a>
-                                    <button type="submit" 
-                                            class="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                        Update User
-                                    </button>
+                                <div class="bg-slate-50 rounded-[1.5rem] p-6 flex flex-wrap gap-6 items-center border border-slate-100">
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-10 w-10 rounded-xl bg-white flex items-center justify-center text-slate-400 shadow-sm"><i class="fas fa-history text-xs"></i></div>
+                                        <div>
+                                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Last Check-in</p>
+                                            <p class="text-xs font-bold text-slate-700"><?= $user['last_login'] ? date('M d, Y h:i A', strtotime($user['last_login'])) : 'Never active' ?></p>
+                                        </div>
+                                    </div>
+                                    <div class="h-8 w-px bg-slate-200 hidden md:block"></div>
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-10 w-10 rounded-xl bg-white flex items-center justify-center text-slate-400 shadow-sm"><i class="fas fa-calendar-plus text-xs"></i></div>
+                                        <div>
+                                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Enrolled on</p>
+                                            <p class="text-xs font-bold text-slate-700"><?= date('M d, Y', strtotime($user['created_at'])) ?></p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="pt-6 flex gap-4 border-t border-slate-100">
+                                    <a href="user-management.php" class="flex-1 px-8 py-5 rounded-2xl text-xs font-black uppercase text-center text-slate-400 bg-white border border-slate-200 hover:bg-slate-50 transition">Discard Changes</a>
+                                    <button type="submit" class="flex-[2] px-8 py-5 rounded-2xl text-xs font-black uppercase text-white bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-600/30 transition transform active:scale-95">Update Security Record</button>
                                 </div>
                             </form>
                         </div>
-                    </div>
-                <?php else: ?>
-                    <div class="max-w-2xl mx-auto">
-                        <div class="bg-white rounded-lg shadow p-6 text-center">
-                            <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i>
-                            <h3 class="text-lg font-medium text-gray-900 mb-2">User Not Found</h3>
-                            <p class="text-gray-500 mb-4">The user you're looking for doesn't exist or has been deleted.</p>
-                            <a href="user-management.php" 
-                               class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700">
-                                <i class="fas fa-arrow-left mr-2"></i>
-                                Back to User Management
-                            </a>
-                        </div>
-                    </div>
-                <?php endif; ?>
+                    <?php endif; ?>
+                </div>
             </main>
         </div>
     </div>
-
-    <script>
-        function toggleOfficialPosition() {
-            const roleSelect = document.getElementById('role');
-            const officialPositionDiv = document.getElementById('officialPositionDiv');
-            const officialPositionSelect = document.getElementById('official_position');
-            
-            if (roleSelect.value === 'official') {
-                officialPositionDiv.classList.remove('hidden');
-                officialPositionSelect.required = true;
-            } else {
-                officialPositionDiv.classList.add('hidden');
-                officialPositionSelect.required = false;
-                officialPositionSelect.value = '';
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            toggleOfficialPosition();
-        });
-    </script>
 </body>
-</html> 
+</html>

@@ -75,7 +75,14 @@ $document_types = [
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
-    <div class="flex h-screen overflow-hidden">
+    <div class="flex h-screen overflow-hidden" x-data="{ 
+        selectedReq: null, 
+        viewPanelOpen: false, 
+        openView(req) { 
+            this.selectedReq = req; 
+            this.viewPanelOpen = true; 
+        } 
+    }">
         <?php include '../partials/sidebar.php'; ?>
         
         <div class="flex flex-col flex-1 overflow-hidden">
@@ -273,6 +280,19 @@ $document_types = [
                                                                     </div>
                                                                 </template>
                                                             </div>
+                                                            <!-- Quick View Button -->
+                                                            <button type="button" @click="openView({
+                                                                id: '<?php echo $req['id']; ?>',
+                                                                type: '<?php echo $req['request_type']; ?>',
+                                                                name: '<?php echo addslashes($name); ?>',
+                                                                docType: '<?php echo addslashes($doc_type); ?>',
+                                                                date: '<?php echo addslashes($date); ?>',
+                                                                status: '<?php echo addslashes($status_text); ?>',
+                                                                statusBg: '<?php echo addslashes($status_bg); ?>',
+                                                                details: <?php echo $req['details'] ? json_encode(json_decode($req['details'], true)) : 'null'; ?>
+                                                            })" class="ml-2 inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-600 hover:bg-blue-50 focus:outline-none" title="Quick View">
+                                                                <i class="fas fa-eye"></i>
+                                                            </button>
                                                         </td>
                                                     </tr>
                                                 <?php endforeach; ?>
@@ -285,6 +305,94 @@ $document_types = [
                     </div>
                 </div>
             </main>
+        </div>
+
+        <!-- Slide-Over Panel for Quick View -->
+        <div x-show="viewPanelOpen" class="fixed inset-0 overflow-hidden z-[100]" aria-labelledby="slide-over-title" role="dialog" aria-modal="true" style="display: none;">
+          <div class="absolute inset-0 overflow-hidden">
+            <div x-show="viewPanelOpen" x-transition.opacity class="absolute inset-0 bg-gray-600 bg-opacity-75 transition-opacity" @click="viewPanelOpen = false"></div>
+            <div class="fixed inset-y-0 right-0 pl-10 max-w-full flex">
+              <div x-show="viewPanelOpen" 
+                   x-transition:enter="transform transition ease-in-out duration-300 sm:duration-500" 
+                   x-transition:enter-start="translate-x-full" 
+                   x-transition:enter-end="translate-x-0" 
+                   x-transition:leave="transform transition ease-in-out duration-300 sm:duration-500" 
+                   x-transition:leave-start="translate-x-0" 
+                   x-transition:leave-end="translate-x-full" 
+                   class="w-screen max-w-md">
+                <div class="h-full flex flex-col bg-white shadow-xl overflow-y-scroll">
+                  <div class="px-4 py-6 bg-blue-600 sm:px-6">
+                     <div class="flex items-start justify-between">
+                        <h2 class="text-xl font-bold text-white" id="slide-over-title">Request Details</h2>
+                        <div class="ml-3 h-7 flex items-center">
+                           <button type="button" @click="viewPanelOpen = false" class="bg-blue-600 rounded-md text-blue-200 hover:text-white focus:outline-none focus:ring-2 focus:ring-white">
+                              <span class="sr-only">Close panel</span>
+                              <i class="fas fa-times text-xl"></i>
+                           </button>
+                        </div>
+                     </div>
+                     <div class="mt-1">
+                        <p class="text-sm text-blue-200">Quick view of resident application information.</p>
+                     </div>
+                  </div>
+                  <div class="relative flex-1 px-4 py-6 sm:px-6">
+                     <!-- Content inside slider -->
+                     <template x-if="selectedReq">
+                        <div class="space-y-6">
+                           <div>
+                              <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Requestor</h3>
+                              <p class="mt-1 text-xl font-bold text-gray-900" x-text="selectedReq.name"></p>
+                           </div>
+                           <div class="grid grid-cols-2 gap-4">
+                               <div>
+                                  <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Document Type</h3>
+                                  <p class="mt-1 text-base font-medium text-gray-900" x-text="selectedReq.docType"></p>
+                               </div>
+                               <div>
+                                  <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Date Requested</h3>
+                                  <p class="mt-1 text-sm text-gray-600" x-text="selectedReq.date"></p>
+                               </div>
+                           </div>
+                           <div class="border-t border-gray-200 pt-4 mt-4">
+                              <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">Current Status</h3>
+                              <span :class="selectedReq.statusBg + ' px-3 py-1 rounded-full text-sm font-bold'" x-text="selectedReq.status"></span>
+                           </div>
+
+                           <template x-if="selectedReq.details">
+                                <div class="border-t border-gray-200 pt-4 mt-4 bg-gray-50 p-4 rounded-lg">
+                                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Application Details</h3>
+                                    <div class="space-y-4">
+                                        <template x-for="(value, key) in selectedReq.details" :key="key">
+                                            <div class="border-b border-gray-100 pb-2 last:border-0">
+                                                <span class="block text-[10px] font-bold text-gray-500 uppercase tracking-tighter" x-text="key.replace(/_/g, ' ')"></span>
+                                                <p class="text-sm font-medium text-gray-800" x-text="value"></p>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                           </template>
+                           
+                           <!-- Quick Approval Action -->
+                           <div class="border-t border-gray-200 pt-6 mt-8" x-show="selectedReq.status === 'Pending' || selectedReq.status === 'PENDING'">
+                               <h3 class="text-sm font-medium text-gray-900 mb-3">Quick Actions</h3>
+                               <div class="flex space-x-3">
+                                   <!-- For documents -->
+                                   <template x-if="selectedReq.type === 'document'">
+                                        <button @click="changeRequestStatus(selectedReq.id, 'document', 'Processing'); viewPanelOpen = false;" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition">Start Processing</button>
+                                   </template>
+                                   <!-- For businesses -->
+                                   <template x-if="selectedReq.type === 'business'">
+                                        <button @click="changeRequestStatus(selectedReq.id, 'business', 'PROCESSING'); viewPanelOpen = false;" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition">Start Processing</button>
+                                   </template>
+                               </div>
+                           </div>
+                        </div>
+                     </template>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
     </div>
     <script>

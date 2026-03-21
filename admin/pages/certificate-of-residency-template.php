@@ -37,7 +37,8 @@ try {
     }
 
     // Format the date
-    $date_issued = new DateTime($details['issued_on']);
+    $issued_val = (!empty($details['issued_on'])) ? $details['issued_on'] : date('Y-m-d');
+    $date_issued = new DateTime($issued_val);
     $day = $date_issued->format('jS'); // Day with suffix (e.g., 1st, 2nd)
     $month = $date_issued->format('F');
     $year = $date_issued->format('Y');
@@ -144,7 +145,7 @@ $page_title = "Print Certificate of Residency";
             <!-- Signature -->
             <div class="mt-24 text-right">
                 <div class="inline-block text-center">
-                    <p class="font-bold text-lg border-b-2 border-black px-12">[PUNONG BARANGAY NAME]</p>
+                    <p class="font-bold text-lg border-b-2 border-black px-12"><?php echo htmlspecialchars($_SESSION['fullname'] ?? '[PUNONG BARANGAY NAME]'); ?></p>
                     <p>Punong Barangay</p>
                 </div>
             </div>

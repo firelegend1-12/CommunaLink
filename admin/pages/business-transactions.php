@@ -49,7 +49,32 @@ try {
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
-    <div class="flex h-screen">
+    <div class="flex h-screen overflow-hidden" x-data="{ 
+        selectedTrans: null, 
+        viewPanelOpen: false, 
+        permitData: null,
+        loadingPermit: false,
+        openView(trans) { 
+            this.selectedTrans = trans; 
+            this.permitData = null;
+            this.loadingPermit = false;
+            this.viewPanelOpen = true; 
+            if (trans.permit_id && trans.permit_id != 'null') {
+                this.loadingPermit = true;
+                fetch('../partials/get-permit-details.php?id=' + trans.permit_id)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.permitData = data.data;
+                        }
+                        this.loadingPermit = false;
+                    })
+                    .catch(() => {
+                        this.loadingPermit = false;
+                    });
+            }
+        } 
+    }">
         <?php include '../partials/sidebar.php'; ?>
         
         <div class="flex flex-col flex-1">
@@ -167,37 +192,61 @@ try {
                                                     </span>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium relative">
-                                                    <div class="relative inline-block text-left" x-data="{ open: false, top: 0, left: 0 }">
-                                                        <button type="button" x-ref="dropdownBtn" @click="
-                                                            open = !open;
-                                                            if (open) {
-                                                                const rect = $refs.dropdownBtn.getBoundingClientRect();
-                                                                top = rect.bottom + window.scrollY;
-                                                                left = rect.left + window.scrollX;
-                                                            }
-                                                        " class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-200 focus:outline-none" aria-haspopup="true" aria-expanded="false">
-                                                            <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                                                                <circle cx="4" cy="10" r="1.5"/>
-                                                                <circle cx="10" cy="10" r="1.5"/>
-                                                                <circle cx="16" cy="10" r="1.5"/>
-                                                            </svg>
-                                                        </button>
-                                                        <template x-teleport="body">
-                                                            <div x-show="open" @click.away="open = false" x-cloak
-                                                                 class="fixed z-50 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5"
-                                                                 :style="'top: ' + top + 'px; left: ' + left + 'px;'">
-                                                                <div class="py-1">
-                                                                    <button type="button" onclick="viewTransactionDetails('<?php echo $trans['id']; ?>', '<?php echo htmlspecialchars($trans['business_name']); ?>', '<?php echo htmlspecialchars($trans['owner_name']); ?>', '<?php echo htmlspecialchars($trans['business_type']); ?>', '<?php echo htmlspecialchars($trans['address']); ?>', '<?php echo htmlspecialchars($trans['status']); ?>', '<?php echo $trans['application_date']; ?>')" class="block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50">View Details</button>
-                                                                    <button type="button" onclick="changeTransactionStatus('<?php echo $trans['id']; ?>', 'APPROVED')" class="block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50">Set as Approved</button>
-                                                                    <button type="button" onclick="changeTransactionStatus('<?php echo $trans['id']; ?>', 'REJECTED')" class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">Set as Rejected</button>
-                                                                    <?php if ($trans['status'] === 'APPROVED'): ?>
-                                                                    <a href="generate-business-permit.php?id=<?php echo $trans['id']; ?>" class="block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50">Generate Permit</a>
-                                                                    <?php endif; ?>
-                                                                    <button type="button" onclick="changeTransactionStatus('<?php echo $trans['id']; ?>', 'DELETED')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50">Delete</button>
+                                                        <div class="relative inline-block text-left" x-data="{ open: false, top: 0, left: 0 }">
+                                                            <button type="button" x-ref="dropdownBtn" @click="
+                                                                open = !open;
+                                                                if (open) {
+                                                                    const rect = $refs.dropdownBtn.getBoundingClientRect();
+                                                                    top = rect.bottom + window.scrollY;
+                                                                    left = rect.left + window.scrollX;
+                                                                }
+                                                            " class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-200 focus:outline-none" aria-haspopup="true" aria-expanded="false">
+                                                                <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                                                    <circle cx="4" cy="10" r="1.5"/>
+                                                                    <circle cx="10" cy="10" r="1.5"/>
+                                                                    <circle cx="16" cy="10" r="1.5"/>
+                                                                </svg>
+                                                            </button>
+                                                            <template x-teleport="body">
+                                                                <div x-show="open" @click.away="open = false" x-cloak
+                                                                     class="fixed z-50 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5"
+                                                                     :style="'top: ' + top + 'px; left: ' + left + 'px;'">
+                                                                    <div class="py-1">
+                                                                         <button type="button" @click="open = false; openView({
+                                                                            id: '<?php echo $trans['id']; ?>',
+                                                                            permit_id: '<?php echo $trans['permit_id']; ?>',
+                                                                            name: '<?php echo addslashes($trans['business_name']); ?>',
+                                                                            owner: '<?php echo addslashes($trans['owner_name']); ?>',
+                                                                            type: '<?php echo addslashes($trans['business_type']); ?>',
+                                                                            address: '<?php echo addslashes($trans['address']); ?>',
+                                                                            status: '<?php echo addslashes($status_label); ?>',
+                                                                            statusBg: '<?php echo $status_class; ?>',
+                                                                            date: '<?php echo date('M. d, Y h:i A', strtotime($trans['application_date'])); ?>'
+                                                                        })" class="block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50">View Details</button>
+                                                                        <button type="button" onclick="changeTransactionStatus('<?php echo $trans['id']; ?>', 'APPROVED')" class="block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50">Set as Approved</button>
+                                                                        <button type="button" onclick="changeTransactionStatus('<?php echo $trans['id']; ?>', 'REJECTED')" class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">Set as Rejected</button>
+                                                                        <?php if ($trans['status'] === 'APPROVED'): ?>
+                                                                        <a href="generate-business-permit.php?id=<?php echo $trans['id']; ?>" class="block px-4 py-2 text-sm text-blue-700 hover:bg-blue-50">Generate Permit</a>
+                                                                        <?php endif; ?>
+                                                                        <button type="button" onclick="changeTransactionStatus('<?php echo $trans['id']; ?>', 'DELETED')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50">Delete</button>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        </template>
-                                                    </div>
+                                                            </template>
+                                                        </div>
+                                                        <!-- Quick View Button -->
+                                                        <button type="button" @click="openView({
+                                                            id: '<?php echo $trans['id']; ?>',
+                                                            permit_id: '<?php echo $trans['permit_id']; ?>',
+                                                            name: '<?php echo addslashes($trans['business_name']); ?>',
+                                                            owner: '<?php echo addslashes($trans['owner_name']); ?>',
+                                                            type: '<?php echo addslashes($trans['business_type']); ?>',
+                                                            address: '<?php echo addslashes($trans['address']); ?>',
+                                                            status: '<?php echo addslashes($status_label); ?>',
+                                                            statusBg: '<?php echo $status_class; ?>',
+                                                            date: '<?php echo date('M. d, Y h:i A', strtotime($trans['application_date'])); ?>'
+                                                        })" class="ml-2 inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-600 hover:bg-blue-50 focus:outline-none" title="Quick View">
+                                                            <i class="fas fa-eye"></i>
+                                                        </button>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -208,6 +257,149 @@ try {
                     </div>
                 </div>
             </main>
+        </div>
+
+        <!-- Slide-Over Panel for Quick View -->
+        <div x-show="viewPanelOpen" class="fixed inset-0 overflow-hidden z-[100]" aria-labelledby="slide-over-title" role="dialog" aria-modal="true" style="display: none;">
+          <div class="absolute inset-0 overflow-hidden">
+            <div x-show="viewPanelOpen" x-transition.opacity class="absolute inset-0 bg-gray-600 bg-opacity-75 transition-opacity" @click="viewPanelOpen = false"></div>
+            <div class="fixed inset-y-0 right-0 pl-10 max-w-full flex">
+              <div x-show="viewPanelOpen" 
+                   x-transition:enter="transform transition ease-in-out duration-300 sm:duration-500" 
+                   x-transition:enter-start="translate-x-full" 
+                   x-transition:enter-end="translate-x-0" 
+                   x-transition:leave="transform transition ease-in-out duration-300 sm:duration-500" 
+                   x-transition:leave-start="translate-x-0" 
+                   x-transition:leave-end="translate-x-full" 
+                   class="w-screen max-w-md">
+                <div class="h-full flex flex-col bg-white shadow-xl overflow-y-scroll">
+                  <div class="px-4 py-6 bg-green-600 sm:px-6">
+                     <div class="flex items-start justify-between">
+                        <h2 class="text-xl font-bold text-white" id="slide-over-title">Business Details</h2>
+                        <div class="ml-3 h-7 flex items-center">
+                           <button type="button" @click="viewPanelOpen = false" class="bg-green-600 rounded-md text-green-200 hover:text-white focus:outline-none focus:ring-2 focus:ring-white">
+                              <span class="sr-only">Close panel</span>
+                              <i class="fas fa-times text-xl"></i>
+                           </button>
+                        </div>
+                     </div>
+                     <div class="mt-1">
+                        <p class="text-sm text-green-200">Quick view of business application or permit.</p>
+                     </div>
+                  </div>
+                  <div class="relative flex-1 px-4 py-6 sm:px-6">
+                     <!-- Content inside slider -->
+                     <template x-if="selectedTrans">
+                        <div class="space-y-6">
+                           <div>
+                              <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Business Name</h3>
+                              <p class="mt-1 text-xl font-bold text-gray-900" x-text="selectedTrans.name"></p>
+                           </div>
+                           <div class="grid grid-cols-2 gap-4">
+                               <div>
+                                  <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Owner</h3>
+                                  <p class="mt-1 text-base font-medium text-gray-900" x-text="selectedTrans.owner"></p>
+                               </div>
+                               <div>
+                                  <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Business Type</h3>
+                                  <p class="mt-1 text-sm text-gray-900" x-text="selectedTrans.type"></p>
+                               </div>
+                           </div>
+                           <div class="border-t border-gray-200 pt-4 mt-4">
+                              <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Address</h3>
+                              <p class="text-sm text-gray-900" x-text="selectedTrans.address"></p>
+                           </div>
+                           <div class="border-t border-gray-200 pt-4 mt-4 grid grid-cols-2 gap-4">
+                               <div>
+                                  <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Date Requested</h3>
+                                  <p class="mt-1 text-sm text-gray-600" x-text="selectedTrans.date"></p>
+                               </div>
+                               <div>
+                                  <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">Status</h3>
+                                  <span :class="selectedTrans.statusBg + ' px-3 py-1 rounded-full text-sm font-bold'" x-text="selectedTrans.status"></span>
+                               </div>
+                           </div>
+                           
+                            <!-- Detailed Permit Info (Lazy Loaded) -->
+                            <div class="border-t border-gray-200 pt-6 mt-6" x-show="selectedTrans.permit_id && selectedTrans.permit_id != 'null'">
+                                <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                                    <i class="fas fa-file-alt text-green-600 mr-2"></i> Application Details
+                                </h3>
+                                
+                                <div x-show="loadingPermit" class="flex justify-center py-8">
+                                    <i class="fas fa-spinner fa-spin text-3xl text-green-600"></i>
+                                </div>
+
+                                <div x-show="permitData" class="space-y-4">
+                                     <div class="grid grid-cols-2 gap-4 text-sm">
+                                         <div class="bg-gray-50 p-3 rounded">
+                                             <span class="block text-gray-500 text-xs font-semibold uppercase tracking-wider">Capital</span>
+                                             <p class="font-bold text-gray-800">₱<span x-text="parseFloat(permitData.capital || 0).toLocaleString()"></span></p>
+                                         </div>
+                                         <div class="bg-gray-50 p-3 rounded">
+                                             <span class="block text-gray-500 text-xs font-semibold uppercase tracking-wider">Employees</span>
+                                             <p class="font-bold text-gray-800" x-text="permitData.num_employees || '0'"></p>
+                                         </div>
+                                     </div>
+                                     
+                                     <div class="bg-gray-50 p-4 rounded space-y-3">
+                                         <div>
+                                             <span class="block text-gray-500 text-xs font-semibold uppercase tracking-wider">Main Line of Business</span>
+                                             <p class="font-medium text-gray-800" x-text="permitData.main_line_business"></p>
+                                         </div>
+                                         <div>
+                                             <span class="block text-gray-500 text-xs font-semibold uppercase tracking-wider">Main Products / Services</span>
+                                             <p class="font-medium text-gray-800" x-text="permitData.main_products_services"></p>
+                                         </div>
+                                     </div>
+
+                                     <div class="grid grid-cols-2 gap-4 text-sm">
+                                         <div>
+                                             <span class="block text-gray-500 text-xs font-semibold uppercase tracking-wider">DTI Reg. No.</span>
+                                             <p class="font-medium text-gray-800" x-text="permitData.dti_reg_no || 'N/A'"></p>
+                                         </div>
+                                         <div>
+                                             <span class="block text-gray-500 text-xs font-semibold uppercase tracking-wider">SEC Reg. No.</span>
+                                             <p class="font-medium text-gray-800" x-text="permitData.sec_reg_no || 'N/A'"></p>
+                                         </div>
+                                     </div>
+
+                                     <div class="bg-indigo-50 p-4 rounded">
+                                         <span class="block text-indigo-500 text-xs font-semibold uppercase tracking-wider">Ownership</span>
+                                         <p class="font-bold text-indigo-900 border-b border-indigo-100 pb-1 mb-2 capitalize" x-text="permitData.ownership_type + ' (' + permitData.proof_of_ownership + ')'"></p>
+                                         <p class="text-sm text-indigo-800">
+                                             <span x-show="permitData.proof_of_ownership === 'owned'">Registered to: <strong x-text="permitData.proof_owned_reg_name"></strong></span>
+                                             <span x-show="permitData.proof_of_ownership === 'leased'">Lessor: <strong x-text="permitData.proof_leased_lessor_name"></strong></span>
+                                         </p>
+                                     </div>
+
+                                     <div class="flex items-center gap-4 text-xs font-semibold">
+                                         <div class="flex items-center" :class="permitData.has_barangay_clearance == 1 ? 'text-green-600' : 'text-gray-400'">
+                                             <i class="fas fa-check-circle mr-1"></i> Brgy Clearance
+                                         </div>
+                                         <div class="flex items-center" :class="permitData.has_public_liability_insurance == 1 ? 'text-green-600' : 'text-gray-400'">
+                                             <i class="fas fa-check-circle mr-1"></i> Public Liability Ins.
+                                         </div>
+                                     </div>
+                                </div>
+                            </div>
+                           
+                           <!-- Quick Approval Action -->
+                           <div class="border-t border-gray-200 pt-6 mt-8" x-show="selectedTrans.status === 'Pending' || selectedTrans.status === 'PROCESSING' || selectedTrans.status === 'Processing'">
+                               <h3 class="text-sm font-medium text-gray-900 mb-3">Quick Actions</h3>
+                               <div class="flex space-x-3">
+                                   <!-- For businesses -->
+                                   <button @click="changeTransactionStatus(selectedTrans.id, 'APPROVED'); viewPanelOpen = false;" class="flex-1 bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700 transition">Approve Permit</button>
+                                   <button @click="changeTransactionStatus(selectedTrans.id, 'REJECTED'); viewPanelOpen = false;" class="flex-1 bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700 transition">Reject Permit</button>
+                               </div>
+                           </div>
+                        </div>
+                     </template>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
     </div>
     <script>
@@ -221,30 +413,8 @@ try {
     });
 
     function viewTransactionDetails(id, businessName, ownerName, businessType, address, status, applicationDate) {
-        const formattedDate = new Date(applicationDate).toLocaleString('en-US', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric', 
-            hour: 'numeric', 
-            minute: '2-digit', 
-            hour12: true 
-        });
-        
-        const statusColor = status === 'APPROVED' ? 'green' : (status === 'REJECTED' ? 'red' : 'yellow');
-        
-        const details = `
-Business Transaction Details
-
-ID: ${id}
-Business Name: ${businessName}
-Owner: ${ownerName}
-Business Type: ${businessType}
-Address: ${address}
-Status: ${status}
-Application Date: ${formattedDate}
-        `;
-        
-        alert(details);
+        // Fallback for non-alpine clicks, although mostly replaced by openView
+        alert("Transaction Details:\n\nName: " + businessName + "\nOwner: " + ownerName);
     }
 
     function changeTransactionStatus(id, status) {
@@ -301,16 +471,20 @@ Application Date: ${formattedDate}
                                 <svg class=\"w-5 h-5 text-gray-500\" fill=\"currentColor\" viewBox=\"0 0 20 20\"><circle cx=\"4\" cy=\"10\" r=\"1.5\"/><circle cx=\"10\" cy=\"10\" r=\"1.5\"/><circle cx=\"16\" cy=\"10\" r=\"1.5\"/></svg>
                             </button>
                             <template x-teleport=\"body\">
-                                <div x-show=\"open\" @click.away=\"open = false\" x-cloak class=\"fixed z-50 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5\" :style=\"'top: ' + top + 'px; left: ' + left + 'px;'\">
+                                <div x-show=\"open\" @click.away=\"open = false\" x-cloak class=\"fixed z-50 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5\" :style=\"'top: ' + top + 'px; left: ' + left + 'px;'\">
                                     <div class=\"py-1\">
-                                        <button type=\"button\" onclick=\"viewTransactionDetails('${trans.id}', '${trans.business_name}', '${trans.owner_name}', '${trans.business_type || ''}', '${trans.address || ''}', '${trans.status}', '${trans.application_date}')\" class=\"block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50\">View Details</button>
+                                        <button type=\"button\" @click=\"open = false; openView({ id: trans.id, permit_id: trans.permit_id, name: trans.business_name, owner: trans.owner_name, type: trans.business_type, address: trans.address, status: trans.status, statusBg: (trans.status === 'APPROVED' ? 'bg-green-100 text-green-800' : (trans.status === 'REJECTED' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')), date: (trans.application_date ? new Date(trans.application_date).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : '')})\" class=\"block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50\">View Details</button>
                                         <button type=\"button\" onclick=\"changeTransactionStatus('${trans.id}', 'APPROVED')\" class=\"block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50\">Set as Approved</button>
                                         <button type=\"button\" onclick=\"changeTransactionStatus('${trans.id}', 'REJECTED')\" class=\"block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50\">Set as Rejected</button>
+                                        ${trans.status === 'APPROVED' ? `<a href=\"generate-business-permit.php?id=${trans.id}\" class=\"block px-4 py-2 text-sm text-blue-700 hover:bg-blue-50\">Generate Permit</a>` : ''}
                                         <button type=\"button\" onclick=\"changeTransactionStatus('${trans.id}', 'DELETED')\" class=\"block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50\">Delete</button>
                                     </div>
                                 </div>
                             </template>
                         </div>
+                        <button type=\"button\" @click=\"openView({ id: trans.id, permit_id: trans.permit_id, name: trans.business_name, owner: trans.owner_name, type: trans.business_type, address: trans.address, status: trans.status, statusBg: (trans.status === 'APPROVED' ? 'bg-green-100 text-green-800' : (trans.status === 'REJECTED' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')), date: (trans.application_date ? new Date(trans.application_date).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : '')})\" class=\"ml-2 inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-600 hover:bg-blue-50 focus:outline-none\" title=\"Quick View\">
+                            <i class=\"fas fa-eye\"></i>
+                        </button>
                     </td>
                 </tr>
             `).join('');
