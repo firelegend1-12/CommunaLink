@@ -20,7 +20,7 @@ $user_fullname = $_SESSION['fullname'] ?? 'Resident';
 require_once '../config/database.php';
 
 // Fetch Recent Document Requests
-$stmtReq = $pdo->prepare("SELECT * FROM document_requests WHERE requested_by_user_id = ? ORDER BY date_requested DESC LIMIT 3");
+$stmtReq = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status FROM document_requests WHERE requested_by_user_id = ? ORDER BY date_requested DESC LIMIT 3");
 $stmtReq->execute([$_SESSION['user_id']]);
 $recentRequests = $stmtReq->fetchAll(PDO::FETCH_ASSOC);
 
@@ -271,7 +271,7 @@ require_once 'partials/header.php';
                     <?php 
                         $statusClass = strtolower(str_replace(' ', '-', $inc['status']));
                     ?>
-                    <div class="dashboard-item">
+                    <a href="my-reports.php" class="dashboard-item hover:shadow-md transition-shadow" style="text-decoration: none; color: inherit;">
                         <div class="dashboard-item-icon">
                             <i class="fas fa-bell"></i>
                         </div>
@@ -288,7 +288,7 @@ require_once 'partials/header.php';
                                 <?= htmlspecialchars($inc['status']) ?>
                             </span>
                         </div>
-                    </div>
+                    </a>
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
@@ -310,7 +310,7 @@ require_once 'partials/header.php';
                     <?php 
                         $statusClass = strtolower(str_replace(' ', '-', $req['status'] ?? 'pending'));
                     ?>
-                    <div class="dashboard-item">
+                    <a href="my-requests.php" class="dashboard-item hover:shadow-md transition-shadow" style="text-decoration: none; color: inherit;">
                         <div class="dashboard-item-icon">
                             <i class="fas fa-file-alt"></i>
                         </div>
@@ -326,7 +326,7 @@ require_once 'partials/header.php';
                                 <?= htmlspecialchars($req['status'] ?? 'Pending') ?>
                             </span>
                         </div>
-                    </div>
+                    </a>
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>

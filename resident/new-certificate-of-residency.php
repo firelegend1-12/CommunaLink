@@ -2,227 +2,149 @@
 session_start();
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
-require_role('resident');
-$page_title = 'Request Certificate of Residency';
-require_once 'partials/header.php';
+require_once '../config/database.php';
 
-// Get logged-in resident's ID
-$resident_id = $_SESSION['resident_id'] ?? null;
-if (!$resident_id) {
-    // Try to get resident ID from user_id if resident_id is not set
-    if (isset($_SESSION['user_id'])) {
-        require_once '../config/database.php';
-        $stmt = $pdo->prepare("SELECT id FROM residents WHERE user_id = ?");
-        $stmt->execute([$_SESSION['user_id']]);
-        $resident = $stmt->fetch();
-        if ($resident) {
-            $resident_id = $resident['id'];
-            $_SESSION['resident_id'] = $resident_id; // Set it for future use
+if (!function_exists('require_role')) {
+    function require_role($role) {
+        if (!is_logged_in() || $_SESSION['role'] !== $role) {
+            redirect_to('../index.php');
         }
     }
-    
-    if (!$resident_id) {
-        echo '<div class="max-w-xl mx-auto mt-10 text-red-600">Unable to determine your resident ID. Please contact the administrator.</div>';
-        require_once 'partials/footer.php';
-        exit;
-    }
 }
+require_role('resident');
 
-// Get resident details
-require_once '../config/database.php';
-$stmt = $pdo->prepare("SELECT * FROM residents WHERE id = ?");
-$stmt->execute([$resident_id]);
-$resident = $stmt->fetch();
+$page_title = "Certificate of Residency Request";
+$user_id = $_SESSION['user_id'];
+
+// Get Resident Details
+$stmt = $pdo->prepare("SELECT * FROM residents WHERE user_id = ? LIMIT 1");
+$stmt->execute([$user_id]);
+$resident = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$resident) {
-    echo '<div class="max-w-xl mx-auto mt-10 text-red-600">Resident profile not found.</div>';
-    require_once 'partials/footer.php';
-    exit;
+    $_SESSION['error_message'] = "Could not find your resident profile.";
+    redirect_to('account.php');
 }
+
+$full_name = htmlspecialchars($resident['first_name'] . ' ' . $resident['last_name']);
+
+require_once 'partials/header.php';
 ?>
 
-<div class="max-w-4xl mx-auto bg-white rounded-lg shadow p-8 mt-8">
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-purple-700">Request Certificate of Residency</h1>
-        <a href="barangay-services.php" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm">
-            <i class="fas fa-arrow-left mr-2"></i>Back to Services
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="mb-6 flex items-center justify-between">
+        <a href="barangay-services.php" class="text-blue-600 hover:text-blue-800 flex items-center gap-2 font-medium transition">
+            <i class="fas fa-arrow-left"></i> Back to Services
         </a>
     </div>
 
-    <?php if (isset($_SESSION['success_message'])): ?>
-        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6">
-            <?php echo htmlspecialchars($_SESSION['success_message']); ?>
+    <!-- The exact form structure expected by Admin, styled beautifully for the Resident -->
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-8">
+        <div class="bg-gradient-to-r from-purple-700 to-purple-900 px-8 py-6 text-white text-center">
+            <h1 class="text-2xl font-bold uppercase tracking-wide">Certificate of Residency</h1>
+            <p class="opacity-80 text-sm mt-1">Please provide the details required for your certificate.</p>
         </div>
-        <?php unset($_SESSION['success_message']); ?>
-    <?php endif; ?>
 
-    <?php if (isset($_SESSION['error_message'])): ?>
-        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
-            <?php echo htmlspecialchars($_SESSION['error_message']); ?>
-        </div>
-        <?php unset($_SESSION['error_message']); ?>
-    <?php endif; ?>
+        <div class="p-8 md:p-12">
+            <form action="partials/submit-residency.php" method="POST" id="residency-form" class="space-y-8">
+                <input type="hidden" name="resident_id" value="<?= $resident['id'] ?>">
 
-    <div class="bg-purple-50 border-l-4 border-purple-400 p-4 mb-6">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-info-circle text-purple-400"></i>
-            </div>
-            <div class="ml-3">
-                <p class="text-sm text-purple-700">
-                    <strong>Processing Time:</strong> 1 business day<br>
-                    <strong>Fee:</strong> ₱30.00<br>
-                    <strong>Requirements:</strong> Valid ID, Proof of residence
-                </p>
-            </div>
+                <!-- Applicant Details -->
+                <div class="bg-gray-50/50 p-6 rounded-xl border border-gray-100">
+                    <h3 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4">I. Applicant Details</h3>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Name of Applicant</label>
+                        <input type="text" name="applicant_name" value="<?= $full_name ?>" class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 font-medium" readonly>
+                    </div>
+                </div>
+
+                <!-- Property and Residency Details -->
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4">II. Property and Residency Details <span class="text-red-500">*</span></h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Property is owned by</label>
+                            <input type="text" name="property_owner" required placeholder="Name of owner or 'Self'" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Sitio / Purok / Zone / Building No.</label>
+                            <input type="text" name="sitio" required class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">District</label>
+                            <input type="text" name="district" required class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Residency Status -->
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4">III. Residency Status</h3>
+                    <p class="text-sm text-gray-600 mb-4">Please select any applicable statuses below (based on records of this office):</p>
+                    <div class="flex items-center gap-6">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="status[]" value="low income bracket" class="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                            <span class="text-gray-700 font-medium">Low Income Bracket</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="status[]" value="informal settler" class="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                            <span class="text-gray-700 font-medium">Informal Settler</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Purpose -->
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4">IV. Purpose</h3>
+                    <div class="bg-purple-50 p-5 rounded-xl border border-purple-100 text-purple-800">
+                        <p class="text-sm leading-relaxed font-medium">
+                            <i class="fas fa-info-circle mr-2"></i> This certification is being issued intended for compliance with the requirements of the <strong>iKonek ELECTRIFICATION PROGRAM OF MAYOR JERRY P. TRENAS</strong> and <strong>MORE ELECTRIC AND POWER CORP.</strong>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex justify-end gap-4 pt-6 mt-8 border-t border-gray-100">
+                    <a href="barangay-services.php" class="px-6 py-3 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold transition">Cancel</a>
+                    <button type="submit" id="submit-btn" class="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold shadow-lg shadow-purple-500/30 transition flex items-center gap-2">
+                        <i class="fas fa-paper-plane"></i> Submit Request
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
-
-    <form action="submit-document-request.php" method="POST" class="space-y-6">
-        <input type="hidden" name="document_type" value="Certificate of Residency">
-        <input type="hidden" name="resident_id" value="<?php echo $resident_id; ?>">
-        <input type="hidden" name="price" value="30.00">
-
-        <!-- Applicant Information (Read-only) -->
-        <div class="bg-gray-50 p-4 rounded-lg">
-            <h3 class="text-lg font-semibold mb-4 text-gray-800">Applicant Information</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Full Name</label>
-                    <input type="text" value="<?php echo htmlspecialchars($resident['first_name'] . ' ' . $resident['last_name']); ?>" class="mt-1 block w-full px-3 py-2 bg-gray-200 border border-gray-300 rounded-md text-sm" readonly>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Address</label>
-                    <input type="text" value="<?php echo htmlspecialchars($resident['address']); ?>" class="mt-1 block w-full px-3 py-2 bg-gray-200 border border-gray-300 rounded-md text-sm" readonly>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Contact Number</label>
-                    <input type="text" value="<?php echo htmlspecialchars($resident['contact_no'] ?? 'N/A'); ?>" class="mt-1 block w-full px-3 py-2 bg-gray-200 border border-gray-300 rounded-md text-sm" readonly>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Civil Status</label>
-                    <input type="text" value="<?php echo htmlspecialchars($resident['civil_status']); ?>" class="mt-1 block w-full px-3 py-2 bg-gray-200 border border-gray-300 rounded-md text-sm" readonly>
-                </div>
-            </div>
-        </div>
-
-        <!-- Request Details -->
-        <div class="space-y-4">
-            <div>
-                <label for="purpose" class="block text-sm font-medium text-gray-700">Purpose of Certificate *</label>
-                <textarea id="purpose" name="purpose" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm" placeholder="Please specify the purpose for requesting this certificate..." required></textarea>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label for="length_of_residence" class="block text-sm font-medium text-gray-700">Length of Residence *</label>
-                    <select id="length_of_residence" name="length_of_residence" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm" required>
-                        <option value="">Select length of residence</option>
-                        <option value="Less than 1 year">Less than 1 year</option>
-                        <option value="1-2 years">1-2 years</option>
-                        <option value="3-5 years">3-5 years</option>
-                        <option value="6-10 years">6-10 years</option>
-                        <option value="More than 10 years">More than 10 years</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="residence_type" class="block text-sm font-medium text-gray-700">Type of Residence *</label>
-                    <select id="residence_type" name="residence_type" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm" required>
-                        <option value="">Select residence type</option>
-                        <option value="Owned">Owned</option>
-                        <option value="Rented">Rented</option>
-                        <option value="With relatives">With relatives</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-            </div>
-
-            <div>
-                <label for="additional_notes" class="block text-sm font-medium text-gray-700">Additional Information</label>
-                <textarea id="additional_notes" name="additional_notes" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm" placeholder="Any additional information about your residence or special requirements..."></textarea>
-            </div>
-        </div>
-
-        <!-- Terms and Conditions -->
-        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-exclamation-triangle text-yellow-400"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm text-yellow-700">
-                        <strong>Important:</strong> By submitting this request, you acknowledge that:
-                    </p>
-                    <ul class="text-sm text-yellow-700 mt-2 list-disc list-inside">
-                        <li>All information provided is true and accurate</li>
-                        <li>You may be required to provide proof of residence</li>
-                        <li>You will be notified once your request is ready for pickup</li>
-                        <li>Payment of ₱30.00 is required upon pickup</li>
-                        <li>Processing time may vary depending on current workload</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <!-- Submit Button -->
-        <div class="flex justify-end space-x-4">
-            <a href="barangay-services.php" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md text-sm font-medium">
-                Cancel
-            </a>
-            <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-md text-sm font-medium">
-                <i class="fas fa-paper-plane mr-2"></i>Submit Request
-            </button>
-        </div>
-    </form>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.querySelector('form');
-    const submitBtn = document.querySelector('button[type="submit"]');
+document.getElementById('residency-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
     
-    const formMessage = document.createElement('div');
-    formMessage.style.display = 'none';
-    formMessage.className = 'mb-4';
-    form.insertBefore(formMessage, submitBtn.closest('.flex.justify-end'));
-
-    if (form && submitBtn) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            submitBtn.disabled = true;
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Submitting...';
-            formMessage.style.display = 'none';
-
-            fetch('submit-document-request.php', {
-                method: 'POST',
-                body: new FormData(form)
-            })
-            .then(response => response.json())
-            .then(data => {
-                formMessage.style.display = 'block';
-                if (data.success) {
-                    formMessage.className = 'p-4 mb-4 rounded-md font-medium bg-green-100 text-green-700 border-l-4 border-green-500';
-                    formMessage.innerHTML = '<i class="fas fa-check-circle mr-2"></i>' + data.message + ' Redirecting...';
-                    setTimeout(() => window.location.href = 'my-requests.php', 1500);
-                } else {
-                    formMessage.className = 'p-4 mb-4 rounded-md font-medium bg-red-100 text-red-700 border-l-4 border-red-500';
-                    formMessage.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>' + (data.error || 'Submission failed');
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
-                }
-            })
-            .catch(error => {
-                formMessage.style.display = 'block';
-                formMessage.className = 'p-4 mb-4 rounded-md font-medium bg-red-100 text-red-700 border-l-4 border-red-500';
-                formMessage.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>Network error occurred.';
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
-            });
-        });
-    }
+    const formData = new FormData(this);
+    
+    fetch('partials/submit-residency.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            window.location.href = 'my-requests.php?success=1';
+        } else {
+            alert("Error: " + data.error);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("A network error occurred.");
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
+    });
 });
 </script>
 
-<?php require_once 'partials/footer.php'; ?> 
+<?php require_once 'partials/footer.php'; ?>

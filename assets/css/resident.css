@@ -267,12 +267,28 @@ body {
 .recent-reports-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     margin-bottom: 20px;
+}
+
+.view-all-link {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent-blue-start);
+    text-decoration: none;
+    transition: color 0.2s;
+    background: rgba(79, 172, 254, 0.1);
+    padding: 6px 14px;
+    border-radius: 20px;
+}
+
+.view-all-link:hover {
+    background: rgba(79, 172, 254, 0.2);
+    text-decoration: none;
 }
 
 .recent-reports-header i {
     font-size: 1.5rem;
-    margin-right: 12px;
     color: var(--accent-blue-start);
 }
 
@@ -280,6 +296,9 @@ body {
     margin: 0;
     font-size: 1.5rem;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .reports-list {
@@ -341,6 +360,92 @@ body {
     background-color: var(--status-pending-bg);
     color: var(--status-pending-text);
 }
+
+/* === Dashboard Items (Recent Reports & Requests) === */
+.dashboard-item {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+    height: 100%;
+}
+
+.dashboard-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px var(--shadow-color);
+    border-color: rgba(79, 172, 254, 0.4);
+}
+
+.dashboard-item-icon {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    background-color: rgba(79, 172, 254, 0.1);
+    color: var(--accent-blue-start);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.dashboard-item-content {
+    flex-grow: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-item-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.dashboard-item-desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.dashboard-item-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: #9cb3c9;
+    margin-top: auto;
+}
+
+.dashboard-item-status {
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+
+.status-text-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.status-text-badge.pending { background-color: #fffbe6; color: #f7b924; }
+.status-text-badge.approved, .status-text-badge.resolved, .status-text-badge.ready { background-color: #e6f9ec; color: #15803d; }
+.status-text-badge.rejected { background-color: #fde8e8; color: #c81e1e; }
 
 /* === Premium Mobile Cards (Image 2 style) === */
 .mobile-card {

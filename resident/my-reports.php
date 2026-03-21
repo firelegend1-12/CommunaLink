@@ -87,6 +87,45 @@ require_once 'partials/header.php';
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+function renderTimeline(status) {
+    let activeStep = 1;
+    let isRejected = false;
+    
+    let normalizeStatus = status.toLowerCase();
+    if (["resolved", "completed", "closed"].includes(normalizeStatus)) activeStep = 3;
+    else if (["review", "in progress", "processing", "under review"].includes(normalizeStatus)) activeStep = 2;
+    else if (["rejected", "cancelled"].includes(normalizeStatus)) { activeStep = 3; isRejected = true; }
+    
+    let color = isRejected ? 'text-red-500 border-red-500 bg-red-50' : 'text-blue-600 border-blue-600 bg-blue-50';
+    
+    return `
+    <div class="mt-4 px-2 mb-2 w-full">
+        <div class="flex items-center justify-between relative">
+            <div class="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10"></div>
+            <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 ${isRejected ? 'bg-red-500' : 'bg-blue-600'} -z-10 transition-all" style="width: ${(activeStep - 1) * 50}%"></div>
+            
+            <div class="flex flex-col items-center">
+                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 1 ? color : 'border-gray-300 bg-white'} flex items-center justify-center text-xs font-bold ring-2 ring-white z-10">
+                    ${activeStep > 1 && !isRejected ? '<i class="fas fa-check"></i>' : '1'}
+                </div>
+                <span class="text-[10px] mt-1 font-semibold ${activeStep >= 1 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Submitted</span>
+            </div>
+            <div class="flex flex-col items-center">
+                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 2 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-xs font-bold ring-2 ring-white z-10">
+                    ${activeStep > 2 && !isRejected ? '<i class="fas fa-check"></i>' : '2'}
+                </div>
+                <span class="text-[10px] mt-1 font-semibold ${activeStep >= 2 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Review</span>
+            </div>
+            <div class="flex flex-col items-center">
+                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 3 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-xs font-bold ring-2 ring-white z-10">
+                    ${isRejected ? '<i class="fas fa-times text-red-500"></i>' : (activeStep >= 3 ? '<i class="fas fa-check"></i>' : '3')}
+                </div>
+                <span class="text-[10px] mt-1 font-semibold ${activeStep >= 3 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">${isRejected ? 'Rejected' : 'Resolved'}</span>
+            </div>
+        </div>
+    </div>`;
+}
+
     function loadReports() {
         fetch('../api/incidents.php?action=get_my_reports')
             .then(response => response.json())
@@ -108,23 +147,25 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
 
                         html += `
-                            <div class="mobile-card" onclick="window.location.href='report-details.php?id=${report.id}'" style="cursor:pointer;">
-                                <div class="mobile-card-header">
-                                    <h3 class="mobile-card-title">${escapeHTML(report.type)}</h3>
-                                    <span class="mobile-card-badge ${statusClass}">${escapeHTML(report.status)}</span>
+                            <div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition cursor-pointer" onclick="window.location.href='report-details.php?id=${report.id}'">
+                                <div>
+                                    <div class="flex justify-between items-start mb-2">
+                                        <h3 class="font-bold text-gray-800 line-clamp-2">${escapeHTML(report.type)}</h3>
+                                        <span class="text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap mobile-card-badge ${statusClass}">${escapeHTML(report.status)}</span>
+                                    </div>
+                                    <div class="text-sm text-gray-500 mb-3 line-clamp-2">${escapeHTML(report.description || report.type)}</div>
                                 </div>
-                                <div class="mobile-card-desc">${escapeHTML(report.description || report.type)}</div>
-                                <div class="mobile-card-meta">
-                                    <div class="mobile-card-meta-item">
-                                        <i class="fas fa-map-marker-alt"></i>
+                                ${renderTimeline(report.status)}
+                                <div class="flex items-center justify-between text-xs text-gray-400 mt-5 pt-3 border-t border-gray-50">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-map-marker-alt mr-1"></i>
                                         <span>${coordsHtml}</span>
                                     </div>
-                                    <div class="mobile-card-meta-item">
-                                        <i class="far fa-clock"></i>
+                                    <div class="flex items-center">
+                                        <i class="far fa-clock mr-1"></i>
                                         <span>${formattedDate}</span>
                                     </div>
                                 </div>
-                                <i class="fas fa-chevron-right mobile-card-chevron"></i>
                             </div>
                         `;
                     });

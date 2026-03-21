@@ -417,7 +417,6 @@ require_once 'partials/header.php';
                 Required for various transactions and applications.
             </p>
             <p class="document-info">Processing Time: 1-2 business days</p>
-            <p class="document-info">Fee: ₱50.00</p>
             <a href="new-barangay-clearance.php" class="action-button" style="margin-top:10px;">Request</a>
         </div>
         <!-- Certificate of Indigency -->
@@ -430,7 +429,6 @@ require_once 'partials/header.php';
                 Proof of low income for social services and assistance.
             </p>
             <p class="document-info">Processing Time: 1 business day</p>
-            <p class="document-info">Fee: ₱30.00</p>
             <a href="new-certificate-of-indigency.php" class="action-button" style="margin-top:10px;">Request</a>
         </div>
         <!-- Certificate of Residency -->
@@ -443,7 +441,6 @@ require_once 'partials/header.php';
                 Proof of residence in the barangay.
             </p>
             <p class="document-info">Processing Time: 1 business day</p>
-            <p class="document-info">Fee: ₱30.00</p>
             <a href="new-certificate-of-residency.php" class="action-button" style="margin-top:10px;">Request</a>
         </div>
         <!-- Barangay Business Clearance -->
@@ -456,7 +453,6 @@ require_once 'partials/header.php';
                 Required for operating businesses in the barangay.
             </p>
             <p class="document-info">Processing Time: 3-5 business days</p>
-            <p class="document-info">Fee: Varies by business type</p>
             <a href="new-barangay-business-clearance.php" class="action-button" style="margin-top:10px;">Request</a>
         </div>
     </div>

@@ -81,6 +81,14 @@ require_once 'partials/header.php';
         font-weight: 500;
         color: #333;
     }
+    .info-content p a {
+        color: inherit;
+        text-decoration: none;
+    }
+    .info-content p a:hover {
+        text-decoration: underline;
+        color: var(--accent-blue, #3b82f6);
+    }
     .info-content .subtext {
         font-size: 0.9rem;
         color: var(--text-secondary);
@@ -169,7 +177,7 @@ require_once 'partials/header.php';
                 <i class="fas fa-fire-extinguisher info-icon"></i>
                 <div class="info-content">
                     <h3>Fire Department</h3>
-                    <p>911</p>
+                    <p><a href="tel:911">911</a></p>
                     <span class="subtext">National Emergency Hotline</span>
                 </div>
             </div>
@@ -177,7 +185,7 @@ require_once 'partials/header.php';
                 <i class="fas fa-shield-alt info-icon"></i>
                 <div class="info-content">
                     <h3>Police Station</h3>
-                    <p>911</p>
+                    <p><a href="tel:911">911</a></p>
                     <span class="subtext">National Emergency Hotline</span>
                 </div>
             </div>
@@ -185,7 +193,7 @@ require_once 'partials/header.php';
                 <i class="fas fa-ambulance info-icon"></i>
                 <div class="info-content">
                     <h3>Medical Emergency</h3>
-                    <p>911</p>
+                    <p><a href="tel:911">911</a></p>
                     <span class="subtext">National Emergency Hotline</span>
                 </div>
             </div>
@@ -193,7 +201,7 @@ require_once 'partials/header.php';
                 <i class="fas fa-life-ring info-icon"></i>
                 <div class="info-content">
                     <h3>Rescue Services</h3>
-                    <p>911</p>
+                    <p><a href="tel:911">911</a></p>
                     <span class="subtext">National Emergency Hotline</span>
                 </div>
             </div>
@@ -211,7 +219,7 @@ require_once 'partials/header.php';
                 <i class="fas fa-user-tie info-icon"></i>
                 <div class="info-content">
                     <h3>Barangay Captain</h3>
-                    <p>+63 912 345 6789</p>
+                    <p><a href="tel:+639123456789">+63 912 345 6789</a></p>
                     <span class="subtext">Captain Juan Dela Cruz</span>
                 </div>
             </div>
@@ -219,7 +227,7 @@ require_once 'partials/header.php';
                 <i class="fas fa-phone-alt info-icon"></i>
                 <div class="info-content">
                     <h3>Barangay Office</h3>
-                    <p>+63 2 8123 4567</p>
+                    <p><a href="tel:+63281234567">+63 2 8123 4567</a></p>
                     <span class="subtext">Main Office Line</span>
                 </div>
             </div>
@@ -227,7 +235,7 @@ require_once 'partials/header.php';
                 <i class="fas fa-envelope info-icon"></i>
                 <div class="info-content">
                     <h3>Email Address</h3>
-                    <p style="font-size: 1rem;">info@barangaymasigasig.gov.ph</p>
+                    <p style="font-size: 1rem;"><a href="mailto:info@barangaymasigasig.gov.ph">info@barangaymasigasig.gov.ph</a></p>
                     <span class="subtext">General Inquiries</span>
                 </div>
             </div>
@@ -253,7 +261,7 @@ require_once 'partials/header.php';
                 <i class="fas fa-file-alt info-icon"></i>
                 <div class="info-content">
                     <h3>Document Requests</h3>
-                    <p>+63 2 8123 4568</p>
+                    <p><a href="tel:+63281234568">+63 2 8123 4568</a></p>
                     <span class="subtext">Barangay Clearance, Certificates</span>
                 </div>
             </div>
@@ -261,7 +269,7 @@ require_once 'partials/header.php';
                 <i class="fas fa-users info-icon"></i>
                 <div class="info-content">
                     <h3>Social Services</h3>
-                    <p>+63 2 8123 4569</p>
+                    <p><a href="tel:+63281234569">+63 2 8123 4569</a></p>
                     <span class="subtext">Assistance Programs</span>
                 </div>
             </div>

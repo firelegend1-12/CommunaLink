@@ -2,228 +2,225 @@
 session_start();
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
-require_role('resident');
-$page_title = 'Request Barangay Clearance';
-require_once 'partials/header.php';
+require_once '../config/database.php';
 
-// Get logged-in resident's ID
-$resident_id = $_SESSION['resident_id'] ?? null;
-if (!$resident_id) {
-    // Try to get resident ID from user_id if resident_id is not set
-    if (isset($_SESSION['user_id'])) {
-        require_once '../config/database.php';
-        
-        $stmt = $pdo->prepare("SELECT id FROM residents WHERE user_id = ?");
-        $stmt->execute([$_SESSION['user_id']]);
-        $resident = $stmt->fetch();
-        
-        if ($resident) {
-            $resident_id = $resident['id'];
-            $_SESSION['resident_id'] = $resident_id; // Set it for future use
+if (!function_exists('require_role')) {
+    function require_role($role) {
+        if (!is_logged_in() || $_SESSION['role'] !== $role) {
+            redirect_to('../index.php');
         }
     }
-    
-    if (!$resident_id) {
-        echo '<div class="max-w-xl mx-auto mt-10 text-red-600">Unable to determine your resident ID. Please contact the administrator.</div>';
-        echo '<div class="max-w-xl mx-auto mt-4 text-gray-600">This usually means your resident profile is not properly linked to your user account.</div>';
-        echo '<div class="max-w-xl mx-auto mt-4">';
-        echo '<a href="../debug_residents.php" class="text-blue-600 hover:text-blue-800">View Database Status</a> | ';
-        echo '<a href="../fix_resident_links.php" class="text-green-600 hover:text-green-800">Fix Database Links</a>';
-        echo '</div>';
-        require_once 'partials/footer.php';
-        exit;
-    }
 }
+require_role('resident');
 
-// Get resident details
-require_once '../config/database.php';
-$stmt = $pdo->prepare("SELECT * FROM residents WHERE id = ?");
-$stmt->execute([$resident_id]);
-$resident = $stmt->fetch();
+$page_title = "Application for Barangay Clearance";
+$user_id = $_SESSION['user_id'];
+
+// Get Resident Details
+$stmt = $pdo->prepare("SELECT * FROM residents WHERE user_id = ? LIMIT 1");
+$stmt->execute([$user_id]);
+$resident = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$resident) {
-    echo '<div class="max-w-xl mx-auto mt-10 text-red-600">Resident profile not found.</div>';
-    require_once 'partials/footer.php';
-    exit;
+    $_SESSION['error_message'] = "Could not find your resident profile. Please update your profile first.";
+    redirect_to('account.php');
 }
+
+// Calculate age
+$age = '';
+if (!empty($resident['date_of_birth'])) {
+    $birthDate = new DateTime($resident['date_of_birth']);
+    $today = new DateTime('today');
+    $age = $birthDate->diff($today)->y;
+}
+
+require_once 'partials/header.php';
 ?>
 
-<div class="max-w-4xl mx-auto bg-white rounded-lg shadow p-8 mt-8">
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-blue-700">Request Barangay Clearance</h1>
-        <a href="barangay-services.php" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm">
-            <i class="fas fa-arrow-left mr-2"></i>Back to Services
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="mb-6 flex items-center justify-between">
+        <a href="barangay-services.php" class="text-blue-600 hover:text-blue-800 flex items-center gap-2 font-medium transition">
+            <i class="fas fa-arrow-left"></i> Back to Services
         </a>
     </div>
 
-    <?php if (isset($_SESSION['success_message'])): ?>
-        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6">
-            <?php echo htmlspecialchars($_SESSION['success_message']); ?>
+    <!-- The exact form structure expected by Admin, styled beautifully for the Resident -->
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-8">
+        <div class="bg-gradient-to-r from-blue-700 to-blue-900 px-8 py-6 text-white text-center">
+            <h1 class="text-2xl font-bold uppercase tracking-wide">Application for Barangay Clearance</h1>
+            <p class="opacity-80 text-sm mt-1">Please completely fill out the required information below.</p>
         </div>
-        <?php unset($_SESSION['success_message']); ?>
-    <?php endif; ?>
 
-    <?php if (isset($_SESSION['error_message'])): ?>
-        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
-            <?php echo htmlspecialchars($_SESSION['error_message']); ?>
-        </div>
-        <?php unset($_SESSION['error_message']); ?>
-    <?php endif; ?>
+        <div class="p-8">
+            <form action="partials/submit-clearance.php" method="POST" id="clearance-form" class="space-y-8">
+                <!-- Hidden Resident ID to mirror admin handler -->
+                <input type="hidden" name="resident_id" value="<?= $resident['id'] ?>">
 
-    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-info-circle text-blue-400"></i>
-            </div>
-            <div class="ml-3">
-                <p class="text-sm text-blue-700">
-                    <strong>Processing Time:</strong> 1-2 business days<br>
-                    <strong>Fee:</strong> ₱50.00<br>
-                    <strong>Requirements:</strong> Valid ID, Community Tax Certificate (if applicable)
-                </p>
-            </div>
+                <!-- Applicant Data (Pre-Filled) -->
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4"><i class="fas fa-user text-blue-500 mr-2"></i>Applicant's Personal Information</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Last Name</label>
+                            <input type="text" value="<?= htmlspecialchars($resident['last_name']) ?>" class="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">First Name</label>
+                            <input type="text" value="<?= htmlspecialchars($resident['first_name']) ?>" class="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Middle Initial</label>
+                            <input type="text" value="<?= htmlspecialchars($resident['middle_initial'] ?? '') ?>" class="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600" readonly>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Complete Address</label>
+                            <input type="text" value="<?= htmlspecialchars($resident['address']) ?>" class="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Sex</label>
+                            <input type="text" value="<?= htmlspecialchars($resident['gender']) ?>" class="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Date of Birth</label>
+                            <input type="text" value="<?= htmlspecialchars($resident['date_of_birth']) ?>" class="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Age</label>
+                            <input type="text" value="<?= $age ?>" class="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Civil Status</label>
+                            <input type="text" value="<?= htmlspecialchars($resident['civil_status'] ?? '') ?>" class="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Place of Birth</label>
+                            <input type="text" value="<?= htmlspecialchars($resident['place_of_birth'] ?? '') ?>" class="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600" readonly>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Occupation</label>
+                            <input type="text" value="<?= htmlspecialchars($resident['occupation'] ?? '') ?>" class="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600" readonly>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Application Details -->
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4"><i class="fas fa-edit text-blue-500 mr-2"></i>Application Details</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Application Type <span class="text-red-500">*</span></label>
+                            <div class="flex gap-6 mt-2">
+                                <label class="flex items-center gap-2 cursor-pointer bg-blue-50 px-4 py-2 rounded-lg border border-blue-100 w-1/2">
+                                    <input type="radio" name="application_type" value="New" checked class="text-blue-600 focus:ring-blue-500 h-4 w-4">
+                                    <span class="font-medium text-blue-800">New Clearance</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer bg-blue-50 px-4 py-2 rounded-lg border border-blue-100 w-1/2">
+                                    <input type="radio" name="application_type" value="Renewal" class="text-blue-600 focus:ring-blue-500 h-4 w-4">
+                                    <span class="font-medium text-blue-800">Renewal</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Precinct No. (Optional)</label>
+                            <input type="text" name="precinct_no" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Resident Since (Year)</label>
+                            <input type="text" name="resident_since" placeholder="e.g. 2015" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">If employed, Name of Company (Optional)</label>
+                            <input type="text" name="company_name" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Purpose of Clearance <span class="text-red-500">*</span></label>
+                            <textarea name="purpose" required rows="2" placeholder="e.g. For Employment" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- References -->
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4"><i class="fas fa-users text-blue-500 mr-2"></i>Personal References</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50/50 p-6 rounded-xl border border-gray-100">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Reference 1 (Not a relative)</label>
+                            <input type="text" name="reference_1" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Reference 2 (Not a relative)</label>
+                            <input type="text" name="reference_2" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">References Telephone / Contact No.</label>
+                            <input type="tel" name="reference_tel_no" class="w-full md:w-1/2 px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CTC (Cedula) -->
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4"><i class="fas fa-id-card text-blue-500 mr-2"></i>Community Tax Certificate (Cedula)</h3>
+                    <p class="text-sm text-gray-500 mb-4">If you already have a Cedula for this year, please provide the details. Otherwise, you can request one at the barangay hall during claiming.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">CTC No.</label>
+                            <input type="text" name="ctc_no" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Issued At (Place)</label>
+                            <input type="text" name="ctc_issued_at" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Issued On (Date)</label>
+                            <input type="date" name="ctc_issued_on" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex justify-end gap-4 pt-6 mt-8 border-t border-gray-100">
+                    <a href="barangay-services.php" class="px-6 py-3 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold transition">Cancel</a>
+                    <button type="submit" id="submit-btn" class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition flex items-center gap-2">
+                        <i class="fas fa-paper-plane"></i> Submit Request
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
-
-    <form action="submit-document-request.php" method="POST" class="space-y-6">
-        <input type="hidden" name="document_type" value="Barangay Clearance">
-        <input type="hidden" name="resident_id" value="<?php echo $resident_id; ?>">
-        <input type="hidden" name="price" value="50.00">
-
-        <!-- Applicant Information (Read-only) -->
-        <div class="bg-gray-50 p-4 rounded-lg">
-            <h3 class="text-lg font-semibold mb-4 text-gray-800">Applicant Information</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Full Name</label>
-                    <input type="text" value="<?php echo htmlspecialchars($resident['first_name'] . ' ' . $resident['last_name']); ?>" class="mt-1 block w-full px-3 py-2 bg-gray-200 border border-gray-300 rounded-md text-sm" readonly>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Address</label>
-                    <input type="text" value="<?php echo htmlspecialchars($resident['address']); ?>" class="mt-1 block w-full px-3 py-2 bg-gray-200 border border-gray-300 rounded-md text-sm" readonly>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Contact Number</label>
-                    <input type="text" value="<?php echo htmlspecialchars($resident['contact_no'] ?? 'N/A'); ?>" class="mt-1 block w-full px-3 py-2 bg-gray-200 border border-gray-300 rounded-md text-sm" readonly>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Civil Status</label>
-                    <input type="text" value="<?php echo htmlspecialchars($resident['civil_status']); ?>" class="mt-1 block w-full px-3 py-2 bg-gray-200 border border-gray-300 rounded-md text-sm" readonly>
-                </div>
-            </div>
-        </div>
-
-        <!-- Request Details -->
-        <div class="space-y-4">
-            <div>
-                <label for="purpose" class="block text-sm font-medium text-gray-700">Purpose of Clearance *</label>
-                <textarea id="purpose" name="purpose" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Please specify the purpose for requesting this clearance..." required></textarea>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label for="application_type" class="block text-sm font-medium text-gray-700">Application Type *</label>
-                    <select id="application_type" name="application_type" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required>
-                        <option value="">Select application type</option>
-                        <option value="New">New Application</option>
-                        <option value="Renewal">Renewal</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="urgency" class="block text-sm font-medium text-gray-700">Urgency Level</label>
-                    <select id="urgency" name="urgency" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                        <option value="Normal">Normal (1-2 business days)</option>
-                        <option value="Urgent">Urgent (Same day)</option>
-                        <option value="Rush">Rush (Within hours)</option>
-                    </select>
-                </div>
-            </div>
-
-            <div>
-                <label for="additional_notes" class="block text-sm font-medium text-gray-700">Additional Notes</label>
-                <textarea id="additional_notes" name="additional_notes" rows="2" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Any additional information or special requirements..."></textarea>
-            </div>
-        </div>
-
-        <!-- Terms and Conditions -->
-        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-exclamation-triangle text-yellow-400"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm text-yellow-700">
-                        <strong>Important:</strong> By submitting this request, you acknowledge that:
-                    </p>
-                    <ul class="text-sm text-yellow-700 mt-2 list-disc list-inside">
-                        <li>All information provided is true and accurate</li>
-                        <li>You will be notified once your request is ready for pickup</li>
-                        <li>Payment of ₱50.00 is required upon pickup</li>
-                        <li>Processing time may vary depending on current workload</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <!-- Submit Button -->
-        <div class="flex justify-end space-x-4">
-            <a href="barangay-services.php" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md text-sm font-medium">
-                Cancel
-            </a>
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md text-sm font-medium">
-                <i class="fas fa-paper-plane mr-2"></i>Submit Request
-            </button>
-        </div>
-    </form>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.querySelector('form');
-    const submitBtn = document.querySelector('button[type="submit"]');
+document.getElementById('clearance-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
     
-    const formMessage = document.createElement('div');
-    formMessage.style.display = 'none';
-    formMessage.className = 'mb-4';
-    form.insertBefore(formMessage, submitBtn.closest('.flex.justify-end'));
-
-    if (form && submitBtn) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            submitBtn.disabled = true;
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Submitting...';
-            formMessage.style.display = 'none';
-
-            fetch('submit-document-request.php', {
-                method: 'POST',
-                body: new FormData(form)
-            })
-            .then(response => response.json())
-            .then(data => {
-                formMessage.style.display = 'block';
-                if (data.success) {
-                    formMessage.className = 'p-4 mb-4 rounded-md font-medium bg-green-100 text-green-700 border-l-4 border-green-500';
-                    formMessage.innerHTML = '<i class="fas fa-check-circle mr-2"></i>' + data.message + ' Redirecting...';
-                    setTimeout(() => window.location.href = 'my-requests.php', 1500);
-                } else {
-                    formMessage.className = 'p-4 mb-4 rounded-md font-medium bg-red-100 text-red-700 border-l-4 border-red-500';
-                    formMessage.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>' + (data.error || 'Submission failed');
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
-                }
-            })
-            .catch(error => {
-                formMessage.style.display = 'block';
-                formMessage.className = 'p-4 mb-4 rounded-md font-medium bg-red-100 text-red-700 border-l-4 border-red-500';
-                formMessage.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>Network error occurred.';
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
-            });
-        });
-    }
+    const formData = new FormData(this);
+    
+    fetch('partials/submit-clearance.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            window.location.href = 'my-requests.php?success=1';
+        } else {
+            alert("Error: " + data.error);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("A network error occurred.");
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
+    });
 });
 </script>
 
-<?php require_once 'partials/footer.php'; ?> 
+<?php require_once 'partials/footer.php'; ?>

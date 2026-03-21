@@ -2,252 +2,307 @@
 session_start();
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
-require_role('resident');
-$page_title = 'Request Barangay Business Clearance';
-require_once 'partials/header.php';
+require_once '../config/database.php';
 
-// Get logged-in resident's ID
-$resident_id = $_SESSION['resident_id'] ?? null;
-if (!$resident_id) {
-    // Try to get resident ID from user_id if resident_id is not set
-    if (isset($_SESSION['user_id'])) {
-        require_once '../config/database.php';
-        $stmt = $pdo->prepare("SELECT id FROM residents WHERE user_id = ?");
-        $stmt->execute([$_SESSION['user_id']]);
-        $resident = $stmt->fetch();
-        if ($resident) {
-            $resident_id = $resident['id'];
-            $_SESSION['resident_id'] = $resident_id; // Set it for future use
+if (!function_exists('require_role')) {
+    function require_role($role) {
+        if (!is_logged_in() || $_SESSION['role'] !== $role) {
+            redirect_to('../index.php');
         }
     }
-    
-    if (!$resident_id) {
-        echo '<div class="max-w-xl mx-auto mt-10 text-red-600">Unable to determine your resident ID. Please contact the administrator.</div>';
-        echo '<div class="max-w-xl mx-auto mt-4 text-gray-600">This usually means your resident profile is not properly linked to your user account.</div>';
-        echo '<div class="max-w-xl mx-auto mt-4">';
-        echo '<a href="../debug_residents.php" class="text-blue-600 hover:text-blue-800">View Database Status</a> | ';
-        echo '<a href="../fix_resident_links.php" class="text-green-600 hover:text-green-800">Fix Database Links</a>';
-        echo '</div>';
-        require_once 'partials/footer.php';
-        exit;
-    }
 }
+require_role('resident');
 
-// Get resident details
-require_once '../config/database.php';
-$stmt = $pdo->prepare("SELECT * FROM residents WHERE id = ?");
-$stmt->execute([$resident_id]);
-$resident = $stmt->fetch();
+$page_title = "Business Permit Application";
+$user_id = $_SESSION['user_id'];
+
+// Get Resident Details
+$stmt = $pdo->prepare("SELECT * FROM residents WHERE user_id = ? LIMIT 1");
+$stmt->execute([$user_id]);
+$resident = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$resident) {
-    echo '<div class="max-w-xl mx-auto mt-10 text-red-600">Resident profile not found.</div>';
-    require_once 'partials/footer.php';
-    exit;
+    $_SESSION['error_message'] = "Could not find your resident profile.";
+    redirect_to('account.php');
 }
+
+$full_name = htmlspecialchars($resident['first_name'] . ' ' . $resident['last_name']);
+
+require_once 'partials/header.php';
 ?>
 
-<!-- Dashboard-matching background and accent -->
-<div class="min-h-screen bg-gray-100 py-8">
-  <div class="max-w-3xl mx-auto">
-    <div class="relative bg-white rounded-2xl shadow-xl p-0 mb-8 flex overflow-hidden border border-gray-200">
-      <!-- Blue accent bar -->
-      <div class="hidden sm:block w-2 bg-blue-700 rounded-l-2xl"></div>
-      <div class="flex-1 p-8">
-        <div class="flex items-center mb-6">
-          <div class="bg-blue-100 text-blue-700 rounded-full p-3 mr-3">
-            <i class="fas fa-briefcase fa-lg"></i>
-          </div>
-          <h1 class="text-3xl font-extrabold text-blue-700 tracking-tight">Request Barangay Business Clearance</h1>
-        </div>
-        <p class="text-gray-600 mb-6">
-          <span class="font-semibold">Processing Time:</span> 3-5 business days<br>
-          <span class="font-semibold">Fee:</span> Varies by business type (₱500.00 - ₱2,000.00)<br>
-          <span class="font-semibold">Requirements:</span> Business registration, Valid ID, Proof of location
-        </p>
-        <?php if (isset($_SESSION['success_message'])): ?>
-          <div class="bg-green-50 border-l-4 border-green-400 text-green-700 p-4 mb-6 rounded">
-            <?php echo htmlspecialchars($_SESSION['success_message']); ?>
-          </div>
-          <?php unset($_SESSION['success_message']); ?>
-        <?php endif; ?>
-        <?php if (isset($_SESSION['error_message'])): ?>
-          <div class="bg-red-50 border-l-4 border-red-400 text-red-700 p-4 mb-6 rounded">
-            <?php echo htmlspecialchars($_SESSION['error_message']); ?>
-          </div>
-          <?php unset($_SESSION['error_message']); ?>
-        <?php endif; ?>
-        <form action="submit-document-request.php" method="POST" class="space-y-8">
-          <!-- Applicant Information -->
-          <div class="bg-gray-50 rounded-xl p-6 mb-4 shadow-sm border border-gray-100">
-            <div class="flex items-center mb-4">
-              <div class="bg-blue-200 text-blue-700 rounded-full p-2 mr-2">
-                <i class="fas fa-user fa-lg"></i>
-              </div>
-              <h2 class="text-lg font-bold text-blue-700 tracking-tight">Applicant Information</h2>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700">Full Name</label>
-                <input type="text" value="<?php echo htmlspecialchars($resident['first_name'] . ' ' . $resident['last_name']); ?>" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-800 focus:ring-2 focus:ring-blue-200 focus:border-blue-400" readonly>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700">Address</label>
-                <input type="text" value="<?php echo htmlspecialchars($resident['address']); ?>" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-800 focus:ring-2 focus:ring-blue-200 focus:border-blue-400" readonly>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700">Contact Number</label>
-                <input type="text" value="<?php echo htmlspecialchars($resident['contact_no'] ?? 'N/A'); ?>" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-800 focus:ring-2 focus:ring-blue-200 focus:border-blue-400" readonly>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700">Civil Status</label>
-                <input type="text" value="<?php echo htmlspecialchars($resident['civil_status']); ?>" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-800 focus:ring-2 focus:ring-blue-200 focus:border-blue-400" readonly>
-              </div>
-            </div>
-          </div>
-          <!-- Business Information -->
-          <div class="bg-gray-50 rounded-xl p-6 mb-4 shadow-sm border border-gray-100">
-            <div class="flex items-center mb-4">
-              <div class="bg-green-200 text-green-700 rounded-full p-2 mr-2">
-                <i class="fas fa-store fa-lg"></i>
-              </div>
-              <h2 class="text-lg font-bold text-green-700 tracking-tight">Business Information</h2>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label for="business_name" class="block text-sm font-medium text-gray-700">Business Name *</label>
-                <input type="text" id="business_name" name="business_name" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 sm:text-sm" placeholder="Enter business name" required>
-              </div>
-              <div>
-                <label for="business_type" class="block text-sm font-medium text-gray-700">Business Type *</label>
-                <select id="business_type" name="business_type" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 sm:text-sm" required>
-                  <option value="">Select business type</option>
-                  <option value="Retail">Retail</option>
-                  <option value="Food and Beverage">Food and Beverage</option>
-                  <option value="Services">Services</option>
-                  <option value="Manufacturing">Manufacturing</option>
-                  <option value="Construction">Construction</option>
-                  <option value="Transportation">Transportation</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div class="md:col-span-2">
-                <label for="business_address" class="block text-sm font-medium text-gray-700">Business Address *</label>
-                <textarea id="business_address" name="business_address" rows="2" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 sm:text-sm" placeholder="Enter complete business address" required></textarea>
-              </div>
-              <div>
-                <label for="business_contact" class="block text-sm font-medium text-gray-700">Business Contact Number</label>
-                <input type="tel" id="business_contact" name="business_contact" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 sm:text-sm" placeholder="Business phone number">
-              </div>
-              <div>
-                <label for="number_of_employees" class="block text-sm font-medium text-gray-700">Number of Employees</label>
-                <input type="number" id="number_of_employees" name="number_of_employees" min="1" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 sm:text-sm" placeholder="0">
-              </div>
-              <div class="md:col-span-2">
-                <label for="business_description" class="block text-sm font-medium text-gray-700">Business Description *</label>
-                <textarea id="business_description" name="business_description" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 sm:text-sm" placeholder="Describe your business activities and services..." required></textarea>
-              </div>
-            </div>
-          </div>
-          <!-- Request Details -->
-          <div class="bg-gray-50 rounded-xl p-6 mb-4 shadow-sm border border-gray-100">
-            <div class="flex items-center mb-4">
-              <div class="bg-purple-200 text-purple-700 rounded-full p-2 mr-2">
-                <i class="fas fa-file-alt fa-lg"></i>
-              </div>
-              <h2 class="text-lg font-bold text-purple-700 tracking-tight">Request Details</h2>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="md:col-span-2">
-                <label for="purpose" class="block text-sm font-medium text-gray-700">Purpose of Clearance *</label>
-                <textarea id="purpose" name="purpose" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 sm:text-sm" placeholder="Please specify the purpose for requesting this clearance..." required></textarea>
-              </div>
-              <div>
-                <label for="application_type" class="block text-sm font-medium text-gray-700">Application Type *</label>
-                <select id="application_type" name="application_type" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 sm:text-sm" required>
-                  <option value="">Select application type</option>
-                  <option value="New Permit">New Permit</option>
-                  <option value="Renewal">Renewal</option>
-                  <option value="Amendment">Amendment</option>
-                </select>
-              </div>
-              <div>
-                <label for="urgency" class="block text-sm font-medium text-gray-700">Urgency Level</label>
-                <select id="urgency" name="urgency" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 sm:text-sm">
-                  <option value="Normal">Normal (3-5 business days)</option>
-                  <option value="Urgent">Urgent (1-2 business days)</option>
-                  <option value="Rush">Rush (Same day)</option>
-                </select>
-              </div>
-              <div class="md:col-span-2">
-                <label for="additional_notes" class="block text-sm font-medium text-gray-700">Additional Information</label>
-                <textarea id="additional_notes" name="additional_notes" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 sm:text-sm" placeholder="Any additional information about your business or special requirements..."></textarea>
-              </div>
-            </div>
-          </div>
-          <!-- Hidden Inputs -->
-          <input type="hidden" name="document_type" value="Business Clearance">
-          <input type="hidden" name="resident_id" value="<?php echo $resident_id; ?>">
-          <input type="hidden" name="price" value="500.00">
-          <!-- Buttons -->
-          <div class="flex justify-end space-x-4 mt-6">
-            <a href="barangay-services.php" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg text-sm font-medium shadow-sm border border-gray-300">Cancel</a>
-            <button type="submit" class="bg-blue-700 hover:bg-blue-800 text-white px-7 py-3 rounded-lg text-base font-bold shadow-md border border-blue-700 flex items-center transition-all duration-150">
-              <i class="fas fa-paper-plane mr-2"></i>Submit Request
-            </button>
-          </div>
-        </form>
-      </div>
+<div class="max-w-5xl mx-auto px-4 py-8">
+    <div class="mb-6 flex items-center justify-between">
+        <a href="barangay-services.php" class="text-blue-600 hover:text-blue-800 flex items-center gap-2 font-medium transition">
+            <i class="fas fa-arrow-left"></i> Back to Services
+        </a>
     </div>
-  </div>
+
+    <!-- The exact form structure expected by Admin, styled beautifully for the Resident -->
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-8" x-data="{ proof: 'owned' }">
+        <div class="bg-gradient-to-r from-indigo-700 to-indigo-900 px-8 py-6 text-white text-center">
+            <h1 class="text-2xl font-bold uppercase tracking-wide">Application for Barangay Business Clearance</h1>
+            <p class="opacity-80 text-sm mt-1">Fill out the comprehensive business permit application below.</p>
+        </div>
+
+        <div class="p-8 md:p-12">
+            <form action="partials/submit-business-permit.php" method="POST" id="business-form" class="space-y-10">
+                <input type="hidden" name="resident_id" value="<?= $resident['id'] ?>">
+
+                <!-- Applicant Information -->
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800 border-b-2 border-indigo-100 pb-2 mb-6 flex items-center gap-2"><i class="fas fa-user-tie text-indigo-500"></i> I. Taxpayer / Applicant Information</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50/50 p-6 rounded-xl border border-gray-100">
+                        <div class="md:col-span-2 text-sm text-gray-500 mb-2">
+                            <i class="fas fa-info-circle"></i> Basic information is auto-filled from your resident profile.
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Name of Taxpayer (Applicant)</label>
+                            <input type="text" value="<?= $full_name ?>" class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 font-medium" readonly>
+                            <input type="hidden" name="taxpayer_name" value="<?= $full_name ?>">
+                            <input type="hidden" name="applicant_name" value="<?= $full_name ?>">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Position / Role in Business</label>
+                            <input type="text" name="applicant_position" required placeholder="e.g. Owner, Manager" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Taxpayer Address</label>
+                            <input type="text" name="taxpayer_address" value="<?= htmlspecialchars($resident['address']) ?>" required class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Telephone No.</label>
+                            <input type="tel" name="taxpayer_tel_no" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Fax No.</label>
+                            <input type="tel" name="taxpayer_fax_no" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Capital (₱)</label>
+                            <input type="number" name="capital" step="0.01" required class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Taxpayer Barangay No.</label>
+                            <input type="text" name="taxpayer_barangay_no" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Business Details -->
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800 border-b-2 border-indigo-100 pb-2 mb-6 flex items-center gap-2"><i class="fas fa-store text-indigo-500"></i> II. Business Details</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-xl border border-gray-100">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Business Trade Name <span class="text-red-500">*</span></label>
+                            <input type="text" name="business_trade_name" required class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Business Telephone No.</label>
+                            <input type="tel" name="business_tel_no" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        </div>
+                        
+                        <!-- Commercial Address Group -->
+                        <div class="md:col-span-2 mt-4">
+                            <label class="block text-sm font-bold text-gray-800 mb-3 border-b pb-1">Commercial Address</label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">Building Name</label>
+                                    <input type="text" name="comm_address_building" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">No.</label>
+                                    <input type="text" name="comm_address_no" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">Street</label>
+                                    <input type="text" name="comm_address_street" required class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">Barangay No.</label>
+                                    <input type="text" name="comm_address_barangay_no" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Registration & Line of Business Group -->
+                        <div class="md:col-span-2 mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">DTI Reg. No.</label>
+                                <input type="text" name="dti_reg_no" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">SEC Reg. No.</label>
+                                <input type="text" name="sec_reg_no" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">No. of Employees</label>
+                                <input type="number" name="num_employees" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2 mt-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Main Line of Business</label>
+                                <input type="text" name="main_line_business" required placeholder="e.g. Sari-Sari Store" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Other Line of Business</label>
+                                <input type="text" name="other_line_business" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Main Products / Services</label>
+                                <input type="text" name="main_products_services" required class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Others (Products/Services)</label>
+                                <input type="text" name="other_products_services" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ownership Details Group -->
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800 border-b-2 border-indigo-100 pb-2 mb-6 flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i> III. Ownership Details</h3>
+                    <div class="bg-indigo-50/50 p-6 rounded-xl border border-indigo-100 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-800 mb-3">Ownership Type</label>
+                                <div class="flex flex-wrap gap-4">
+                                    <label class="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 border border-gray-200 rounded-lg flex-1 hover:border-indigo-300 transition">
+                                        <input type="radio" name="ownership_type" value="single" checked class="text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                                        <span class="text-gray-700 font-medium tracking-wide">Single</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 border border-gray-200 rounded-lg flex-1 hover:border-indigo-300 transition">
+                                        <input type="radio" name="ownership_type" value="partnership" class="text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                                        <span class="text-gray-700 font-medium tracking-wide">Partnership</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 border border-gray-200 rounded-lg flex-1 hover:border-indigo-300 transition">
+                                        <input type="radio" name="ownership_type" value="corporation" class="text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                                        <span class="text-gray-700 font-medium tracking-wide">Corporation</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-800 mb-3">Proof of Ownership</label>
+                                <div class="flex gap-4">
+                                    <label class="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 border border-gray-200 rounded-lg flex-1 hover:border-indigo-300 transition">
+                                        <input type="radio" name="proof_of_ownership" value="owned" x-model="proof" class="text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                                        <span class="text-gray-700 font-medium tracking-wide">Owned</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 border border-gray-200 rounded-lg flex-1 hover:border-indigo-300 transition">
+                                        <input type="radio" name="proof_of_ownership" value="leased" x-model="proof" class="text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                                        <span class="text-gray-700 font-medium tracking-wide">Leased</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Dynamic Proof Field -->
+                            <div class="col-span-full">
+                                <div x-show="proof === 'owned'" x-cloak x-transition>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1">Registered Name (if Owned)</label>
+                                    <input type="text" name="proof_owned_reg_name" class="w-full md:w-1/2 px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                                </div>
+                                <div x-show="proof === 'leased'" x-cloak x-transition>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1">Lessor's Name (if Leased)</label>
+                                    <input type="text" name="proof_leased_lessor_name" class="w-full md:w-1/2 px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-indigo-200 border-dashed">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Rent per Month (₱)</label>
+                                <input type="number" name="rent_per_month" step="0.01" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Area in Sq. Meter</label>
+                                <input type="number" name="area_sq_meter" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Real Property Tax Receipt No.</label>
+                                <input type="text" name="real_property_tax_receipt_no" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Insurances -->
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800 border-b-2 border-indigo-100 pb-2 mb-6 flex items-center gap-2"><i class="fas fa-shield-alt text-indigo-500"></i> IV. Compliances & Insurance</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-xl border border-gray-100">
+                        <div class="flex flex-col gap-4">
+                            <label class="flex items-start gap-3 w-max cursor-pointer">
+                                <input type="checkbox" name="has_barangay_clearance" value="1" class="mt-1 w-5 h-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                <div>
+                                    <span class="block text-gray-800 font-bold">Has valid Barangay Clearance</span>
+                                    <span class="text-xs text-gray-500">Check if your personal clearance is updated</span>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-3 w-max cursor-pointer">
+                                <input type="checkbox" name="has_public_liability_insurance" value="1" class="mt-1 w-5 h-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                <div>
+                                    <span class="block text-gray-800 font-bold">Has Public Liability Insurance</span>
+                                    <span class="text-xs text-gray-500">Check if your business is insured</span>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="grid grid-cols-1 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Insurance Company Name</label>
+                                <input type="text" name="insurance_company" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Date of Insurance</label>
+                                <input type="date" name="insurance_date" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex justify-end gap-4 pt-6 mt-8 border-t border-gray-100">
+                    <a href="barangay-services.php" class="px-6 py-3 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold transition">Cancel</a>
+                    <button type="submit" id="submit-btn" class="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/30 transition flex items-center gap-2">
+                        <i class="fas fa-paper-plane"></i> Submit Application
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.querySelector('form');
-    const submitBtn = document.querySelector('button[type="submit"]');
+document.getElementById('business-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
     
-    const formMessage = document.createElement('div');
-    formMessage.style.display = 'none';
-    formMessage.className = 'mb-4';
-    form.insertBefore(formMessage, submitBtn.closest('.flex.justify-end'));
-
-    if (form && submitBtn) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            submitBtn.disabled = true;
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Submitting...';
-            formMessage.style.display = 'none';
-
-            fetch('submit-document-request.php', {
-                method: 'POST',
-                body: new FormData(form)
-            })
-            .then(response => response.json())
-            .then(data => {
-                formMessage.style.display = 'block';
-                if (data.success) {
-                    formMessage.className = 'p-4 mb-4 rounded-md font-medium bg-green-100 text-green-700 border-l-4 border-green-500';
-                    formMessage.innerHTML = '<i class="fas fa-check-circle mr-2"></i>' + data.message + ' Redirecting...';
-                    setTimeout(() => window.location.href = 'my-requests.php', 1500);
-                } else {
-                    formMessage.className = 'p-4 mb-4 rounded-md font-medium bg-red-100 text-red-700 border-l-4 border-red-500';
-                    formMessage.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>' + (data.error || 'Submission failed');
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
-                }
-            })
-            .catch(error => {
-                formMessage.style.display = 'block';
-                formMessage.className = 'p-4 mb-4 rounded-md font-medium bg-red-100 text-red-700 border-l-4 border-red-500';
-                formMessage.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>Network error occurred.';
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
-            });
-        });
-    }
+    const formData = new FormData(this);
+    
+    fetch('partials/submit-business-permit.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            window.location.href = 'my-requests.php?success=1';
+        } else {
+            alert("Error: " + data.error);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Application';
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("A network error occurred.");
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Application';
+    });
 });
 </script>
 
-<?php require_once 'partials/footer.php'; ?> 
+<?php require_once 'partials/footer.php'; ?>
