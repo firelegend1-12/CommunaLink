@@ -1,13 +1,17 @@
 <?php
-require_once '../../config/init.php';
+/**
+ * Announcements Management - Modernized
+ */
+require_once '../partials/admin_auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/business_announcement_functions.php';
+require_once '../../includes/csrf.php';
 
 $page_title = "Manage Announcements";
 
 // Get filters
-$status_filter   = isset($_GET['status'])   ? $_GET['status']   : '';
-$priority_filter = isset($_GET['priority']) ? $_GET['priority'] : '';
+$status_filter   = isset($_GET['status'])   ? sanitize_input($_GET['status'])   : '';
+$priority_filter = isset($_GET['priority']) ? sanitize_input($_GET['priority']) : '';
 
 try {
     // Build query with filters
@@ -35,344 +39,437 @@ try {
     
 } catch (PDOException $e) {
     $announcements = [];
-    $stats = [];
+    $stats = ['total_announcements' => 0, 'active_announcements' => 0, 'urgent_announcements' => 0];
     $_SESSION['error_message'] = "Database error fetching announcements: " . $e->getMessage();
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title><?php echo $page_title; ?> - CommuniLink</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        [x-cloak] { display: none !important; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen" x-data="{ showModal: false, deleteModal: false, announcementIdToDelete: null, editModal: false, editingAnnouncement: null }">
-    <div class="flex h-screen overflow-hidden">
+<body class="bg-[#F8FAFC] min-h-screen text-[#1E293B]">
+    <div class="flex h-screen overflow-hidden" x-data="{ 
+        showAddModal: false, 
+        showEditModal: false, 
+        showDeleteModal: false,
+        editingAnnouncement: null,
+        announcementToDelete: null
+    }">
+        <!-- Sidebar Navigation -->
         <?php include '../partials/sidebar.php'; ?>
         
+        <!-- Main Content -->
         <div class="flex flex-col flex-1 overflow-hidden">
-            <header class="bg-white shadow-sm z-10">
+            <!-- Top Header -->
+            <header class="bg-white/80 backdrop-blur-md shadow-sm z-10 border-b border-slate-200">
                 <div class="px-4 sm:px-6 lg:px-8">
                     <div class="flex items-center justify-between h-16">
-                        <div class="flex items-center">
-                            <span class="text-gray-500">Announcements</span>
-                            <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
-                            <h1 class="text-2xl font-semibold text-gray-800">All Announcements</h1>
+                        <div class="flex items-center gap-4">
+                            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Announcements</h1>
+                            <span class="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest border border-indigo-200"><?php echo $stats['total_announcements']; ?> Total</span>
+                        </div>
+                        
+                        <!-- User Dropdown & Action -->
+                        <div class="flex items-center gap-4">
+                            <button @click="showAddModal = true" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center transition shadow-md shadow-indigo-500/20">
+                                <i class="fas fa-plus mr-2"></i> NEW POST
+                            </button>
+                            
+                            <div class="h-8 w-px bg-slate-200 mx-2"></div>
+                            
+                            <div x-data="{ open: false }" class="relative">
+                                <button @click="open = !open" class="flex items-center space-x-3 text-sm text-slate-700 hover:text-slate-900 focus:outline-none group">
+                                    <span class="font-medium group-hover:text-indigo-600 transition tracking-tight"><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
+                                    <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-sm font-bold shadow-sm group-hover:shadow-md transition">
+                                        <?php echo substr($_SESSION['fullname'], 0, 1); ?>
+                                    </div>
+                                </button>
+                                <div x-show="open" @click.away="open = false" x-cloak
+                                     class="origin-top-right absolute right-0 mt-2 w-48 rounded-xl shadow-xl py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-20 overflow-hidden divide-y divide-slate-50">
+                                    <a href="account.php" class="flex items-center px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition"><i class="fas fa-user-circle mr-3 text-slate-400"></i> Profile Setting</a>
+                                    <a href="../../includes/logout.php" class="flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition"><i class="fas fa-sign-out-alt mr-3"></i> Sign Out</a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </header>
             
-            <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
-                <?php
-                if (isset($_SESSION['announcement_success_message'])) {
-                    echo '<div id="announcement-success-alert" class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">';
-                    echo '<p>' . htmlspecialchars($_SESSION['announcement_success_message']) . '</p>';
-                    echo '</div>';
-                    unset($_SESSION['announcement_success_message']);
-                }
-                if (isset($_SESSION['error_message'])) {
-                    echo display_error($_SESSION['error_message']);
-                    unset($_SESSION['error_message']);
-                }
-                ?>
-                
-                <!-- Statistics Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+            <!-- Page Content -->
+            <main class="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-8">
+                <?php if (isset($_SESSION['announcement_success_message'])): ?>
+                    <div id="announcement-success-alert" class="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-700 p-4 mb-6 rounded-r-xl shadow-sm animate-fade-in" role="alert">
                         <div class="flex items-center">
-                            <div class="p-3 rounded-full bg-blue-100 text-blue-600">
-                                <i class="fas fa-bullhorn text-xl"></i>
+                            <i class="fas fa-check-circle mr-3"></i>
+                            <p class="font-bold text-sm"><?php echo htmlspecialchars($_SESSION['announcement_success_message']); ?></p>
+                        </div>
+                    </div>
+                <?php unset($_SESSION['announcement_success_message']); endif; ?>
+
+                <?php if (isset($_SESSION['error_message'])): ?>
+                    <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-4 mb-6 rounded-r-xl shadow-sm" role="alert">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-circle mr-3"></i>
+                            <p class="font-bold text-sm"><?php echo htmlspecialchars($_SESSION['error_message']); ?></p>
+                        </div>
+                    </div>
+                <?php unset($_SESSION['error_message']); endif; ?>
+
+                <!-- Statistics Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- Total -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden group">
+                        <div class="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:scale-110 transition duration-500">
+                            <i class="fas fa-bullhorn text-8xl"></i>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Posts</p>
+                                <h3 class="text-3xl font-black text-slate-900"><?php echo $stats['total_announcements'] ?? 0; ?></h3>
                             </div>
-                            <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-600">Total</p>
-                                <p class="text-2xl font-semibold text-gray-900"><?php echo $stats['total_announcements'] ?? 0; ?></p>
+                            <div class="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm shadow-indigo-100">
+                                <i class="fas fa-layer-group"></i>
                             </div>
+                        </div>
+                        <div class="mt-4 flex items-center text-[10px] font-bold text-emerald-600">
+                            <i class="fas fa-arrow-up mr-1 text-[8px]"></i> ALL TIME STORAGE
                         </div>
                     </div>
                     
-                    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-                        <div class="flex items-center">
-                            <div class="p-3 rounded-full bg-green-100 text-green-600">
-                                <i class="fas fa-check-circle text-xl"></i>
+                    <!-- Active -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden group">
+                        <div class="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:scale-110 transition duration-500">
+                            <i class="fas fa-globe text-8xl"></i>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Currently Live</p>
+                                <h3 class="text-3xl font-black text-emerald-600"><?php echo $stats['active_announcements'] ?? 0; ?></h3>
                             </div>
-                            <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-600">Active</p>
-                                <p class="text-2xl font-semibold text-gray-900"><?php echo $stats['active_announcements'] ?? 0; ?></p>
+                            <div class="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-sm shadow-emerald-100">
+                                <i class="fas fa-check-circle"></i>
                             </div>
+                        </div>
+                        <div class="mt-4 flex items-center text-[10px] font-bold text-emerald-600 animate-pulse">
+                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 mr-2"></span> SYNCED WITH PORTAL
                         </div>
                     </div>
                     
-                    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-red-500">
-                        <div class="flex items-center">
-                            <div class="p-3 rounded-full bg-red-100 text-red-600">
-                                <i class="fas fa-exclamation-triangle text-xl"></i>
+                    <!-- Urgent -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden group">
+                        <div class="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:scale-110 transition duration-500 text-amber-600">
+                            <i class="fas fa-exclamation-triangle text-8xl"></i>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Urgent Alerts</p>
+                                <h3 class="text-3xl font-black text-amber-600"><?php echo $stats['urgent_announcements'] ?? 0; ?></h3>
                             </div>
-                            <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-600">Urgent</p>
-                                <p class="text-2xl font-semibold text-gray-900"><?php echo $stats['urgent_announcements'] ?? 0; ?></p>
+                            <div class="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shadow-sm shadow-amber-100">
+                                <i class="fas fa-bolt"></i>
                             </div>
+                        </div>
+                        <div class="mt-4 flex items-center text-[10px] font-bold text-amber-600">
+                            <i class="fas fa-priority-high mr-1 text-[8px]"></i> PRIORITY NOTIFICATION
                         </div>
                     </div>
                 </div>
 
-                <!-- Filters -->
-                <div class="bg-white rounded-lg shadow p-6 mb-6">
-                    <div class="flex flex-wrap items-center gap-4">
-
+                <!-- Main Content Row -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-5 border-b border-slate-100 flex flex-wrap justify-between items-center bg-slate-50/50">
+                        <div class="flex items-center gap-4">
+                            <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest">Active Announcements</h3>
+                        </div>
                         
-
-                        
-                        <div>
-                            <label for="status-filter" class="block text-sm font-medium text-gray-700">Status</label>
-                            <select id="status-filter" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                                <option value="">All Status</option>
-                                <option value="active" <?php echo $status_filter === 'active' ? 'selected' : ''; ?>>Active</option>
-                                <option value="draft"  <?php echo $status_filter === 'draft'  ? 'selected' : ''; ?>>Draft</option>
+                        <div class="flex items-center gap-3">
+                             <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                                <a href="announcements.php" class="px-3 py-1.5 rounded-lg text-xs font-bold transition <?php echo empty($status_filter) ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-600'; ?>">ALL</a>
+                                <a href="announcements.php?status=active" class="px-3 py-1.5 rounded-lg text-xs font-bold transition <?php echo $status_filter === 'active' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-emerald-600'; ?>">ACTIVE</a>
+                                <a href="announcements.php?status=draft" class="px-3 py-1.5 rounded-lg text-xs font-bold transition <?php echo $status_filter === 'draft' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-amber-600'; ?>">DRAFTS</a>
+                            </div>
+                            
+                            <select onchange="location = this.value;" class="bg-white border border-slate-200 text-xs font-bold py-2 px-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm">
+                                <option value="announcements.php">ALL PRIORITIES</option>
+                                <option value="announcements.php?priority=urgent" <?php echo $priority_filter === 'urgent' ? 'selected' : ''; ?>>URGENT ONLY</option>
+                                <option value="announcements.php?priority=normal" <?php echo $priority_filter === 'normal' ? 'selected' : ''; ?>>NORMAL ONLY</option>
                             </select>
                         </div>
-
-                        <div>
-                            <label for="priority-filter" class="block text-sm font-medium text-gray-700">Priority</label>
-                            <select id="priority-filter" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                                <option value="">All Priority</option>
-                                <option value="urgent" <?php echo $priority_filter === 'urgent' ? 'selected' : ''; ?>>Urgent</option>
-                                <option value="normal" <?php echo $priority_filter === 'normal' ? 'selected' : ''; ?>>Normal</option>
-                            </select>
-                        </div>
-                        
-                        <div class="flex items-end">
-                            <button onclick="applyFilters()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm">
-                                Apply Filters
-                            </button>
-                        </div>
-                        
-                        <div class="ml-auto">
-                            <button @click="showModal = true" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm flex items-center transition duration-300">
-                                <i class="fas fa-plus mr-2"></i>
-                                New Announcement
-                            </button>
-                        </div>
                     </div>
-                </div>
 
-                <div class="bg-white rounded-lg shadow">
-                    <div class="px-6 py-4 border-b border-gray-200">
-                        <h3 class="text-lg font-medium text-gray-900">Announcements</h3>
-                    </div>
-                    
-                    <div class="p-6">
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Author</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
-                                    <?php if (empty($announcements)): ?>
-                                        <tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No announcements found.</td></tr>
-                                    <?php else: ?>
-                                        <?php foreach ($announcements as $ann): ?>
-                                            <tr>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm font-medium text-gray-900">
-                                                        <?= htmlspecialchars($ann['title']) ?>
-                                                        <?php if ($ann['is_auto_generated'] ?? 0): ?>
-                                                            <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                                                                <i class="fas fa-robot mr-1"></i>Auto
-                                                            </span>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-100">
+                            <thead>
+                                <tr class="bg-slate-50/30">
+                                    <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Post Info</th>
+                                    <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+                                    <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Priority</th>
+                                    <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Engagement</th>
+                                    <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Created By</th>
+                                    <th class="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50">
+                                <?php if (empty($announcements)): ?>
+                                    <tr><td colspan="6" class="px-6 py-12 text-center text-slate-500 italic">No announcements found in this category.</td></tr>
+                                <?php else: ?>
+                                    <?php foreach ($announcements as $ann): ?>
+                                        <?php
+                                            $edit_payload = [
+                                                'id' => (int) $ann['id'],
+                                                'title' => (string) ($ann['title'] ?? ''),
+                                                'content' => (string) ($ann['content'] ?? ''),
+                                                'status' => (string) ($ann['status'] ?? 'active'),
+                                                'priority' => (string) ($ann['priority'] ?? 'normal')
+                                            ];
+                                            $edit_payload_json = json_encode(
+                                                $edit_payload,
+                                                JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+                                            );
+                                        ?>
+                                        <tr class="hover:bg-indigo-50/30 transition group">
+                                            <td class="px-6 py-4">
+                                                <div class="flex items-center">
+                                                    <div class="h-10 w-10 flex-shrink-0 bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
+                                                        <?php if ($ann['image_path']): ?>
+                                                            <img src="../../<?= $ann['image_path'] ?>" class="h-full w-full object-cover">
+                                                        <?php else: ?>
+                                                            <div class="h-full w-full flex items-center justify-center text-slate-400">
+                                                                <i class="fas fa-image text-lg"></i>
+                                                            </div>
                                                         <?php endif; ?>
                                                     </div>
-
-
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <?php 
-                                                    $status_colors = [
-                                                        'draft' => 'bg-gray-100 text-gray-800',
-                                                        'scheduled' => 'bg-yellow-100 text-yellow-800',
-                                                        'active' => 'bg-green-100 text-green-800',
-                                                        'expired' => 'bg-red-100 text-red-800'
-                                                    ];
-                                                    $status = $ann['status'] ?? 'active';
-                                                    $color_class = $status_colors[$status];
-                                                    ?>
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?= $color_class ?>">
-                                                        <?= ucfirst($status) ?>
-                                                    </span>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?= htmlspecialchars($ann['author_name']) ?></td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?= date('M d, Y h:i A', strtotime($ann['created_at'])) ?></td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium relative">
-                                                    <div class="relative inline-block text-left" x-data="{ open: false, top: 0, left: 0 }">
-                                                        <button type="button" x-ref="dropdownBtn" @click="
-                                                            open = !open;
-                                                            if (open) {
-                                                                const rect = $refs.dropdownBtn.getBoundingClientRect();
-                                                                top = rect.bottom + window.scrollY;
-                                                                left = rect.left + window.scrollX;
-                                                            }
-                                                        " class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-200 focus:outline-none" aria-haspopup="true" aria-expanded="false">
-                                                            <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                                                                <circle cx="4" cy="10" r="1.5"/>
-                                                                <circle cx="10" cy="10" r="1.5"/>
-                                                                <circle cx="16" cy="10" r="1.5"/>
-                                                            </svg>
-                                                        </button>
-                                                        <template x-teleport="body">
-                                                            <div x-show="open" @click.away="open = false" x-cloak
-                                                                 class="fixed z-50 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5"
-                                                                 :style="'top: ' + top + 'px; left: ' + left + 'px;'">
-                                                                <div class="py-1">
-                                                                    <button @click="editModal = true; editingAnnouncement = {id: <?= $ann['id'] ?>, title: '<?= htmlspecialchars(addslashes($ann['title'])) ?>', content: '<?= str_replace(array('\r', '\n'), array('\\r', '\\n'), htmlspecialchars(addslashes($ann['content']))) ?>', priority: '<?= $ann['priority'] ?? 'normal' ?>', status: '<?= $ann['status'] ?? 'active' ?>'}; open = false;" class="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100">Edit</button>
-                                                                    <button @click="deleteModal = true; announcementIdToDelete = <?= $ann['id'] ?>; open = false;" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">Delete</button>
-                                                                </div>
-                                                            </div>
-                                                        </template>
+                                                    <div class="ml-4 max-w-xs">
+                                                        <div class="text-sm font-bold text-slate-900 truncate"><?= htmlspecialchars($ann['title']) ?></div>
+                                                        <div class="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-tighter"><?= date('M d, Y @ h:i A', strtotime($ann['created_at'])) ?></div>
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <span class="px-2.5 py-1 text-[10px] font-black uppercase rounded-lg shadow-sm border <?= $ann['status'] === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-600 border-slate-200' ?>">
+                                                    <?= $ann['status'] ?>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="inline-flex items-center text-[10px] font-black uppercase tracking-widest <?= $ann['priority'] === 'urgent' ? 'text-amber-600' : 'text-indigo-400' ?>">
+                                                    <i class="fas <?= $ann['priority'] === 'urgent' ? 'fa-bolt' : 'fa-check' ?> mr-2"></i>
+                                                    <?= $ann['priority'] ?>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center text-xs text-slate-600 font-bold">
+                                                    <i class="fas fa-eye mr-2 text-indigo-400"></i>
+                                                    <?= $ann['read_count'] ?? 0 ?> Views
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm font-bold text-slate-700"><?= htmlspecialchars($ann['author_name']) ?></div>
+                                                <div class="text-[10px] text-slate-400 italic">Administrator</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                                <div class="flex items-center justify-end space-x-2">
+                                                    <button @click='showEditModal = true; editingAnnouncement = <?= $edit_payload_json ?>' class="text-indigo-600 hover:bg-indigo-100 p-2 rounded-xl transition shadow-sm group/btn" title="Edit Announcement">
+                                                        <i class="fas fa-pen-nib"></i>
+                                                    </button>
+                                                    
+                                                    <button @click="showDeleteModal = true; announcementToDelete = <?= $ann['id'] ?>" class="text-rose-500 hover:bg-rose-100 p-2 rounded-xl transition shadow-sm" title="Delete Announcement">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </main>
         </div>
-    </div>
 
-    <!-- Add/Edit Modal -->
-    <div x-show="showModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <form action="../partials/announcement-handler.php" method="POST" enctype="multipart/form-data" class="bg-white rounded-lg shadow-xl w-full max-w-2xl" @click.away="showModal = false">
-            <div class="p-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">New Announcement</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label for="title" class="block text-sm font-medium text-gray-700">Title</label>
-                        <input type="text" name="title" id="title" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-
-                    <div>
-                        <label for="content" class="block text-sm font-medium text-gray-700">Content</label>
-                        <textarea name="content" id="content" rows="6" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
-                    </div>
-                    <div>
-                        <label for="image" class="block text-sm font-medium text-gray-700">Image (Optional)</label>
-                        <input type="file" name="image" id="image" accept="image/png, image/jpeg, image/gif" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                    </div>
-                    <div class="flex items-center space-x-6 mt-4">
-                        <div class="flex items-center">
-                            <input type="checkbox" name="is_urgent" id="is_urgent" value="1" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="is_urgent" class="ml-2 block text-sm text-gray-900">Mark as Urgent</label>
+    <!-- Modals -->
+    <!-- Add Modal -->
+    <div x-show="showAddModal" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div x-show="showAddModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm shadow-2xl transition-opacity" @click="showAddModal = false"></div>
+            
+            <div x-show="showAddModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full border border-white/20">
+                <form action="../partials/announcement-handler.php" method="POST" enctype="multipart/form-data">
+                    <?php echo csrf_field(); ?>
+                    <div class="px-6 pt-6 pb-4 sm:px-8">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest">New Announcement</h3>
+                            <button type="button" @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 transition p-2 bg-slate-100 rounded-xl"><i class="fas fa-times"></i></button>
                         </div>
-                        <div class="flex items-center">
-                            <label for="status" class="mr-2 block text-sm text-gray-900">Status:</label>
-                            <select name="status" id="status" class="block border border-gray-300 rounded-md shadow-sm py-1 px-2 text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                <option value="active">Active (Published)</option>
-                                <option value="draft">Draft (Hidden)</option>
-                            </select>
+                        
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Title</label>
+                                <input type="text" name="title" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" placeholder="Give your post a title...">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Content Body</label>
+                                <textarea name="content" rows="6" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" placeholder="Write your announcement details here..."></textarea>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Attached Media (Optional)</label>
+                                <div class="relative group">
+                                    <input type="file" name="image" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-6 file:rounded-2xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition">
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4 pt-2">
+                                <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-600">Urgent Alert</span>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" name="is_urgent" value="1" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                                    </label>
+                                </div>
+                                <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col">
+                                    <span class="text-[8px] font-black text-slate-400 uppercase mb-1">Status</span>
+                                    <select name="status" class="bg-transparent text-xs font-bold text-slate-700 outline-none">
+                                        <option value="active">Active (Published)</option>
+                                        <option value="draft">Draft (Hidden)</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-            <div class="bg-gray-50 px-6 py-3 flex justify-end space-x-2">
-                <button type="button" @click="showModal = false" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-md">Cancel</button>
-                <button type="submit" name="add_announcement" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">Post Announcement</button>
-            </div>
-        </form>
-    </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div x-show="deleteModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-md" @click.away="deleteModal = false">
-            <div class="p-6">
-                <h3 class="text-lg font-medium text-gray-900">Confirm Deletion</h3>
-                <p class="mt-2 text-sm text-gray-600">Are you sure you want to delete this announcement? This action cannot be undone.</p>
-            </div>
-            <div class="bg-gray-50 px-6 py-3 flex justify-end space-x-2">
-                <button type="button" @click="deleteModal = false" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-md">Cancel</button>
-                <form action="../partials/announcement-handler.php" method="POST">
-                    <input type="hidden" name="announcement_id" x-bind:value="announcementIdToDelete">
-                    <button type="submit" name="delete_announcement" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md">Delete</button>
+                    
+                    <div class="px-8 py-6 bg-slate-50/80 border-t border-slate-100 flex justify-end gap-3 rounded-b-3xl">
+                        <button type="button" @click="showAddModal = false" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-500 hover:bg-white transition">Cancel</button>
+                        <button type="submit" name="add_announcement" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition">Post Announcement</button>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
 
     <!-- Edit Modal -->
-    <div x-show="editModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <form action="../partials/announcement-handler.php" method="POST" enctype="multipart/form-data" class="bg-white rounded-lg shadow-xl w-full max-w-2xl" @click.away="editModal = false">
-            <div class="p-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Announcement</h3>
-                <input type="hidden" name="announcement_id" x-bind:value="editingAnnouncement?.id">
-                <div class="space-y-4">
-                    <div>
-                        <label for="edit_title" class="block text-sm font-medium text-gray-700">Title</label>
-                        <input type="text" name="title" id="edit_title" x-bind:value="editingAnnouncement?.title" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-
-                    <div>
-                        <label for="edit_content" class="block text-sm font-medium text-gray-700">Content</label>
-                        <textarea name="content" id="edit_content" rows="6" x-bind:value="editingAnnouncement?.content" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
-                    </div>
-                    <div>
-                        <label for="edit_image" class="block text-sm font-medium text-gray-700">New Image (Optional)</label>
-                        <input type="file" name="image" id="edit_image" accept="image/png, image/jpeg, image/gif" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                        <p class="mt-1 text-xs text-gray-500">Leave empty to keep the current image</p>
-                    </div>
-                    <div class="flex items-center space-x-6 mt-4">
-                        <div class="flex items-center">
-                            <input type="checkbox" name="is_urgent" id="edit_is_urgent" value="1" x-bind:checked="editingAnnouncement?.priority === 'urgent'" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="edit_is_urgent" class="ml-2 block text-sm text-gray-900">Mark as Urgent</label>
+    <template x-if="editingAnnouncement">
+        <div x-show="showEditModal" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
+            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                <div x-show="showEditModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm shadow-2xl transition-opacity" @click="showEditModal = false"></div>
+                
+                <div x-show="showEditModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full border border-white/20">
+                    <form action="../partials/announcement-handler.php" method="POST" enctype="multipart/form-data">
+                        <?php echo csrf_field(); ?>
+                        <input type="hidden" name="announcement_id" :value="editingAnnouncement.id">
+                        <div class="px-6 pt-6 pb-4 sm:px-8">
+                            <div class="flex items-center justify-between mb-6 text-indigo-700">
+                                <h3 class="text-lg font-black uppercase tracking-widest">Edit Post</h3>
+                                <button type="button" @click="showEditModal = false" class="text-slate-400 hover:text-slate-600 transition p-2 bg-slate-100 rounded-xl"><i class="fas fa-times"></i></button>
+                            </div>
+                            
+                            <div class="space-y-6">
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Title</label>
+                                    <input type="text" name="title" :value="editingAnnouncement.title" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition shadow-sm">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Content Body</label>
+                                    <textarea name="content" rows="6" x-text="editingAnnouncement.content" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition shadow-sm"></textarea>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                                        <span class="text-xs font-bold text-slate-600">Urgent Alert</span>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" name="is_urgent" value="1" :checked="editingAnnouncement.priority === 'urgent'" class="sr-only peer">
+                                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500 transition-all"></div>
+                                        </label>
+                                    </div>
+                                    <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col">
+                                        <span class="text-[8px] font-black text-slate-400 uppercase mb-1">Status</span>
+                                        <select name="status" x-model="editingAnnouncement.status" class="bg-transparent text-xs font-bold text-slate-700 outline-none">
+                                            <option value="active">Active (Published)</option>
+                                            <option value="draft">Draft (Hidden)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">New Image (Optional)</label>
+                                    <input type="file" name="image" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-6 file:rounded-2xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition duration-300">
+                                    <p class="text-[10px] text-slate-400 font-bold uppercase mt-2 ml-2 italic text-center">leave empty to keep current image</p>
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex items-center">
-                            <label for="edit_status" class="mr-2 block text-sm text-gray-900">Status:</label>
-                            <select name="status" id="edit_status" x-model="editingAnnouncement.status" class="block border border-gray-300 rounded-md shadow-sm py-1 px-2 text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                <option value="active">Active (Published)</option>
-                                <option value="draft">Draft (Hidden)</option>
-                            </select>
+                        
+                        <div class="px-8 py-6 bg-slate-50/80 border-t border-slate-100 flex justify-end gap-3 rounded-b-3xl mt-4">
+                            <button type="button" @click="showEditModal = false" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-500 hover:bg-white transition">Cancel</button>
+                            <button type="submit" name="update_announcement" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-white bg-indigo-600 hover:bg-indigo-800 shadow-lg shadow-indigo-600/20 transition transform active:scale-95">Save Changes</button>
                         </div>
-                    </div>
+                    </form>
                 </div>
             </div>
-            <div class="bg-gray-50 px-6 py-3 flex justify-end space-x-2">
-                <button type="button" @click="editModal = false" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-md">Cancel</button>
-                <button type="submit" name="update_announcement" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">Update Announcement</button>
-            </div>
-        </form>
         </div>
+    </template>
+
+    <!-- Delete Modal -->
+    <div x-show="showDeleteModal" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
+        <div class="flex items-center justify-center min-h-screen px-4 text-center">
+            <div x-show="showDeleteModal" x-transition:enter="ease-out duration-300" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="showDeleteModal = false"></div>
+            
+            <div x-show="showDeleteModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100" class="inline-block bg-white rounded-3xl p-8 text-left overflow-hidden shadow-2xl transform transition-all sm:max-w-md sm:w-full relative z-10 border border-slate-100">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="h-14 w-14 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-500 text-xl shadow-inner"><i class="fas fa-trash-alt"></i></div>
+                    <div>
+                        <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest">Delete Post?</h3>
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-tighter">This action cannot be undone.</p>
+                    </div>
+                </div>
+                
+                <p class="text-sm text-slate-600 leading-relaxed mb-8">Are you sure you want to permanently remove this announcement? It will be removed from all resident dashboards instantly.</p>
+                
+                <div class="flex gap-3">
+                    <button @click="showDeleteModal = false" class="flex-1 px-6 py-4 rounded-2xl text-xs font-black uppercase text-slate-500 bg-slate-100 hover:bg-slate-200 transition">No, Cancel</button>
+                    <form action="../partials/announcement-handler.php" method="POST" class="flex-1">
+                        <?php echo csrf_field(); ?>
+                        <input type="hidden" name="announcement_id" :value="announcementToDelete">
+                        <button type="submit" name="delete_announcement" class="w-full px-6 py-4 rounded-2xl text-xs font-black uppercase text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-500/20 transition transform active:scale-95">Yes, Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const alert = document.getElementById('announcement-success-alert');
         if (alert) {
             setTimeout(() => {
-                alert.style.display = 'none';
-            }, 3000);
+                alert.classList.add('opacity-0', 'transition-opacity', 'duration-1000');
+                setTimeout(() => alert.remove(), 1000);
+            }, 4000);
         }
     });
-    
-    function applyFilters() {
-        const status   = document.getElementById('status-filter').value;
-        const priority = document.getElementById('priority-filter').value;
-        
-        const params = new URLSearchParams();
-        if (status)   params.append('status', status);
-        if (priority) params.append('priority', priority);
-        
-        window.location.href = 'announcements.php?' + params.toString();
-    }
     </script>
 </body>
-</html> 
+</html>

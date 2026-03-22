@@ -85,16 +85,18 @@ function create_session($user, $pdo = null) {
  */
 function is_logged_in() {
     if (isset($_SESSION['is_logged_in']) && $_SESSION['is_logged_in'] === true) {
-        // Load environment variables for session timeout (if not already loaded)
+        // Load environment variables for session timeout
         if (!function_exists('env')) {
             require_once __DIR__ . '/../config/env_loader.php';
         }
         
         // Get session timeout from environment or use defaults
-        // Admins get longer session timeout (30 minutes), regular users get 5 minutes
+        // Officials (including admin) get longer timeout (30 minutes), regular users get 5 minutes
         $user_role = $_SESSION['role'] ?? 'resident';
-        if ($user_role === 'admin') {
-            $session_lifetime = (int)env('ADMIN_SESSION_LIFETIME', 30 * 60); // 30 minutes for admin
+        $is_official = in_array($user_role, ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod']);
+        
+        if ($is_official) {
+            $session_lifetime = (int)env('ADMIN_SESSION_LIFETIME', 30 * 60); // 30 minutes for officials
         } else {
             $session_lifetime = (int)env('SESSION_LIFETIME', 5 * 60); // 5 minutes for regular users
         }
@@ -108,6 +110,16 @@ function is_logged_in() {
         }
     }
     return false;
+}
+
+/**
+ * Check if current user is an admin or barangay official
+ * 
+ * @return bool
+ */
+function is_admin_or_official() {
+    if (!isset($_SESSION['role'])) return false;
+    return in_array($_SESSION['role'], ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod']);
 }
 
 /**

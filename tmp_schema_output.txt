@@ -1,0 +1,56 @@
+Table: business_transactions
+id | int(11) | NO | 
+resident_id | int(11) | NO | 
+business_name | varchar(255) | NO | 
+business_type | varchar(100) | NO | 
+owner_name | varchar(255) | NO | 
+address | text | NO | 
+transaction_type | enum('New Permit','Renewal') | NO | 
+status | enum('PENDING','PROCESSING','APPROVED','REJECTED') | NO | PENDING
+application_date | datetime | YES | current_timestamp()
+processed_date | datetime | YES | 
+remarks | text | YES | 
+
+Table: business_permits
+id | int(11) | NO | 
+date_of_application | date | YES | 
+business_account_no | varchar(255) | YES | 
+official_receipt_no | varchar(255) | YES | 
+or_date | date | YES | 
+amount_paid | decimal(10,2) | YES | 
+taxpayer_name | varchar(255) | YES | 
+taxpayer_tel_no | varchar(50) | YES | 
+taxpayer_fax_no | varchar(50) | YES | 
+taxpayer_address | text | YES | 
+capital | decimal(15,2) | YES | 
+taxpayer_barangay_no | varchar(50) | YES | 
+business_trade_name | varchar(255) | YES | 
+business_tel_no | varchar(50) | YES | 
+comm_address_building | varchar(255) | YES | 
+comm_address_no | varchar(50) | YES | 
+comm_address_street | varchar(255) | YES | 
+comm_address_barangay_no | varchar(50) | YES | 
+dti_reg_no | varchar(255) | YES | 
+sec_reg_no | varchar(255) | YES | 
+num_employees | int(11) | YES | 
+main_line_business | varchar(255) | YES | 
+other_line_business | text | YES | 
+main_products_services | text | YES | 
+other_products_services | varchar(255) | YES | 
+ownership_type | enum('single','partnership','corporation') | YES | 
+proof_of_ownership | enum('owned','leased') | YES | 
+proof_owned_reg_name | varchar(255) | YES | 
+proof_leased_lessor_name | varchar(255) | YES | 
+rent_per_month | decimal(10,2) | YES | 
+area_sq_meter | decimal(10,2) | YES | 
+real_property_tax_receipt_no | varchar(255) | YES | 
+has_barangay_clearance | tinyint(1) | YES | 0
+has_public_liability_insurance | tinyint(1) | YES | 0
+insurance_company | varchar(255) | YES | 
+insurance_date | date | YES | 
+applicant_name | varchar(255) | YES | 
+applicant_position | varchar(255) | YES | 
+status | enum('PENDING','APPROVED','REJECTED') | NO | PENDING
+created_at | datetime | YES | current_timestamp()
+updated_at | datetime | YES | current_timestamp()
+

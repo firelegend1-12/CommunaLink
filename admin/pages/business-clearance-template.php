@@ -16,9 +16,10 @@ $error = null;
 if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     $request_id = $_GET['id'];
     try {
-        $sql = "SELECT bt.*, r.first_name, r.last_name 
+        $sql = "SELECT bt.*, r.first_name, r.last_name, bp.official_receipt_no, bp.or_date 
                 FROM business_transactions bt
                 JOIN residents r ON bt.resident_id = r.id
+                LEFT JOIN business_permits bp ON bt.permit_id = bp.id
                 WHERE bt.id = ?";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$request_id]);
@@ -136,7 +137,7 @@ $month_issued = date('F');
             
             <div class="absolute bottom-10 left-10 text-xs text-gray-400">
                 <p>Doc Stamp: <span class="placeholder"></span></p>
-                <p>OR No.: <span class="placeholder"></span></p>
+                <p>OR No.: <span class="placeholder"><?= htmlspecialchars($transaction['official_receipt_no'] ?? '') ?></span></p>
                 <p>Date Issued: <span class="placeholder"><?= date('m/d/Y') ?></span></p>
             </div>
         </div>

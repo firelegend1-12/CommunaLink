@@ -19,8 +19,16 @@ if (!$req_id) {
 
 require_once '../config/database.php';
 
-$stmt = $pdo->prepare("SELECT * FROM document_requests WHERE id = ? AND requested_by_user_id = ?");
-$stmt->execute([$req_id, $_SESSION['user_id']]);
+$resident_id = $_SESSION['resident_id'] ?? 0;
+if (!$resident_id && isset($_SESSION['user_id'])) {
+    $resident_id = get_resident_id($pdo, $_SESSION['user_id']) ?? 0;
+    if ($resident_id) {
+        $_SESSION['resident_id'] = $resident_id;
+    }
+}
+
+$stmt = $pdo->prepare("SELECT * FROM document_requests WHERE id = ? AND (requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?))");
+$stmt->execute([$req_id, $_SESSION['user_id'], $resident_id]);
 $req = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$req) {
@@ -72,7 +80,7 @@ if (stripos($doc_type, 'Business') !== false) {
         </a>
         
         <?php if(strtolower($status) === 'pending'): ?>
-            <button class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg font-semibold border border-red-200 transition-colors shadow-sm" onclick="alert('Cancellation will be supported soon!')">
+            <button class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg font-semibold border border-red-200 transition-colors shadow-sm" onclick="cancelDocumentRequest(<?= (int) $req['id'] ?>)">
                 <i class="fas fa-times-circle mr-1"></i> Cancel Request
             </button>
         <?php else: ?>
@@ -221,6 +229,41 @@ function renderTimeline(status) {
             </div>
         </div>
     </div>`;
+}
+
+function cancelDocumentRequest(requestId) {
+    const reason = prompt('Please provide a reason for cancellation (required):');
+    if (reason === null) return;
+
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+        alert('Cancellation reason is required.');
+        return;
+    }
+
+    if (!confirm('Are you sure you want to cancel this request?')) {
+        return;
+    }
+
+    fetch('partials/cancel-document-request.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: 'id=' + encodeURIComponent(String(requestId)) + '&reason=' + encodeURIComponent(trimmedReason)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = 'my-requests.php?cancelled=1';
+        } else {
+            alert(data.error || 'Failed to cancel request.');
+        }
+    })
+    .catch(() => {
+        alert('Failed to cancel request. Please try again.');
+    });
 }
 </script>
 

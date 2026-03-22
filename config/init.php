@@ -85,7 +85,7 @@ try {
             `owner_name` VARCHAR(255) NOT NULL,
             `address` TEXT NOT NULL,
             `transaction_type` ENUM('New Permit', 'Renewal') NOT NULL,
-            `status` ENUM('PENDING', 'PROCESSING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+            `status` ENUM('PENDING', 'PROCESSING', 'READY FOR PICKUP', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
             `application_date` DATETIME DEFAULT CURRENT_TIMESTAMP,
             `processed_date` DATETIME DEFAULT NULL,
             `remarks` TEXT DEFAULT NULL,
@@ -145,7 +145,7 @@ try {
             `purpose` TEXT NOT NULL,
             `details` JSON,
             `date_requested` DATETIME DEFAULT CURRENT_TIMESTAMP,
-            `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected') NOT NULL DEFAULT 'Pending',
+            `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending',
             `price` DECIMAL(10, 2) DEFAULT NULL,
             `remarks` TEXT DEFAULT NULL,
             `requested_by_user_id` INT(11) NULL,
@@ -191,6 +191,17 @@ try {
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`),
             FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS `announcement_reads` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `announcement_id` INT(11) NOT NULL,
+            `resident_id` INT(11) NOT NULL,
+            `read_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_announcement_resident` (`announcement_id`, `resident_id`),
+            FOREIGN KEY (`announcement_id`) REFERENCES `announcements`(`id`) ON DELETE CASCADE,
+            FOREIGN KEY (`resident_id`) REFERENCES `residents`(`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
         "CREATE TABLE IF NOT EXISTS `events` (
@@ -254,7 +265,7 @@ try {
         'document_type' => "ADD COLUMN `document_type` VARCHAR(255) NOT NULL AFTER `resident_id`",
         'purpose' => "ADD COLUMN `purpose` TEXT NOT NULL AFTER `document_type`",
         'details' => "ADD COLUMN `details` JSON AFTER `purpose`",
-        'status' => "ADD COLUMN `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected') NOT NULL DEFAULT 'Pending' AFTER `date_requested`",
+        'status' => "ADD COLUMN `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending' AFTER `date_requested`",
         'price' => "ADD COLUMN `price` DECIMAL(10, 2) DEFAULT NULL AFTER `status`",
         'remarks' => "ADD COLUMN `remarks` TEXT DEFAULT NULL AFTER `price`",
         'requested_by_user_id' => "ADD COLUMN `requested_by_user_id` INT(11) NULL AFTER `remarks`"
@@ -273,18 +284,64 @@ try {
         $pdo->exec("ALTER TABLE `document_requests` ADD CONSTRAINT `fk_requested_by_user` FOREIGN KEY (`requested_by_user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL;");
     }
 
+    // Ensure Cancelled status exists in document_requests status enum
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM `document_requests` LIKE 'status'");
+        if ($stmt && $stmt->rowCount() > 0) {
+            $column_info = $stmt->fetch();
+            $type = $column_info['Type'] ?? '';
+            if (strpos($type, 'Cancelled') === false) {
+                $pdo->exec("ALTER TABLE `document_requests` MODIFY `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending';");
+            }
+        }
+    } catch (Exception $e) {
+        // Ignore errors if table does not exist yet
+    }
+
     // --- Schema Migration for business_transactions ---
-    // Add PROCESSING status to business_transactions if it doesn't exist
+    // Add PROCESSING and READY FOR PICKUP status to business_transactions if they don't exist
     try {
         $stmt = $pdo->query("SHOW COLUMNS FROM `business_transactions` LIKE 'status'");
         if ($stmt && $stmt->rowCount() > 0) {
             $column_info = $stmt->fetch();
-            if (strpos($column_info['Type'], 'PROCESSING') === false) {
-                $pdo->exec("ALTER TABLE `business_transactions` MODIFY `status` ENUM('PENDING', 'PROCESSING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING';");
+            $type = $column_info['Type'] ?? '';
+            $needs_update = false;
+            if (strpos($type, 'PROCESSING') === false) {
+                $needs_update = true;
+            }
+            if (strpos($type, 'READY FOR PICKUP') === false) {
+                $needs_update = true;
+            }
+            if ($needs_update) {
+                $pdo->exec("ALTER TABLE `business_transactions` MODIFY `status` ENUM('PENDING', 'PROCESSING', 'READY FOR PICKUP', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING';");
             }
         }
     } catch (Exception $e) {
         // Ignore errors if table doesn't exist yet
+    }
+
+    // --- Schema Migration for announcements ---
+    try {
+        $announcement_columns = [
+            'status' => "ADD COLUMN `status` VARCHAR(20) NOT NULL DEFAULT 'active' AFTER `content`",
+            'priority' => "ADD COLUMN `priority` VARCHAR(20) NOT NULL DEFAULT 'normal' AFTER `status`",
+            'is_auto_generated' => "ADD COLUMN `is_auto_generated` TINYINT(1) NOT NULL DEFAULT 0 AFTER `user_id`",
+            'related_business_id' => "ADD COLUMN `related_business_id` INT(11) DEFAULT NULL AFTER `is_auto_generated`",
+            'related_permit_number' => "ADD COLUMN `related_permit_number` VARCHAR(100) DEFAULT NULL AFTER `related_business_id`",
+            'target_audience' => "ADD COLUMN `target_audience` VARCHAR(50) NOT NULL DEFAULT 'all' AFTER `priority`",
+            'publish_date' => "ADD COLUMN `publish_date` DATETIME DEFAULT NULL AFTER `target_audience`",
+            'expiry_date' => "ADD COLUMN `expiry_date` DATETIME DEFAULT NULL AFTER `publish_date`",
+            'read_count' => "ADD COLUMN `read_count` INT(11) NOT NULL DEFAULT 0 AFTER `expiry_date`"
+        ];
+
+        foreach ($announcement_columns as $column => $alter_statement) {
+            $stmt = $pdo->query("SHOW COLUMNS FROM `announcements` LIKE '{$column}'");
+            if ($stmt && $stmt->rowCount() == 0) {
+                $pdo->exec("ALTER TABLE `announcements` " . $alter_statement);
+            }
+        }
+    } catch (Exception $e) {
+        // Ignore if table not present; creation above will add on fresh installs
     }
 
     // --- Schema Migration for businesses (permit fields) ---
@@ -384,8 +441,11 @@ try {
         ['table' => 'document_requests', 'name' => 'idx_docreq_date_requested', 'columns' => 'date_requested'],
         ['table' => 'document_requests', 'name' => 'idx_docreq_status', 'columns' => 'status'],
         ['table' => 'announcements', 'name' => 'idx_announcements_created_at', 'columns' => 'created_at'],
+        ['table' => 'announcements', 'name' => 'idx_announcements_status_dates', 'columns' => 'status, publish_date, expiry_date, created_at'],
         ['table' => 'residents', 'name' => 'idx_residents_name', 'columns' => 'last_name, first_name'],
-        ['table' => 'business_transactions', 'name' => 'idx_biztrans_status', 'columns' => 'status']
+        ['table' => 'business_transactions', 'name' => 'idx_biztrans_status', 'columns' => 'status'],
+        ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_resident', 'columns' => 'resident_id'],
+        ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_announcement', 'columns' => 'announcement_id']
     ];
 
     foreach ($performance_indexes as $idx) {

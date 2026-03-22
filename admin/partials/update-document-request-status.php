@@ -10,7 +10,7 @@ require_once '../../includes/auth.php';
 header('Content-Type: application/json');
 
 // Check authorization
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin'])) {
+if (!is_admin_or_official()) {
     echo json_encode(['success' => false, 'error' => 'Unauthorized']);
     exit;
 }
@@ -22,6 +22,12 @@ $status = isset($_GET['status']) ? trim($_GET['status']) : '';
 // Validate parameters
 if (empty($id) || empty($status)) {
     echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
+    exit;
+}
+
+$allowed_statuses = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled'];
+if (!in_array($status, $allowed_statuses, true)) {
+    echo json_encode(['success' => false, 'error' => 'Invalid status value']);
     exit;
 }
 
@@ -39,6 +45,16 @@ try {
     $old_status = $old_data['status'];
     $resident_id = $old_data['resident_id'];
     $document_type = $old_data['document_type'];
+
+    if ($old_status === 'Cancelled' && $status !== 'Cancelled') {
+        echo json_encode(['success' => false, 'error' => 'Cancelled requests cannot be reopened']);
+        exit;
+    }
+
+    if ($status === 'Cancelled' && strcasecmp((string) $old_status, 'Pending') !== 0) {
+        echo json_encode(['success' => false, 'error' => 'Only pending requests can be cancelled']);
+        exit;
+    }
     
     // Update the status
     $stmt = $pdo->prepare('UPDATE document_requests SET status = ? WHERE id = ?');

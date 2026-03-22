@@ -4,14 +4,13 @@
  * Main landing page after successful login
  */
 
-// Include authentication system
-require_once '../config/init.php';
+// Include admin authentication and session management
+require_once 'partials/admin_auth.php';
+
+// Page-specific requirements
 require_once '../includes/functions.php';
 require_once '../includes/auth.php';
 require_once '../includes/cache_manager.php';
-
-// Check if user is logged in
-require_login();
 
 // Page title
 $page_title = "Dashboard - CommuniLink";
@@ -28,8 +27,8 @@ if ($cached_data) {
     extract($cached_data);
 } else {
     try {
-        // Fetch latest transactions
-        $stmt = $pdo->query("SELECT * FROM business_transactions WHERE status IS NOT NULL AND status != '' AND status != 'DELETED' ORDER BY application_date DESC LIMIT 4");
+        // Fetch latest transactions with selected columns only
+        $stmt = $pdo->query("SELECT id, transaction_type, owner_name, application_date, status FROM business_transactions WHERE status IS NOT NULL AND status != '' AND status != 'DELETED' ORDER BY application_date DESC LIMIT 4");
         $latest_transactions = $stmt->fetchAll();
 
         // Fetch population stats
@@ -122,6 +121,10 @@ if ($cached_data) {
 
 // Function to get sunset time
 function getSunsetTime() {
+    $cache_key = 'sunset_time_' . date('Y-m-d');
+    $cached = cache_get($cache_key, 'file');
+    if ($cached) return $cached;
+
     // Get sunset time for Philippines (default to Manila)
     $lat = 14.5995; // Manila latitude
     $lon = 120.9842; // Manila longitude
@@ -134,7 +137,6 @@ function getSunsetTime() {
     $time_until_sunset = $sunset_timestamp - time();
     
     if ($time_until_sunset < 0) {
-        // Sunset already happened today, get tomorrow's sunset
         $tomorrow = time() + 86400; // 86400 seconds = 1 day
         $sun_info = date_sun_info($tomorrow, $lat, $lon);
         $sunset_timestamp = $sun_info['sunset'];
@@ -145,11 +147,14 @@ function getSunsetTime() {
     $hours = floor($time_until_sunset / 3600);
     $minutes = floor(($time_until_sunset % 3600) / 60);
     
-    return [
+    $result = [
         'sunset_time' => date('h:i A', $sunset_timestamp),
         'hours_until' => $hours,
         'minutes_until' => $minutes
     ];
+    
+    cache_set($cache_key, $result, 3600, 'file'); // Cache for 1 hour
+    return $result;
 }
 
 // Get sunset information
@@ -199,11 +204,25 @@ $today_quote = $quotes[array_rand($quotes)];
             <header class="bg-white shadow-sm z-10">
                 <div class="px-4 sm:px-6 lg:px-8">
                     <div class="flex items-center justify-between h-16">
-                        <h1 class="text-2xl font-semibold text-gray-800">Dashboard</h1>
-                        <div class="flex items-center space-x-4">
-                        <!-- User Dropdown -->
-                        <div x-data="{ open: false }" class="relative">
-                            <button @click="open = !open" class="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 focus:outline-none">
+                        <div class="flex items-center">
+                            <h1 class="text-3xl font-bold text-gray-800 mr-10">Dashboard</h1>
+                            <form onsubmit="alert('Global Search feature coming soon!'); return false;" class="hidden md:flex relative">
+                                <input type="text" name="q" placeholder="Search Resident or Transaction ID..." class="bg-gray-100 text-sm rounded-full pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white w-80 lg:w-[400px] transition-all border border-transparent focus:border-blue-300">
+                                <i class="fas fa-search absolute left-4 top-2.5 text-gray-400"></i>
+                            </form>
+                        </div>
+                        <div class="flex items-center space-x-6">
+                            <!-- Digital Clock inline -->
+                            <div class="hidden lg:flex items-center text-gray-500 font-medium text-sm">
+                                <i class="far fa-clock mr-2 text-blue-500"></i>
+                                <span id="header-time"><?= date('h:i A') ?></span>
+                                <span class="mx-2">|</span>
+                                <span><?= date('M d, Y') ?></span>
+                            </div>
+                            
+                            <!-- User Dropdown -->
+                            <div x-data="{ open: false }" class="relative">
+                                <button @click="open = !open" class="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 focus:outline-none">
                                 <span><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
                                 <div class="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-white">
                                     <?php echo substr($_SESSION['fullname'], 0, 1); ?>
@@ -231,6 +250,36 @@ $today_quote = $quotes[array_rand($quotes)];
             <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
                 <!-- Quick Stats Cards Row -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                    <!-- Pending Requests Card -->
+                    <div class="bg-white rounded-2xl shadow-lg p-6 transition hover:shadow-xl border-l-4 border-yellow-500">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-gray-500 text-base font-semibold">Pending Requests</h3>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-12 w-12 rounded-full bg-yellow-100 flex items-center justify-center -translate-x-1 border border-yellow-200">
+                                <i class="fas fa-clock text-yellow-600 text-2xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h2 class="text-3xl font-bold text-yellow-700" id="pending-requests-count"><?php echo $pending_requests; ?></h2>
+                                <p class="text-xs text-gray-500 font-medium">Action Required</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Active Incidents Card -->
+                    <div class="bg-white rounded-2xl shadow-lg p-6 transition hover:shadow-xl border-l-4 border-red-500">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-gray-500 text-base font-semibold">Active Incidents</h3>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-12 w-12 rounded-full bg-red-100 flex items-center justify-center -translate-x-1 border border-red-200">
+                                <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h2 class="text-3xl font-bold text-red-700" id="active-incidents-count"><?php echo $active_incidents; ?></h2>
+                                <p class="text-xs text-gray-500 font-medium">Unresolved Reports</p>
+                            </div>
+                        </div>
+                    </div>
                     <!-- Total Residents Card -->
                     <div class="bg-white rounded-2xl shadow-lg p-6 transition hover:shadow-xl">
                         <div class="flex justify-between items-center mb-4">
@@ -242,7 +291,7 @@ $today_quote = $quotes[array_rand($quotes)];
                             </div>
                             <div class="ml-4">
                                 <h2 class="text-3xl font-bold text-blue-700" id="population-count"><?php echo $population_stats['total_population'] ?? '0'; ?></h2>
-                                <p class="text-xs text-gray-500">Registered residents</p>
+                                <p class="text-xs text-gray-500">Total Registered</p>
                             </div>
                         </div>
                     </div>
@@ -257,44 +306,14 @@ $today_quote = $quotes[array_rand($quotes)];
                             </div>
                             <div class="ml-4">
                                 <h2 class="text-3xl font-bold text-green-700" id="business-count"><?php echo $business_count; ?></h2>
-                                <p class="text-xs text-gray-500">Registered businesses</p>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Pending Requests Card -->
-                    <div class="bg-white rounded-2xl shadow-lg p-6 transition hover:shadow-xl">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-gray-500 text-base font-semibold">Pending Requests</h3>
-                        </div>
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 h-12 w-12 rounded-full bg-yellow-100 flex items-center justify-center">
-                                <i class="fas fa-clock text-yellow-600 text-2xl"></i>
-                            </div>
-                            <div class="ml-4">
-                                <h2 class="text-3xl font-bold text-yellow-700" id="pending-requests-count"><?php echo $pending_requests; ?></h2>
-                                <p class="text-xs text-gray-500">Requests pending</p>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Active Incidents Card -->
-                    <div class="bg-white rounded-2xl shadow-lg p-6 transition hover:shadow-xl">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-gray-500 text-base font-semibold">Active Incidents</h3>
-                        </div>
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
-                                <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
-                            </div>
-                            <div class="ml-4">
-                                <h2 class="text-3xl font-bold text-red-700" id="active-incidents-count"><?php echo $active_incidents; ?></h2>
-                                <p class="text-xs text-gray-500">Open incidents</p>
+                                <p class="text-xs text-gray-500">Registered Operations</p>
                             </div>
                         </div>
                     </div>
                     <!-- Upcoming Events Card -->
                     <div class="bg-white rounded-2xl shadow-lg p-6 transition hover:shadow-xl">
                         <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-gray-500 text-base font-semibold">Upcoming Events</h3>
+                            <h3 class="text-gray-500 text-base font-semibold">Events</h3>
                         </div>
                         <div class="flex items-center">
                             <div class="flex-shrink-0 h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
@@ -302,7 +321,7 @@ $today_quote = $quotes[array_rand($quotes)];
                             </div>
                             <div class="ml-4">
                                 <h2 class="text-3xl font-bold text-purple-700" id="upcoming-events-count"><?php echo $upcoming_events; ?></h2>
-                                <p class="text-xs text-gray-500">Events scheduled</p>
+                                <p class="text-xs text-gray-500">Scheduled Events</p>
                             </div>
                         </div>
                     </div>
@@ -331,7 +350,6 @@ $today_quote = $quotes[array_rand($quotes)];
                                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resident</th>
                                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody class="bg-white divide-y divide-gray-200" id="transactions-table-body">
@@ -343,7 +361,7 @@ $today_quote = $quotes[array_rand($quotes)];
                                                 </tr>
                                             <?php else: ?>
                                                 <?php foreach ($latest_transactions as $trans): ?>
-                                                    <tr>
+                                                    <tr class="hover:bg-gray-50 cursor-pointer transition duration-150" onclick="window.location.href='pages/business-transactions.php'">
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo htmlspecialchars($trans['id']); ?></td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($trans['transaction_type']); ?></td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo htmlspecialchars($trans['owner_name']); ?></td>
@@ -353,9 +371,6 @@ $today_quote = $quotes[array_rand($quotes)];
                                                                 <?php echo $trans['status'] === 'APPROVED' ? 'bg-green-100 text-green-800' : ($trans['status'] === 'REJECTED' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'); ?>">
                                                                 <?php echo htmlspecialchars($trans['status']); ?>
                                                             </span>
-                                                        </td>
-                                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                            <a href="pages/business-transactions.php" class="text-indigo-600 hover:text-indigo-900">View</a>
                                                         </td>
                                                     </tr>
                                                 <?php endforeach; ?>
@@ -397,105 +412,6 @@ $today_quote = $quotes[array_rand($quotes)];
                     
                     <!-- Right Column (1/3 width on large screens) -->
                     <div class="space-y-6">
-                        <!-- Today's Quote -->
-                        <div class="bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow p-6 text-white">
-                            <div class="flex items-center mb-4">
-                                <i class="fas fa-quote-left text-white text-opacity-50 text-2xl"></i>
-                                <h3 class="ml-2 text-lg font-medium">Today's Quote</h3>
-                            </div>
-                            <p class="text-white text-opacity-90 italic mb-4">"<?php echo $today_quote; ?>"</p>
-                        </div>
-                        
-                        <!-- Time & Calendar Card -->
-                        <div class="bg-gradient-to-br from-gray-700 to-gray-900 rounded-lg shadow p-6 text-white">
-                            <div class="flex items-center mb-4">
-                                <i class="fas fa-clock text-gray-400 text-2xl"></i>
-                                <h3 class="ml-2 text-lg font-medium">Time & Calendar</h3>
-                            </div>
-                                                          <div class="flex flex-col items-center justify-center">
-                                  <div class="countdown">
-                                    <div class="time-section" id="hours">
-                                      <div class="time-group">
-                                        <div class="time-segment">
-                                          <div class="segment-display">
-                                            <div class="segment-display__top"></div>
-                                            <div class="segment-display__bottom"></div>
-                                            <div class="segment-overlay">
-                                              <div class="segment-overlay__top"></div>
-                                              <div class="segment-overlay__bottom"></div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div class="time-segment">
-                                          <div class="segment-display">
-                                            <div class="segment-display__top"></div>
-                                            <div class="segment-display__bottom"></div>
-                                            <div class="segment-overlay">
-                                              <div class="segment-overlay__top"></div>
-                                              <div class="segment-overlay__bottom"></div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <p>Hours</p>
-                                    </div>
-
-                                    <div class="time-section" id="minutes">
-                                      <div class="time-group">
-                                        <div class="time-segment">
-                                          <div class="segment-display">
-                                            <div class="segment-display__top"></div>
-                                            <div class="segment-display__bottom"></div>
-                                            <div class="segment-overlay">
-                                              <div class="segment-overlay__top"></div>
-                                              <div class="segment-overlay__bottom"></div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div class="time-segment">
-                                          <div class="segment-display">
-                                            <div class="segment-display__top"></div>
-                                            <div class="segment-display__bottom"></div>
-                                            <div class="segment-overlay">
-                                              <div class="segment-overlay__top"></div>
-                                              <div class="segment-overlay__bottom"></div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <p>Minutes</p>
-                                    </div>
-
-                                    <div class="time-section" id="seconds">
-                                      <div class="time-group">
-                                        <div class="time-segment">
-                                          <div class="segment-display">
-                                            <div class="segment-display__top"></div>
-                                            <div class="segment-display__bottom"></div>
-                                            <div class="segment-overlay">
-                                              <div class="segment-overlay__top"></div>
-                                              <div class="segment-overlay__bottom"></div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div class="time-segment">
-                                          <div class="segment-display">
-                                            <div class="segment-display__top"></div>
-                                            <div class="segment-display__bottom"></div>
-                                            <div class="segment-overlay">
-                                              <div class="segment-overlay__top"></div>
-                                              <div class="segment-overlay__bottom"></div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                </div>
-                                      <p>Seconds</p>
-                                </div>
-                            </div>
-                                  <div id="current-date" class="text-lg text-gray-200 mt-4"></div>
-                            </div>
-                        </div>
-                        
                         <!-- Quick Actions -->
                         <div class="bg-white rounded-lg shadow p-4">
                             <div class="flex items-center mb-3">
@@ -525,7 +441,28 @@ $today_quote = $quotes[array_rand($quotes)];
                                 </a>
                             </div>
                         </div>
+
+                        <!-- Today's Quote -->
+                        <div class="bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow p-6 text-white">
+                            <div class="flex items-center mb-4">
+                                <i class="fas fa-quote-left text-white text-opacity-50 text-2xl"></i>
+                                <h3 class="ml-2 text-lg font-medium">Today's Quote</h3>
+                            </div>
+                            <p class="text-white text-opacity-90 italic mb-4">"<?php echo $today_quote; ?>"</p>
+                        </div>
                         
+                        <!-- Sunset Info -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <div class="flex justify-between items-center text-sm mb-2 opacity-80">
+                                <span><i class="fas fa-sun text-yellow-400 mr-2"></i>Sunset in Oton:</span>
+                                <span class="font-bold"><?= $sunset_info['sunset_time'] ?></span>
+                            </div>
+                            <div class="w-full bg-gray-600 rounded-full h-2">
+                                <div class="bg-gradient-to-r from-yellow-400 to-orange-500 h-2 rounded-full" style="width: <?= min(100, max(0, 100 - ($sunset_info['hours_until'] * 8))) ?>%"></div>
+                            </div>
+                            <p class="text-xs text-right mt-2 text-gray-400"><?= $sunset_info['hours_until'] ?> hr <?= $sunset_info['minutes_until'] ?> min left of daylight</p>
+                        </div>
+
                         <!-- Upcoming Events & Reminders -->
                         <?php
                         // Fetch next 5 upcoming events
@@ -580,6 +517,20 @@ $today_quote = $quotes[array_rand($quotes)];
         businessMonths: <?= $business_months ?: '[]' ?>,
         businessCounts: <?= $business_counts ?: '[]' ?>
     };
+    </script>
+    <script>
+    setInterval(() => {
+        let el = document.getElementById('header-time');
+        if(el) {
+            let d = new Date();
+            let h = d.getHours();
+            let m = d.getMinutes().toString().padStart(2, '0');
+            let ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12;
+            h = h ? h : 12; 
+            el.innerText = h + ':' + m + ' ' + ampm;
+        }
+    }, 60000); // 1 minute interval update
     </script>
     <script src="../assets/js/admin-dashboard.min.js?v=<?= filemtime('../assets/js/admin-dashboard.min.js') ?>" defer></script>
 </body>

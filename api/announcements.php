@@ -14,13 +14,16 @@ $action = $_GET['action'] ?? '';
 if ($action === 'get_latest') {
     try {
         // Fetch the 3 most recent announcements
-        $stmt = $pdo->query(
-            "SELECT a.title, a.content, a.created_at, u.fullname as author_name 
-             FROM announcements a 
-             JOIN users u ON a.user_id = u.id 
-             ORDER BY a.created_at DESC 
-             LIMIT 3"
-        );
+                $stmt = $pdo->query(
+                        "SELECT a.title, a.content, a.created_at, u.fullname as author_name
+                         FROM announcements a
+                         JOIN users u ON a.user_id = u.id
+                         WHERE a.status = 'active'
+                             AND (a.publish_date IS NULL OR a.publish_date <= NOW())
+                             AND (a.expiry_date IS NULL OR a.expiry_date >= NOW())
+                         ORDER BY a.created_at DESC
+                         LIMIT 3"
+                );
         $announcements = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'announcements' => $announcements]);
     } catch (PDOException $e) {

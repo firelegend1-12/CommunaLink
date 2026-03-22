@@ -1,169 +1,192 @@
 <?php
 /**
- * Add User Page
+ * Add User Page - Modernized
  */
-
-// Include authentication system
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 
-// Check if user is logged in
 require_login();
 
-// Check if user is an admin, otherwise redirect
+// Check if user is admin
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     redirect_to('../index.php');
 }
 
-// Page title
-$page_title = "Add New User - CommuniLink";
+$page_title = "Add New User";
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?></title>
-    <!-- Tailwind CSS CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <!-- Font Awesome Icons -->
+    <title><?php echo $page_title; ?> - CommuniLink</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        [x-cloak] { display: none !important; }
+        .form-input {
+            transition: all 0.2s ease;
+        }
+        .form-input:focus {
+            transform: translateY(-1px);
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="flex h-screen overflow-hidden">
+<body class="bg-[#F8FAFC] min-h-screen text-[#1E293B]">
+    <div class="flex h-screen overflow-hidden" x-data="{ 
+        role: '', 
+        password: '',
+        strength: 0,
+        validatePassword(pw) {
+            let s = 0;
+            if (pw.length >= 8) s++;
+            if (/[A-Z]/.test(pw)) s++;
+            if (/[0-9]/.test(pw)) s++;
+            if (/[^A-Za-z0-9]/.test(pw)) s++;
+            this.strength = s;
+        }
+    }">
         <!-- Sidebar Navigation -->
         <?php include '../partials/sidebar.php'; ?>
-
+        
         <!-- Main Content -->
         <div class="flex flex-col flex-1 overflow-hidden">
             <!-- Top Header -->
-            <header class="bg-white shadow-sm z-10">
+            <header class="bg-white/80 backdrop-blur-md shadow-sm z-10 border-b border-slate-200">
                 <div class="px-4 sm:px-6 lg:px-8">
                     <div class="flex items-center justify-between h-16">
-                        <h1 class="text-2xl font-semibold text-gray-800">Add New User</h1>
-                        <!-- User Dropdown -->
-                        <div x-data="{ open: false }" class="relative">
-                            <button @click="open = !open" class="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 focus:outline-none">
-                                <span><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
-                                <div class="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-white">
-                                    <?php echo substr($_SESSION['fullname'], 0, 1); ?>
-                                </div>
-                            </button>
-                            <div x-show="open" @click.away="open = false" x-cloak class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-20 divide-y divide-gray-200">
-                                <div class="py-1">
-                                    <a href="account.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-user-circle mr-2 text-gray-500"></i>
-                                        My Account
-                                    </a>
-                                </div>
-                                <div class="py-1">
-                                    <a href="../../includes/logout.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-sign-out-alt mr-2 text-gray-500"></i>
-                                        Sign Out
-                                    </a>
-                                </div>
-                            </div>
+                        <div class="flex items-center gap-4">
+                            <a href="user-management.php" class="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition">
+                                <i class="fas fa-chevron-left text-sm"></i>
+                            </a>
+                            <h1 class="text-xl font-bold text-slate-900 tracking-tight">Create New User</h1>
                         </div>
+                        
+                        <?php include '../partials/user-dropdown.php'; ?>
                     </div>
                 </div>
             </header>
-
+            
             <!-- Page Content -->
-            <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
-                <div class="max-w-2xl mx-auto">
-                    <?php
-                    if (isset($_SESSION['error_message'])) {
-                        echo display_error($_SESSION['error_message']);
-                        unset($_SESSION['error_message']);
-                    }
-                    ?>
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <form action="../partials/add-user-handler.php" method="POST" class="space-y-6">
+            <main class="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-12">
+                <div class="max-w-xl mx-auto">
+                    <?php if (isset($_SESSION['error_message'])): ?>
+                        <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-5 mb-8 rounded-r-2xl shadow-sm animate-pulse">
+                            <div class="flex items-center">
+                                <i class="fas fa-exclamation-triangle mr-3"></i>
+                                <p class="font-bold text-xs uppercase tracking-widest"><?php echo htmlspecialchars($_SESSION['error_message']); ?></p>
+                            </div>
+                        </div>
+                    <?php unset($_SESSION['error_message']); endif; ?>
+
+                    <div class="bg-white rounded-[2rem] shadow-xl shadow-indigo-100/30 border border-slate-200 overflow-hidden transform transition hover:shadow-2xl">
+                        <div class="px-8 pt-10 pb-6 border-b border-slate-50 bg-gradient-to-br from-white to-slate-50/50">
+                            <div class="h-14 w-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-2xl shadow-lg shadow-indigo-600/30 mb-6 drop-shadow-md">
+                                <i class="fas fa-user-plus"></i>
+                            </div>
+                            <h2 class="text-2xl font-black text-slate-900 uppercase tracking-tighter">Registration Form</h2>
+                            <p class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Enroll new members to the system</p>
+                        </div>
+                        
+                        <form action="../partials/add-user-handler.php" method="POST" class="p-8 space-y-8">
                             <?php echo csrf_field(); ?>
-                            <!-- Full Name -->
-                            <div>
-                                <label for="fullname" class="block text-sm font-medium text-gray-700">Full Name</label>
-                                <input type="text" name="fullname" id="fullname" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                            </div>
-
-                            <!-- Email -->
-                            <div>
-                                <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
-                                <input type="email" name="email" id="email" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                            </div>
-
-                            <!-- Password -->
-                            <div>
-                                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                                <input type="password" name="password" id="password" required 
-                                       class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                       onkeyup="validatePassword(this.value)" 
-                                       minlength="8">
+                            
+                            <!-- Basic Info Section -->
+                            <div class="space-y-6">
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Full Legal Name</label>
+                                    <input type="text" name="fullname" required 
+                                           class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm" 
+                                           placeholder="e.g. John Doe">
+                                </div>
                                 
-                                <!-- Password Strength Indicator -->
-                                <div id="password-strength" class="mt-2 hidden">
-                                    <div class="flex items-center space-x-2">
-                                        <span class="text-sm font-medium">Strength:</span>
-                                        <span id="strength-text" class="text-sm font-semibold"></span>
-                                        <span id="strength-color" class="text-sm"></span>
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Email Address (Login Username)</label>
+                                    <input type="email" name="email" required 
+                                           class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm" 
+                                           placeholder="user@example.com">
+                                </div>
+                                
+                                <div class="relative">
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Secure Password</label>
+                                    <input type="password" name="password" required x-model="password" @input="validatePassword($event.target.value)"
+                                           class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm" 
+                                           placeholder="Min. 8 characters">
+                                    
+                                    <!-- Strength Meter -->
+                                    <div class="mt-3 px-1">
+                                        <div class="flex gap-1 h-1">
+                                            <div class="flex-1 rounded-full transition-all duration-500" :class="strength >= 1 ? 'bg-rose-500' : 'bg-slate-200'"></div>
+                                            <div class="flex-1 rounded-full transition-all duration-500" :class="strength >= 2 ? 'bg-amber-500' : 'bg-slate-200'"></div>
+                                            <div class="flex-1 rounded-full transition-all duration-500" :class="strength >= 3 ? 'bg-indigo-500' : 'bg-slate-200'"></div>
+                                            <div class="flex-1 rounded-full transition-all duration-500" :class="strength >= 4 ? 'bg-emerald-500' : 'bg-slate-200'"></div>
+                                        </div>
+                                        <p class="text-[9px] font-black uppercase mt-2 tracking-widest text-right" 
+                                           :class="strength <= 1 ? 'text-rose-500' : (strength <= 3 ? 'text-amber-500' : 'text-emerald-500')">
+                                            <span x-text="strength <= 1 ? 'Weak Protection' : (strength === 2 ? 'Fair Security' : (strength === 3 ? 'Strong Vault' : 'Military Grade'))"></span>
+                                        </p>
                                     </div>
-                                    <div class="mt-1 w-full bg-gray-200 rounded-full h-2">
-                                        <div id="strength-bar" class="h-2 rounded-full transition-all duration-300"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="h-px bg-slate-100"></div>
+                            
+                            <!-- Access Section -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="md:col-span-2">
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">System Role</label>
+                                    <div class="flex gap-3">
+                                        <label class="flex-1 cursor-pointer">
+                                            <input type="radio" name="role" value="resident" x-model="role" class="sr-only peer">
+                                            <div class="p-4 border-2 border-slate-100 rounded-2xl text-center transition hover:bg-indigo-50 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 group">
+                                                <i class="fas fa-house-user text-slate-400 group-hover:text-indigo-600 peer-checked:text-indigo-600 mb-2"></i>
+                                                <div class="text-[10px] font-black text-slate-900 uppercase">Resident</div>
+                                            </div>
+                                        </label>
+                                        <label class="flex-1 cursor-pointer">
+                                            <input type="radio" name="role" value="official" x-model="role" class="sr-only peer">
+                                            <div class="p-4 border-2 border-slate-100 rounded-2xl text-center transition hover:bg-emerald-50 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 group">
+                                                <i class="fas fa-award text-slate-400 group-hover:text-emerald-600 mb-2"></i>
+                                                <div class="text-[10px] font-black text-slate-900 uppercase">Official</div>
+                                            </div>
+                                        </label>
+                                        <label class="flex-1 cursor-pointer">
+                                            <input type="radio" name="role" value="admin" x-model="role" class="sr-only peer">
+                                            <div class="p-4 border-2 border-slate-100 rounded-2xl text-center transition hover:bg-rose-50 peer-checked:border-rose-600 peer-checked:bg-rose-50 group">
+                                                <i class="fas fa-shield-alt text-slate-400 group-hover:text-rose-600 mb-2"></i>
+                                                <div class="text-[10px] font-black text-slate-900 uppercase">Admin</div>
+                                            </div>
+                                        </label>
                                     </div>
                                 </div>
                                 
-                                <!-- Password Requirements -->
-                                <div class="mt-2 text-xs text-gray-600">
-                                    <p>Password must contain:</p>
-                                    <ul class="list-disc list-inside space-y-1 mt-1">
-                                        <li id="req-length" class="text-red-600">✗ At least 8 characters</li>
-                                        <li id="req-uppercase" class="text-red-600">✗ One uppercase letter</li>
-                                        <li id="req-lowercase" class="text-red-600">✗ One lowercase letter</li>
-                                        <li id="req-number" class="text-red-600">✗ One number</li>
-                                        <li id="req-special" class="text-red-600">✗ One special character (!@#$%^&*()_+-=[]{}|;:,.<>?)</li>
-                                    </ul>
-                                </div>
-                                
-                                <!-- Password Suggestions -->
-                                <div id="password-suggestions" class="mt-2 hidden">
-                                    <p class="text-xs text-blue-600 font-medium">Suggestions:</p>
-                                    <ul id="suggestions-list" class="text-xs text-blue-600 list-disc list-inside mt-1"></ul>
+                                <div x-show="role === 'official'" x-cloak x-transition class="md:col-span-2">
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Official Position</label>
+                                    <select name="official_position" :required="role === 'official'" 
+                                            class="form-input w-full bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-sm font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 transition shadow-sm appearance-none">
+                                        <option value="">Select official position...</option>
+                                        <option value="barangay-captain">Barangay Captain</option>
+                                        <option value="kagawad">Kagawad</option>
+                                        <option value="barangay-secretary">Barangay Secretary</option>
+                                        <option value="barangay-treasurer">Barangay Treasurer</option>
+                                        <option value="barangay-tanod">Barangay Tanod</option>
+                                    </select>
                                 </div>
                             </div>
-
-                            <!-- Role -->
-                            <div>
-                                <label for="role" class="block text-sm font-medium text-gray-700">Role</label>
-                                <select name="role" id="role" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md" onchange="toggleOfficialPosition()">
-                                    <option value="">Select a role</option>
-                                    <option value="admin">Admin</option>
-                                    <option value="official">Official</option>
-                                    <option value="resident">Resident</option>
-                                </select>
-                            </div>
-
-                            <!-- Official Position (hidden by default) -->
-                            <div id="officialPositionDiv" class="hidden">
-                                <label for="official_position" class="block text-sm font-medium text-gray-700">Official Position</label>
-                                <select name="official_position" id="official_position" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
-                                    <option value="">Select official position</option>
-                                    <option value="barangay-captain">Barangay Captain</option>
-                                    <option value="kagawad">Kagawad</option>
-                                    <option value="barangay-secretary">Barangay Secretary</option>
-                                    <option value="barangay-treasurer">Barangay Treasurer</option>
-                                    <option value="barangay-tanod">Barangay Tanod</option>
-                                </select>
-                            </div>
-
-                            <!-- Submit Button -->
-                            <div class="flex justify-end">
-                                <a href="user-management.php" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md mr-2">Cancel</a>
-                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md" onclick="return validateForm()">
-                                    Create User
-                                </button>
+                            
+                            <!-- Action Buttons -->
+                            <div class="pt-6 flex gap-4">
+                                <a href="user-management.php" class="flex-1 px-8 py-5 rounded-2xl text-xs font-black uppercase text-center text-slate-500 bg-slate-100 hover:bg-slate-200 transition">Cancel</a>
+                                <button type="submit" class="flex-[2] px-8 py-5 rounded-2xl text-xs font-black uppercase text-white bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-600/30 transition transform active:scale-95">Complete Enrollment</button>
                             </div>
                         </form>
                     </div>
@@ -171,170 +194,5 @@ $page_title = "Add New User - CommuniLink";
             </main>
         </div>
     </div>
-
-    <script>
-        function toggleOfficialPosition() {
-            const roleSelect = document.getElementById('role');
-            const officialPositionDiv = document.getElementById('officialPositionDiv');
-            const officialPositionSelect = document.getElementById('official_position');
-            
-            if (roleSelect.value === 'official') {
-                officialPositionDiv.classList.remove('hidden');
-                officialPositionSelect.required = true;
-            } else {
-                officialPositionDiv.classList.add('hidden');
-                officialPositionSelect.required = false;
-                officialPositionSelect.value = '';
-            }
-        }
-
-        function validateForm() {
-            const role = document.getElementById('role').value;
-            const officialPosition = document.getElementById('official_position').value;
-            const password = document.getElementById('password').value;
-            
-            if (role === 'official' && !officialPosition) {
-                alert('Please select an official position.');
-                return false;
-            }
-            
-            // Validate password strength
-            const passwordValidation = validatePassword(password);
-            if (!passwordValidation.valid) {
-                alert('Please ensure your password meets all security requirements.');
-                return false;
-            }
-            
-            return true;
-        }
-        
-        function validatePassword(password) {
-            const strengthDiv = document.getElementById('password-strength');
-            const suggestionsDiv = document.getElementById('password-suggestions');
-            
-            if (password.length === 0) {
-                strengthDiv.classList.add('hidden');
-                suggestionsDiv.classList.add('hidden');
-                return { valid: false };
-            }
-            
-            // Show strength indicator
-            strengthDiv.classList.remove('hidden');
-            
-            // Calculate strength
-            let score = 0;
-            let errors = [];
-            let suggestions = [];
-            
-            // Length check
-            if (password.length >= 8) score += 1;
-            if (password.length >= 12) score += 1;
-            if (password.length >= 16) score += 1;
-            
-            // Character variety checks
-            const hasUppercase = /[A-Z]/.test(password);
-            const hasLowercase = /[a-z]/.test(password);
-            const hasNumbers = /[0-9]/.test(password);
-            const hasSpecial = /[^A-Za-z0-9]/.test(password);
-            
-            if (hasUppercase) score += 1;
-            if (hasLowercase) score += 1;
-            if (hasNumbers) score += 1;
-            if (hasSpecial) score += 1;
-            
-            // Update requirement indicators
-            updateRequirement('req-length', password.length >= 8);
-            updateRequirement('req-uppercase', hasUppercase);
-            updateRequirement('req-lowercase', hasLowercase);
-            updateRequirement('req-number', hasNumbers);
-            updateRequirement('req-special', hasSpecial);
-            
-            // Generate suggestions
-            if (password.length < 12) suggestions.push('Make your password at least 12 characters long.');
-            if (!hasUppercase) suggestions.push('Add uppercase letters to make your password stronger.');
-            if (!hasNumbers) suggestions.push('Include numbers to increase complexity.');
-            if (!hasSpecial) suggestions.push('Add special characters like !@#$%^&* for better security.');
-            
-            // Update strength display
-            updateStrengthDisplay(score, suggestions);
-            
-            // Check if password meets minimum requirements
-            const valid = password.length >= 8 && hasUppercase && hasLowercase && hasNumbers && hasSpecial;
-            
-            return { valid, score, errors, suggestions };
-        }
-        
-        function updateRequirement(elementId, met) {
-            const element = document.getElementById(elementId);
-            if (met) {
-                element.classList.remove('text-red-600');
-                element.classList.add('text-green-600');
-                element.innerHTML = element.innerHTML.replace('✗', '✓');
-            } else {
-                element.classList.remove('text-green-600');
-                element.classList.add('text-red-600');
-                element.innerHTML = element.innerHTML.replace('✓', '✗');
-            }
-        }
-        
-        function updateStrengthDisplay(score, suggestions) {
-            const strengthText = document.getElementById('strength-text');
-            const strengthColor = document.getElementById('strength-color');
-            const strengthBar = document.getElementById('strength-bar');
-            const suggestionsList = document.getElementById('suggestions-list');
-            const suggestionsDiv = document.getElementById('password-suggestions');
-            
-            // Set strength text and color
-            let strengthLabel, colorClass, barColor, barWidth;
-            
-            if (score <= 2) {
-                strengthLabel = 'Very Weak';
-                colorClass = 'text-red-600';
-                barColor = 'bg-red-500';
-                barWidth = '20%';
-            } else if (score <= 3) {
-                strengthLabel = 'Weak';
-                colorClass = 'text-orange-600';
-                barColor = 'bg-orange-500';
-                barWidth = '40%';
-            } else if (score <= 4) {
-                strengthLabel = 'Fair';
-                colorClass = 'text-yellow-600';
-                barColor = 'bg-yellow-500';
-                barWidth = '60%';
-            } else if (score <= 5) {
-                strengthLabel = 'Strong';
-                colorClass = 'text-blue-600';
-                barColor = 'bg-blue-500';
-                barWidth = '80%';
-            } else {
-                strengthLabel = 'Very Strong';
-                colorClass = 'text-green-600';
-                barColor = 'bg-green-500';
-                barWidth = '100%';
-            }
-            
-            strengthText.textContent = strengthLabel;
-            strengthColor.className = `text-sm ${colorClass}`;
-            strengthColor.textContent = strengthLabel;
-            
-            // Update strength bar
-            strengthBar.className = `h-2 rounded-full transition-all duration-300 ${barColor}`;
-            strengthBar.style.width = barWidth;
-            
-            // Update suggestions
-            if (suggestions.length > 0) {
-                suggestionsList.innerHTML = suggestions.map(s => `<li>${s}</li>`).join('');
-                suggestionsDiv.classList.remove('hidden');
-            } else {
-                suggestionsDiv.classList.add('hidden');
-            }
-        }
-
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            toggleOfficialPosition();
-        });
-    </script>
 </body>
-</html> 
+</html>

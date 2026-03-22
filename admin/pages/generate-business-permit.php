@@ -25,10 +25,12 @@ try {
     // Fetch transaction details
     $stmt = $pdo->prepare("
         SELECT bt.*, r.first_name, r.last_name, r.address as resident_address, 
-               u.fullname as approved_by_name
+               u.fullname as approved_by_name,
+               bp.official_receipt_no, bp.capital, bp.num_employees, bp.ownership_type
         FROM business_transactions bt
         LEFT JOIN residents r ON bt.resident_id = r.id
         LEFT JOIN users u ON bt.approved_by = u.id
+        LEFT JOIN business_permits bp ON bt.permit_id = bp.id
         WHERE bt.id = ? AND bt.status = 'APPROVED'
     ");
     $stmt->execute([$transaction_id]);
@@ -300,6 +302,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
                                         <label class="block text-sm font-medium text-gray-700">Business Address:</label>
                                         <p class="text-gray-900"><?php echo htmlspecialchars($transaction['address']); ?></p>
                                     </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">OR No.:</label>
+                                            <p class="text-gray-900 font-bold"><?php echo htmlspecialchars($transaction['official_receipt_no'] ?? 'N/A'); ?></p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Capital:</label>
+                                            <p class="text-gray-900 font-bold">₱<?php echo number_format($transaction['capital'] ?? 0, 2); ?></p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             
@@ -345,8 +357,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
                             
                             <div class="text-center">
                                 <div class="border-t-2 border-gray-400 pt-2 mb-2" style="width: 200px; margin: 0 auto;"></div>
-                                <p class="text-sm font-medium text-gray-900">Barangay Captain</p>
-                                <p class="text-xs text-gray-600">Barangay Pakiad</p>
+                                <p class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($_SESSION['fullname'] ?? 'Barangay Captain'); ?></p>
+                                <p class="text-xs text-gray-600">Punong Barangay</p>
                                 <p class="text-xs text-gray-600">Official Seal</p>
                             </div>
                         </div>
@@ -370,8 +382,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
 
     <script>
         function downloadPDF() {
-            // This would integrate with a PDF generation library
-            alert('PDF download feature will be implemented with a PDF library like jsPDF or server-side PDF generation.');
+            window.location.href = '../partials/generate-business-permit-pdf.php?id=<?php echo (int) $transaction_id; ?>';
         }
     </script>
 </body>

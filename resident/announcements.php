@@ -7,7 +7,13 @@ try {
     $feed = [];
 
     // Fetch Announcements
-    $stmt_a = $pdo->query("SELECT a.*, u.fullname as author_name FROM announcements a JOIN users u ON a.user_id = u.id WHERE a.status = 'active' ORDER BY a.created_at DESC");
+        $stmt_a = $pdo->query("SELECT a.*, u.fullname as author_name
+                                                     FROM announcements a
+                                                     JOIN users u ON a.user_id = u.id
+                                                     WHERE a.status = 'active'
+                                                         AND (a.publish_date IS NULL OR a.publish_date <= NOW())
+                                                         AND (a.expiry_date IS NULL OR a.expiry_date >= NOW())
+                                                     ORDER BY a.created_at DESC");
     $announcements = $stmt_a->fetchAll(PDO::FETCH_ASSOC);
     foreach ($announcements as $a) {
         $feed[] = [

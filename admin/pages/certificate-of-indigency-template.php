@@ -18,7 +18,7 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 $request_id = $_GET['id'];
 
 try {
-    $sql = "SELECT dr.*, r.first_name, r.last_name, r.address 
+    $sql = "SELECT dr.*, r.first_name, r.last_name, r.address, r.civil_status, r.middle_initial 
             FROM document_requests dr
             JOIN residents r ON dr.resident_id = r.id
             WHERE dr.id = ? AND dr.document_type = 'Certificate of Indigency'";
@@ -38,7 +38,12 @@ try {
     redirect_to('monitoring-of-request.php');
 }
 
-$punong_barangay = $_SESSION['fullname'] ?? '_________________________';
+$punong_barangay = $_SESSION['fullname'] ?? '[PUNONG BARANGAY NAME]';
+$recipient_name = $request['first_name'] . ($request['middle_initial'] ? ' ' . $request['middle_initial'] . '.' : '') . ' ' . $request['last_name'];
+$civil_status = $request['civil_status'] ?? 'N/A';
+$day_issued = date('d');
+$month_issued = date('F');
+$year_issued = date('Y');
 
 ?>
 <!DOCTYPE html>
@@ -87,8 +92,8 @@ $punong_barangay = $_SESSION['fullname'] ?? '_________________________';
                 <p class="font-bold">TO WHOM IT MAY CONCERN:</p>
                 
                 <p class="indent-16 leading-relaxed text-justify">
-                    This is to CERTIFY that Mr./Ms. <strong class="font-bold underline px-2"><?= htmlspecialchars($details['recipient_name'] ?? 'N/A') ?></strong>, 
-                    of legal age, <strong class="font-bold underline px-2"><?= htmlspecialchars($details['civil_status'] ?? 'N/A') ?></strong>, 
+                    This is to CERTIFY that Mr./Ms. <strong class="font-bold underline px-2"><?= htmlspecialchars($recipient_name) ?></strong>, 
+                    of legal age, <strong class="font-bold underline px-2"><?= htmlspecialchars($civil_status) ?></strong>, 
                     Filipino Citizen and a resident of Barangay Pakiad Oton, Iloilo City,
                     belongs to the Indigent Families of this barangay having an annual income not exceeding the Regional Poverty Threshold (RPT) of Php 169, 824.00 per anum as determined by the National Economic Development Authority (NEDA).
                 </p>
@@ -98,9 +103,9 @@ $punong_barangay = $_SESSION['fullname'] ?? '_________________________';
                 </p>
                 
                 <p class="indent-16 leading-relaxed">
-                    ISSUED this <strong class="font-bold underline px-2"><?= htmlspecialchars($details['day_issued'] ?? '____') ?></strong> day of 
-                    <strong class="font-bold underline px-2"><?= htmlspecialchars($details['month_issued'] ?? '___________') ?></strong>, 
-                    <strong class="font-bold underline px-2"><?= htmlspecialchars($details['year_issued'] ?? '____') ?></strong>
+                    ISSUED this <strong class="font-bold underline px-2"><?= $day_issued ?></strong> day of 
+                    <strong class="font-bold underline px-2"><?= $month_issued ?></strong>, 
+                    <strong class="font-bold underline px-2"><?= $year_issued ?></strong>
                     at Barangay Pakiad Oton, Iloilo City.
                 </p>
             </div>

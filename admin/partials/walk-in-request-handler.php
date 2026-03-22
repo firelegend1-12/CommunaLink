@@ -24,16 +24,37 @@ if (empty($resident_id) || empty($document_type) || empty($purpose)) {
 }
 
 try {
-    $sql = "INSERT INTO document_requests (resident_id, document_type, purpose, price, status) VALUES (?, ?, ?, ?, 'Processing')";
+    $details = json_encode([
+        'purpose' => $purpose,
+        'request_channel' => 'walk-in',
+        'submitted_by_role' => $_SESSION['role'] ?? 'admin'
+    ]);
+    $sql = "INSERT INTO document_requests (resident_id, requested_by_user_id, document_type, purpose, details, price, status) VALUES (?, ?, ?, ?, ?, ?, 'Pending')";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$resident_id, $document_type, $purpose, $price]);
+    $stmt->execute([$resident_id, $_SESSION['user_id'], $document_type, $purpose, $details, $price]);
     
     $request_id = $pdo->lastInsertId();
-    log_activity('New Walk-in Request', "Created request ID {$request_id} for resident ID {$resident_id}.", $_SESSION['user_id']);
+    log_activity_db(
+        $pdo,
+        'add',
+        'document_request',
+        $request_id,
+        "Created walk-in request for resident ID {$resident_id} - {$document_type}",
+        null,
+        "status: Processing"
+    );
     $_SESSION['success_message'] = "New walk-in request has been successfully created.";
 
 } catch (PDOException $e) {
-    log_activity('Error', "Failed to create walk-in request. " . $e->getMessage(), $_SESSION['user_id']);
+    log_activity_db(
+        $pdo,
+        'error',
+        'document_request',
+        null,
+        "Failed to create walk-in request. " . $e->getMessage(),
+        null,
+        null
+    );
     $_SESSION['error_message'] = "Failed to create request: " . $e->getMessage();
 }
 

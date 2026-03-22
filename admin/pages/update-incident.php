@@ -2,10 +2,17 @@
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/permission_checker.php';
 
 require_login();
-if (!($_SESSION['role'] === 'admin')) {
-    redirect_to('../index.php');
+
+// Check manage_incidents permission (admin, barangay-captain, kagawad, barangay-tanod)
+if (!require_permission('manage_incidents')) {
+    if (isset($_SESSION['role']) && $_SESSION['role'] === 'resident') {
+        redirect_to('../../resident/dashboard.php');
+    } else {
+        redirect_to('../index.php');
+    }
 }
 
 $page_title = "Update Incident Status";

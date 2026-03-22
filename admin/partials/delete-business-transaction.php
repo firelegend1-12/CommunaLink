@@ -10,7 +10,7 @@ require_once '../../includes/auth.php';
 header('Content-Type: application/json');
 
 // Check authorization
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin'])) {
+if (!is_admin_or_official()) {
     echo json_encode(['success' => false, 'error' => 'Unauthorized']);
     exit;
 }

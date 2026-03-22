@@ -4,22 +4,14 @@
  * Reusable navigation component for admin pages
  */
 
-// Enforce access control for the entire admin section
+// Note: Admin authentication is now handled at the top of each page by including admin_auth.php.
+// This partial primarily handles the sidebar UI and navigation highlights.
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin'])) {
-    // If user is a resident, redirect to their dashboard
-    if (isset($_SESSION['role']) && $_SESSION['role'] === 'resident') {
-        header('Location: ../resident/dashboard.php');
-    } else {
-        // Otherwise, redirect to the main login page
-        header('Location: ../index.php');
-    }
-    exit;
-}
 
-// Get current script name to determine active page
+// Get current script name and directory depth
 $current_script = basename($_SERVER['PHP_SELF']);
 $current_dir = basename(dirname($_SERVER['PHP_SELF']));
 

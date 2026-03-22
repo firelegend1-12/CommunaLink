@@ -177,7 +177,9 @@ if ($resident_id) {
                         </div>
                     </div>
                     <span>Welcome, <?= htmlspecialchars($user_fullname) ?></span>
-                    <i class="fas fa-user-circle"></i>
+                    <a href="account.php" class="text-blue-600 hover:text-blue-800 transition-colors duration-200" title="My Account">
+                        <i class="fas fa-user-circle"></i>
+                    </a>
                 </div>
             </header>
             <main class="page-main"> 
