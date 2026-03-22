@@ -235,7 +235,7 @@ try {
                                                             $status_bg = 'bg-blue-100 text-blue-800';
                                                             $status_text = 'Ready for Pickup';
                                                             break;
-                                                        case 'Approved':
+                                                        case 'Completed':
                                                             $status_bg = 'bg-green-100 text-green-800';
                                                             break;
                                                         case 'Rejected':
@@ -291,10 +291,10 @@ try {
                                                                         <div class="py-1">
                                                                             <!-- Unified status options -->
                                                                             <?php 
-                                                                            $opt_statuses = ["Pending", "Processing", "Ready for Pickup", "Approved", "Rejected"];
+                                                                            $opt_statuses = ["Pending", "Processing", "Ready for Pickup", "Completed", "Rejected"];
                                                                             foreach ($opt_statuses as $opt):
                                                                                 if ($status !== $opt): ?>
-                                                                                    <button type="button" onclick="changeRequestStatus('<?php echo $req['id']; ?>', '<?php echo $req['request_type']; ?>', '<?php echo $opt; ?>')" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 <?php echo $opt === 'Rejected' ? 'text-red-600' : ($opt === 'Approved' ? 'text-green-700' : 'text-gray-700'); ?>">Set as <?php echo $opt; ?></button>
+                                                                                    <button type="button" onclick="changeRequestStatus('<?php echo $req['id']; ?>', '<?php echo $req['request_type']; ?>', '<?php echo $opt; ?>')" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 <?php echo $opt === 'Rejected' ? 'text-red-600' : ($opt === 'Completed' ? 'text-green-700' : 'text-gray-700'); ?>">Set as <?php echo $opt; ?></button>
                                                                             <?php endif;
                                                                             endforeach; ?>
                                                                             
