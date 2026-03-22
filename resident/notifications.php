@@ -10,15 +10,19 @@ $resident_id = $_SESSION['resident_id'] ?? null;
 require_once '../config/database.php';
 
 // Mark all as read when visiting this page
-if ($resident_id) {
-    $stmt = $pdo->prepare('UPDATE notifications SET is_read = 1 WHERE resident_id = ? AND is_read = 0');
-    $stmt->execute([$resident_id]);
+if (isset($_SESSION['user_id'])) {
+    $stmt = $pdo->prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0');
+    $stmt->execute([$_SESSION['user_id']]);
 }
 
 // Fetch all notifications (Alerts)
-$stmt = $pdo->prepare('SELECT * FROM notifications WHERE resident_id = ? ORDER BY created_at DESC LIMIT 50');
-$stmt->execute([$resident_id]);
-$notifications = $stmt->fetchAll();
+if (isset($_SESSION['user_id'])) {
+    $stmt = $pdo->prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 50');
+    $stmt->execute([$_SESSION['user_id']]);
+    $notifications = $stmt->fetchAll();
+} else {
+    $notifications = [];
+}
 
 // Fetch Announcements
 $stmt_a = $pdo->query("SELECT a.*, u.fullname as author_name FROM announcements a JOIN users u ON a.user_id = u.id WHERE a.status = 'active' ORDER BY a.created_at DESC LIMIT 20");
@@ -57,7 +61,10 @@ $announcements = $stmt_a->fetchAll(PDO::FETCH_ASSOC);
                                 <?php endif; ?>
                             </div>
                             <div class="ml-4 flex-1">
-                                <p class="text-gray-900 leading-snug"><?= htmlspecialchars($notif['message']) ?></p>
+                                <?php if (!empty($notif['title'])): ?>
+                                    <h4 class="text-sm font-bold text-gray-900 mb-1"><?= htmlspecialchars($notif['title']) ?></h4>
+                                <?php endif; ?>
+                                <p class="text-gray-700 leading-snug"><?= htmlspecialchars($notif['message']) ?></p>
                                 <span class="text-xs text-gray-400 mt-2 block"><?= date('F j, Y, h:i A', strtotime($notif['created_at'])) ?></span>
                             </div>
                             <?php if ($notif['link']): ?>

@@ -131,7 +131,9 @@ $page_title = 'System Logs';
                     <input type="date" name="date_from" value="<?php echo htmlspecialchars($date_from); ?>" placeholder="From Date" class="bg-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                     <input type="date" name="date_to" value="<?php echo htmlspecialchars($date_to); ?>" placeholder="To Date" class="bg-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">Filter</button>
-                    <a href="logs.php" class="text-gray-500 hover:text-blue-700 text-sm ml-2">Reset</a>
+                    <a href="logs.php" class="inline-flex items-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold ml-2 transition">
+                        <i class="fas fa-undo mr-2"></i>Reset
+                    </a>
                     <button type="submit" name="export" value="csv" class="ml-auto bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center"><i class="fas fa-file-csv mr-2"></i>Export CSV</button>
                 </form>
                 
@@ -147,7 +149,6 @@ $page_title = 'System Logs';
                                 <th class="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Details</th>
                                 <th class="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Old Value</th>
                                 <th class="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">New Value</th>
-                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-100">
@@ -197,14 +198,6 @@ $page_title = 'System Logs';
                                             echo nl2br(htmlspecialchars($new_val));
                                         }
                                         ?>
-                                    </td>
-                                    <td class="px-4 py-2 text-sm text-center">
-                                        <form method="POST" action="../partials/delete-log-handler.php" onsubmit="return confirm('Are you sure you want to delete this log entry?');" style="display:inline;">
-                                            <input type="hidden" name="log_id" value="<?php echo (int)$log['id']; ?>">
-                                            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold" title="Delete">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </form>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

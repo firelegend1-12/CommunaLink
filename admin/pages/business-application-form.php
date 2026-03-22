@@ -135,7 +135,7 @@ try {
                         
                         <!-- Form Actions -->
                         <div class="flex justify-end pt-4 border-t mt-6">
-                            <a href="business-transactions.php" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md mr-2">Cancel</a>
+                            <a href="monitoring-of-request.php?type=business" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md mr-2">Cancel</a>
                             <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">Submit Application</button>
                         </div>
                     </form>

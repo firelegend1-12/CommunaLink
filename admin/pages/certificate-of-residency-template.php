@@ -8,6 +8,7 @@ require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
 require_login();
+$is_view_only = isset($_GET['view_only']) && $_GET['view_only'] === '1';
 
 // Check if an ID is provided in the URL
 if (!isset($_GET['id'])) {
@@ -26,6 +27,12 @@ try {
 
     if (!$request) {
         $_SESSION['error_message'] = "Certificate of Residency request not found.";
+        header("Location: monitoring-of-request.php");
+        exit();
+    }
+
+    if (!$is_view_only && (($request['payment_status'] ?? 'Unpaid') !== 'Paid')) {
+        $_SESSION['error_message'] = "Printing is only allowed after payment is completed.";
         header("Location: monitoring-of-request.php");
         exit();
     }
@@ -66,6 +73,20 @@ $page_title = "Print Certificate of Residency";
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .no-print { display: none !important; }
         }
+<?php if ($is_view_only): ?>
+        @media print {
+            body * { visibility: hidden !important; }
+            body::before {
+                content: 'VIEW ONLY - Printing disabled';
+                visibility: visible !important;
+                display: block;
+                text-align: center;
+                margin-top: 30vh;
+                font-size: 24px;
+                font-weight: 700;
+            }
+        }
+<?php endif; ?>
         .certificate-body { font-family: 'Times New Roman', Times, serif; }
         .placeholder-logo {
             width: 80px;
@@ -85,13 +106,20 @@ $page_title = "Print Certificate of Residency";
 
     <div class="max-w-4xl mx-auto my-10 p-4">
         <div class="no-print text-center mb-6">
+<?php if (!$is_view_only): ?>
             <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md shadow-md">
                 <i class="fas fa-print mr-2"></i> Print Certificate
             </button>
+<?php endif; ?>
             <a href="monitoring-of-request.php" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md shadow-md">
                 <i class="fas fa-arrow-left mr-2"></i> Back to Monitoring
             </a>
         </div>
+<?php if ($is_view_only): ?>
+        <div class="no-print text-center mb-4">
+            <span class="inline-block bg-yellow-100 border border-yellow-300 text-yellow-900 px-3 py-2 rounded text-xs font-bold uppercase tracking-wide">Viewing purpose only</span>
+        </div>
+<?php endif; ?>
         
         <div id="certificate" class="bg-white p-12 border-4 border-gray-800 certificate-body relative">
             
@@ -153,4 +181,18 @@ $page_title = "Print Certificate of Residency";
         </div>
     </div>
 </body>
+<?php if ($is_view_only): ?>
+<script>
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        alert('Printing is disabled in view-only mode.');
+    }
+});
+
+window.print = function() {
+    alert('Printing is disabled in view-only mode.');
+};
+</script>
+<?php endif; ?>
 </html> 

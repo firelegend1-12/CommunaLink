@@ -83,7 +83,7 @@ The barangay management system uses a MySQL database with 10 main tables to mana
 | owner_name | VARCHAR(255) | NOT NULL | Owner's name |
 | address | TEXT | NOT NULL | Business address |
 | transaction_type | ENUM | NOT NULL | Type: New Permit, Renewal |
-| status | ENUM | NOT NULL, DEFAULT 'PENDING' | Status: PENDING, APPROVED, REJECTED |
+| status | ENUM | NOT NULL, DEFAULT 'Pending' | Status: Pending, Processing, Ready for Pickup, Approved, Rejected |
 | application_date | DATETIME | DEFAULT CURRENT_TIMESTAMP | Application date |
 | processed_date | DATETIME | NULL | Processing completion date |
 | remarks | TEXT | NULL | Admin remarks |
@@ -132,7 +132,7 @@ The barangay management system uses a MySQL database with 10 main tables to mana
 | insurance_date | DATE | NULL | Insurance date |
 | applicant_name | VARCHAR(255) | NULL | Applicant name |
 | applicant_position | VARCHAR(255) | NULL | Applicant position |
-| status | ENUM | NOT NULL, DEFAULT 'PENDING' | Status: PENDING, APPROVED, REJECTED |
+| status | ENUM | NOT NULL, DEFAULT 'Pending' | Status: Pending, Approved, Rejected |
 | created_at | DATETIME | DEFAULT CURRENT_TIMESTAMP | Creation timestamp |
 | updated_at | DATETIME | DEFAULT CURRENT_TIMESTAMP ON UPDATE | Update timestamp |
 

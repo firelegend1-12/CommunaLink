@@ -85,7 +85,7 @@ try {
             `owner_name` VARCHAR(255) NOT NULL,
             `address` TEXT NOT NULL,
             `transaction_type` ENUM('New Permit', 'Renewal') NOT NULL,
-            `status` ENUM('PENDING', 'PROCESSING', 'READY FOR PICKUP', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+            `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Approved', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending',
             `application_date` DATETIME DEFAULT CURRENT_TIMESTAMP,
             `processed_date` DATETIME DEFAULT NULL,
             `remarks` TEXT DEFAULT NULL,
@@ -132,7 +132,7 @@ try {
             `insurance_date` DATE DEFAULT NULL,
             `applicant_name` VARCHAR(255) DEFAULT NULL,
             `applicant_position` VARCHAR(255) DEFAULT NULL,
-            `status` ENUM('PENDING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+            `status` ENUM('Pending', 'Approved', 'Rejected') NOT NULL DEFAULT 'Pending',
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
             `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`)
@@ -233,6 +233,18 @@ try {
             `old_value` TEXT DEFAULT NULL,
             `new_value` TEXT DEFAULT NULL,
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+ 
+        "CREATE TABLE IF NOT EXISTS `notifications` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `user_id` INT(11) NOT NULL,
+            `title` VARCHAR(255) NOT NULL,
+            `message` TEXT NOT NULL,
+            `type` VARCHAR(50) DEFAULT 'general',
+            `is_read` TINYINT(1) DEFAULT 0,
+            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     ];
 
@@ -331,7 +343,12 @@ try {
             'target_audience' => "ADD COLUMN `target_audience` VARCHAR(50) NOT NULL DEFAULT 'all' AFTER `priority`",
             'publish_date' => "ADD COLUMN `publish_date` DATETIME DEFAULT NULL AFTER `target_audience`",
             'expiry_date' => "ADD COLUMN `expiry_date` DATETIME DEFAULT NULL AFTER `publish_date`",
-            'read_count' => "ADD COLUMN `read_count` INT(11) NOT NULL DEFAULT 0 AFTER `expiry_date`"
+            'read_count' => "ADD COLUMN `read_count` INT(11) NOT NULL DEFAULT 0 AFTER `expiry_date`",
+            'is_event' => "ADD COLUMN `is_event` TINYINT(1) NOT NULL DEFAULT 0 AFTER `read_count`",
+            'event_date' => "ADD COLUMN `event_date` DATE DEFAULT NULL AFTER `is_event`",
+            'event_time' => "ADD COLUMN `event_time` TIME DEFAULT NULL AFTER `event_date`",
+            'event_location' => "ADD COLUMN `event_location` VARCHAR(255) DEFAULT NULL AFTER `event_time`",
+            'event_type' => "ADD COLUMN `event_type` VARCHAR(50) DEFAULT NULL AFTER `event_location`"
         ];
 
         foreach ($announcement_columns as $column => $alter_statement) {
@@ -340,8 +357,31 @@ try {
                 $pdo->exec("ALTER TABLE `announcements` " . $alter_statement);
             }
         }
+
+        // --- Data Migration: Events to Announcements (One-time) ---
+        $stmt = $pdo->query("SHOW TABLES LIKE 'events'");
+        if ($stmt && $stmt->rowCount() > 0) {
+            // Check if there's any data in events table
+            $count = $pdo->query("SELECT COUNT(*) FROM `events`")->fetchColumn();
+            if ($count > 0) {
+                // Migrate events to announcements
+                // Check for existing records by title and date to prevent duplicates if someone re-runs this
+                $pdo->exec("INSERT INTO `announcements` (user_id, title, content, created_at, is_event, event_date, event_time, event_location, event_type, status, priority)
+                            SELECT created_by, title, description, created_at, 1, event_date, event_time, location, type, 'active', 'normal'
+                            FROM `events` e
+                            WHERE NOT EXISTS (
+                                SELECT 1 FROM `announcements` a 
+                                WHERE a.title = e.title 
+                                AND a.created_at = e.created_at 
+                                AND a.is_event = 1
+                            )");
+                
+                // After successful migration, rename the table to prevent re-runs
+                $pdo->exec("RENAME TABLE `events` TO `events_migrated` ");
+            }
+        }
     } catch (Exception $e) {
-        // Ignore if table not present; creation above will add on fresh installs
+        // Log error if needed: error_log("Migration error: " . $e->getMessage());
     }
 
     // --- Schema Migration for businesses (permit fields) ---
@@ -414,6 +454,23 @@ try {
     // Note: If admin account already exists, it keeps its existing password
     // Current working password appears to be: admin123
 
+    // --- Schema Migration for post_reactions ---
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `post_reactions` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `post_id` INT(11) NOT NULL,
+            `resident_id` INT(11) NOT NULL,
+            `reaction_type` ENUM('like', 'acknowledge') NOT NULL,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `unique_reaction` (`post_id`, `resident_id`, `reaction_type`),
+            CONSTRAINT `fk_reactions_post` FOREIGN KEY (`post_id`) REFERENCES `announcements`(`id`) ON DELETE CASCADE,
+            CONSTRAINT `fk_reactions_resident` FOREIGN KEY (`resident_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    } catch (Exception $e) {
+        // Ignore if error
+    }
+
     // --- End of Migration and Seeding ---
 
     // --- Schema Migration for activity_logs ---
@@ -445,7 +502,14 @@ try {
         ['table' => 'residents', 'name' => 'idx_residents_name', 'columns' => 'last_name, first_name'],
         ['table' => 'business_transactions', 'name' => 'idx_biztrans_status', 'columns' => 'status'],
         ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_resident', 'columns' => 'resident_id'],
-        ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_announcement', 'columns' => 'announcement_id']
+        ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_announcement', 'columns' => 'announcement_id'],
+        // Monitoring of Request Page Optimization Indexes
+        ['table' => 'document_requests', 'name' => 'idx_docreq_payment_status', 'columns' => 'payment_status'],
+        ['table' => 'document_requests', 'name' => 'idx_docreq_resident_id', 'columns' => 'resident_id'],
+        ['table' => 'document_requests', 'name' => 'idx_docreq_status_payment_date', 'columns' => 'status, payment_status, date_requested'],
+        ['table' => 'business_transactions', 'name' => 'idx_biztrans_payment_status', 'columns' => 'payment_status'],
+        ['table' => 'business_transactions', 'name' => 'idx_biztrans_resident_id', 'columns' => 'resident_id'],
+        ['table' => 'business_transactions', 'name' => 'idx_biztrans_status_payment_date', 'columns' => 'status, payment_status, application_date']
     ];
 
     foreach ($performance_indexes as $idx) {
@@ -456,6 +520,33 @@ try {
             $pdo->exec("CREATE INDEX `{$idx['name']}` ON `{$idx['table']}` ({$idx['columns']})");
         }
     }
+
+    // Enhanced Monitoring of Request: Add Payment Columns
+    $pdo->exec("ALTER TABLE `document_requests` 
+                ADD COLUMN IF NOT EXISTS `or_number` VARCHAR(100) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `payment_status` ENUM('Unpaid', 'Paid') DEFAULT 'Unpaid',
+                ADD COLUMN IF NOT EXISTS `payment_date` DATETIME DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `cash_received` DECIMAL(10,2) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `change_amount` DECIMAL(10,2) DEFAULT NULL");
+
+    $pdo->exec("ALTER TABLE `business_transactions` 
+                ADD COLUMN IF NOT EXISTS `or_number` VARCHAR(100) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `payment_status` ENUM('Unpaid', 'Paid') DEFAULT 'Unpaid',
+                ADD COLUMN IF NOT EXISTS `payment_date` DATETIME DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `cash_received` DECIMAL(10,2) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `change_amount` DECIMAL(10,2) DEFAULT NULL");
+
+    // Notifications Table Migration
+    $pdo->exec("ALTER TABLE `notifications` 
+                ADD COLUMN IF NOT EXISTS `user_id` INT(11) DEFAULT NULL AFTER `id`,
+                ADD COLUMN IF NOT EXISTS `title` VARCHAR(255) DEFAULT NULL AFTER `user_id`,
+                ADD COLUMN IF NOT EXISTS `type` VARCHAR(50) DEFAULT 'general' AFTER `message` ");
+
+    // Sync resident_id to user_id for old records if user_id is null
+    $pdo->exec("UPDATE `notifications` n 
+                JOIN `residents` r ON n.resident_id = r.id 
+                SET n.user_id = r.user_id 
+                WHERE n.user_id IS NULL AND n.resident_id IS NOT NULL");
 
 } catch (PDOException $e) {
     $_SESSION['error_message'] = "Database connection failed: " . $e->getMessage();

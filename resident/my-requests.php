@@ -130,11 +130,11 @@ function renderRequestsTable(docRequests, bizRequests) {
 
         // Business transactions
         bizRequests.forEach(function(req) {
-            let status = req.status || 'PENDING';
+            let status = req.status || 'Pending';
             let badgeClass = 'pending';
-            if (["APPROVED","Completed","Ready for Pickup"].includes(status)) badgeClass = 'approved';
-            else if (["REJECTED","Rejected","CANCELLED","Cancelled"].includes(status)) badgeClass = 'rejected';
-            else if (["PROCESSING","Processing"].includes(status)) badgeClass = 'processing';
+            if (["Approved","Completed","Ready for Pickup"].includes(status)) badgeClass = 'approved';
+            else if (["Rejected","Cancelled"].includes(status)) badgeClass = 'rejected';
+            else if (["Processing"].includes(status)) badgeClass = 'processing';
             
             cards += `<div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition cursor-pointer group" onclick="window.location.href='business-details.php?id=${req.id}'">
                 <div>

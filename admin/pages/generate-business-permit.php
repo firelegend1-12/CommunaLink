@@ -17,7 +17,7 @@ $transaction_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if (!$transaction_id) {
     $_SESSION['error_message'] = "No transaction ID provided.";
-    header("Location: business-transactions.php");
+    header("Location: monitoring-of-request.php?type=business");
     exit;
 }
 
@@ -38,13 +38,13 @@ try {
 
     if (!$transaction) {
         $_SESSION['error_message'] = "Transaction not found or not approved.";
-        header("Location: business-transactions.php");
+        header("Location: monitoring-of-request.php?type=business");
         exit;
     }
 
 } catch (PDOException $e) {
     $_SESSION['error_message'] = "Database error: " . $e->getMessage();
-    header("Location: business-transactions.php");
+    header("Location: monitoring-of-request.php?type=business");
     exit;
 }
 
@@ -184,8 +184,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
                         <h1 class="text-2xl font-semibold text-gray-800">Generate Business Permit</h1>
                         
                         <div class="flex items-center space-x-4">
-                            <a href="business-transactions.php" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">
-                                <i class="fas fa-arrow-left mr-2"></i> Back to Transactions
+                            <a href="monitoring-of-request.php?type=business" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">
+                                <i class="fas fa-arrow-left mr-2"></i> Back to Requests
                             </a>
                             
                             <div x-data="{ open: false }" class="relative">

@@ -117,7 +117,7 @@ try {
 
     // Transactions table insertion
     $trans_stmt = $pdo->prepare(
-        "INSERT INTO business_transactions (resident_id, permit_id, business_name, business_type, owner_name, address, transaction_type, status) VALUES (?, ?, ?, ?, ?, ?, 'New Permit', 'PENDING')"
+        "INSERT INTO business_transactions (resident_id, permit_id, business_name, business_type, owner_name, address, transaction_type, status) VALUES (?, ?, ?, ?, ?, ?, 'New Permit', 'Pending')"
     );
     $trans_stmt->execute([
         $resident_id,

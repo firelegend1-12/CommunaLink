@@ -134,7 +134,7 @@ function log_activity($action, $description, $user_id = null) {
  */
 function log_activity_db($pdo, $action, $target_type, $target_id = null, $details = null, $old_value = null, $new_value = null) {
     // Only log for admin
-    if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin'])) {
+    if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'kagawad', 'barangay-secretary'])) {
         return;
     }
     
@@ -184,4 +184,24 @@ function get_resident_id($pdo, $user_id) {
         error_log("Error fetching resident ID: " . $e->getMessage());
         return null;
     }
-} 
+}
+
+/**
+ * Create a new notification for a user
+ *
+ * @param PDO $pdo Database connection
+ * @param int $user_id Recipient user ID
+ * @param string $title Notification title
+ * @param string $message Notification message
+ * @param string $type Notification type (general, request_status, etc.)
+ * @return bool True if successful, false otherwise
+ */
+function create_notification($pdo, $user_id, $title, $message, $type = 'general') {
+    try {
+        $stmt = $pdo->prepare("INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, ?)");
+        return $stmt->execute([$user_id, $title, $message, $type]);
+    } catch (PDOException $e) {
+        error_log("Error creating notification: " . $e->getMessage());
+        return false;
+    }
+}
