@@ -5,6 +5,7 @@
 require_once '../partials/admin_auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/business_announcement_functions.php';
+require_once '../../includes/csrf.php';
 
 $page_title = "Manage Announcements";
 
@@ -234,6 +235,19 @@ try {
                                     <tr><td colspan="6" class="px-6 py-12 text-center text-slate-500 italic">No announcements found in this category.</td></tr>
                                 <?php else: ?>
                                     <?php foreach ($announcements as $ann): ?>
+                                        <?php
+                                            $edit_payload = [
+                                                'id' => (int) $ann['id'],
+                                                'title' => (string) ($ann['title'] ?? ''),
+                                                'content' => (string) ($ann['content'] ?? ''),
+                                                'status' => (string) ($ann['status'] ?? 'active'),
+                                                'priority' => (string) ($ann['priority'] ?? 'normal')
+                                            ];
+                                            $edit_payload_json = json_encode(
+                                                $edit_payload,
+                                                JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+                                            );
+                                        ?>
                                         <tr class="hover:bg-indigo-50/30 transition group">
                                             <td class="px-6 py-4">
                                                 <div class="flex items-center">
@@ -275,13 +289,7 @@ try {
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-right">
                                                 <div class="flex items-center justify-end space-x-2">
-                                                    <button @click="showEditModal = true; editingAnnouncement = {
-                                                        id: <?= $ann['id'] ?>, 
-                                                        title: '<?= addslashes(htmlspecialchars($ann['title'])) ?>', 
-                                                        content: `<?= addslashes(htmlspecialchars($ann['content'])) ?>`, 
-                                                        status: '<?= $ann['status'] ?>', 
-                                                        priority: '<?= $ann['priority'] ?>'
-                                                    }" class="text-indigo-600 hover:bg-indigo-100 p-2 rounded-xl transition shadow-sm group/btn" title="Edit Announcement">
+                                                    <button @click='showEditModal = true; editingAnnouncement = <?= $edit_payload_json ?>' class="text-indigo-600 hover:bg-indigo-100 p-2 rounded-xl transition shadow-sm group/btn" title="Edit Announcement">
                                                         <i class="fas fa-pen-nib"></i>
                                                     </button>
                                                     
@@ -299,7 +307,6 @@ try {
                 </div>
             </main>
         </div>
-    </div>
 
     <!-- Modals -->
     <!-- Add Modal -->
@@ -309,6 +316,7 @@ try {
             
             <div x-show="showAddModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full border border-white/20">
                 <form action="../partials/announcement-handler.php" method="POST" enctype="multipart/form-data">
+                    <?php echo csrf_field(); ?>
                     <div class="px-6 pt-6 pb-4 sm:px-8">
                         <div class="flex items-center justify-between mb-6">
                             <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest">New Announcement</h3>
@@ -369,6 +377,7 @@ try {
                 
                 <div x-show="showEditModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full border border-white/20">
                     <form action="../partials/announcement-handler.php" method="POST" enctype="multipart/form-data">
+                        <?php echo csrf_field(); ?>
                         <input type="hidden" name="announcement_id" :value="editingAnnouncement.id">
                         <div class="px-6 pt-6 pb-4 sm:px-8">
                             <div class="flex items-center justify-between mb-6 text-indigo-700">
@@ -441,12 +450,14 @@ try {
                 <div class="flex gap-3">
                     <button @click="showDeleteModal = false" class="flex-1 px-6 py-4 rounded-2xl text-xs font-black uppercase text-slate-500 bg-slate-100 hover:bg-slate-200 transition">No, Cancel</button>
                     <form action="../partials/announcement-handler.php" method="POST" class="flex-1">
+                        <?php echo csrf_field(); ?>
                         <input type="hidden" name="announcement_id" :value="announcementToDelete">
                         <button type="submit" name="delete_announcement" class="w-full px-6 py-4 rounded-2xl text-xs font-black uppercase text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-500/20 transition transform active:scale-95">Yes, Delete</button>
                     </form>
                 </div>
             </div>
         </div>
+    </div>
     </div>
 
     <script>

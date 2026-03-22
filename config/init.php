@@ -193,6 +193,17 @@ try {
             FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
+        "CREATE TABLE IF NOT EXISTS `announcement_reads` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `announcement_id` INT(11) NOT NULL,
+            `resident_id` INT(11) NOT NULL,
+            `read_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_announcement_resident` (`announcement_id`, `resident_id`),
+            FOREIGN KEY (`announcement_id`) REFERENCES `announcements`(`id`) ON DELETE CASCADE,
+            FOREIGN KEY (`resident_id`) REFERENCES `residents`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
         "CREATE TABLE IF NOT EXISTS `events` (
             `id` INT(11) NOT NULL AUTO_INCREMENT,
             `title` VARCHAR(255) NOT NULL,
@@ -309,6 +320,30 @@ try {
         // Ignore errors if table doesn't exist yet
     }
 
+    // --- Schema Migration for announcements ---
+    try {
+        $announcement_columns = [
+            'status' => "ADD COLUMN `status` VARCHAR(20) NOT NULL DEFAULT 'active' AFTER `content`",
+            'priority' => "ADD COLUMN `priority` VARCHAR(20) NOT NULL DEFAULT 'normal' AFTER `status`",
+            'is_auto_generated' => "ADD COLUMN `is_auto_generated` TINYINT(1) NOT NULL DEFAULT 0 AFTER `user_id`",
+            'related_business_id' => "ADD COLUMN `related_business_id` INT(11) DEFAULT NULL AFTER `is_auto_generated`",
+            'related_permit_number' => "ADD COLUMN `related_permit_number` VARCHAR(100) DEFAULT NULL AFTER `related_business_id`",
+            'target_audience' => "ADD COLUMN `target_audience` VARCHAR(50) NOT NULL DEFAULT 'all' AFTER `priority`",
+            'publish_date' => "ADD COLUMN `publish_date` DATETIME DEFAULT NULL AFTER `target_audience`",
+            'expiry_date' => "ADD COLUMN `expiry_date` DATETIME DEFAULT NULL AFTER `publish_date`",
+            'read_count' => "ADD COLUMN `read_count` INT(11) NOT NULL DEFAULT 0 AFTER `expiry_date`"
+        ];
+
+        foreach ($announcement_columns as $column => $alter_statement) {
+            $stmt = $pdo->query("SHOW COLUMNS FROM `announcements` LIKE '{$column}'");
+            if ($stmt && $stmt->rowCount() == 0) {
+                $pdo->exec("ALTER TABLE `announcements` " . $alter_statement);
+            }
+        }
+    } catch (Exception $e) {
+        // Ignore if table not present; creation above will add on fresh installs
+    }
+
     // --- Schema Migration for businesses (permit fields) ---
     try {
         $biz_columns = [
@@ -406,8 +441,11 @@ try {
         ['table' => 'document_requests', 'name' => 'idx_docreq_date_requested', 'columns' => 'date_requested'],
         ['table' => 'document_requests', 'name' => 'idx_docreq_status', 'columns' => 'status'],
         ['table' => 'announcements', 'name' => 'idx_announcements_created_at', 'columns' => 'created_at'],
+        ['table' => 'announcements', 'name' => 'idx_announcements_status_dates', 'columns' => 'status, publish_date, expiry_date, created_at'],
         ['table' => 'residents', 'name' => 'idx_residents_name', 'columns' => 'last_name, first_name'],
-        ['table' => 'business_transactions', 'name' => 'idx_biztrans_status', 'columns' => 'status']
+        ['table' => 'business_transactions', 'name' => 'idx_biztrans_status', 'columns' => 'status'],
+        ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_resident', 'columns' => 'resident_id'],
+        ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_announcement', 'columns' => 'announcement_id']
     ];
 
     foreach ($performance_indexes as $idx) {

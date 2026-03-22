@@ -18,6 +18,13 @@ class CSRFProtection {
             session_start();
         }
         
+        // Return existing token if it exists and is not expired (3600 seconds = 1 hour)
+        if (isset($_SESSION['csrf_token']) && isset($_SESSION['csrf_token_time'])) {
+            if ((time() - $_SESSION['csrf_token_time']) < 3600) {
+                return $_SESSION['csrf_token'];
+            }
+        }
+        
         // Generate a cryptographically secure random token
         $token = bin2hex(random_bytes(32));
         
