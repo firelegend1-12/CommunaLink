@@ -230,9 +230,50 @@ try {
             `target_id` INT,
             `details` TEXT,
             `ip_address` VARCHAR(45) DEFAULT NULL,
+            `user_agent` VARCHAR(255) DEFAULT NULL,
+            `session_id` VARCHAR(128) DEFAULT NULL,
+            `request_id` VARCHAR(100) DEFAULT NULL,
+            `severity` ENUM('info', 'warning', 'error', 'critical') NOT NULL DEFAULT 'info',
             `old_value` TEXT DEFAULT NULL,
             `new_value` TEXT DEFAULT NULL,
+            `prev_hash` CHAR(64) DEFAULT NULL,
+            `log_hash` CHAR(64) DEFAULT NULL,
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS `activity_logs_archive` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `source_log_id` INT DEFAULT NULL,
+            `user_id` INT,
+            `username` VARCHAR(100),
+            `action` VARCHAR(50),
+            `target_type` VARCHAR(50),
+            `target_id` INT,
+            `details` TEXT,
+            `ip_address` VARCHAR(45) DEFAULT NULL,
+            `user_agent` VARCHAR(255) DEFAULT NULL,
+            `session_id` VARCHAR(128) DEFAULT NULL,
+            `request_id` VARCHAR(100) DEFAULT NULL,
+            `severity` ENUM('info', 'warning', 'error', 'critical') NOT NULL DEFAULT 'info',
+            `old_value` TEXT DEFAULT NULL,
+            `new_value` TEXT DEFAULT NULL,
+            `prev_hash` CHAR(64) DEFAULT NULL,
+            `log_hash` CHAR(64) DEFAULT NULL,
+            `created_at` DATETIME DEFAULT NULL,
+            `archived_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            `archive_batch_id` VARCHAR(64) DEFAULT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS `activity_log_archive_batches` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `batch_id` VARCHAR(64) NOT NULL,
+            `previous_batch_hash` CHAR(64) DEFAULT NULL,
+            `batch_hash` CHAR(64) NOT NULL,
+            `start_log_id` INT DEFAULT NULL,
+            `end_log_id` INT DEFAULT NULL,
+            `entry_count` INT NOT NULL DEFAULT 0,
+            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY `uniq_archive_batch_id` (`batch_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
  
         "CREATE TABLE IF NOT EXISTS `notifications` (
@@ -485,11 +526,83 @@ try {
         $pdo->exec("ALTER TABLE `activity_logs` ADD COLUMN `old_value` TEXT DEFAULT NULL AFTER ip_address;");
     }
 
+    // --- Schema Migration for activity_logs: user_agent ---
+    $stmt = $pdo->query("SHOW COLUMNS FROM `activity_logs` LIKE 'user_agent'");
+    if ($stmt && $stmt->rowCount() == 0) {
+        $pdo->exec("ALTER TABLE `activity_logs` ADD COLUMN `user_agent` VARCHAR(255) NULL AFTER ip_address;");
+    }
+
+    // --- Schema Migration for activity_logs: session_id ---
+    $stmt = $pdo->query("SHOW COLUMNS FROM `activity_logs` LIKE 'session_id'");
+    if ($stmt && $stmt->rowCount() == 0) {
+        $pdo->exec("ALTER TABLE `activity_logs` ADD COLUMN `session_id` VARCHAR(128) NULL AFTER user_agent;");
+    }
+
+    // --- Schema Migration for activity_logs: request_id ---
+    $stmt = $pdo->query("SHOW COLUMNS FROM `activity_logs` LIKE 'request_id'");
+    if ($stmt && $stmt->rowCount() == 0) {
+        $pdo->exec("ALTER TABLE `activity_logs` ADD COLUMN `request_id` VARCHAR(100) NULL AFTER session_id;");
+    }
+
+    // --- Schema Migration for activity_logs: severity ---
+    $stmt = $pdo->query("SHOW COLUMNS FROM `activity_logs` LIKE 'severity'");
+    if ($stmt && $stmt->rowCount() == 0) {
+        $pdo->exec("ALTER TABLE `activity_logs` ADD COLUMN `severity` ENUM('info', 'warning', 'error', 'critical') NOT NULL DEFAULT 'info' AFTER request_id;");
+    }
+
     // --- Schema Migration for activity_logs: new_value ---
     $stmt = $pdo->query("SHOW COLUMNS FROM `activity_logs` LIKE 'new_value'");
     if ($stmt && $stmt->rowCount() == 0) {
         $pdo->exec("ALTER TABLE `activity_logs` ADD COLUMN `new_value` TEXT DEFAULT NULL AFTER old_value;");
     }
+
+    // --- Schema Migration for activity_logs: prev_hash ---
+    $stmt = $pdo->query("SHOW COLUMNS FROM `activity_logs` LIKE 'prev_hash'");
+    if ($stmt && $stmt->rowCount() == 0) {
+        $pdo->exec("ALTER TABLE `activity_logs` ADD COLUMN `prev_hash` CHAR(64) NULL AFTER new_value;");
+    }
+
+    // --- Schema Migration for activity_logs: log_hash ---
+    $stmt = $pdo->query("SHOW COLUMNS FROM `activity_logs` LIKE 'log_hash'");
+    if ($stmt && $stmt->rowCount() == 0) {
+        $pdo->exec("ALTER TABLE `activity_logs` ADD COLUMN `log_hash` CHAR(64) NULL AFTER prev_hash;");
+    }
+
+    // Ensure archive tables exist on upgraded installs
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `activity_logs_archive` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `source_log_id` INT DEFAULT NULL,
+        `user_id` INT,
+        `username` VARCHAR(100),
+        `action` VARCHAR(50),
+        `target_type` VARCHAR(50),
+        `target_id` INT,
+        `details` TEXT,
+        `ip_address` VARCHAR(45) DEFAULT NULL,
+        `user_agent` VARCHAR(255) DEFAULT NULL,
+        `session_id` VARCHAR(128) DEFAULT NULL,
+        `request_id` VARCHAR(100) DEFAULT NULL,
+        `severity` ENUM('info', 'warning', 'error', 'critical') NOT NULL DEFAULT 'info',
+        `old_value` TEXT DEFAULT NULL,
+        `new_value` TEXT DEFAULT NULL,
+        `prev_hash` CHAR(64) DEFAULT NULL,
+        `log_hash` CHAR(64) DEFAULT NULL,
+        `created_at` DATETIME DEFAULT NULL,
+        `archived_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+        `archive_batch_id` VARCHAR(64) DEFAULT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `activity_log_archive_batches` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `batch_id` VARCHAR(64) NOT NULL,
+        `previous_batch_hash` CHAR(64) DEFAULT NULL,
+        `batch_hash` CHAR(64) NOT NULL,
+        `start_log_id` INT DEFAULT NULL,
+        `end_log_id` INT DEFAULT NULL,
+        `entry_count` INT NOT NULL DEFAULT 0,
+        `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY `uniq_archive_batch_id` (`batch_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
     // --- Performance Optimizations (Indexes) ---
     $performance_indexes = [
@@ -509,7 +622,17 @@ try {
         ['table' => 'document_requests', 'name' => 'idx_docreq_status_payment_date', 'columns' => 'status, payment_status, date_requested'],
         ['table' => 'business_transactions', 'name' => 'idx_biztrans_payment_status', 'columns' => 'payment_status'],
         ['table' => 'business_transactions', 'name' => 'idx_biztrans_resident_id', 'columns' => 'resident_id'],
-        ['table' => 'business_transactions', 'name' => 'idx_biztrans_status_payment_date', 'columns' => 'status, payment_status, application_date']
+        ['table' => 'business_transactions', 'name' => 'idx_biztrans_status_payment_date', 'columns' => 'status, payment_status, application_date'],
+        // Log scalability indexes
+        ['table' => 'activity_logs', 'name' => 'idx_activity_logs_created_at', 'columns' => 'created_at'],
+        ['table' => 'activity_logs', 'name' => 'idx_activity_logs_action', 'columns' => 'action'],
+        ['table' => 'activity_logs', 'name' => 'idx_activity_logs_username', 'columns' => 'username'],
+        ['table' => 'activity_logs', 'name' => 'idx_activity_logs_target_type', 'columns' => 'target_type'],
+        ['table' => 'activity_logs', 'name' => 'idx_activity_logs_severity', 'columns' => 'severity'],
+        ['table' => 'activity_logs', 'name' => 'idx_activity_logs_request_id', 'columns' => 'request_id'],
+        ['table' => 'activity_logs', 'name' => 'idx_activity_logs_log_hash', 'columns' => 'log_hash'],
+        ['table' => 'activity_logs_archive', 'name' => 'idx_activity_logs_archive_created_at', 'columns' => 'created_at'],
+        ['table' => 'activity_logs_archive', 'name' => 'idx_activity_logs_archive_batch_id', 'columns' => 'archive_batch_id']
     ];
 
     foreach ($performance_indexes as $idx) {
