@@ -73,8 +73,9 @@ try {
         showAddModal: false, 
         showEditModal: false, 
         showDeleteModal: false,
-        editingAnnouncement: null,
-        announcementToDelete: null
+        isEvent: false,
+        editingPost: null,
+        postToDelete: null
     }">
         <!-- Sidebar Navigation -->
         <?php include '../partials/sidebar.php'; ?>
@@ -86,8 +87,8 @@ try {
                 <div class="px-4 sm:px-6 lg:px-8">
                     <div class="flex items-center justify-between h-16">
                         <div class="flex items-center gap-4">
-                            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Announcements</h1>
-                            <span class="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest border border-indigo-200"><?php echo $stats['total_announcements']; ?> Total</span>
+                            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Community Board</h1>
+                            <span class="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest border border-indigo-200"><?php echo $stats['total_announcements']; ?> Updates</span>
                         </div>
                         
                         <!-- User Dropdown & Action -->
@@ -241,7 +242,12 @@ try {
                                                 'title' => (string) ($ann['title'] ?? ''),
                                                 'content' => (string) ($ann['content'] ?? ''),
                                                 'status' => (string) ($ann['status'] ?? 'active'),
-                                                'priority' => (string) ($ann['priority'] ?? 'normal')
+                                                'priority' => (string) ($ann['priority'] ?? 'normal'),
+                                                'is_event' => (bool) ($ann['is_event'] ?? false),
+                                                'event_date' => (string) ($ann['event_date'] ?? ''),
+                                                'event_time' => (string) ($ann['event_time'] ?? ''),
+                                                'event_location' => (string) ($ann['event_location'] ?? ''),
+                                                'event_type' => (string) ($ann['event_type'] ?? '')
                                             ];
                                             $edit_payload_json = json_encode(
                                                 $edit_payload,
@@ -251,24 +257,32 @@ try {
                                         <tr class="hover:bg-indigo-50/30 transition group">
                                             <td class="px-6 py-4">
                                                 <div class="flex items-center">
-                                                    <div class="h-10 w-10 flex-shrink-0 bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
-                                                        <?php if ($ann['image_path']): ?>
+                                                    <div class="h-10 w-10 flex-shrink-0 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center text-indigo-500">
+                                                        <?php if ($ann['is_event']): ?>
+                                                            <i class="fas fa-calendar-star text-lg"></i>
+                                                        <?php elseif ($ann['image_path']): ?>
                                                             <img src="../../<?= $ann['image_path'] ?>" class="h-full w-full object-cover">
                                                         <?php else: ?>
-                                                            <div class="h-full w-full flex items-center justify-center text-slate-400">
-                                                                <i class="fas fa-image text-lg"></i>
-                                                            </div>
+                                                            <i class="fas fa-bullhorn text-lg text-slate-400"></i>
                                                         <?php endif; ?>
                                                     </div>
                                                     <div class="ml-4 max-w-xs">
                                                         <div class="text-sm font-bold text-slate-900 truncate"><?= htmlspecialchars($ann['title']) ?></div>
-                                                        <div class="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-tighter"><?= date('M d, Y @ h:i A', strtotime($ann['created_at'])) ?></div>
+                                                        <div class="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-tighter">
+                                                            <?php if ($ann['is_event']): ?>
+                                                                <span class="text-indigo-600"><i class="far fa-calendar-alt mr-1"></i> <?= date('M d, Y', strtotime($ann['event_date'])) ?></span>
+                                                                <span class="mx-1">•</span>
+                                                                <span><?= htmlspecialchars($ann['event_location']) ?></span>
+                                                            <?php else: ?>
+                                                                <?= date('M d, Y @ h:i A', strtotime($ann['created_at'])) ?>
+                                                            <?php endif; ?>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <span class="px-2.5 py-1 text-[10px] font-black uppercase rounded-lg shadow-sm border <?= $ann['status'] === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-600 border-slate-200' ?>">
-                                                    <?= $ann['status'] ?>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2.5 py-1 text-[10px] font-black uppercase rounded-lg shadow-sm border <?= $ann['is_event'] ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-slate-100 text-slate-600 border-slate-200' ?>">
+                                                    <?= $ann['is_event'] ? 'Event' : 'Announcement' ?>
                                                 </span>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
@@ -289,11 +303,11 @@ try {
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-right">
                                                 <div class="flex items-center justify-end space-x-2">
-                                                    <button @click='showEditModal = true; editingAnnouncement = <?= $edit_payload_json ?>' class="text-indigo-600 hover:bg-indigo-100 p-2 rounded-xl transition shadow-sm group/btn" title="Edit Announcement">
+                                                    <button @click='showEditModal = true; editingPost = <?= $edit_payload_json ?>; isEvent = editingPost.is_event' class="text-indigo-600 hover:bg-indigo-100 p-2 rounded-xl transition shadow-sm group/btn" title="Edit Post">
                                                         <i class="fas fa-pen-nib"></i>
                                                     </button>
                                                     
-                                                    <button @click="showDeleteModal = true; announcementToDelete = <?= $ann['id'] ?>" class="text-rose-500 hover:bg-rose-100 p-2 rounded-xl transition shadow-sm" title="Delete Announcement">
+                                                    <button @click="showDeleteModal = true; postToDelete = <?= $ann['id'] ?>" class="text-rose-500 hover:bg-rose-100 p-2 rounded-xl transition shadow-sm" title="Delete Post">
                                                         <i class="fas fa-trash-alt"></i>
                                                     </button>
                                                 </div>
@@ -315,33 +329,68 @@ try {
             <div x-show="showAddModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm shadow-2xl transition-opacity" @click="showAddModal = false"></div>
             
             <div x-show="showAddModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full border border-white/20">
-                <form action="../partials/announcement-handler.php" method="POST" enctype="multipart/form-data">
+                <form action="../partials/post-handler.php" method="POST" enctype="multipart/form-data">
                     <?php echo csrf_field(); ?>
                     <div class="px-6 pt-6 pb-4 sm:px-8">
                         <div class="flex items-center justify-between mb-6">
-                            <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest">New Announcement</h3>
+                            <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest" x-text="isEvent ? 'Schedule New Event' : 'New Announcement'"></h3>
                             <button type="button" @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 transition p-2 bg-slate-100 rounded-xl"><i class="fas fa-times"></i></button>
                         </div>
                         
                         <div class="space-y-6">
+                            <!-- Post Type Toggle -->
+                            <div class="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+                                <button type="button" @click="isEvent = false" :class="!isEvent ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'" class="flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition">
+                                    <i class="fas fa-bullhorn mr-2"></i> Announcement
+                                </button>
+                                <button type="button" @click="isEvent = true" :class="isEvent ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'" class="flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition">
+                                    <i class="fas fa-calendar-star mr-2"></i> Event
+                                </button>
+                                <input type="hidden" name="is_event" :value="isEvent ? 1 : 0">
+                            </div>
+
                             <div>
                                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Title</label>
-                                <input type="text" name="title" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" placeholder="Give your post a title...">
+                                <input type="text" name="title" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" :placeholder="isEvent ? 'Event Title...' : 'Announcement Title...'">
                             </div>
                             
                             <div>
-                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Content Body</label>
-                                <textarea name="content" rows="6" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" placeholder="Write your announcement details here..."></textarea>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1" x-text="isEvent ? 'Event Description' : 'Content Body'"></label>
+                                <textarea name="content" rows="4" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" :placeholder="isEvent ? 'Describe the event details...' : 'Write your announcement details here...'"></textarea>
                             </div>
                             
+                            <!-- Event Specific Fields (Conditional) -->
+                            <div x-show="isEvent" x-transition class="grid grid-cols-2 gap-4 bg-indigo-50/50 p-5 rounded-3xl border border-indigo-100/50">
+                                <div class="col-span-2">
+                                    <label class="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 ml-1">Location</label>
+                                    <input type="text" name="event_location" class="w-full bg-white border border-indigo-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 transition" placeholder="e.g. Barangay Hall">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 ml-1">Date</label>
+                                    <input type="date" name="event_date" class="w-full bg-white border border-indigo-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 transition">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 ml-1">Time</label>
+                                    <input type="time" name="event_time" class="w-full bg-white border border-indigo-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 transition">
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 ml-1">Event Category</label>
+                                    <select name="event_type" class="w-full bg-white border border-indigo-100 rounded-xl px-4 py-3 text-sm font-bold text-slate-700">
+                                        <option value="Upcoming Event">Upcoming Event</option>
+                                        <option value="Regular Activity">Regular Activity</option>
+                                        <option value="Special Meeting">Special Meeting</option>
+                                    </select>
+                                </div>
+                            </div>
+
                             <div>
-                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Attached Media (Optional)</label>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Feature Image (Optional)</label>
                                 <div class="relative group">
                                     <input type="file" name="image" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-6 file:rounded-2xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition">
                                 </div>
                             </div>
                             
-                            <div class="grid grid-cols-2 gap-4 pt-2">
+                            <div class="grid grid-cols-2 gap-4">
                                 <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
                                     <span class="text-xs font-bold text-slate-600">Urgent Alert</span>
                                     <label class="relative inline-flex items-center cursor-pointer">
@@ -350,7 +399,7 @@ try {
                                     </label>
                                 </div>
                                 <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col">
-                                    <span class="text-[8px] font-black text-slate-400 uppercase mb-1">Status</span>
+                                    <span class="text-[8px] font-black text-slate-400 uppercase mb-1">Visibility</span>
                                     <select name="status" class="bg-transparent text-xs font-bold text-slate-700 outline-none">
                                         <option value="active">Active (Published)</option>
                                         <option value="draft">Draft (Hidden)</option>
@@ -362,7 +411,7 @@ try {
                     
                     <div class="px-8 py-6 bg-slate-50/80 border-t border-slate-100 flex justify-end gap-3 rounded-b-3xl">
                         <button type="button" @click="showAddModal = false" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-500 hover:bg-white transition">Cancel</button>
-                        <button type="submit" name="add_announcement" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition">Post Announcement</button>
+                        <button type="submit" name="add_post" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition transform active:scale-95" x-text="isEvent ? 'Publish Event' : 'Post Announcement'"></button>
                     </div>
                 </form>
             </div>
@@ -370,50 +419,86 @@ try {
     </div>
 
     <!-- Edit Modal -->
-    <template x-if="editingAnnouncement">
+    <template x-if="editingPost">
         <div x-show="showEditModal" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
                 <div x-show="showEditModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm shadow-2xl transition-opacity" @click="showEditModal = false"></div>
                 
                 <div x-show="showEditModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full border border-white/20">
-                    <form action="../partials/announcement-handler.php" method="POST" enctype="multipart/form-data">
+                    <form action="../partials/post-handler.php" method="POST" enctype="multipart/form-data">
                         <?php echo csrf_field(); ?>
-                        <input type="hidden" name="announcement_id" :value="editingAnnouncement.id">
+                        <input type="hidden" name="post_id" :value="editingPost.id">
+                        <input type="hidden" name="is_event" :value="isEvent ? 1 : 0">
+
                         <div class="px-6 pt-6 pb-4 sm:px-8">
                             <div class="flex items-center justify-between mb-6 text-indigo-700">
-                                <h3 class="text-lg font-black uppercase tracking-widest">Edit Post</h3>
+                                <h3 class="text-lg font-black uppercase tracking-widest" x-text="isEvent ? 'Edit Event' : 'Edit Announcement'"></h3>
                                 <button type="button" @click="showEditModal = false" class="text-slate-400 hover:text-slate-600 transition p-2 bg-slate-100 rounded-xl"><i class="fas fa-times"></i></button>
                             </div>
                             
                             <div class="space-y-6">
+                                <!-- Post Type Toggle (Read-only or Switchable?) -->
+                                <div class="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+                                    <button type="button" @click="isEvent = false" :class="!isEvent ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'" class="flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition">
+                                        Announcement
+                                    </button>
+                                    <button type="button" @click="isEvent = true" :class="isEvent ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'" class="flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition">
+                                        Event
+                                    </button>
+                                </div>
+
                                 <div>
                                     <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Title</label>
-                                    <input type="text" name="title" :value="editingAnnouncement.title" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition shadow-sm">
+                                    <input type="text" name="title" x-model="editingPost.title" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition shadow-sm">
                                 </div>
                                 
                                 <div>
-                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Content Body</label>
-                                    <textarea name="content" rows="6" x-text="editingAnnouncement.content" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition shadow-sm"></textarea>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1" x-text="isEvent ? 'Event Description' : 'Content Body'"></label>
+                                    <textarea name="content" rows="4" x-model="editingPost.content" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition shadow-sm"></textarea>
+                                </div>
+
+                                <!-- Event Specific Fields (Conditional) -->
+                                <div x-show="isEvent" x-transition class="grid grid-cols-2 gap-4 bg-indigo-50/50 p-5 rounded-3xl border border-indigo-100/50">
+                                    <div class="col-span-2">
+                                        <label class="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 ml-1">Location</label>
+                                        <input type="text" name="event_location" x-model="editingPost.event_location" class="w-full bg-white border border-indigo-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 transition">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 ml-1">Date</label>
+                                        <input type="date" name="event_date" x-model="editingPost.event_date" class="w-full bg-white border border-indigo-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 transition">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 ml-1">Time</label>
+                                        <input type="time" name="event_time" x-model="editingPost.event_time" class="w-full bg-white border border-indigo-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 transition">
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 ml-1">Event Category</label>
+                                        <select name="event_type" x-model="editingPost.event_type" class="w-full bg-white border border-indigo-100 rounded-xl px-4 py-3 text-sm font-bold text-slate-700">
+                                            <option value="Upcoming Event">Upcoming Event</option>
+                                            <option value="Regular Activity">Regular Activity</option>
+                                            <option value="Special Meeting">Special Meeting</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 
                                 <div class="grid grid-cols-2 gap-4">
                                     <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
                                         <span class="text-xs font-bold text-slate-600">Urgent Alert</span>
                                         <label class="relative inline-flex items-center cursor-pointer">
-                                            <input type="checkbox" name="is_urgent" value="1" :checked="editingAnnouncement.priority === 'urgent'" class="sr-only peer">
+                                            <input type="checkbox" name="is_urgent" value="1" :checked="editingPost.priority === 'urgent'" class="sr-only peer">
                                             <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500 transition-all"></div>
                                         </label>
                                     </div>
                                     <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col">
                                         <span class="text-[8px] font-black text-slate-400 uppercase mb-1">Status</span>
-                                        <select name="status" x-model="editingAnnouncement.status" class="bg-transparent text-xs font-bold text-slate-700 outline-none">
+                                        <select name="status" x-model="editingPost.status" class="bg-transparent text-xs font-bold text-slate-700 outline-none">
                                             <option value="active">Active (Published)</option>
                                             <option value="draft">Draft (Hidden)</option>
                                         </select>
                                     </div>
                                 </div>
                                 
-                                <div>
+                                <div x-show="!isEvent">
                                     <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">New Image (Optional)</label>
                                     <input type="file" name="image" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-6 file:rounded-2xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition duration-300">
                                     <p class="text-[10px] text-slate-400 font-bold uppercase mt-2 ml-2 italic text-center">leave empty to keep current image</p>
@@ -423,7 +508,7 @@ try {
                         
                         <div class="px-8 py-6 bg-slate-50/80 border-t border-slate-100 flex justify-end gap-3 rounded-b-3xl mt-4">
                             <button type="button" @click="showEditModal = false" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-500 hover:bg-white transition">Cancel</button>
-                            <button type="submit" name="update_announcement" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-white bg-indigo-600 hover:bg-indigo-800 shadow-lg shadow-indigo-600/20 transition transform active:scale-95">Save Changes</button>
+                            <button type="submit" name="update_post" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-white bg-indigo-600 hover:bg-indigo-800 shadow-lg shadow-indigo-600/20 transition transform active:scale-95">Save Changes</button>
                         </div>
                     </form>
                 </div>
@@ -445,14 +530,14 @@ try {
                     </div>
                 </div>
                 
-                <p class="text-sm text-slate-600 leading-relaxed mb-8">Are you sure you want to permanently remove this announcement? It will be removed from all resident dashboards instantly.</p>
+                <p class="text-sm text-slate-600 leading-relaxed mb-8">Are you sure you want to permanently remove this post? It will be removed from all resident dashboards instantly.</p>
                 
                 <div class="flex gap-3">
                     <button @click="showDeleteModal = false" class="flex-1 px-6 py-4 rounded-2xl text-xs font-black uppercase text-slate-500 bg-slate-100 hover:bg-slate-200 transition">No, Cancel</button>
-                    <form action="../partials/announcement-handler.php" method="POST" class="flex-1">
+                    <form action="../partials/post-handler.php" method="POST" class="flex-1">
                         <?php echo csrf_field(); ?>
-                        <input type="hidden" name="announcement_id" :value="announcementToDelete">
-                        <button type="submit" name="delete_announcement" class="w-full px-6 py-4 rounded-2xl text-xs font-black uppercase text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-500/20 transition transform active:scale-95">Yes, Delete</button>
+                        <input type="hidden" name="post_id" :value="postToDelete">
+                        <button type="submit" name="delete_post" class="w-full px-6 py-4 rounded-2xl text-xs font-black uppercase text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-500/20 transition transform active:scale-95">Yes, Delete</button>
                     </form>
                 </div>
             </div>

@@ -105,30 +105,11 @@ if ($hour >= 12 && $hour < 18) {
                     </div>
                 </div>
 
-                <!-- Announcements Dropdown -->
-                <div id="announcement-dropdown" class="dropdown-container">
-                    <button onclick="toggleDropdown('announcement-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['announcements.php', 'events.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                        <i class="fas fa-bullhorn mr-3 text-lg <?php echo in_array($current_page, ['announcements.php', 'events.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
-                        Announcements
-                        <span id="events-unread-dot" class="chat-unread-dot"></span>
-                        <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200" id="announcement-chevron"></i>
-                    </button>
-                    <div id="announcement-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['announcements.php', 'events.php']) ? 'block' : 'none'; ?>">
-                        <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/announcements.php' : 'announcements.php'; ?>" class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'announcements.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-newspaper mr-2 text-gray-400"></i>
-                                All Announcements
-                            </a>
-                        </div>
-                        <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/events.php' : 'events.php'; ?>" class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'events.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-calendar-alt mr-2 text-gray-400"></i>
-                                Events
-                                <span id="events-badge" class="chat-unread-badge"></span>
-                            </a>
-                        </div>
-                    </div>
-                </div>
+                <!-- Community Board Link -->
+                <a href="<?php echo ($current_dir === 'admin') ? 'pages/announcements.php' : 'announcements.php'; ?>" class="<?php echo $current_page === 'announcements.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
+                    <i class="fas fa-clipboard-list mr-3 text-lg <?php echo $current_page === 'announcements.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
+                    Community Board
+                </a>
                 
                 <!-- Monitoring of Request Link -->
                 <a href="<?php echo ($current_dir === 'admin') ? 'pages/monitoring-of-request.php' : 'monitoring-of-request.php'; ?>" class="<?php echo $current_page === 'monitoring-of-request.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">

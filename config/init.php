@@ -331,7 +331,12 @@ try {
             'target_audience' => "ADD COLUMN `target_audience` VARCHAR(50) NOT NULL DEFAULT 'all' AFTER `priority`",
             'publish_date' => "ADD COLUMN `publish_date` DATETIME DEFAULT NULL AFTER `target_audience`",
             'expiry_date' => "ADD COLUMN `expiry_date` DATETIME DEFAULT NULL AFTER `publish_date`",
-            'read_count' => "ADD COLUMN `read_count` INT(11) NOT NULL DEFAULT 0 AFTER `expiry_date`"
+            'read_count' => "ADD COLUMN `read_count` INT(11) NOT NULL DEFAULT 0 AFTER `expiry_date`",
+            'is_event' => "ADD COLUMN `is_event` TINYINT(1) NOT NULL DEFAULT 0 AFTER `read_count`",
+            'event_date' => "ADD COLUMN `event_date` DATE DEFAULT NULL AFTER `is_event`",
+            'event_time' => "ADD COLUMN `event_time` TIME DEFAULT NULL AFTER `event_date`",
+            'event_location' => "ADD COLUMN `event_location` VARCHAR(255) DEFAULT NULL AFTER `event_time`",
+            'event_type' => "ADD COLUMN `event_type` VARCHAR(50) DEFAULT NULL AFTER `event_location`"
         ];
 
         foreach ($announcement_columns as $column => $alter_statement) {
@@ -340,8 +345,31 @@ try {
                 $pdo->exec("ALTER TABLE `announcements` " . $alter_statement);
             }
         }
+
+        // --- Data Migration: Events to Announcements (One-time) ---
+        $stmt = $pdo->query("SHOW TABLES LIKE 'events'");
+        if ($stmt && $stmt->rowCount() > 0) {
+            // Check if there's any data in events table
+            $count = $pdo->query("SELECT COUNT(*) FROM `events`")->fetchColumn();
+            if ($count > 0) {
+                // Migrate events to announcements
+                // Check for existing records by title and date to prevent duplicates if someone re-runs this
+                $pdo->exec("INSERT INTO `announcements` (user_id, title, content, created_at, is_event, event_date, event_time, event_location, event_type, status, priority)
+                            SELECT created_by, title, description, created_at, 1, event_date, event_time, location, type, 'active', 'normal'
+                            FROM `events` e
+                            WHERE NOT EXISTS (
+                                SELECT 1 FROM `announcements` a 
+                                WHERE a.title = e.title 
+                                AND a.created_at = e.created_at 
+                                AND a.is_event = 1
+                            )");
+                
+                // After successful migration, rename the table to prevent re-runs
+                $pdo->exec("RENAME TABLE `events` TO `events_migrated` ");
+            }
+        }
     } catch (Exception $e) {
-        // Ignore if table not present; creation above will add on fresh installs
+        // Log error if needed: error_log("Migration error: " . $e->getMessage());
     }
 
     // --- Schema Migration for businesses (permit fields) ---

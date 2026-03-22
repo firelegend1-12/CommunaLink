@@ -327,7 +327,8 @@ function getAnnouncementStats() {
             SELECT 
                 COUNT(*) as total_announcements,
                 COUNT(CASE WHEN status = 'active' THEN 1 END) as active_announcements,
-                COUNT(CASE WHEN priority = 'urgent' THEN 1 END) as urgent_announcements
+                COUNT(CASE WHEN priority = 'urgent' THEN 1 END) as urgent_announcements,
+                COUNT(CASE WHEN is_event = 1 THEN 1 END) as total_events
             FROM announcements
         ");
         return $stmt->fetch();
