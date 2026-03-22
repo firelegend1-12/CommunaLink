@@ -9,7 +9,7 @@ require_login();
 $transaction_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if ($transaction_id <= 0) {
     $_SESSION['error_message'] = 'Invalid transaction ID.';
-    header('Location: ../pages/business-transactions.php');
+    header('Location: ../pages/monitoring-of-request.php?type=business');
     exit;
 }
 
@@ -24,7 +24,7 @@ try {
 
     if (!$transaction) {
         $_SESSION['error_message'] = 'Transaction not found or not approved.';
-        header('Location: ../pages/business-transactions.php');
+        header('Location: ../pages/monitoring-of-request.php?type=business');
         exit;
     }
 

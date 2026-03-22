@@ -62,8 +62,8 @@ $valid_until = date('F j, Y', strtotime('+1 year'));
             <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md">
                 <i class="fas fa-print mr-2"></i> Print Certificate
             </button>
-            <a href="business-records.php" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md">
-                Back to Records
+            <a href="monitoring-of-request.php?type=business" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md">
+                Back to Requests
             </a>
         </div>
         <div id="certificate" class="bg-white p-12 border-4 border-blue-800 certificate-body relative">

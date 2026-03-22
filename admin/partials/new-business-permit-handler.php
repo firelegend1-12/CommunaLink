@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // --- 3. Create a corresponding transaction for monitoring ---
         $trans_stmt = $pdo->prepare(
-            "INSERT INTO business_transactions (resident_id, business_name, business_type, owner_name, address, transaction_type, status) VALUES (?, ?, ?, ?, ?, 'New Permit', 'Pending')"
+            "INSERT INTO business_transactions (resident_id, business_name, business_type, owner_name, address, transaction_type, status) VALUES (?, ?, ?, ?, ?, 'New Permit', 'PENDING')"
         );
         $trans_stmt->execute([
             $resident_id,

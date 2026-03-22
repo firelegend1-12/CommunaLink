@@ -117,38 +117,6 @@ if ($hour >= 12 && $hour < 18) {
                     Monitoring of Request
                 </a>
                 
-                <!-- Business Link -->
-                <div id="business-dropdown" class="dropdown-container">
-                    <button onclick="toggleDropdown('business-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['business-records.php', 'business-transactions.php', 'business-monitoring.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                        <i class="fas fa-store mr-3 text-lg <?php echo $current_page === 'business-records.php' || $current_page === 'business-transactions.php' || $current_page === 'business-monitoring.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
-                        Business
-                        <span id="biz-unread-dot" class="chat-unread-dot"></span>
-                        <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200" id="business-chevron"></i>
-                    </button>
-                    <div id="business-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['business-records.php', 'business-transactions.php', 'business-monitoring.php']) ? 'block' : 'none'; ?>">
-                        <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/business-records.php' : 'business-records.php'; ?>" class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'business-records.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-list-alt mr-2 text-gray-400"></i>
-                                Business Records
-                                <span id="biz-records-badge" class="chat-unread-badge"></span>
-                            </a>
-                        </div>
-                        <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/business-transactions.php' : 'business-transactions.php'; ?>" class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'business-transactions.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-exchange-alt mr-2 text-gray-400"></i>
-                                Transactions
-                                <span id="biz-transactions-badge" class="chat-unread-badge"></span>
-                            </a>
-                        </div>
-                        <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/business-monitoring.php' : 'business-monitoring.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'business-monitoring.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-chart-line mr-2 text-gray-400"></i>
-                                Monitoring
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Document Requests Link -->
                 <div id="document-dropdown" class="dropdown-container">
                     <button onclick="toggleDropdown('document-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
@@ -250,4 +218,4 @@ if ($hour >= 12 && $hour < 18) {
         </div>
     </div>
 </div>
-
+

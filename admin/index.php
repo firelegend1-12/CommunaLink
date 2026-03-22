@@ -361,7 +361,7 @@ $today_quote = $quotes[array_rand($quotes)];
                                                 </tr>
                                             <?php else: ?>
                                                 <?php foreach ($latest_transactions as $trans): ?>
-                                                    <tr class="hover:bg-gray-50 cursor-pointer transition duration-150" onclick="window.location.href='pages/business-transactions.php'">
+                                                    <tr class="hover:bg-gray-50 cursor-pointer transition duration-150" onclick="window.location.href='pages/monitoring-of-request.php?type=business'">
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo htmlspecialchars($trans['id']); ?></td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($trans['transaction_type']); ?></td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo htmlspecialchars($trans['owner_name']); ?></td>

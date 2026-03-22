@@ -65,7 +65,7 @@ try {
         $business_details
     );
     $_SESSION['success_message'] = "Business application submitted successfully.";
-    redirect_to('../pages/business-transactions.php');
+    redirect_to('../pages/monitoring-of-request.php?type=business');
 
 } catch (PDOException $e) {
     // Error
