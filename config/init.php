@@ -85,7 +85,7 @@ try {
             `owner_name` VARCHAR(255) NOT NULL,
             `address` TEXT NOT NULL,
             `transaction_type` ENUM('New Permit', 'Renewal') NOT NULL,
-            `status` ENUM('PENDING', 'PROCESSING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+            `status` ENUM('PENDING', 'PROCESSING', 'READY FOR PICKUP', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
             `application_date` DATETIME DEFAULT CURRENT_TIMESTAMP,
             `processed_date` DATETIME DEFAULT NULL,
             `remarks` TEXT DEFAULT NULL,
@@ -274,13 +274,21 @@ try {
     }
 
     // --- Schema Migration for business_transactions ---
-    // Add PROCESSING status to business_transactions if it doesn't exist
+    // Add PROCESSING and READY FOR PICKUP status to business_transactions if they don't exist
     try {
         $stmt = $pdo->query("SHOW COLUMNS FROM `business_transactions` LIKE 'status'");
         if ($stmt && $stmt->rowCount() > 0) {
             $column_info = $stmt->fetch();
-            if (strpos($column_info['Type'], 'PROCESSING') === false) {
-                $pdo->exec("ALTER TABLE `business_transactions` MODIFY `status` ENUM('PENDING', 'PROCESSING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING';");
+            $type = $column_info['Type'] ?? '';
+            $needs_update = false;
+            if (strpos($type, 'PROCESSING') === false) {
+                $needs_update = true;
+            }
+            if (strpos($type, 'READY FOR PICKUP') === false) {
+                $needs_update = true;
+            }
+            if ($needs_update) {
+                $pdo->exec("ALTER TABLE `business_transactions` MODIFY `status` ENUM('PENDING', 'PROCESSING', 'READY FOR PICKUP', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING';");
             }
         }
     } catch (Exception $e) {

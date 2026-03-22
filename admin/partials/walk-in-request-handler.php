@@ -29,11 +29,27 @@ try {
     $stmt->execute([$resident_id, $document_type, $purpose, $price]);
     
     $request_id = $pdo->lastInsertId();
-    log_activity('New Walk-in Request', "Created request ID {$request_id} for resident ID {$resident_id}.", $_SESSION['user_id']);
+    log_activity_db(
+        $pdo,
+        'add',
+        'document_request',
+        $request_id,
+        "Created walk-in request for resident ID {$resident_id} - {$document_type}",
+        null,
+        "status: Processing"
+    );
     $_SESSION['success_message'] = "New walk-in request has been successfully created.";
 
 } catch (PDOException $e) {
-    log_activity('Error', "Failed to create walk-in request. " . $e->getMessage(), $_SESSION['user_id']);
+    log_activity_db(
+        $pdo,
+        'error',
+        'document_request',
+        null,
+        "Failed to create walk-in request. " . $e->getMessage(),
+        null,
+        null
+    );
     $_SESSION['error_message'] = "Failed to create request: " . $e->getMessage();
 }
 

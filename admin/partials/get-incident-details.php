@@ -23,8 +23,8 @@ if (!$id) {
 
 try {
     // 1. Fetch Incident Info + Reporter Info
-    // Assuming incidents table has: id, type, details, location, status, reported_at, image_path, resident_user_id
-    $stmt = $pdo->prepare("SELECT i.*, u.fullname AS reporter_name, u.email AS reporter_email, r.contact_no AS reporter_contact, r.id AS resident_id
+    // Incidents table: id, type, description, location, media_path, status, reported_at, admin_remarks, resident_user_id
+    $stmt = $pdo->prepare("SELECT i.*, i.media_path AS image_path, u.fullname AS reporter_name, u.email AS reporter_email, r.contact_no AS reporter_contact, r.id AS resident_id
                            FROM incidents i
                            LEFT JOIN users u ON i.resident_user_id = u.id
                            LEFT JOIN residents r ON u.id = r.user_id
@@ -35,14 +35,6 @@ try {
     if (!$incident) {
         echo json_encode(['success' => false, 'error' => 'Incident report not found']);
         exit;
-    }
-
-    // 2. Format details (if JSON)
-    if (isset($incident['details']) && is_string($incident['details'])) {
-        $decoded = json_decode($incident['details'], true);
-        if (json_last_error() === JSON_ERROR_NONE) {
-            $incident['parsed_details'] = $decoded;
-        }
     }
 
     echo json_encode([

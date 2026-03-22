@@ -5,13 +5,19 @@
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/permission_checker.php';
 
 require_login();
 
-// Check if user is admin
-if ($_SESSION['role'] !== 'admin') {
-    header("Location: ../../index.php");
-    exit();
+// Check manage_incidents permission (admin, barangay-captain, kagawad, barangay-tanod)
+if (!require_permission('manage_incidents')) {
+    $redirect_prefix = (basename(dirname($_SERVER['PHP_SELF'])) === 'pages') ? '../../' : '../';
+    if (isset($_SESSION['role']) && $_SESSION['role'] === 'resident') {
+        header('Location: ' . $redirect_prefix . 'resident/dashboard.php');
+    } else {
+        header('Location: ' . $redirect_prefix . 'index.php');
+    }
+    exit;
 }
 
 $page_title = "Incident Reports";
@@ -141,7 +147,7 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                         <div class="flex items-center justify-between relative z-10">
                             <div>
                                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Active Cases</p>
-                                <h3 class="text-3xl font-black text-slate-900 leading-none"><?php echo $active_cases; ?></h3>
+                                <h3 class="text-3xl font-black text-slate-900 leading-none" x-text="stats.active_cases"></h3>
                                 <p class="text-[10px] font-bold text-rose-500 mt-2 flex items-center">
                                     <span class="inline-block w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5 animate-pulse"></span>
                                     Requires Action
@@ -159,7 +165,7 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                         <div class="flex items-center justify-between relative z-10">
                             <div>
                                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Trending Today</p>
-                                <h3 class="text-3xl font-black text-slate-900 leading-none"><?php echo $trending_today; ?></h3>
+                                <h3 class="text-3xl font-black text-slate-900 leading-none" x-text="stats.trending_today"></h3>
                                 <div class="mt-2 text-[10px] font-bold text-amber-600 flex items-center bg-amber-50 px-2 py-0.5 rounded-lg w-fit">
                                     <i class="fas fa-chart-line mr-1.5"></i> LAST 24 HOURS
                                 </div>
@@ -177,11 +183,11 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                             <div>
                                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Resolution Rate</p>
                                 <div class="flex items-end gap-1">
-                                    <h3 class="text-3xl font-black text-slate-900 leading-none"><?php echo $resolution_rate; ?>%</h3>
+                                    <h3 class="text-3xl font-black text-slate-900 leading-none" x-text="stats.resolution_rate + '%'"></h3>
                                     <span class="text-[10px] font-bold text-slate-400 mb-0.5">mtd</span>
                                 </div>
                                 <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden border border-slate-50">
-                                    <div class="bg-emerald-500 h-full rounded-full" style="width: <?php echo $resolution_rate; ?>%"></div>
+                                    <div class="bg-emerald-500 h-full rounded-full transition-all duration-500" :style="'width: ' + stats.resolution_rate + '%'"></div>
                                 </div>
                             </div>
                             <div class="h-12 w-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl shadow-inner group-hover:scale-95 transition duration-300">
@@ -236,10 +242,12 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                             </div>
 
                             <!-- Status Filter -->
-                            <div class="flex bg-slate-200/50 p-1 rounded-xl border border-slate-200">
+                            <div class="flex flex-wrap bg-slate-200/50 p-1 rounded-xl border border-slate-200 gap-1">
                                 <button @click="statusFilter = 'All'" :class="statusFilter === 'All' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">ALL</button>
                                 <button @click="statusFilter = 'Pending'" :class="statusFilter === 'Pending' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">PENDING</button>
+                                <button @click="statusFilter = 'In Progress'" :class="statusFilter === 'In Progress' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">IN PROGRESS</button>
                                 <button @click="statusFilter = 'Resolved'" :class="statusFilter === 'Resolved' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">RESOLVED</button>
+                                <button @click="statusFilter = 'Rejected'" :class="statusFilter === 'Rejected' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">REJECTED</button>
                             </div>
 
                             <!-- Export Button -->
@@ -257,15 +265,15 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                     <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Incident</th>
                                     <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Reporter</th>
                                     <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Location</th>
-                                    <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Date Reported</th>
-                                    <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Status</th>
+                                     <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Date Reported</th>
+                                    <th class="px-6 py-4 text-right text-xs font-black text-slate-500 uppercase tracking-widest">Status</th>
                                     <th class="px-6 py-4 text-right text-xs font-black text-slate-500 uppercase tracking-widest">Action</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-50">
                                 <template x-for="report in filteredReports" :key="report.id">
-                                    <tr class="hover:bg-indigo-50/30 transition group">
-                                        <td class="px-6 py-4 whitespace-nowrap">
+                                    <tr class="hover:bg-indigo-50/50 transition-all group cursor-pointer border-l-4 border-l-transparent hover:border-l-indigo-500" title="Click to view case details">
+                                        <td @click="openQuickView(report.id)" class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center">
                                                 <div class="relative">
                                                     <div :class="{
@@ -308,11 +316,11 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
+                                        <td @click="openQuickView(report.id)" class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm font-bold text-slate-700" x-text="report.resident_name || 'System User'"></div>
                                             <div class="text-xs text-slate-400 italic">Resident</div>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
+                                        <td @click="openQuickView(report.id)" class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-slate-600 max-w-[200px] truncate" x-text="report.location"></div>
                                             <template x-if="report.latitude && report.longitude">
                                                 <div class="flex items-center text-[10px] text-indigo-500 font-bold mt-0.5">
@@ -320,45 +328,43 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                                 </div>
                                             </template>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
+                                        <td @click="openQuickView(report.id)" class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-slate-700 font-medium" x-text="formatDate(report.reported_at)"></div>
                                             <div class="text-[10px] text-slate-400 uppercase tracking-tighter" x-text="formatTime(report.reported_at)"></div>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <span :class="{
-                                                'px-3 py-1 text-[10px] font-black uppercase rounded-full shadow-sm': true,
-                                                'bg-amber-100 text-amber-700': report.status === 'Pending',
-                                                'bg-indigo-100 text-indigo-700': report.status === 'Under Review' || report.status === 'In Progress',
-                                                'bg-emerald-100 text-emerald-700': report.status === 'Resolved',
-                                                'bg-rose-100 text-rose-700': report.status === 'Rejected'
-                                            }" x-text="report.status"></span>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-right">
-                                            <div class="flex items-center justify-end space-x-2">
-                                                <button @click="openQuickView(report.id)" class="bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white p-2 rounded-xl transition shadow-sm group/btn">
-                                                    <span class="sr-only">Quick View</span>
-                                                    <i class="fas fa-eye"></i>
+                                        <td @click="openQuickView(report.id)" class="px-6 py-4 whitespace-nowrap text-left">
+                                        <span :class="{
+                                            'px-3 py-1 text-[10px] font-black uppercase rounded-full shadow-sm transition-all duration-300': true,
+                                            'bg-rose-100 text-rose-700 border border-rose-200': report.status === 'Pending',
+                                            'bg-indigo-100 text-indigo-700 border border-indigo-200': report.status === 'Under Review' || report.status === 'In Progress',
+                                            'bg-emerald-100 text-emerald-700 border border-emerald-200': report.status === 'Resolved',
+                                            'bg-slate-100 text-slate-700 border border-slate-200': report.status === 'Rejected'
+                                        }" x-text="report.status"></span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                                        <div class="flex items-center justify-end space-x-2">
+                                            <button @click.stop="openQuickView(report.id)" class="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg transition" title="Quick View">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <div x-data="{ openMenu: false }" class="relative" @click.stop>
+                                                <button @click="openMenu = !openMenu" class="text-slate-400 hover:text-slate-600 p-2 transition">
+                                                    <i class="fas fa-ellipsis-v"></i>
                                                 </button>
-                                                
-                                                <div x-data="{ open: false }" class="relative">
-                                                     <button @click="open = !open" class="text-slate-400 hover:text-slate-600 p-2 transition">
-                                                        <i class="fas fa-ellipsis-v"></i>
-                                                    </button>
-                                                    <div x-show="open" @click.away="open = false" x-cloak
-                                                        class="absolute right-0 mt-2 w-48 rounded-xl shadow-xl bg-white ring-1 ring-black ring-opacity-5 z-20 overflow-hidden divide-y divide-slate-50">
-                                                        <a :href="'update-incident.php?id=' + report.id" class="flex items-center px-4 py-3 text-sm text-slate-700 hover:bg-indigo-50">
-                                                            <i class="fas fa-edit mr-3 text-indigo-500 w-4"></i> Update Status
+                                                <div x-show="openMenu" @click.away="openMenu = false" x-cloak
+                                                     class="absolute right-0 mt-2 w-48 rounded-xl shadow-xl bg-white ring-1 ring-black ring-opacity-5 z-20 overflow-hidden divide-y divide-slate-50">
+                                                    <a :href="'update-incident.php?id=' + report.id" class="flex items-center px-4 py-3 text-sm text-slate-700 hover:bg-indigo-50">
+                                                        <i class="fas fa-edit mr-3 text-indigo-500 w-4"></i> Update Status
+                                                    </a>
+                                                    <template x-if="report.latitude">
+                                                        <a :href="'https://www.google.com/maps?q=' + report.latitude + ',' + report.longitude" target="_blank" class="flex items-center px-4 py-3 text-sm text-slate-700 hover:bg-indigo-50">
+                                                            <i class="fas fa-map-marked-alt mr-3 text-emerald-500 w-4"></i> View on Map
                                                         </a>
-                                                        <template x-if="report.latitude">
-                                                            <a :href="'https://www.google.com/maps?q=' + report.latitude + ',' + report.longitude" target="_blank" class="flex items-center px-4 py-3 text-sm text-slate-700 hover:bg-indigo-50">
-                                                                <i class="fas fa-map-marked-alt mr-3 text-emerald-500 w-4"></i> View on Map
-                                                            </a>
-                                                        </template>
-                                                    </div>
+                                                    </template>
                                                 </div>
                                             </div>
-                                        </td>
-                                    </tr>
+                                        </div>
+                                    </td>
+                                </tr>
                                 </template>
                             </tbody>
                         </table>
@@ -388,64 +394,71 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
     </div>
 
     <!-- Quick View Slide-over Panel -->
-    <div x-show="showView" 
-         class="fixed inset-0 overflow-hidden z-50" 
-         x-cloak
-         aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
-        <div class="absolute inset-0 overflow-hidden">
-            <!-- Background backdrop -->
-            <div x-show="showView" 
-                 x-transition:enter="ease-in-out duration-500" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" 
-                 x-transition:leave="ease-in-out duration-500" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" 
-                 class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity" @click="showView = false" aria-hidden="true"></div>
+    <template x-if="showView">
+        <div class="fixed inset-0 overflow-hidden z-50 shadow-2xl" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
+            <div class="absolute inset-0 overflow-hidden">
+                <!-- Background backdrop with blur -->
+                <div x-transition:enter="ease-out duration-500" 
+                     x-transition:enter-start="opacity-0" 
+                     x-transition:enter-end="opacity-100" 
+                     x-transition:leave="ease-in duration-500" 
+                     x-transition:leave-start="opacity-100" 
+                     x-transition:leave-end="opacity-0" 
+                     class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="showView = false" aria-hidden="true"></div>
 
-            <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
-                <div x-show="showView" 
-                     x-transition:enter="transform transition ease-in-out duration-500 sm:duration-700" 
-                     x-transition:enter-start="translate-x-full" 
-                     x-transition:enter-end="translate-x-0" 
-                     x-transition:leave="transform transition ease-in-out duration-500 sm:duration-700" 
-                     x-transition:leave-start="translate-x-0" 
-                     x-transition:leave-end="translate-x-full" 
-                     class="pointer-events-auto w-screen max-w-2xl">
-                    <div class="flex h-full flex-col overflow-y-scroll bg-white shadow-2xl">
-                        <!-- Head -->
-                        <div class="bg-indigo-700 px-6 py-8 sm:px-8 relative overflow-hidden">
-                            <div class="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
-                            <div class="flex items-start justify-between relative z-10">
-                                <div class="flex items-center gap-4">
-                                    <template x-if="viewData">
-                                        <div :class="{
-                                            'h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-2xl shadow-lg': true,
-                                            'text-amber-300': viewData.type === 'Fire' || viewData.type === 'Emergency',
-                                            'text-indigo-200': viewData.type !== 'Fire' && viewData.type !== 'Emergency'
-                                        }">
-                                            <i :class="{
-                                                'fas': true,
-                                                'fa-fire': viewData.type === 'Fire',
-                                                'fa-ambulance': viewData.type === 'Emergency',
-                                                'fa-car': viewData.type === 'Traffic',
-                                                'fa-exclamation-triangle': !['Fire', 'Emergency', 'Traffic'].includes(viewData.type)
-                                            }"></i>
-                                        </div>
-                                    </template>
-                                    <div>
-                                        <h2 class="text-2xl font-black text-white leading-tight uppercase tracking-tight" id="slide-over-title" x-text="viewData ? viewData.type : 'Loading...'"></h2>
-                                        <div class="flex items-center mt-2 gap-3 text-indigo-100">
-                                            <span class="text-[10px] font-black uppercase bg-white/20 px-2 py-0.5 rounded-lg tracking-widest" x-text="'ID: #' + (viewData ? viewData.id : '')"></span>
-                                            <span class="text-xs font-bold" x-text="viewData ? formatDate(viewData.reported_at) + ' @ ' + formatTime(viewData.reported_at) : ''"></span>
+                <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+                    <div x-transition:enter="transform transition ease-out duration-500 sm:duration-700" 
+                         x-transition:enter-start="translate-x-full" 
+                         x-transition:enter-end="translate-x-0" 
+                         x-transition:leave="transform transition ease-in duration-500 sm:duration-700" 
+                         x-transition:leave-start="translate-x-0" 
+                         x-transition:leave-end="translate-x-full" 
+                         class="pointer-events-auto w-screen max-w-2xl">
+                        <div class="flex h-full flex-col overflow-y-scroll bg-white shadow-2xl">
+                            <!-- Premium Header -->
+                            <div class="bg-indigo-700 px-6 py-10 sm:px-8 relative overflow-hidden">
+                                <!-- Abstract Background Pattern -->
+                                <div class="absolute inset-0 opacity-10">
+                                    <svg class="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                        <path d="M0 100 C 20 0 50 0 100 100 Z" fill="white"></path>
+                                    </svg>
+                                </div>
+                                <div class="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                                
+                                <div class="relative flex items-center justify-between z-10">
+                                    <div class="flex items-center gap-5">
+                                        <template x-if="viewData">
+                                            <div :class="{
+                                                'h-20 w-20 rounded-3xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-3xl shadow-xl transition-transform duration-500 hover:rotate-3 hover:scale-105': true,
+                                                'text-amber-300': viewData.type === 'Fire' || viewData.type === 'Emergency',
+                                                'text-indigo-200': viewData.type !== 'Fire' && viewData.type !== 'Emergency'
+                                            }">
+                                                <i :class="{
+                                                    'fas': true,
+                                                    'fa-fire': viewData.type === 'Fire',
+                                                    'fa-ambulance': viewData.type === 'Emergency',
+                                                    'fa-car': viewData.type === 'Traffic',
+                                                    'fa-exclamation-triangle': !['Fire', 'Emergency', 'Traffic'].includes(viewData.type)
+                                                }"></i>
+                                            </div>
+                                        </template>
+                                        <div>
+                                            <h2 class="text-2xl font-black text-white leading-tight uppercase tracking-tight" id="slide-over-title" x-text="viewData ? viewData.type : 'Loading...'"></h2>
+                                            <div class="flex items-center mt-2 gap-3 text-indigo-100">
+                                                <span class="text-[10px] font-black uppercase bg-white/20 px-2 py-0.5 rounded-lg tracking-widest" x-text="'ID: #' + (viewData ? viewData.id : '')"></span>
+                                                <span class="text-xs font-bold" x-text="viewData ? formatDate(viewData.reported_at) + ' @ ' + formatTime(viewData.reported_at) : ''"></span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div class="ml-3 flex h-7 items-center">
-                                    <button @click="showView = false" class="rounded-lg bg-white/10 text-white hover:bg-white/20 transition p-2 focus:outline-none ring-1 ring-white/30">
-                                        <i class="fas fa-times text-xl"></i>
-                                    </button>
+                                    <div class="ml-3 flex h-7 items-center">
+                                        <button @click="showView = false" class="rounded-lg bg-white/10 text-white hover:bg-white/20 transition p-2 focus:outline-none ring-1 ring-white/30">
+                                            <i class="fas fa-times text-xl"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Content -->
+                            <!-- Content -->
                         <div class="relative flex-1 px-6 py-8 sm:px-8">
                             <template x-if="loadingView">
                                 <div class="flex flex-col items-center justify-center h-64">
@@ -459,24 +472,48 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                     <div class="flex items-start gap-8">
                                         <!-- Left Column: Details -->
                                         <div class="flex-1 space-y-10">
-                                            <!-- Status Banner -->
+                                            <!-- Status Control Panel -->
                                             <div :class="{
-                                                'p-4 rounded-2xl border flex items-center justify-between': true,
-                                                'bg-amber-50 border-amber-100 text-amber-800': viewData.status === 'Pending',
-                                                'bg-indigo-50 border-indigo-100 text-indigo-800': viewData.status === 'In Progress' || viewData.status === 'Under Review',
-                                                'bg-emerald-50 border-emerald-100 text-emerald-800': viewData.status === 'Resolved',
-                                                'bg-rose-50 border-rose-100 text-rose-800': viewData.status === 'Rejected'
+                                                'p-5 rounded-3xl border flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-500': true,
+                                                'bg-amber-50 border-amber-100': viewData.status === 'Pending',
+                                                'bg-indigo-50 border-indigo-100': viewData.status === 'In Progress' || viewData.status === 'Under Review',
+                                                'bg-emerald-50 border-emerald-100': viewData.status === 'Resolved',
+                                                'bg-rose-50 border-rose-100': viewData.status === 'Rejected'
                                             }">
                                                 <div class="flex items-center">
-                                                    <div class="h-2 w-2 rounded-full mr-3 animate-pulse" :class="{
+                                                    <div class="h-3 w-3 rounded-full mr-4 animate-pulse shadow-sm" :class="{
                                                         'bg-amber-500': viewData.status === 'Pending',
                                                         'bg-indigo-500': viewData.status === 'In Progress',
                                                         'bg-emerald-500': viewData.status === 'Resolved',
                                                         'bg-rose-500': viewData.status === 'Rejected'
                                                     }"></div>
-                                                    <span class="text-xs font-black uppercase tracking-widest" x-text="'STATUS: ' + viewData.status"></span>
+                                                    <div>
+                                                        <p class="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-0.5">CURRENT STATE</p>
+                                                        <span class="text-xs font-black uppercase tracking-widest block" :class="{
+                                                            'text-amber-800': viewData.status === 'Pending',
+                                                            'text-indigo-800': viewData.status === 'In Progress',
+                                                            'text-emerald-800': viewData.status === 'Resolved',
+                                                            'text-rose-800': viewData.status === 'Rejected'
+                                                        }" x-text="viewData.status"></span>
+                                                    </div>
                                                 </div>
-                                                <a :href="'update-incident.php?id=' + viewData.id" class="text-[10px] font-bold underline hover:no-underline uppercase tracking-wider text-indigo-600">Update Status</a>
+
+                                                <div class="flex items-center gap-2 bg-white/50 p-1.5 rounded-2xl border border-white/50 backdrop-blur-sm self-stretch sm:self-auto">
+                                                    <select 
+                                                        x-model="viewData.status" 
+                                                        @change="saveStatus"
+                                                        :disabled="isSavingStatus"
+                                                        class="bg-transparent border-none text-[10px] font-black uppercase tracking-wider focus:ring-0 cursor-pointer disabled:opacity-50"
+                                                    >
+                                                        <option value="Pending">Pending</option>
+                                                        <option value="In Progress">In Progress</option>
+                                                        <option value="Resolved">Resolved</option>
+                                                        <option value="Rejected">Rejected</option>
+                                                    </select>
+                                                    <template x-if="isSavingStatus">
+                                                        <i class="fas fa-spinner fa-spin text-indigo-600 text-xs mr-2"></i>
+                                                    </template>
+                                                </div>
                                             </div>
 
                                             <!-- Reporter Info -->
@@ -484,22 +521,22 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-3 mb-5 flex items-center group-hover/section:text-indigo-500 transition-colors">
                                                     <i class="fas fa-user-shield mr-3"></i> REPORTER INFORMATION
                                                 </h3>
-                                                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group/reporter">
+                                                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group/reporter text-sm">
                                                     <div class="absolute top-0 right-0 p-4 opacity-0 group-hover/reporter:opacity-100 transition-opacity">
                                                         <a :href="'residents.php?search=' + encodeURIComponent(viewData.reporter_name)" class="text-[10px] font-black uppercase bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl hover:bg-indigo-600 hover:text-white transition-all">View History</a>
                                                     </div>
                                                     <div class="grid grid-cols-2 gap-4">
                                                         <div>
-                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Full Name</p>
-                                                            <p class="text-sm font-bold text-slate-800" x-text="viewData.reporter_name"></p>
+                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-tighter">Full Name</p>
+                                                            <p class="font-bold text-slate-800" x-text="viewData.reporter_name"></p>
                                                         </div>
                                                         <div>
-                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Contact No.</p>
-                                                            <p class="text-sm font-bold text-slate-800" x-text="viewData.reporter_contact || 'N/A'"></p>
+                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-tighter">Contact No.</p>
+                                                            <p class="font-bold text-slate-800" x-text="viewData.reporter_contact || 'N/A'"></p>
                                                         </div>
                                                         <div class="col-span-2">
-                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Email Address</p>
-                                                            <p class="text-sm font-bold text-indigo-600 truncate" x-text="viewData.reporter_email"></p>
+                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-tighter">Email Address</p>
+                                                            <p class="font-bold text-indigo-600 truncate" x-text="viewData.reporter_email"></p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -512,42 +549,49 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                                 </h3>
                                                 <div class="space-y-6">
                                                     <div>
-                                                        <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Location & Landmark</p>
-                                                        <div class="bg-indigo-50/50 p-4 rounded-xl text-sm font-semibold text-slate-700 border border-indigo-100" x-text="viewData.location"></div>
+                                                        <p class="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-tighter">Location & Landmark</p>
+                                                        <div class="bg-slate-50 p-4 rounded-xl text-xs font-bold text-slate-600 border border-slate-100" x-text="viewData.location"></div>
                                                     </div>
                                                     
                                                     <div>
-                                                        <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Detailed Narrative</p>
-                                                        <div class="text-sm leading-relaxed text-slate-600 bg-white p-4 rounded-xl border border-slate-100" x-text="viewData.description || 'No description provided.'"></div>
+                                                        <p class="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-tighter text-indigo-500">Investigation Map</p>
+                                                        <div class="rounded-2xl overflow-hidden border border-slate-200 shadow-sm h-48 relative bg-slate-100 group/map">
+                                                            <template x-if="viewData.latitude">
+                                                                <iframe 
+                                                                    class="w-full h-full grayscale-[0.3] contrast-[1.1] hover:grayscale-0 transition-all duration-700"
+                                                                    frameborder="0" 
+                                                                    scrolling="no" 
+                                                                    marginheight="0" 
+                                                                    marginwidth="0" 
+                                                                    :src="'https://maps.google.com/maps?q=' + viewData.latitude + ',' + viewData.longitude + '&hl=es&z=14&output=embed'"
+                                                                ></iframe>
+                                                            </template>
+                                                            <template x-if="!viewData.latitude">
+                                                                <div class="flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center">
+                                                                    <i class="fas fa-map-marked-alt text-3xl mb-3 opacity-20"></i>
+                                                                    <p class="text-[10px] font-black uppercase tracking-widest">No GPS Data Available</p>
+                                                                    <p class="text-[9px] font-bold mt-1">Review landmarks in reporter description.</p>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div>
+                                                        <p class="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-tighter">Detailed Narrative</p>
+                                                        <div class="text-xs font-semibold leading-relaxed text-slate-600 bg-white p-4 rounded-xl border border-slate-100" x-text="viewData.description || 'No description provided.'"></div>
                                                     </div>
 
                                                     <!-- Photos -->
                                                     <template x-if="viewData.image_path">
                                                         <div>
-                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-3 text-center tracking-widest">Attached Media</p>
-                                                            <div class="rounded-2xl overflow-hidden border border-slate-200 shadow-md group/media cursor-zoom-in">
-                                                                <img :src="'../../' + viewData.image_path" class="w-full h-auto object-cover max-h-[400px] border-b border-slate-100">
-                                                                <div class="bg-slate-50 p-3 flex items-center justify-between">
-                                                                    <span class="text-[10px] font-bold text-slate-500"><i class="fas fa-image mr-1.5"></i> Evidence Photo</span>
-                                                                    <a :href="'../../' + viewData.image_path" target="_blank" class="text-[10px] font-black uppercase text-indigo-600 hover:underline">Full Resolution</a>
+                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-3 text-center tracking-[0.3em]">ATTACHED EVIDENCE</p>
+                                                            <div class="rounded-3xl overflow-hidden border border-slate-200 shadow-lg group/media cursor-zoom-in">
+                                                                <img :src="'../../' + viewData.image_path" class="w-full h-auto object-cover max-h-[400px]">
+                                                                <div class="bg-indigo-600 p-3 flex items-center justify-between">
+                                                                    <span class="text-[10px] font-black text-white uppercase tracking-widest"><i class="fas fa-camera mr-2"></i> Field Photograph</span>
+                                                                    <a :href="'../../' + viewData.image_path" target="_blank" class="text-[10px] font-black uppercase text-white hover:underline bg-white/20 px-3 py-1 rounded-lg">Source</a>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    </template>
-
-                                                    <!-- Map -->
-                                                    <template x-if="viewData.latitude">
-                                                        <div class="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 flex items-center justify-between group/map">
-                                                            <div class="flex items-center">
-                                                                <div class="h-12 w-12 bg-white rounded-xl flex items-center justify-center text-emerald-600 mr-4 shadow-sm border border-emerald-100 group-hover/map:rotate-6 transition-all">
-                                                                    <i class="fas fa-map-marked-alt text-xl"></i>
-                                                                </div>
-                                                                <div>
-                                                                    <p class="text-sm font-bold text-emerald-900">GPS Coordinates Attached</p>
-                                                                    <p class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider" x-text="viewData.latitude + ', ' + viewData.longitude"></p>
-                                                                </div>
-                                                            </div>
-                                                            <a :href="'https://www.google.com/maps?q=' + viewData.latitude + ',' + viewData.longitude" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black uppercase transition-all shadow-lg active:shadow-none">Open Map</a>
                                                         </div>
                                                     </template>
                                                 </div>
@@ -637,7 +681,7 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                 </div>
             </div>
         </div>
-    </div>
+    </template>
 
     <script>
         function pageData() {
@@ -653,8 +697,16 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                 pollingInterval: null,
                 remarksChanged: false,
                 isSavingRemarks: false,
+                isSavingStatus: false,
                 dateFrom: '',
                 dateTo: '',
+
+                // Initialize stats from PHP
+                stats: {
+                    active_cases: <?php echo $active_cases; ?>,
+                    trending_today: <?php echo $trending_today; ?>,
+                    resolution_rate: <?php echo $resolution_rate; ?>
+                },
 
                 init() {
                     this.fetchReports();
@@ -675,6 +727,9 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                         if (data.incidents) {
                             this.reports = data.incidents;
                         }
+                        if (data.stats) {
+                            this.stats = data.stats;
+                        }
                     } catch (error) {
                         console.error('Error fetching reports:', error);
                     } finally {
@@ -694,10 +749,17 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                         
                         // Date Filtering
                         let matchesDate = true;
-                        const reportDate = new Date(r.reported_at).toISOString().split('T')[0];
-                        
-                        if (this.dateFrom && reportDate < this.dateFrom) matchesDate = false;
-                        if (this.dateTo && reportDate > this.dateTo) matchesDate = false;
+                        if (r.reported_at) {
+                            try {
+                                const reportDate = new Date(r.reported_at).toISOString().split('T')[0];
+                                if (this.dateFrom && reportDate < this.dateFrom) matchesDate = false;
+                                if (this.dateTo && reportDate > this.dateTo) matchesDate = false;
+                            } catch (e) {
+                                console.warn('Invalid date:', r.reported_at);
+                            }
+                        } else if (this.dateFrom || this.dateTo) {
+                            matchesDate = false; // Hide if status has dates but report doesn't
+                        }
                         
                         return matchesSearch && matchesStatus && matchesDate;
                     });
@@ -714,6 +776,7 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                 },
 
                 async openQuickView(id) {
+                    console.log('Opening Quick View for ID:', id);
                     this.showView = true;
                     this.loadingView = true;
                     this.viewData = null;
@@ -734,6 +797,40 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                         this.showView = false;
                     } finally {
                         this.loadingView = false;
+                    }
+                },
+
+                async saveStatus() {
+                    if (!this.viewData) return;
+                    this.isSavingStatus = true;
+                    try {
+                        const formData = new FormData();
+                        formData.append('id', this.viewData.id);
+                        formData.append('status', this.viewData.status);
+
+                        const response = await fetch('../partials/update-incident-status-ajax.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            // Update local list for immediate visual sync
+                            const report = this.reports.find(r => r.id === this.viewData.id);
+                            if (report) report.status = this.viewData.status;
+                            
+                            // Update global stats
+                            if (result.stats) {
+                                this.stats = result.stats;
+                            }
+                        } else {
+                            alert(result.error || 'Failed to update status');
+                        }
+                    } catch (error) {
+                        console.error('Error saving status:', error);
+                        alert('An error occurred.');
+                    } finally {
+                        this.isSavingStatus = false;
                     }
                 },
 

@@ -19,12 +19,13 @@ try {
     // Fetch all requests
     $search_query = isset($_GET['search']) ? sanitize_input($_GET['search']) : '';
     
-    // Base queries for both types of requests
-    $doc_sql = "SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.status, 'document' as request_type 
+    // Base queries for both types of requests (details for Quick View: dr.details for docs, synthetic JSON for business)
+    $doc_sql = "SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.status, 'document' as request_type, dr.details 
                 FROM document_requests dr 
                 JOIN residents r ON dr.resident_id = r.id";
 
-    $biz_sql = "SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.status, 'business' as request_type 
+    $biz_sql = "SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.status, 'business' as request_type, 
+                JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details 
                 FROM business_transactions bt 
                 JOIN residents r ON bt.resident_id = r.id";
     
