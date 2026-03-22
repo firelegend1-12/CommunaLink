@@ -312,7 +312,7 @@ try {
                                                         </a>
                                                     <?php endif; ?>
                                                     <?php if ($business['expiry_status'] === 'expired' || $business['expiry_status'] === 'expiring_soon'): ?>
-                                                        <button onclick="sendReminder(<?php echo $business['resident_id']; ?>)" 
+                                                        <button onclick="sendReminder(<?php echo (int) $business['resident_id']; ?>, <?php echo (int) $business['id']; ?>, '<?php echo htmlspecialchars(addslashes($business['business_name'])); ?>', '<?php echo htmlspecialchars(addslashes((string) ($business['permit_expiration_date'] ?? ''))); ?>')" 
                                                                 class="text-yellow-600 hover:text-yellow-900">
                                                             <i class="fas fa-bell"></i> Remind
                                                         </button>
@@ -365,11 +365,37 @@ try {
             window.location.href = url;
         }
 
-        function sendReminder(residentId) {
-            if (confirm('Send renewal reminder to this business owner?')) {
-                // This would call an AJAX endpoint to send the reminder
-                alert('Reminder sent successfully!');
+        function sendReminder(residentId, businessId, businessName, expiryDate) {
+            if (!confirm('Send renewal reminder to this business owner?')) {
+                return;
             }
+
+            const payload = new URLSearchParams({
+                resident_id: String(residentId),
+                business_id: String(businessId),
+                business_name: businessName || '',
+                expiry_date: expiryDate || ''
+            });
+
+            fetch('../partials/send-business-reminder.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: payload.toString()
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message || 'Reminder sent successfully.');
+                } else {
+                    alert(data.error || 'Failed to send reminder.');
+                }
+            })
+            .catch(() => {
+                alert('Failed to send reminder. Please try again.');
+            });
         }
     </script>
 </body>

@@ -58,7 +58,7 @@ require_once 'partials/header.php';
         </a>
         
         <?php if(strtoupper($status) === 'PENDING'): ?>
-            <button class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg font-semibold border border-red-200 transition-colors shadow-sm" onclick="alert('Feature coming soon!')">
+            <button class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg font-semibold border border-red-200 transition-colors shadow-sm" onclick="cancelBusinessApplication(<?= (int) $trans['id'] ?>)">
                 <i class="fas fa-times-circle mr-1"></i> Cancel Application
             </button>
         <?php endif; ?>
@@ -183,5 +183,42 @@ require_once 'partials/header.php';
         </div>
     </div>
 </div>
+
+<script>
+function cancelBusinessApplication(transactionId) {
+    const reason = prompt('Please provide a reason for cancellation (required):');
+    if (reason === null) return;
+
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+        alert('Cancellation reason is required.');
+        return;
+    }
+
+    if (!confirm('Are you sure you want to cancel this application?')) {
+        return;
+    }
+
+    fetch('partials/cancel-business-application.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: 'id=' + encodeURIComponent(String(transactionId)) + '&reason=' + encodeURIComponent(trimmedReason)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = 'my-requests.php?cancelled=1';
+        } else {
+            alert(data.error || 'Failed to cancel application.');
+        }
+    })
+    .catch(() => {
+        alert('Failed to cancel application. Please try again.');
+    });
+}
+</script>
 
 <?php require_once 'partials/footer.php'; ?>

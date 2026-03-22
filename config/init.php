@@ -145,7 +145,7 @@ try {
             `purpose` TEXT NOT NULL,
             `details` JSON,
             `date_requested` DATETIME DEFAULT CURRENT_TIMESTAMP,
-            `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected') NOT NULL DEFAULT 'Pending',
+            `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending',
             `price` DECIMAL(10, 2) DEFAULT NULL,
             `remarks` TEXT DEFAULT NULL,
             `requested_by_user_id` INT(11) NULL,
@@ -254,7 +254,7 @@ try {
         'document_type' => "ADD COLUMN `document_type` VARCHAR(255) NOT NULL AFTER `resident_id`",
         'purpose' => "ADD COLUMN `purpose` TEXT NOT NULL AFTER `document_type`",
         'details' => "ADD COLUMN `details` JSON AFTER `purpose`",
-        'status' => "ADD COLUMN `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected') NOT NULL DEFAULT 'Pending' AFTER `date_requested`",
+        'status' => "ADD COLUMN `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending' AFTER `date_requested`",
         'price' => "ADD COLUMN `price` DECIMAL(10, 2) DEFAULT NULL AFTER `status`",
         'remarks' => "ADD COLUMN `remarks` TEXT DEFAULT NULL AFTER `price`",
         'requested_by_user_id' => "ADD COLUMN `requested_by_user_id` INT(11) NULL AFTER `remarks`"
@@ -271,6 +271,20 @@ try {
     $stmt = $pdo->query("SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_NAME = 'document_requests' AND COLUMN_NAME = 'requested_by_user_id' AND REFERENCED_TABLE_NAME = 'users'");
     if ($stmt && $stmt->rowCount() == 0) {
         $pdo->exec("ALTER TABLE `document_requests` ADD CONSTRAINT `fk_requested_by_user` FOREIGN KEY (`requested_by_user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL;");
+    }
+
+    // Ensure Cancelled status exists in document_requests status enum
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM `document_requests` LIKE 'status'");
+        if ($stmt && $stmt->rowCount() > 0) {
+            $column_info = $stmt->fetch();
+            $type = $column_info['Type'] ?? '';
+            if (strpos($type, 'Cancelled') === false) {
+                $pdo->exec("ALTER TABLE `document_requests` MODIFY `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending';");
+            }
+        }
+    } catch (Exception $e) {
+        // Ignore errors if table does not exist yet
     }
 
     // --- Schema Migration for business_transactions ---

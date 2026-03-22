@@ -25,6 +25,12 @@ if (empty($id) || empty($status)) {
     exit;
 }
 
+$allowed_statuses = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled'];
+if (!in_array($status, $allowed_statuses, true)) {
+    echo json_encode(['success' => false, 'error' => 'Invalid status value']);
+    exit;
+}
+
 try {
     // Get old status for logging
     $stmt = $pdo->prepare('SELECT status, resident_id, document_type FROM document_requests WHERE id = ?');
@@ -39,6 +45,16 @@ try {
     $old_status = $old_data['status'];
     $resident_id = $old_data['resident_id'];
     $document_type = $old_data['document_type'];
+
+    if ($old_status === 'Cancelled' && $status !== 'Cancelled') {
+        echo json_encode(['success' => false, 'error' => 'Cancelled requests cannot be reopened']);
+        exit;
+    }
+
+    if ($status === 'Cancelled' && strcasecmp((string) $old_status, 'Pending') !== 0) {
+        echo json_encode(['success' => false, 'error' => 'Only pending requests can be cancelled']);
+        exit;
+    }
     
     // Update the status
     $stmt = $pdo->prepare('UPDATE document_requests SET status = ? WHERE id = ?');

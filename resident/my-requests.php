@@ -52,7 +52,7 @@ function renderTimeline(status) {
     if (["approved", "ready for pickup", "ready", "completed"].includes(normalizeStatus)) activeStep = 3;
     if (normalizeStatus === "completed") activeStep = 4;
     else if (normalizeStatus === "processing") activeStep = 2;
-    else if (normalizeStatus === "rejected") { activeStep = 4; isRejected = true; }
+    else if (["rejected", "cancelled"].includes(normalizeStatus)) { activeStep = 4; isRejected = true; }
     
     let color = isRejected ? 'text-red-500 border-red-500 bg-red-50' : 'text-blue-600 border-blue-600 bg-blue-50';
     
@@ -106,7 +106,7 @@ function renderRequestsTable(docRequests, bizRequests) {
             let status = req.status || 'Pending';
             let badgeClass = 'pending';
             if (["Approved","Ready for Pickup","Completed"].includes(status)) badgeClass = 'approved';
-            else if (status === 'Rejected') badgeClass = 'rejected';
+            else if (['Rejected', 'Cancelled'].includes(status)) badgeClass = 'rejected';
             else if (status === 'Processing') badgeClass = 'processing';
             
             cards += `<div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition cursor-pointer group" onclick="window.location.href='request-details.php?id=${req.id}'">
@@ -133,7 +133,7 @@ function renderRequestsTable(docRequests, bizRequests) {
             let status = req.status || 'PENDING';
             let badgeClass = 'pending';
             if (["APPROVED","Completed","Ready for Pickup"].includes(status)) badgeClass = 'approved';
-            else if (["REJECTED","Rejected"].includes(status)) badgeClass = 'rejected';
+            else if (["REJECTED","Rejected","CANCELLED","Cancelled"].includes(status)) badgeClass = 'rejected';
             else if (["PROCESSING","Processing"].includes(status)) badgeClass = 'processing';
             
             cards += `<div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition cursor-pointer group" onclick="window.location.href='business-details.php?id=${req.id}'">

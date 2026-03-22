@@ -204,6 +204,9 @@ $document_types = [
                                                     if (strcasecmp($status, 'Processing') === 0) {
                                                         $status_bg = 'bg-blue-100 text-blue-800';
                                                         $status_text = 'Processing';
+                                                    } elseif (strcasecmp($status, 'Cancelled') === 0) {
+                                                        $status_bg = 'bg-gray-100 text-gray-800';
+                                                        $status_text = 'Cancelled';
                                                     } elseif (
                                                         strcasecmp($status, 'Ready for Pickup') === 0 ||
                                                         strcasecmp($status, 'READY FOR PICKUP') === 0 ||
@@ -256,12 +259,16 @@ $document_types = [
                                                                             <!-- Status change options -->
                                                                             <?php if ($req['request_type'] === 'document'): ?>
                                                                                 <?php
-                                                                                $doc_statuses = ["Pending", "Processing", "Ready for Pickup", "Approved", "Rejected"];
+                                                                                $doc_statuses = ["Pending", "Processing", "Ready for Pickup", "Completed", "Rejected"];
                                                                                 foreach ($doc_statuses as $opt):
                                                                                     if (strcasecmp($status, $opt) !== 0): ?>
-                                                                                        <button type="button" onclick="changeRequestStatus('<?php echo $req['id']; ?>', 'document', '<?php echo $opt; ?>')" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 <?php echo $opt === 'Rejected' ? 'text-red-600' : ($opt === 'Approved' ? 'text-green-700' : 'text-gray-700'); ?>">Set as <?php echo $opt; ?></button>
+                                                                                        <button type="button" onclick="changeRequestStatus('<?php echo $req['id']; ?>', 'document', '<?php echo $opt; ?>')" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 <?php echo in_array($opt, ['Rejected', 'Cancelled'], true) ? 'text-red-600' : 'text-gray-700'; ?>">Set as <?php echo $opt; ?></button>
                                                                                 <?php endif;
                                                                                 endforeach; ?>
+                                                                                <?php if (strcasecmp($status, 'Pending') === 0): ?>
+                                                                                    <div class="border-t border-gray-100 my-1"></div>
+                                                                                    <button type="button" onclick="cancelRequest('<?php echo $req['id']; ?>', 'document')" class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">Cancel Request</button>
+                                                                                <?php endif; ?>
                                                                             <?php elseif ($req['request_type'] === 'business'): ?>
                                                                                 <?php
                                                                                 $biz_statuses = ["PENDING", "PROCESSING", "READY FOR PICKUP", "APPROVED", "REJECTED"];
@@ -270,6 +277,10 @@ $document_types = [
                                                                                         <button type="button" onclick="changeRequestStatus('<?php echo $req['id']; ?>', 'business', '<?php echo $opt; ?>')" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 <?php echo $opt === 'REJECTED' ? 'text-red-600' : ($opt === 'APPROVED' ? 'text-green-700' : 'text-gray-700'); ?>">Set as <?php echo ucwords(strtolower($opt)); ?></button>
                                                                                 <?php endif;
                                                                                 endforeach; ?>
+                                                                                <?php if (strcasecmp($status, 'PENDING') === 0): ?>
+                                                                                    <div class="border-t border-gray-100 my-1"></div>
+                                                                                    <button type="button" onclick="cancelRequest('<?php echo $req['id']; ?>', 'business')" class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">Cancel Request</button>
+                                                                                <?php endif; ?>
                                                                             <?php endif; ?>
                                                                             <!-- Delete option -->
                                                                             <div class="border-t border-gray-100 my-1"></div>
@@ -431,6 +442,41 @@ $document_types = [
                 console.error('Error:', error);
                 alert('Failed to update status. Please try again.');
             });
+    }
+
+    function cancelRequest(id, type) {
+        const reason = prompt('Provide cancellation reason (required):');
+        if (reason === null) return;
+
+        const trimmedReason = reason.trim();
+        if (!trimmedReason) {
+            alert('Cancellation reason is required.');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to cancel this request?')) {
+            return;
+        }
+
+        fetch('../partials/cancel-request.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: 'id=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type) + '&reason=' + encodeURIComponent(trimmedReason)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Failed to cancel request: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(() => {
+            alert('Failed to cancel request. Please try again.');
+        });
     }
     </script>
 

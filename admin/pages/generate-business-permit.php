@@ -382,8 +382,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
 
     <script>
         function downloadPDF() {
-            // This would integrate with a PDF generation library
-            alert('PDF download feature will be implemented with a PDF library like jsPDF or server-side PDF generation.');
+            window.location.href = '../partials/generate-business-permit-pdf.php?id=<?php echo (int) $transaction_id; ?>';
         }
     </script>
 </body>

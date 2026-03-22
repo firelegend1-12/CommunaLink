@@ -30,6 +30,12 @@ if (empty($status) || empty($request_id)) {
     exit;
 }
 
+$allowed_statuses = ['PENDING', 'PROCESSING', 'READY FOR PICKUP', 'APPROVED', 'REJECTED'];
+if (!in_array($status, $allowed_statuses, true)) {
+    echo json_encode(['success' => false, 'error' => 'Invalid status value']);
+    exit;
+}
+
 $pdo->beginTransaction();
 
 try {
@@ -47,6 +53,7 @@ try {
 
     // Only proceed if status is actually changing
     if ($old_status === $status) {
+        $pdo->rollBack();
         if ($is_ajax) {
             header('Content-Type: application/json');
             echo json_encode(['success' => true, 'message' => 'Status unchanged']);
