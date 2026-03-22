@@ -15,6 +15,7 @@ $status_filter = isset($_GET['status']) ? sanitize_input($_GET['status']) : '';
 $type_filter = isset($_GET['type']) ? sanitize_input($_GET['type']) : '';
 $date_from = isset($_GET['date_from']) ? sanitize_input($_GET['date_from']) : '';
 $date_to = isset($_GET['date_to']) ? sanitize_input($_GET['date_to']) : '';
+$date_mode = isset($_GET['date_mode']) ? sanitize_input($_GET['date_mode']) : 'request';
 $payment_filter = isset($_GET['payment']) ? sanitize_input($_GET['payment']) : '';
 $sort_by = isset($_GET['sort']) ? sanitize_input($_GET['sort']) : 'date_requested';
 $sort_dir = isset($_GET['dir']) ? sanitize_input($_GET['dir']) : 'DESC';
@@ -22,6 +23,7 @@ $sort_dir = isset($_GET['dir']) ? sanitize_input($_GET['dir']) : 'DESC';
 $valid_statuses = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled'];
 $valid_payments = ['Paid', 'Unpaid'];
 $valid_sort_columns = ['date_requested', 'status', 'payment_status', 'first_name', 'last_name'];
+$valid_date_modes = ['request', 'payment'];
 
 // Validate sort parameters
 if (!in_array($sort_by, $valid_sort_columns)) {
@@ -30,6 +32,11 @@ if (!in_array($sort_by, $valid_sort_columns)) {
 if (!in_array($sort_dir, ['ASC', 'DESC'])) {
     $sort_dir = 'DESC';
 }
+if (!in_array($date_mode, $valid_date_modes)) {
+    $date_mode = 'request';
+}
+
+$date_column = ($date_mode === 'payment') ? 'payment_date' : 'date_requested';
 
 // Build WHERE conditions
 $where_parts = [];
@@ -46,12 +53,12 @@ if (!empty($status_filter) && in_array($status_filter, $valid_statuses)) {
 }
 
 if (!empty($date_from)) {
-    $where_parts[] = "date_requested >= ?";
+    $where_parts[] = "{$date_column} >= ?";
     $exec_params[] = "{$date_from} 00:00:00";
 }
 
 if (!empty($date_to)) {
-    $where_parts[] = "date_requested <= ?";
+    $where_parts[] = "{$date_column} <= ?";
     $exec_params[] = "{$date_to} 23:59:59";
 }
 
@@ -64,11 +71,11 @@ $where_clause = !empty($where_parts) ? " WHERE " . implode(" AND ", $where_parts
 
 // Base UNION query
 $union_query = "(
-    SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.status, 'document' as request_type, dr.or_number, dr.payment_status 
+    SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.or_number, dr.payment_status 
     FROM document_requests dr 
     LEFT JOIN residents r ON dr.resident_id = r.id
 ) UNION ALL (
-    SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.status, 'business' as request_type, 
+    SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
     bt.or_number, bt.payment_status 
     FROM business_transactions bt 
     LEFT JOIN residents r ON bt.resident_id = r.id
@@ -77,13 +84,13 @@ $union_query = "(
 // Apply type filter
 if ($type_filter === 'document') {
     $union_query = "(
-        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.status, 'document' as request_type, dr.or_number, dr.payment_status 
+        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.or_number, dr.payment_status 
         FROM document_requests dr 
         LEFT JOIN residents r ON dr.resident_id = r.id
     )";
 } else if ($type_filter === 'business') {
     $union_query = "(
-        SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.status, 'business' as request_type, 
+        SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
         bt.or_number, bt.payment_status 
         FROM business_transactions bt 
         LEFT JOIN residents r ON bt.resident_id = r.id

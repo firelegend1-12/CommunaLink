@@ -525,12 +525,16 @@ try {
     $pdo->exec("ALTER TABLE `document_requests` 
                 ADD COLUMN IF NOT EXISTS `or_number` VARCHAR(100) DEFAULT NULL,
                 ADD COLUMN IF NOT EXISTS `payment_status` ENUM('Unpaid', 'Paid') DEFAULT 'Unpaid',
-                ADD COLUMN IF NOT EXISTS `payment_date` DATETIME DEFAULT NULL");
+                ADD COLUMN IF NOT EXISTS `payment_date` DATETIME DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `cash_received` DECIMAL(10,2) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `change_amount` DECIMAL(10,2) DEFAULT NULL");
 
     $pdo->exec("ALTER TABLE `business_transactions` 
                 ADD COLUMN IF NOT EXISTS `or_number` VARCHAR(100) DEFAULT NULL,
                 ADD COLUMN IF NOT EXISTS `payment_status` ENUM('Unpaid', 'Paid') DEFAULT 'Unpaid',
-                ADD COLUMN IF NOT EXISTS `payment_date` DATETIME DEFAULT NULL");
+                ADD COLUMN IF NOT EXISTS `payment_date` DATETIME DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `cash_received` DECIMAL(10,2) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `change_amount` DECIMAL(10,2) DEFAULT NULL");
 
     // Notifications Table Migration
     $pdo->exec("ALTER TABLE `notifications` 

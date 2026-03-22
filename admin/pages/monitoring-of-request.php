@@ -22,6 +22,7 @@ try {
     $type_filter = isset($_GET['type']) ? sanitize_input($_GET['type']) : '';
     $date_from = isset($_GET['date_from']) ? sanitize_input($_GET['date_from']) : '';
     $date_to = isset($_GET['date_to']) ? sanitize_input($_GET['date_to']) : '';
+    $date_mode = isset($_GET['date_mode']) ? sanitize_input($_GET['date_mode']) : 'request';
     $payment_filter = isset($_GET['payment']) ? sanitize_input($_GET['payment']) : '';
     $page_number = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
     $sort_by = isset($_GET['sort']) ? sanitize_input($_GET['sort']) : 'date_requested';
@@ -36,6 +37,7 @@ try {
     $valid_statuses = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled'];
     $valid_payments = ['Paid', 'Unpaid'];
     $valid_sort_columns = ['date_requested', 'status', 'payment_status', 'first_name', 'last_name'];
+    $valid_date_modes = ['request', 'payment'];
     
     // Validate and sanitize sort parameters
     if (!in_array($sort_by, $valid_sort_columns)) {
@@ -44,6 +46,10 @@ try {
     if (!in_array($sort_dir, ['ASC', 'DESC'])) {
         $sort_dir = 'DESC';
     }
+    if (!in_array($date_mode, $valid_date_modes)) {
+        $date_mode = 'request';
+    }
+    $date_column = ($date_mode === 'payment') ? 'payment_date' : 'date_requested';
     
     // Build WHERE conditions for the combined result
     $where_parts = [];
@@ -60,12 +66,12 @@ try {
     }
     
     if (!empty($date_from)) {
-        $where_parts[] = "date_requested >= ?";
+        $where_parts[] = "{$date_column} >= ?";
         $exec_params[] = "{$date_from} 00:00:00";
     }
     
     if (!empty($date_to)) {
-        $where_parts[] = "date_requested <= ?";
+        $where_parts[] = "{$date_column} <= ?";
         $exec_params[] = "{$date_to} 23:59:59";
     }
     
@@ -78,11 +84,11 @@ try {
     
     // Base UNION query (without filters)
     $union_query = "(
-        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status 
+        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status 
         FROM document_requests dr 
         LEFT JOIN residents r ON dr.resident_id = r.id
     ) UNION ALL (
-        SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.status, 'business' as request_type, 
+        SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
         JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
         bt.or_number, bt.payment_status 
         FROM business_transactions bt 
@@ -92,13 +98,13 @@ try {
     // Apply type filter by modifying the union query
     if ($type_filter === 'document') {
         $union_query = "(
-            SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status 
+            SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status 
             FROM document_requests dr 
             LEFT JOIN residents r ON dr.resident_id = r.id
         )";
     } else if ($type_filter === 'business') {
         $union_query = "(
-            SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.status, 'business' as request_type, 
+            SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
             JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
             bt.or_number, bt.payment_status 
             FROM business_transactions bt 
@@ -147,11 +153,11 @@ $document_types = [
 
 // Helper function to build pagination URLs
 function buildPaginationUrl($page, $search = '', $status = '', $type = '', $date_from = '', $date_to = '', $payment = '') {
-    return buildPaginationUrlFull($page, $search, $status, $type, $date_from, $date_to, $payment, '', '');
+    return buildPaginationUrlFull($page, $search, $status, $type, $date_from, $date_to, $payment, '', '', 'request');
 }
 
 // Enhanced helper function with sorting
-function buildPaginationUrlFull($page, $search = '', $status = '', $type = '', $date_from = '', $date_to = '', $payment = '', $sort = '', $dir = '') {
+function buildPaginationUrlFull($page, $search = '', $status = '', $type = '', $date_from = '', $date_to = '', $payment = '', $sort = '', $dir = '', $date_mode = 'request') {
     $params = ['page' => $page];
     if (!empty($search)) $params['search'] = urlencode($search);
     if (!empty($status)) $params['status'] = urlencode($status);
@@ -161,16 +167,17 @@ function buildPaginationUrlFull($page, $search = '', $status = '', $type = '', $
     if (!empty($payment)) $params['payment'] = urlencode($payment);
     if (!empty($sort)) $params['sort'] = urlencode($sort);
     if (!empty($dir)) $params['dir'] = urlencode($dir);
+    if (!empty($date_mode) && in_array($date_mode, ['request', 'payment'])) $params['date_mode'] = urlencode($date_mode);
     return 'monitoring-of-request.php?' . http_build_query($params);
 }
 
 // Helper function to get sort URL (toggles direction if same column)
-function getSortUrl($sort_column, $current_sort, $current_dir, $search, $status, $type, $date_from, $date_to, $payment) {
+function getSortUrl($sort_column, $current_sort, $current_dir, $search, $status, $type, $date_from, $date_to, $payment, $date_mode = 'request') {
     $new_dir = 'ASC';
     if ($sort_column === $current_sort && $current_dir === 'ASC') {
         $new_dir = 'DESC';
     }
-    return buildPaginationUrlFull(1, $search, $status, $type, $date_from, $date_to, $payment, $sort_column, $new_dir);
+    return buildPaginationUrlFull(1, $search, $status, $type, $date_from, $date_to, $payment, $sort_column, $new_dir, $date_mode);
 }
 
 // --- Analytics Calculations ---
@@ -206,8 +213,18 @@ try {
     // 4. Daily Revenue (Paid today)
     $biz_fee = $document_types['Business Clearance'] ?? 500.00;
     $q_revenue = $pdo->prepare("SELECT 
-        COALESCE((SELECT SUM(price) FROM document_requests WHERE payment_status = 'Paid' AND payment_date BETWEEN ? AND ?), 0) + 
-        COALESCE((SELECT COUNT(*) * $biz_fee FROM business_transactions WHERE payment_status = 'Paid' AND payment_date BETWEEN ? AND ?), 0) as total");
+        COALESCE((SELECT SUM(
+            CASE 
+                WHEN cash_received IS NOT NULL THEN (cash_received - COALESCE(change_amount, 0))
+                ELSE COALESCE(price, 0)
+            END
+        ) FROM document_requests WHERE payment_status = 'Paid' AND payment_date BETWEEN ? AND ?), 0) + 
+        COALESCE((SELECT SUM(
+            CASE 
+                WHEN cash_received IS NOT NULL THEN (cash_received - COALESCE(change_amount, 0))
+                ELSE $biz_fee
+            END
+        ) FROM business_transactions WHERE payment_status = 'Paid' AND payment_date BETWEEN ? AND ?), 0) as total");
     $q_revenue->execute([$start_of_day, $end_of_day, $start_of_day, $end_of_day]);
     $stats['revenue'] = $q_revenue->fetchColumn();
 
@@ -236,7 +253,53 @@ try {
         openView(req) { 
             this.selectedReq = req; 
             this.viewPanelOpen = true; 
-        } 
+        },
+        async submitCashPayment() {
+            if (!this.selectedReq) return;
+
+            const due = parseFloat(this.selectedReq.amountDue || 0);
+            const cash = parseFloat(this.selectedReq.cashInput || 0);
+
+            if (Number.isNaN(cash) || cash <= 0) {
+                showToast('Please enter a valid cash amount.', 'error');
+                return;
+            }
+
+            if (cash < due) {
+                showToast('Cash amount is not enough for this request.', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('id', this.selectedReq.id);
+            formData.append('type', this.selectedReq.type);
+            formData.append('cash_received', cash.toFixed(2));
+
+            try {
+                const response = await fetch('../partials/make-cash-payment.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    showToast(data.error || 'Failed to process cash payment.', 'error');
+                    return;
+                }
+
+                this.selectedReq.paymentStatus = 'Paid';
+                this.selectedReq.orNumber = data.or_number || this.selectedReq.orNumber;
+                this.selectedReq.changeValue = Number(data.change_amount || 0).toFixed(2);
+                this.selectedReq.cashInput = '';
+                this.selectedReq.isPaying = false;
+
+                updateRowPaymentBadge(this.selectedReq.id, this.selectedReq.type, this.selectedReq.orNumber);
+                showToast('Cash payment recorded. You can now print.');
+            } catch (e) {
+                showToast('Failed to process cash payment.', 'error');
+            }
+        }
     }">
         <?php include '../partials/sidebar.php'; ?>
         
@@ -285,7 +348,7 @@ try {
                         </div>
                     </a>
                     <!-- Revenue Card -->
-                    <a href="?page=1&status=&type=&date_from=<?php echo date('Y-m-d'); ?>&date_to=<?php echo date('Y-m-d'); ?>&payment=Paid" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center space-x-4 hover:shadow-md hover:border-indigo-200 transition cursor-pointer">
+                    <a href="?page=1&status=&type=&date_from=<?php echo date('Y-m-d'); ?>&date_to=<?php echo date('Y-m-d'); ?>&payment=Paid&date_mode=payment" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center space-x-4 hover:shadow-md hover:border-indigo-200 transition cursor-pointer">
                         <div class="bg-indigo-50 p-3 rounded-xl"><i class="fas fa-coins text-indigo-600 text-xl w-6 text-center"></i></div>
                         <div>
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Revenue Today</p>
@@ -378,6 +441,7 @@ try {
                                             <input type="hidden" name="date_from" value="<?php echo htmlspecialchars($date_from); ?>">
                                             <input type="hidden" name="date_to" value="<?php echo htmlspecialchars($date_to); ?>">
                                             <input type="hidden" name="payment" value="<?php echo htmlspecialchars($payment_filter); ?>">
+                                            <input type="hidden" name="date_mode" value="<?php echo htmlspecialchars($date_mode); ?>">
                                             <div class="relative flex-1">
                                                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 h-full"><i class="fas fa-search text-sm"></i></span>
                                                 <input type="text" name="search" class="w-full h-full pl-10 pr-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Search by name..." value="<?php echo htmlspecialchars($search_query); ?>">
@@ -438,7 +502,7 @@ try {
                                                     <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)" class="rounded border-gray-300">
                                                 </th>
                                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                                                        <a href="<?php echo getSortUrl('first_name', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter); ?>" class="flex items-center space-x-1 group">
+                                                        <a href="<?php echo getSortUrl('first_name', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $date_mode); ?>" class="flex items-center space-x-1 group">
                                                             <span>Name</span>
                                                             <?php if ($sort_by === 'first_name'): ?>
                                                                 <i class="fas fa-sort<?php echo $sort_dir === 'ASC' ? '-up' : '-down'; ?> text-blue-600"></i>
@@ -449,7 +513,7 @@ try {
                                                     </th>
                                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Certificate Type</th>
                                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                                                        <a href="<?php echo getSortUrl('date_requested', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter); ?>" class="flex items-center space-x-1 group">
+                                                        <a href="<?php echo getSortUrl('date_requested', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $date_mode); ?>" class="flex items-center space-x-1 group">
                                                             <span>Date Sent</span>
                                                             <?php if ($sort_by === 'date_requested'): ?>
                                                                 <i class="fas fa-sort<?php echo $sort_dir === 'ASC' ? '-up' : '-down'; ?> text-blue-600"></i>
@@ -459,7 +523,7 @@ try {
                                                         </a>
                                                     </th>
                                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                                                        <a href="<?php echo getSortUrl('status', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter); ?>" class="flex items-center space-x-1 group">
+                                                        <a href="<?php echo getSortUrl('status', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $date_mode); ?>" class="flex items-center space-x-1 group">
                                                             <span>Status</span>
                                                             <?php if ($sort_by === 'status'): ?>
                                                                 <i class="fas fa-sort<?php echo $sort_dir === 'ASC' ? '-up' : '-down'; ?> text-blue-600"></i>
@@ -469,7 +533,7 @@ try {
                                                         </a>
                                                     </th>
                                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                                                        <a href="<?php echo getSortUrl('payment_status', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter); ?>" class="flex items-center space-x-1 group">
+                                                        <a href="<?php echo getSortUrl('payment_status', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $date_mode); ?>" class="flex items-center space-x-1 group">
                                                             <span>Payment</span>
                                                             <?php if ($sort_by === 'payment_status'): ?>
                                                                 <i class="fas fa-sort<?php echo $sort_dir === 'ASC' ? '-up' : '-down'; ?> text-blue-600"></i>
@@ -516,6 +580,13 @@ try {
                                                         default:
                                                             $status_bg = 'bg-yellow-100 text-yellow-800';
                                                     }
+
+                                                    $raw_doc_type = (string)($req['document_type'] ?? '');
+                                                    if (($req['request_type'] ?? '') === 'business') {
+                                                        $amount_due = (float)($document_types['Business Clearance'] ?? 500.00);
+                                                    } else {
+                                                        $amount_due = (float)($document_types[$raw_doc_type] ?? 50.00);
+                                                    }
                                                 ?>
                                                     <tr id="request-row-<?php echo $req['request_type']; ?>-<?php echo $req['id']; ?>" class="request-row hover:bg-gray-50">
                                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -556,6 +627,10 @@ try {
                                                                     statusBg: '<?php echo addslashes($status_bg); ?>',
                                                                     orNumber: '<?php echo addslashes($req['or_number'] ?? ''); ?>',
                                                                     paymentStatus: '<?php echo addslashes($req['payment_status'] ?? 'Unpaid'); ?>',
+                                                                    amountDue: '<?php echo number_format($amount_due, 2, '.', ''); ?>',
+                                                                    cashInput: '',
+                                                                    changeValue: null,
+                                                                    isPaying: false,
                                                                     details: <?php echo $req['details'] ? htmlspecialchars(json_encode(json_decode($req['details'], true)), ENT_QUOTES, 'UTF-8') : 'null'; ?>
                                                                 })" class="inline-flex items-center justify-center w-8 h-8 rounded text-blue-600 hover:bg-blue-50 focus:outline-none" title="Quick View">
                                                                     <i class="fas fa-eye text-sm"></i>
@@ -631,7 +706,7 @@ try {
                                     <div class="flex space-x-2">
                                         <!-- Previous Button -->
                                         <?php if ($page_number > 1): ?>
-                                            <a href="<?php echo buildPaginationUrlFull($page_number - 1, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir); ?>" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                            <a href="<?php echo buildPaginationUrlFull($page_number - 1, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode); ?>" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
                                                 <i class="fas fa-chevron-left mr-1"></i>Previous
                                             </a>
                                         <?php else: ?>
@@ -647,7 +722,7 @@ try {
                                             $end_page = min($total_pages, $page_number + 2);
                                             
                                             if ($start_page > 1): ?>
-                                                <a href="<?php echo buildPaginationUrlFull(1, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir); ?>" class="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">1</a>
+                                                <a href="<?php echo buildPaginationUrlFull(1, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode); ?>" class="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">1</a>
                                                 <?php if ($start_page > 2): ?><span class="text-gray-500">...</span><?php endif; ?>
                                             <?php endif; ?>
                                             
@@ -655,19 +730,19 @@ try {
                                                 <?php if ($i === $page_number): ?>
                                                     <span class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium"><?php echo $i; ?></span>
                                                 <?php else: ?>
-                                                    <a href="<?php echo buildPaginationUrlFull($i, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir); ?>" class="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"><?php echo $i; ?></a>
+                                                    <a href="<?php echo buildPaginationUrlFull($i, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode); ?>" class="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"><?php echo $i; ?></a>
                                                 <?php endif; ?>
                                             <?php endfor; ?>
                                             
                                             <?php if ($end_page < $total_pages): ?>
                                                 <?php if ($end_page < $total_pages - 1): ?><span class="text-gray-500">...</span><?php endif; ?>
-                                                <a href="<?php echo buildPaginationUrlFull($total_pages, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir); ?>" class="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"><?php echo $total_pages; ?></a>
+                                                <a href="<?php echo buildPaginationUrlFull($total_pages, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode); ?>" class="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"><?php echo $total_pages; ?></a>
                                             <?php endif; ?>
                                         </div>
                                         
                                         <!-- Next Button -->
                                         <?php if ($page_number < $total_pages): ?>
-                                            <a href="<?php echo buildPaginationUrlFull($page_number + 1, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir); ?>" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                            <a href="<?php echo buildPaginationUrlFull($page_number + 1, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode); ?>" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
                                                 Next<i class="fas fa-chevron-right ml-1"></i>
                                             </a>
                                         <?php else: ?>
@@ -785,17 +860,37 @@ try {
                                     <i class="fas fa-play mr-2"></i>Start Processing
                                  </button>
 
+                                            <!-- Cash Payment Action (required before print) -->
+                                            <div x-show="selectedReq.paymentStatus !== 'Paid'" class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                                <button type="button" x-show="!selectedReq.isPaying" @click="selectedReq.isPaying = true" class="w-full bg-amber-600 text-white px-4 py-3 rounded-lg shadow hover:bg-amber-700 transition font-bold uppercase tracking-widest text-xs">
+                                                    <i class="fas fa-money-bill-wave mr-2"></i>Make Cash Payment
+                                                </button>
+
+                                                <div x-show="selectedReq.isPaying" class="space-y-2">
+                                                    <p class="text-xs font-semibold text-amber-800">Amount Due: <span class="font-black" x-text="'₱' + Number(selectedReq.amountDue || 0).toFixed(2)"></span></p>
+                                                    <input type="number" min="0" step="0.01" x-model="selectedReq.cashInput" placeholder="Enter cash amount" class="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                                    <p class="text-xs text-gray-700" x-show="selectedReq.cashInput !== ''">
+                                                        Change: <span class="font-bold" x-text="'₱' + Math.max(Number(selectedReq.cashInput || 0) - Number(selectedReq.amountDue || 0), 0).toFixed(2)"></span>
+                                                    </p>
+                                                    <div class="grid grid-cols-2 gap-2">
+                                                        <button type="button" @click="submitCashPayment()" class="bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-green-700">Confirm Payment</button>
+                                                        <button type="button" @click="selectedReq.isPaying = false; selectedReq.cashInput = ''" class="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-gray-300">Cancel</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                  <!-- Print Document (if not rejected/cancelled) -->
-                                 <button x-show="selectedReq.status !== 'Rejected' && selectedReq.status !== 'Cancelled'" @click="const templates = {
+                                            <button x-show="selectedReq.status !== 'Rejected' && selectedReq.status !== 'Cancelled'" :disabled="selectedReq.paymentStatus !== 'Paid'" @click="if (selectedReq.paymentStatus !== 'Paid') return; const templates = {
                                     'Barangay Clearance': 'barangay-clearance-template.php',
                                     'Certificate of Residency': 'certificate-of-residency-template.php',
                                     'Certificate of Indigency': 'certificate-of-indigency-template.php',
                                     'business': 'business-clearance-template.php'
                                  };
                                  const templateFile = selectedReq.type === 'business' ? templates['business'] : (templates[selectedReq.docType] || 'barangay-clearance-template.php');
-                                 window.open(templateFile + '?id=' + selectedReq.id, '_blank');" class="w-full bg-gray-100 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-200 transition font-bold uppercase tracking-widest text-xs flex items-center justify-center">
+                                            window.open(templateFile + '?id=' + selectedReq.id, '_blank');" :class="selectedReq.paymentStatus === 'Paid' ? 'w-full bg-gray-100 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-200 transition font-bold uppercase tracking-widest text-xs flex items-center justify-center' : 'w-full bg-gray-100 text-gray-400 px-4 py-3 rounded-lg opacity-70 cursor-not-allowed font-bold uppercase tracking-widest text-xs flex items-center justify-center'">
                                     <i class="fas fa-print mr-2"></i>Print Certificate / Clearance
                                  </button>
+                                            <p x-show="selectedReq.paymentStatus !== 'Paid'" class="text-[11px] text-red-600 font-semibold text-center">Payment required before printing.</p>
 
                                  <!-- View Full Details (Link to main page) -->
                                  <button @click="viewPanelOpen = false;" class="w-full bg-gray-50 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-100 transition font-bold uppercase tracking-widest text-xs border border-gray-200">
@@ -1021,6 +1116,23 @@ try {
             default:
                 return 'bg-yellow-100 text-yellow-800';
         }
+    }
+
+    function updateRowPaymentBadge(id, type, orNumber) {
+        const row = document.getElementById(`request-row-${type}-${id}`);
+        if (!row) return;
+
+        const cells = row.querySelectorAll('td');
+        if (!cells || cells.length < 6) return;
+
+        const paymentCell = cells[5];
+        const safeOr = (orNumber || '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        paymentCell.innerHTML = `
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
+                <i class="fas fa-check-circle mr-1"></i> PAID
+            </span>
+            ${safeOr ? `<div class="text-xs text-gray-500 mt-1">O.R. ${safeOr}</div>` : ''}
+        `;
     }
 
     function updatePaymentInfo(id, type, orNumber, status) {
