@@ -22,13 +22,13 @@ try {
     // Base queries for both types of requests (details for Quick View: dr.details for docs, synthetic JSON for business)
     $doc_sql = "SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status 
                 FROM document_requests dr 
-                JOIN residents r ON dr.resident_id = r.id";
+                LEFT JOIN residents r ON dr.resident_id = r.id";
 
     $biz_sql = "SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.status, 'business' as request_type, 
                 JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
                 bt.or_number, bt.payment_status 
                 FROM business_transactions bt 
-                JOIN residents r ON bt.resident_id = r.id";
+                LEFT JOIN residents r ON bt.resident_id = r.id";
     
     $params = [];
     if (!empty($search_query)) {
@@ -185,60 +185,9 @@ try {
                         </div>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <!-- Left Column: Walk-In Request Form -->
-                    <div class="lg:col-span-1">
-                        <div class="bg-white rounded-lg shadow p-6">
-                            <h2 class="text-xl font-bold mb-4 text-gray-800 border-b pb-2">Walk-In Request</h2>
-                            <form action="../partials/walk-in-request-handler.php" method="POST" x-data="{ price: 0, types: <?php echo htmlspecialchars(json_encode($document_types), ENT_QUOTES, 'UTF-8'); ?> }">
-                                <div class="space-y-4">
-                                    <div>
-                                        <label for="requestor_name" class="block text-sm font-medium text-gray-700">Requestor Name</label>
-                                        <select id="requestor_name" name="resident_id" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required>
-                                            <option value="" disabled selected>Select a resident...</option>
-                                            <?php foreach ($residents as $resident): ?>
-                                                <option value="<?php echo $resident['id']; ?>"><?php echo htmlspecialchars($resident['full_name']); ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="certificate_type" class="block text-sm font-medium text-gray-700">Certificate Type</label>
-                                        <select id="certificate_type" name="document_type" x-on:change="price = types[$event.target.value] || 0" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required>
-                                            <option value="" disabled selected>Select a certificate...</option>
-                                            <?php foreach ($document_types as $type => $cost): ?>
-                                                <option value="<?php echo htmlspecialchars($type); ?>"><?php echo htmlspecialchars($type); ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="purpose" class="block text-sm font-medium text-gray-700">Purpose</label>
-                                        <textarea id="purpose" name="purpose" rows="3" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required></textarea>
-                                    </div>
-                                    <div>
-                                        <label for="date_requested" class="block text-sm font-medium text-gray-700">Date Requested</label>
-                                        <input type="text" id="date_requested" value="<?php echo date('F j, Y'); ?>" class="mt-1 block w-full px-3 py-2 bg-gray-200 border border-gray-300 rounded-md shadow-sm sm:text-sm" readonly>
-                                    </div>
-                                    <div>
-                                        <label for="price" class="block text-sm font-medium text-gray-700">Price</label>
-                                        <div class="mt-1 relative rounded-md shadow-sm">
-                                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <span class="text-gray-500 sm:text-sm">₱</span>
-                                            </div>
-                                            <input type="text" name="price" id="price" x-model="price.toFixed(2)" class="block w-full pl-7 pr-12 py-2 sm:text-sm bg-gray-200 border border-gray-300 rounded-md" readonly>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                            Submit Request
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Right Column: Pending Requests Table -->
-                    <div class="lg:col-span-2">
+                <div class="grid grid-cols-1 gap-8">
+                    <!-- Pending Requests Table -->
+                    <div class="w-full">
                         <div class="bg-white rounded-lg shadow">
                             <div class="px-6 py-4 border-b border-gray-200 flex flex-wrap justify-between items-center">
                                 <h2 class="text-xl font-bold text-gray-800">Pending Requests</h2>
@@ -267,7 +216,7 @@ try {
                                                 <tr><td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">No requests found.</td></tr>
                                             <?php else: ?>
                                                 <?php foreach ($requests as $req): 
-                                                    $name = htmlspecialchars($req['first_name'] . ' ' . $req['last_name']);
+                                                    $name = htmlspecialchars(($req['first_name'] ?? 'Unknown') . ' ' . ($req['last_name'] ?? 'Resident'));
                                                     $doc_type = htmlspecialchars($req['document_type']);
                                                     $date = date('M. d, Y h:i A', strtotime($req['date_requested']));
                                                     $status = trim((string)($req['status'] ?? ''));
@@ -356,9 +305,7 @@ try {
                                                                             <!-- Delete option -->
                                                                             <div class="border-t border-gray-100 my-1"></div>
                                                                             <button type="button" onclick="deleteRequest('<?php echo $req['id']; ?>', '<?php echo $req['request_type']; ?>')" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Delete Request</button>
-                                                                            <?php if ($is_printable): ?>
-                                                                                <a href="<?php echo $print_url; ?>" class="block px-4 py-2 text-sm text-blue-700 hover:bg-blue-50" target="_blank">Print</a>
-                                                                            <?php endif; ?>
+                                                                            <!-- Print handled in Quick View -->
                                                                         </div>
                                                                     </div>
                                                                 </template>
@@ -373,8 +320,8 @@ try {
                                                                 status: '<?php echo addslashes($status_text); ?>',
                                                                 statusBg: '<?php echo addslashes($status_bg); ?>',
                                                                 orNumber: '<?php echo addslashes($req['or_number'] ?? ''); ?>',
-                                                                paymentStatus: '<?php echo $req['payment_status'] ?? 'Unpaid'; ?>',
-                                                                details: <?php echo $req['details'] ? json_encode(json_decode($req['details'], true)) : 'null'; ?>
+                                                                paymentStatus: '<?php echo addslashes($req['payment_status'] ?? 'Unpaid'); ?>',
+                                                                details: <?php echo $req['details'] ? htmlspecialchars(json_encode(json_decode($req['details'], true)), ENT_QUOTES, 'UTF-8') : 'null'; ?>
                                                             })" class="ml-2 inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-600 hover:bg-blue-50 focus:outline-none" title="Quick View">
                                                                 <i class="fas fa-eye"></i>
                                                             </button>
