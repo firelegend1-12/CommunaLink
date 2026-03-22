@@ -233,6 +233,18 @@ try {
             `old_value` TEXT DEFAULT NULL,
             `new_value` TEXT DEFAULT NULL,
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+ 
+        "CREATE TABLE IF NOT EXISTS `notifications` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `user_id` INT(11) NOT NULL,
+            `title` VARCHAR(255) NOT NULL,
+            `message` TEXT NOT NULL,
+            `type` VARCHAR(50) DEFAULT 'general',
+            `is_read` TINYINT(1) DEFAULT 0,
+            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     ];
 
@@ -501,6 +513,29 @@ try {
             $pdo->exec("CREATE INDEX `{$idx['name']}` ON `{$idx['table']}` ({$idx['columns']})");
         }
     }
+
+    // Enhanced Monitoring of Request: Add Payment Columns
+    $pdo->exec("ALTER TABLE `document_requests` 
+                ADD COLUMN IF NOT EXISTS `or_number` VARCHAR(100) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `payment_status` ENUM('Unpaid', 'Paid') DEFAULT 'Unpaid',
+                ADD COLUMN IF NOT EXISTS `payment_date` DATETIME DEFAULT NULL");
+
+    $pdo->exec("ALTER TABLE `business_transactions` 
+                ADD COLUMN IF NOT EXISTS `or_number` VARCHAR(100) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `payment_status` ENUM('Unpaid', 'Paid') DEFAULT 'Unpaid',
+                ADD COLUMN IF NOT EXISTS `payment_date` DATETIME DEFAULT NULL");
+
+    // Notifications Table Migration
+    $pdo->exec("ALTER TABLE `notifications` 
+                ADD COLUMN IF NOT EXISTS `user_id` INT(11) DEFAULT NULL AFTER `id`,
+                ADD COLUMN IF NOT EXISTS `title` VARCHAR(255) DEFAULT NULL AFTER `user_id`,
+                ADD COLUMN IF NOT EXISTS `type` VARCHAR(50) DEFAULT 'general' AFTER `message` ");
+
+    // Sync resident_id to user_id for old records if user_id is null
+    $pdo->exec("UPDATE `notifications` n 
+                JOIN `residents` r ON n.resident_id = r.id 
+                SET n.user_id = r.user_id 
+                WHERE n.user_id IS NULL AND n.resident_id IS NOT NULL");
 
 } catch (PDOException $e) {
     $_SESSION['error_message'] = "Database connection failed: " . $e->getMessage();

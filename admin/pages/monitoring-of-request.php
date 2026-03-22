@@ -20,12 +20,13 @@ try {
     $search_query = isset($_GET['search']) ? sanitize_input($_GET['search']) : '';
     
     // Base queries for both types of requests (details for Quick View: dr.details for docs, synthetic JSON for business)
-    $doc_sql = "SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.status, 'document' as request_type, dr.details 
+    $doc_sql = "SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status 
                 FROM document_requests dr 
                 JOIN residents r ON dr.resident_id = r.id";
 
     $biz_sql = "SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.status, 'business' as request_type, 
-                JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details 
+                JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
+                bt.or_number, bt.payment_status 
                 FROM business_transactions bt 
                 JOIN residents r ON bt.resident_id = r.id";
     
@@ -60,6 +61,46 @@ $document_types = [
     'Certificate of Indigency' => 0.00,
     'Business Clearance' => 500.00,
 ];
+
+// --- Analytics Calculations ---
+$today = date('Y-m-d');
+$stats = [
+    'today_queue' => 0,
+    'workload' => 0,
+    'ready' => 0,
+    'revenue' => 0.00
+];
+
+try {
+    // 1. Queue Today
+    $q_today = $pdo->prepare("SELECT 
+        (SELECT COUNT(*) FROM document_requests WHERE DATE(date_requested) = ?) + 
+        (SELECT COUNT(*) FROM business_transactions WHERE DATE(application_date) = ?) as total");
+    $q_today->execute([$today, $today]);
+    $stats['today_queue'] = $q_today->fetchColumn();
+
+    // 2. Active Workload (Pending + Processing)
+    $q_workload = $pdo->query("SELECT 
+        (SELECT COUNT(*) FROM document_requests WHERE status IN ('Pending', 'Processing')) + 
+        (SELECT COUNT(*) FROM business_transactions WHERE status IN ('PENDING', 'PROCESSING')) as total");
+    $stats['workload'] = $q_workload->fetchColumn();
+
+    // 3. Ready for Pickup
+    $q_ready = $pdo->query("SELECT 
+        (SELECT COUNT(*) FROM document_requests WHERE status = 'Ready for Pickup') + 
+        (SELECT COUNT(*) FROM business_transactions WHERE status = 'READY FOR PICKUP') as total");
+    $stats['ready'] = $q_ready->fetchColumn();
+
+    // 4. Daily Revenue (Paid today)
+    $q_revenue = $pdo->prepare("SELECT 
+        COALESCE((SELECT SUM(price) FROM document_requests WHERE payment_status = 'Paid' AND DATE(payment_date) = ?), 0) + 
+        COALESCE((SELECT SUM(500) FROM business_transactions WHERE payment_status = 'Paid' AND DATE(payment_date) = ?), 0) as total"); // Note: Business clearance price is currently fixed at 500 in this context
+    $q_revenue->execute([$today, $today]);
+    $stats['revenue'] = $q_revenue->fetchColumn();
+
+} catch (PDOException $e) {
+    // Fail silently for stats or log error
+}
 
 ?>
 <!DOCTYPE html>
@@ -109,6 +150,39 @@ $document_types = [
                     unset($_SESSION['error_message']);
                 }
                 ?>
+
+                <!-- Analytics Dashboard -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <!-- Cards -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center space-x-4">
+                        <div class="bg-blue-50 p-3 rounded-xl"><i class="fas fa-file-invoice text-blue-600 text-xl w-6 text-center"></i></div>
+                        <div>
+                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Queue Today</p>
+                            <h4 class="text-2xl font-black text-gray-900"><?= number_format($stats['today_queue']) ?></h4>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center space-x-4">
+                        <div class="bg-amber-50 p-3 rounded-xl"><i class="fas fa-clock text-amber-600 text-xl w-6 text-center"></i></div>
+                        <div>
+                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Workload</p>
+                            <h4 class="text-2xl font-black text-gray-900"><?= number_format($stats['workload']) ?></h4>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center space-x-4">
+                        <div class="bg-green-50 p-3 rounded-xl"><i class="fas fa-check-double text-green-600 text-xl w-6 text-center"></i></div>
+                        <div>
+                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ready</p>
+                            <h4 class="text-2xl font-black text-gray-900"><?= number_format($stats['ready']) ?></h4>
+                        </div>
+                    </div>
+                    <div class="bg-white f rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center space-x-4">
+                        <div class="bg-indigo-50 p-3 rounded-xl"><i class="fas fa-coins text-indigo-600 text-xl w-6 text-center"></i></div>
+                        <div>
+                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Revenue Today</p>
+                            <h4 class="text-2xl font-black text-gray-900">₱<?= number_format($stats['revenue'], 2) ?></h4>
+                        </div>
+                    </div>
+                </div>
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <!-- Left Column: Walk-In Request Form -->
                     <div class="lg:col-span-1">
@@ -234,6 +308,17 @@ $document_types = [
                                                             <span class="status-badge <?php echo $status_bg; ?>">
                                                                 <?php echo $status_text; ?>
                                                             </span>
+                                                            <div class="mt-1">
+                                                                <?php if (($req['payment_status'] ?? 'Unpaid') === 'Paid'): ?>
+                                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
+                                                                        <i class="fas fa-check-circle mr-1"></i> PAID (O.R. <?= htmlspecialchars($req['or_number'] ?? 'N/A') ?>)
+                                                                    </span>
+                                                                <?php else: ?>
+                                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-50 text-gray-500 border border-gray-200">
+                                                                        <i class="fas fa-clock mr-1"></i> UNPAID
+                                                                    </span>
+                                                                <?php endif; ?>
+                                                            </div>
                                                         </td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium relative" data-request-id="<?php echo $req['id']; ?>" data-request-type="<?php echo $req['request_type']; ?>" data-document-type="<?php echo htmlspecialchars($req['document_type']); ?>">
                                                             <div class="relative inline-block text-left" x-data="{ open: false, top: 0, left: 0 }">
@@ -301,6 +386,8 @@ $document_types = [
                                                                 date: '<?php echo addslashes($date); ?>',
                                                                 status: '<?php echo addslashes($status_text); ?>',
                                                                 statusBg: '<?php echo addslashes($status_bg); ?>',
+                                                                orNumber: '<?php echo addslashes($req['or_number'] ?? ''); ?>',
+                                                                paymentStatus: '<?php echo $req['payment_status'] ?? 'Unpaid'; ?>',
                                                                 details: <?php echo $req['details'] ? json_encode(json_decode($req['details'], true)) : 'null'; ?>
                                                             })" class="ml-2 inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-600 hover:bg-blue-50 focus:outline-none" title="Quick View">
                                                                 <i class="fas fa-eye"></i>
@@ -398,6 +485,24 @@ $document_types = [
                                    </template>
                                </div>
                            </div>
+
+                           <!-- Printing Action -->
+                           <div class="border-t border-gray-200 pt-6 mt-8" x-show="selectedReq.status !== 'Rejected' && selectedReq.status !== 'Cancelled' && selectedReq.status !== 'REJECTED'">
+                               <h3 class="text-sm font-medium text-gray-900 mb-3">Document Generation</h3>
+                               <button @click="const templates = {
+                                   'Barangay Clearance': 'barangay-clearance-template.php',
+                                   'Certificate of Residency': 'certificate-of-residency-template.php',
+                                   'Certificate of Indigency': 'certificate-of-indigency-template.php',
+                                   'business': 'business-clearance-template.php'
+                               };
+                               const templateFile = selectedReq.type === 'business' ? templates['business'] : (templates[selectedReq.docType] || 'barangay-clearance-template.php');
+                               window.open(templateFile + '?id=' + selectedReq.id, '_blank');" 
+                               class="w-full bg-blue-50 text-blue-700 border border-blue-100 py-3 rounded-xl text-sm font-black uppercase tracking-widest hover:bg-blue-100 transition flex items-center justify-center">
+                                   <i class="fas fa-print mr-2 text-lg"></i>
+                                   Print Certificate / Clearance
+                               </button>
+                               <p class="text-[10px] text-gray-400 mt-2 text-center">Form will open in a new tab with pre-filled resident data.</p>
+                           </div>
                         </div>
                      </template>
                   </div>
@@ -442,6 +547,32 @@ $document_types = [
                 console.error('Error:', error);
                 alert('Failed to update status. Please try again.');
             });
+    }
+
+    function updatePaymentInfo(id, type, orNumber, status) {
+        const formData = new FormData();
+        formData.append('id', id);
+        formData.append('type', type);
+        formData.append('or_number', orNumber);
+        formData.append('payment_status', status);
+
+        fetch('../partials/update-payment-info.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Failed to update payment: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        });
     }
 
     function cancelRequest(id, type) {

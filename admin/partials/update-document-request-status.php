@@ -73,6 +73,24 @@ try {
         $new_str
     );
 
+    // Create Notification for the resident
+    $stmt_user = $pdo->prepare("SELECT user_id FROM residents WHERE id = ?");
+    $stmt_user->execute([$resident_id]);
+    $res_user_id = $stmt_user->fetchColumn();
+
+    if ($res_user_id) {
+        $title = "Request Update: " . $document_type;
+        $message = "Your request for " . $document_type . " has been updated to: **" . $status . "**. ";
+        
+        if ($status === 'Ready for Pickup') {
+            $message .= "Please visit the Barangay Hall to claim your document.";
+        } elseif ($status === 'Rejected') {
+            $message .= "Reason: " . ($req['remarks'] ?? 'Please contact the office for more details.');
+        }
+
+        create_notification($pdo, $res_user_id, $title, $message, 'request_status');
+    }
+
 
     
     echo json_encode(['success' => true]);

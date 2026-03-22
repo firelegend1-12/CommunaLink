@@ -164,6 +164,26 @@ try {
         $old_status,
         $status
     );
+
+    // Create Notification for the resident
+    $stmt_user = $pdo->prepare("SELECT user_id FROM residents WHERE id = ?");
+    $stmt_user->execute([$transaction['resident_id']]);
+    $res_user_id = $stmt_user->fetchColumn();
+
+    if ($res_user_id) {
+        $title = "Business Permit Update: " . $transaction['business_name'];
+        $message = "Your request for " . $transaction['transaction_type'] . " for **" . $transaction['business_name'] . "** has been updated to: **" . $status . "**. ";
+        
+        if ($status === 'READY FOR PICKUP') {
+            $message .= "Please visit the Barangay Hall to claim your permit.";
+        } elseif ($status === 'REJECTED') {
+            $message .= "Reason: " . ($transaction['remarks'] ?? 'Please contact the office for more details.');
+        } elseif ($status === 'APPROVED') {
+            $message .= "Your business permit is now active. You can view your record in the Business section.";
+        }
+
+        create_notification($pdo, $res_user_id, $title, $message, 'request_status');
+    }
     
     if ($is_ajax) {
         header('Content-Type: application/json');
