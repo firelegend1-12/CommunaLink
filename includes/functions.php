@@ -389,7 +389,13 @@ function insert_activity_log_entry($pdo, $user_id, $username, $action, $target_t
                 }
             }
         }
+    } catch (Throwable $e) {
+        // If hash chain lookup fails, start fresh with empty previous hash.
+        // Next log entry will begin a new chain segment.
+        $previous_hash = '';
+    }
 
+    try {
         $chain_hash = build_log_chain_hash([
             'user_id' => $user_id,
             'username' => $username,
@@ -406,7 +412,8 @@ function insert_activity_log_entry($pdo, $user_id, $username, $action, $target_t
             'new_value' => $new_value,
         ], $previous_hash);
     } catch (Throwable $e) {
-        $previous_hash = '';
+        // If hash computation fails, set to empty. The log will still be written but without chain integrity.
+        // This is better than losing the log entry entirely.
         $chain_hash = '';
     }
 

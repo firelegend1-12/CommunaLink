@@ -29,6 +29,18 @@ if (!csrf_validate()) {
 $action_mode = sanitize_input($_POST['action_mode'] ?? 'single');
 
 try {
+    if ($action_mode === 'cleanup_expired') {
+        $expired_count = clear_expired_active_sessions_with_audit($pdo, 'admin_manual');
+
+        if ($expired_count > 0) {
+            $_SESSION['success_message'] = sprintf('Expired session cleanup completed: %d session(s) marked inactive.', $expired_count);
+        } else {
+            $_SESSION['warning_message'] = 'No expired active sessions were found.';
+        }
+
+        redirect_to('../pages/user-management.php');
+    }
+
     if ($action_mode === 'bulk_idle') {
         $idle_minutes = filter_input(INPUT_POST, 'idle_minutes', FILTER_VALIDATE_INT);
         if (!$idle_minutes) {

@@ -12,6 +12,7 @@ if ($_SESSION['role'] !== 'admin') {
 }
 
 $page_title = "User Management";
+$live_sessions_csrf_token = csrf_token();
 
 try {
     // Get stats
@@ -57,7 +58,6 @@ try {
                                                                                                         aus.user_id,
                                                                                                         aus.role,
                                                                                                         aus.ip_address,
-                                                                                                        aus.started_at,
                                                                                                         aus.last_seen_at,
                                                                                                         aus.expires_at,
                                                                                                         u.username,
@@ -221,10 +221,11 @@ try {
                         <div class="absolute -right-4 -bottom-4 opacity-10 rotate-12"><i class="fas fa-network-wired text-7xl"></i></div>
                         <p class="text-[10px] font-black text-indigo-100 uppercase tracking-widest mb-2">Live Session Slots</p>
                         <div class="space-y-1">
-                            <p class="text-sm font-bold">Admins: <span class="text-white/90"><?php echo $active_admin_sessions; ?> / <?php echo $admin_session_cap; ?></span></p>
-                            <p class="text-sm font-bold">Officials: <span class="text-white/90"><?php echo $active_official_sessions; ?> / <?php echo $official_session_cap; ?></span></p>
-                            <p class="text-[10px] uppercase tracking-widest font-black text-indigo-100">Auto-Kick Duplicate: <?php echo $auto_kick_duplicate_enabled ? 'Enabled' : 'Disabled'; ?></p>
-                            <p class="text-[10px] text-indigo-100 font-bold opacity-90 uppercase tracking-widest mt-2">Total Active Sessions: <?php echo $active_total_sessions; ?></p>
+                            <p class="text-sm font-bold">Admins: <span id="live-admin-count" class="text-white/90"><?php echo $active_admin_sessions; ?></span> / <span id="live-admin-cap" class="text-white/90"><?php echo $admin_session_cap; ?></span></p>
+                            <p class="text-sm font-bold">Officials: <span id="live-official-count" class="text-white/90"><?php echo $active_official_sessions; ?></span> / <span id="live-official-cap" class="text-white/90"><?php echo $official_session_cap; ?></span></p>
+                            <p class="text-[10px] uppercase tracking-widest font-black text-indigo-100">Auto-Kick Duplicate: <span id="live-auto-kick-state"><?php echo $auto_kick_duplicate_enabled ? 'Enabled' : 'Disabled'; ?></span></p>
+                            <p class="text-[10px] text-indigo-100 font-bold opacity-90 uppercase tracking-widest mt-2">Total Active Sessions: <span id="live-total-count"><?php echo $active_total_sessions; ?></span></p>
+                            <p class="text-[10px] text-indigo-100/90 font-bold uppercase tracking-widest">Last Refresh: <span id="live-refresh-time">Initial</span></p>
                             <a href="logs.php?quick_filter=session_events" class="inline-flex items-center mt-2 text-[10px] font-black uppercase tracking-widest text-white/90 hover:text-white underline">
                                 Open Session Audit Logs
                             </a>
@@ -342,6 +343,12 @@ try {
                             <p class="text-xs text-slate-500 mt-1">Terminate stale or blocked slots to free capacity immediately.</p>
                         </div>
                         <div class="flex items-center gap-3">
+                            <form action="../partials/revoke-session-handler.php" method="POST" class="inline" onsubmit="return confirm('Run expired session cleanup now?');">
+                                <?php echo csrf_field(); ?>
+                                <input type="hidden" name="action_mode" value="cleanup_expired">
+                                <button type="submit" class="bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition">Cleanup Expired</button>
+                            </form>
+
                             <form action="../partials/revoke-session-handler.php" method="POST" class="flex items-center gap-2" onsubmit="return confirm('Terminate all idle sessions older than selected minutes?');">
                                 <?php echo csrf_field(); ?>
                                 <input type="hidden" name="action_mode" value="bulk_idle">
@@ -350,7 +357,7 @@ try {
                                 <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">minutes</span>
                                 <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition">Terminate Idle</button>
                             </form>
-                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Showing <?php echo count($active_sessions); ?> active session(s)</span>
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Showing <span id="active-session-count"><?php echo count($active_sessions); ?></span> active session(s)</span>
                         </div>
                     </div>
 
@@ -366,7 +373,7 @@ try {
                                     <th class="px-6 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Action</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-50">
+                            <tbody id="active-sessions-body" class="divide-y divide-slate-50">
                                 <?php if (empty($active_sessions)): ?>
                                     <tr>
                                         <td colspan="6" class="px-6 py-8 text-center text-slate-400 italic font-medium">No active tracked sessions.</td>
@@ -406,5 +413,123 @@ try {
             </main>
         </div>
     </div>
+
+    <script>
+    (function () {
+        var endpoint = '../partials/active-sessions-data.php';
+        var currentSessionId = <?php echo json_encode(session_id()); ?>;
+        var csrfToken = <?php echo json_encode($live_sessions_csrf_token); ?>;
+        var pollingIntervalMs = <?php echo json_encode((int) env('POLLING_INTERVAL_MS', 15000), JSON_NUMERIC_CHECK); ?>; // Configurable via .env
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function formatDateTime(input) {
+            if (!input) {
+                return '-';
+            }
+
+            var normalized = input.replace(' ', 'T');
+            var parsed = new Date(normalized);
+            if (Number.isNaN(parsed.getTime())) {
+                return input;
+            }
+
+            return parsed.toLocaleString([], {
+                month: 'short',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+        function updateCounters(data) {
+            document.getElementById('live-admin-count').textContent = data.counts.admin;
+            document.getElementById('live-official-count').textContent = data.counts.official;
+            document.getElementById('live-total-count').textContent = data.counts.total;
+            document.getElementById('live-admin-cap').textContent = data.caps.admin;
+            document.getElementById('live-official-cap').textContent = data.caps.official;
+            document.getElementById('live-auto-kick-state').textContent = data.policy.auto_kick_duplicate_enabled ? 'Enabled' : 'Disabled';
+            document.getElementById('active-session-count').textContent = data.sessions.length;
+            document.getElementById('live-refresh-time').textContent = formatDateTime(data.refreshed_at);
+        }
+
+        function buildTerminateForm(sessionId, sessionRecordId) {
+            if (sessionId === currentSessionId) {
+                return '<span class="text-[10px] px-2 py-1 rounded-lg bg-slate-100 text-slate-500 font-black uppercase tracking-widest">Current Session</span>';
+            }
+
+            return '<form action="../partials/revoke-session-handler.php" method="POST" class="inline" onsubmit="return confirm(\'Terminate this active session now?\');">'
+                + '<input type="hidden" name="csrf_token" value="' + escapeHtml(csrfToken) + '">'
+                + '<input type="hidden" name="action_mode" value="single">'
+                + '<input type="hidden" name="session_record_id" value="' + Number(sessionRecordId) + '">'
+                + '<button type="submit" class="text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-200 transition">Terminate</button>'
+                + '</form>';
+        }
+
+        function updateActiveSessionsTable(data) {
+            var tbody = document.getElementById('active-sessions-body');
+            if (!tbody) {
+                return;
+            }
+
+            if (!data.sessions.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-slate-400 italic font-medium">No active tracked sessions.</td></tr>';
+                return;
+            }
+
+            var html = '';
+            data.sessions.forEach(function (sessionRow) {
+                html += '<tr class="hover:bg-indigo-50/20 transition">';
+                html += '<td class="px-6 py-3"><div class="text-sm font-bold text-slate-900">' + escapeHtml(sessionRow.fullname || 'Unknown User') + '</div>';
+                html += '<div class="text-[10px] text-slate-400 font-bold uppercase tracking-tight">@' + escapeHtml(sessionRow.username || 'unknown') + '</div></td>';
+                html += '<td class="px-6 py-3 text-xs font-bold text-slate-600">' + escapeHtml(sessionRow.role_display || sessionRow.role || '') + '</td>';
+                html += '<td class="px-6 py-3 text-xs text-slate-500">' + escapeHtml(sessionRow.ip_address || '-') + '</td>';
+                html += '<td class="px-6 py-3 text-xs text-slate-600">' + escapeHtml(formatDateTime(sessionRow.last_seen_at)) + '</td>';
+                html += '<td class="px-6 py-3 text-xs text-slate-600">' + escapeHtml(formatDateTime(sessionRow.expires_at)) + '</td>';
+                html += '<td class="px-6 py-3 text-right">' + buildTerminateForm(sessionRow.session_id, sessionRow.id) + '</td>';
+                html += '</tr>';
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function refreshActiveSessions() {
+            fetch(endpoint, {
+                credentials: 'same-origin',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch active sessions.');
+                    }
+                    return response.json();
+                })
+                .then(function (data) {
+                    if (!data || !data.success) {
+                        return;
+                    }
+
+                    updateCounters(data);
+                    updateActiveSessionsTable(data);
+                })
+                .catch(function () {
+                    // Keep existing UI if refresh fails.
+                });
+        }
+
+        setInterval(refreshActiveSessions, pollingIntervalMs);
+        refreshActiveSessions();
+    })();
+    </script>
 </body>
 </html>

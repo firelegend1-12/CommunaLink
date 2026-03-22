@@ -85,6 +85,25 @@ function clear_expired_active_sessions($pdo) {
                             AND expires_at IS NOT NULL
                             AND expires_at < NOW()");
     $stmt->execute();
+
+    return (int) $stmt->rowCount();
+}
+
+function clear_expired_active_sessions_with_audit($pdo, $source = 'runtime') {
+    $expired_count = clear_expired_active_sessions($pdo);
+    if ($expired_count > 0) {
+        log_session_event_row(
+            $pdo,
+            null,
+            'system',
+            'expire',
+            sprintf('Expired active sessions cleanup (%s): %d row(s) marked inactive.', (string) $source, $expired_count),
+            'warning',
+            null
+        );
+    }
+
+    return $expired_count;
 }
 
 function log_concurrency_denial($pdo, $user, $scope, $cap, $active_count) {
@@ -121,6 +140,8 @@ function log_concurrency_denial($pdo, $user, $scope, $cap, $active_count) {
 }
 
 function log_session_event_row($pdo, $user_id, $username, $action, $details, $severity = 'warning', $session_id = null) {
+    // Log session lifecycle events (login, logout, auto-kick, expiration, revocation).
+    // Default severity is 'warning' for forced terminations; can be overridden to 'info' for voluntary logouts.
     try {
         log_activity_db_system(
             $pdo,
@@ -214,7 +235,7 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
     try {
         $pdo->beginTransaction();
 
-        clear_expired_active_sessions($pdo);
+        clear_expired_active_sessions_with_audit($pdo, 'session_admission');
         kick_duplicate_sessions_for_user($pdo, $user, $session_id);
 
         if ($concurrency_caps_enabled && is_admin_role($role)) {
@@ -299,7 +320,26 @@ function refresh_active_session_heartbeat($pdo, $session_id, $session_lifetime_s
                             AND (ended_reason IS NULL OR ended_reason = '')");
     $stmt->execute([$expires_at, $session_id]);
 
-    return ((int) $stmt->rowCount()) > 0;
+    $affected = (int) $stmt->rowCount();
+    
+    // If no rows were affected, check if the session exists but is_active = 0 (revoked)
+    if ($affected === 0) {
+        $check_stmt = $pdo->prepare("SELECT is_active, ended_reason FROM active_user_sessions WHERE session_id = ? LIMIT 1");
+        $check_stmt->execute([$session_id]);
+        $session_record = $check_stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($session_record) {
+            // Session exists but is inactive (revoked/expired by admin)
+            if ((int) $session_record['is_active'] === 0) {
+                return false;  // Signal that user should be logged out
+            }
+        }
+        // Session doesn't exist in table yet (e.g., from older session or registration skipped)
+        // Gracefully allow the user to continue; tracking will be re-registered on next page
+        return true;
+    }
+
+    return true;
 }
 
 function deactivate_active_session($pdo, $session_id, $reason = 'logout') {
@@ -330,6 +370,7 @@ function deactivate_active_session($pdo, $session_id, $reason = 'logout') {
             'logout' => 'logout',
         ];
         $event_action = $action_map[$reason] ?? 'session_end';
+        // Severity mapping: normal logout is 'info', forced terminations are 'warning'
         $event_severity = in_array($reason, ['expired', 'revoked_by_admin', 'duplicate_kick'], true) ? 'warning' : 'info';
         $event_details = sprintf('Session ended with reason=%s role=%s', $reason, (string) ($session_row['role'] ?? 'unknown'));
 
@@ -452,6 +493,9 @@ function is_logged_in() {
             $session_lifetime = (int)env('SESSION_LIFETIME', 5 * 60); // 5 minutes for regular users
         }
         
+        // Ensure session_lifetime has a reasonable minimum
+        $session_lifetime = max(60, (int) $session_lifetime);
+        
         if ((time() - $_SESSION['last_activity']) < $session_lifetime) {
             $_SESSION['last_activity'] = time();
 
@@ -459,15 +503,22 @@ function is_logged_in() {
             if (isset($pdo) && $pdo instanceof PDO) {
                 try {
                     if (is_session_policy_tracked_role($user_role)) {
-                        clear_expired_active_sessions($pdo);
-                        $heartbeat_ok = refresh_active_session_heartbeat($pdo, session_id(), $session_lifetime);
-                        if (!$heartbeat_ok) {
+                        // Only enforce heartbeat for tracked roles (admin/official)
+                        // Silence all errors to prevent unexpected logouts
+                        @clear_expired_active_sessions_with_audit($pdo, 'heartbeat');
+                        @$heartbeat_ok = refresh_active_session_heartbeat($pdo, session_id(), $session_lifetime);
+                        
+                        // Only logout if heartbeat explicitly returns FALSE (session revoked)
+                        // This prevents logouts due to missing session records or other transient issues
+                        if ($heartbeat_ok === false) {
                             logout('revoked_by_admin');
                             return false;
                         }
                     }
                 } catch (Throwable $e) {
-                    // Ignore heartbeat update failures to avoid breaking user flow.
+                    // Log the error for debugging but don't break the user session
+                    error_log("Session heartbeat error for user {$_SESSION['username']}: " . $e->getMessage());
+                    // Continue - user session remains valid even if heartbeat fails
                 }
             }
 

@@ -105,3 +105,13 @@ ADMIN_MAX_USERS=5
 
 The system falls back to defaults if `.env` is missing, but you should create `.env` for security.
 
+### Recommended Session Cleanup Automation
+
+Set up a scheduled task to run expired-session cleanup periodically:
+
+```bash
+php cron_cleanup_active_sessions.php
+```
+
+For Windows Task Scheduler, run every 5 to 10 minutes to keep active-session records clean and up to date.
+
