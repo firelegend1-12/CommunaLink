@@ -442,6 +442,23 @@ try {
     // Note: If admin account already exists, it keeps its existing password
     // Current working password appears to be: admin123
 
+    // --- Schema Migration for post_reactions ---
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `post_reactions` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `post_id` INT(11) NOT NULL,
+            `resident_id` INT(11) NOT NULL,
+            `reaction_type` ENUM('like', 'acknowledge') NOT NULL,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `unique_reaction` (`post_id`, `resident_id`, `reaction_type`),
+            CONSTRAINT `fk_reactions_post` FOREIGN KEY (`post_id`) REFERENCES `announcements`(`id`) ON DELETE CASCADE,
+            CONSTRAINT `fk_reactions_resident` FOREIGN KEY (`resident_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    } catch (Exception $e) {
+        // Ignore if error
+    }
+
     // --- End of Migration and Seeding ---
 
     // --- Schema Migration for activity_logs ---

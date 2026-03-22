@@ -74,6 +74,7 @@ try {
         showEditModal: false, 
         showDeleteModal: false,
         isEvent: false,
+        isScheduled: false,
         editingPost: null,
         postToDelete: null
     }">
@@ -247,7 +248,12 @@ try {
                                                 'event_date' => (string) ($ann['event_date'] ?? ''),
                                                 'event_time' => (string) ($ann['event_time'] ?? ''),
                                                 'event_location' => (string) ($ann['event_location'] ?? ''),
-                                                'event_type' => (string) ($ann['event_type'] ?? '')
+                                                'event_type' => (string) ($ann['event_type'] ?? ''),
+                                                'target_audience' => (string) ($ann['target_audience'] ?? 'all'),
+                                                'publish_date_only' => $ann['publish_date'] ? date('Y-m-d', strtotime($ann['publish_date'])) : '',
+                                                'publish_time_only' => $ann['publish_date'] ? date('H:i', strtotime($ann['publish_date'])) : '',
+                                                'expiry_date_only' => $ann['expiry_date'] ? date('Y-m-d', strtotime($ann['expiry_date'])) : '',
+                                                'is_scheduled' => $ann['publish_date'] && strtotime($ann['publish_date']) > strtotime($ann['created_at'])
                                             ];
                                             $edit_payload_json = json_encode(
                                                 $edit_payload,
@@ -281,9 +287,29 @@ try {
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <span class="px-2.5 py-1 text-[10px] font-black uppercase rounded-lg shadow-sm border <?= $ann['is_event'] ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-slate-100 text-slate-600 border-slate-200' ?>">
-                                                    <?= $ann['is_event'] ? 'Event' : 'Announcement' ?>
-                                                </span>
+                                                <div class="flex flex-col gap-1.5">
+                                                    <?php 
+                                                        $now = time();
+                                                        $publish_time = $ann['publish_date'] ? strtotime($ann['publish_date']) : 0;
+                                                        $expiry_time = $ann['expiry_date'] ? strtotime($ann['expiry_date']) : 0;
+                                                        $is_expired = $expiry_time > 0 && $expiry_time < $now;
+                                                        $is_scheduled = $publish_time > $now;
+                                                        
+                                                        if ($ann['status'] === 'draft'): 
+                                                    ?>
+                                                        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200 uppercase tracking-tighter">Draft</span>
+                                                    <?php elseif ($is_expired): ?>
+                                                        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black bg-rose-50 text-rose-600 border border-rose-100 uppercase tracking-tighter">Expired</span>
+                                                    <?php elseif ($is_scheduled): ?>
+                                                        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-100 uppercase tracking-tighter">Scheduled</span>
+                                                    <?php else: ?>
+                                                        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-tighter">Active</span>
+                                                    <?php endif; ?>
+                                                    
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-black bg-indigo-50 text-indigo-500 border border-indigo-100 uppercase tracking-tighter self-start">
+                                                        <?= $ann['is_event'] ? 'Event' : 'Announcement' ?>
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <span class="inline-flex items-center text-[10px] font-black uppercase tracking-widest <?= $ann['priority'] === 'urgent' ? 'text-amber-600' : 'text-indigo-400' ?>">
@@ -299,11 +325,23 @@ try {
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <div class="text-sm font-bold text-slate-700"><?= htmlspecialchars($ann['author_name']) ?></div>
-                                                <div class="text-[10px] text-slate-400 italic">Administrator</div>
+                                                <div class="flex items-center gap-1.5 mt-0.5 text-slate-400">
+                                                    <i class="fas fa-users text-[8px]"></i>
+                                                    <span class="text-[9px] font-bold uppercase tracking-tighter">
+                                                        <?php
+                                                            $aud = $ann['target_audience'] ?? 'all';
+                                                            if ($aud === 'all') echo 'Everyone';
+                                                            elseif ($aud === 'residents') echo 'Residents';
+                                                            elseif ($aud === 'business') echo 'Business Owners';
+                                                            elseif (str_starts_with($aud, 'purok_')) echo 'Purok ' . str_replace('purok_', '', $aud);
+                                                            else echo ucfirst($aud);
+                                                        ?>
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-right">
                                                 <div class="flex items-center justify-end space-x-2">
-                                                    <button @click='showEditModal = true; editingPost = <?= $edit_payload_json ?>; isEvent = editingPost.is_event' class="text-indigo-600 hover:bg-indigo-100 p-2 rounded-xl transition shadow-sm group/btn" title="Edit Post">
+                                                    <button @click='showEditModal = true; editingPost = <?= $edit_payload_json ?>; isEvent = editingPost.is_event; isScheduled = editingPost.is_scheduled' class="text-indigo-600 hover:bg-indigo-100 p-2 rounded-xl transition shadow-sm group/btn" title="Edit Post">
                                                         <i class="fas fa-pen-nib"></i>
                                                     </button>
                                                     
@@ -391,6 +429,54 @@ try {
                             </div>
                             
                             <div class="grid grid-cols-2 gap-4">
+                                <div class="col-span-2 sm:col-span-1">
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Target Audience</label>
+                                    <div class="relative">
+                                        <select name="target_audience" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                                            <option value="all">Everyone (Public)</option>
+                                            <option value="residents">Registered Residents</option>
+                                            <option value="business">Business Owners Only</option>
+                                            <option value="purok_1">Purok 1 Residents</option>
+                                            <option value="purok_2">Purok 2 Residents</option>
+                                            <option value="purok_3">Purok 3 Residents</option>
+                                            <option value="purok_4">Purok 4 Residents</option>
+                                            <option value="purok_5">Purok 5 Residents</option>
+                                            <option value="purok_6">Purok 6 Residents</option>
+                                            <option value="purok_7">Purok 7 Residents</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-span-2 sm:col-span-1">
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Post Expiry (Optional)</label>
+                                    <input type="date" name="expiry_date" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 transition">
+                                </div>
+                            </div>
+
+                            <div class="p-6 rounded-3xl bg-indigo-50/30 border border-indigo-100/50 space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="block text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">Scheduled Publishing</label>
+                                        <p class="text-[10px] text-slate-400 font-medium italic">Post will go live at the selected time</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" name="is_scheduled" x-model="isScheduled" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    </label>
+                                </div>
+                                
+                                <div x-show="isScheduled" x-transition class="grid grid-cols-2 gap-4 pt-2">
+                                    <div>
+                                        <label class="block text-[10px] font-black text-slate-400 uppercase mb-2">Publish Date</label>
+                                        <input type="date" name="publish_date" class="w-full bg-white border border-indigo-100 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-black text-slate-400 uppercase mb-2">Publish Time</label>
+                                        <input type="time" name="publish_time" class="w-full bg-white border border-indigo-100 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
                                 <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
                                     <span class="text-xs font-bold text-slate-600">Urgent Alert</span>
                                     <label class="relative inline-flex items-center cursor-pointer">
@@ -455,6 +541,52 @@ try {
                                 <div>
                                     <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1" x-text="isEvent ? 'Event Description' : 'Content Body'"></label>
                                     <textarea name="content" rows="4" x-model="editingPost.content" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition shadow-sm"></textarea>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="col-span-2 sm:col-span-1">
+                                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Target Audience</label>
+                                        <select name="target_audience" x-model="editingPost.target_audience" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                                            <option value="all">Everyone (Public)</option>
+                                            <option value="residents">Registered Residents</option>
+                                            <option value="business">Business Owners Only</option>
+                                            <option value="purok_1">Purok 1 Residents</option>
+                                            <option value="purok_2">Purok 2 Residents</option>
+                                            <option value="purok_3">Purok 3 Residents</option>
+                                            <option value="purok_4">Purok 4 Residents</option>
+                                            <option value="purok_5">Purok 5 Residents</option>
+                                            <option value="purok_6">Purok 6 Residents</option>
+                                            <option value="purok_7">Purok 7 Residents</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-span-2 sm:col-span-1">
+                                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Post Expiry (Optional)</label>
+                                        <input type="date" name="expiry_date" x-model="editingPost.expiry_date_only" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 transition">
+                                    </div>
+                                </div>
+
+                                <div class="p-6 rounded-3xl bg-indigo-50/30 border border-indigo-100/50 space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <label class="block text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">Scheduled Publishing</label>
+                                            <p class="text-[10px] text-slate-400 font-medium italic">Post will go live at the selected time</p>
+                                        </div>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" name="is_scheduled" x-model="isScheduled" class="sr-only peer">
+                                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                        </label>
+                                    </div>
+                                    
+                                    <div x-show="isScheduled" x-transition class="grid grid-cols-2 gap-4 pt-2">
+                                        <div>
+                                            <label class="block text-[10px] font-black text-slate-400 uppercase mb-2">Publish Date</label>
+                                            <input type="date" name="publish_date" x-model="editingPost.publish_date_only" class="w-full bg-white border border-indigo-100 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-black text-slate-400 uppercase mb-2">Publish Time</label>
+                                            <input type="time" name="publish_time" x-model="editingPost.publish_time_only" class="w-full bg-white border border-indigo-100 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- Event Specific Fields (Conditional) -->

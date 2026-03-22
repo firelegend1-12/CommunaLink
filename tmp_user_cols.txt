@@ -1,0 +1,8 @@
+- id (int(11))
+- username (varchar(50))
+- password (varchar(255))
+- fullname (varchar(100))
+- email (varchar(100))
+- role (enum('admin','resident','barangay-captain','kagawad','barangay-secretary','barangay-treasurer','barangay-tanod'))
+- created_at (datetime)
+- last_login (datetime)

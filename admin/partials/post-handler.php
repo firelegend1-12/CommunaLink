@@ -82,6 +82,19 @@ if (isset($_POST['add_post'])) {
     $status = validate_post_status(sanitize_input($_POST['status'] ?? 'active'));
     $is_urgent = isset($_POST['is_urgent']) ? 1 : 0;
     $priority = $is_urgent ? 'urgent' : 'normal';
+    $target_audience = sanitize_input($_POST['target_audience'] ?? 'all');
+    
+    // Scheduling and Expiry
+    $is_scheduled = isset($_POST['is_scheduled']) ? 1 : 0;
+    $publish_date = null;
+    if ($is_scheduled && !empty($_POST['publish_date'])) {
+        $publish_time = !empty($_POST['publish_time']) ? $_POST['publish_time'] : '00:00';
+        $publish_date = $_POST['publish_date'] . ' ' . $publish_time . ':00';
+    } else {
+        $publish_date = date('Y-m-d H:i:s');
+    }
+
+    $expiry_date = !empty($_POST['expiry_date']) ? $_POST['expiry_date'] . ' 23:59:59' : null;
     
     // Event specific fields
     $is_event = isset($_POST['is_event']) ? 1 : 0;
@@ -99,10 +112,10 @@ if (isset($_POST['add_post'])) {
     try {
         $image_path = upload_post_image($_FILES['image'] ?? null);
 
-        $sql = "INSERT INTO announcements (user_id, title, content, image_path, status, priority, is_event, event_date, event_time, event_location, event_type) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO announcements (user_id, title, content, image_path, status, priority, target_audience, publish_date, expiry_date, is_event, event_date, event_time, event_location, event_type) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$user_id, $title, $content, $image_path, $status, $priority, $is_event, $event_date, $event_time, $event_location, $event_type]);
+        $stmt->execute([$user_id, $title, $content, $image_path, $status, $priority, $target_audience, $publish_date, $expiry_date, $is_event, $event_date, $event_time, $event_location, $event_type]);
         
         $post_id = $pdo->lastInsertId();
         $type_label = $is_event ? 'event' : 'announcement';
@@ -128,6 +141,21 @@ if (isset($_POST['update_post'])) {
     $status = validate_post_status(sanitize_input($_POST['status'] ?? 'active'));
     $is_urgent = isset($_POST['is_urgent']) ? 1 : 0;
     $priority = $is_urgent ? 'urgent' : 'normal';
+    $target_audience = sanitize_input($_POST['target_audience'] ?? 'all');
+
+    // Scheduling and Expiry
+    $is_scheduled = isset($_POST['is_scheduled']) ? 1 : 0;
+    $publish_date = null;
+    if ($is_scheduled && !empty($_POST['publish_date'])) {
+        $publish_time = !empty($_POST['publish_time']) ? $_POST['publish_time'] : '00:00';
+        $publish_date = $_POST['publish_date'] . ' ' . $publish_time . ':00';
+    } else {
+        // If not scheduled, but it was previously scheduled, we might want to keep the old publish_date or reset to now
+        // For simplicity, if they uncheck "scheduled", we'll set it to NOW if they are making it active
+        $publish_date = ($status === 'active') ? date('Y-m-d H:i:s') : null;
+    }
+
+    $expiry_date = !empty($_POST['expiry_date']) ? $_POST['expiry_date'] . ' 23:59:59' : null;
     
     // Event specific fields
     $is_event = isset($_POST['is_event']) ? 1 : 0;
@@ -158,10 +186,11 @@ if (isset($_POST['update_post'])) {
 
         $sql = "UPDATE announcements SET 
                 title = ?, content = ?, status = ?, priority = ?, image_path = ?, 
+                target_audience = ?, publish_date = ?, expiry_date = ?,
                 is_event = ?, event_date = ?, event_time = ?, event_location = ?, event_type = ? 
                 WHERE id = ?";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$title, $content, $status, $priority, $image_path, $is_event, $event_date, $event_time, $event_location, $event_type, $post_id]);
+        $stmt->execute([$title, $content, $status, $priority, $image_path, $target_audience, $publish_date, $expiry_date, $is_event, $event_date, $event_time, $event_location, $event_type, $post_id]);
         
         log_activity_db($pdo, 'edit', $is_event ? 'event' : 'announcement', $post_id, "Updated post", null, "Title: $title");
 
