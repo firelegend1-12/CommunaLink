@@ -11,23 +11,28 @@ $user_role = $_SESSION['role'] ?? 'resident';
 $user_purok = $_SESSION['purok'] ?? null;
 
 try {
-    // 1. Fetch current user context if missing
-    if ($user_id && ($user_role === 'resident' || !$user_purok)) {
-        $stmt_u = $pdo->prepare("SELECT role, purok_number FROM users WHERE id = ?");
-        $stmt_u->execute([$user_id]);
-        $user_data = $stmt_u->fetch(PDO::FETCH_ASSOC);
-        if ($user_data) {
-            $user_role = $user_data['role'];
-            $user_purok = $user_data['purok_number'];
-        }
-    }
+    // 1. Fetch current user context for targeting
+    $stmt_context = $pdo->prepare("
+        SELECT u.role, r.address 
+        FROM users u 
+        LEFT JOIN residents r ON u.id = r.user_id 
+        WHERE u.id = ?
+    ");
+    $stmt_context->execute([$user_id]);
+    $user_context = $stmt_context->fetch(PDO::FETCH_ASSOC);
+    
+    $user_role = $user_context['role'] ?? 'resident';
+    $user_address = $user_context['address'] ?? null;
 
     // 2. Fetch Unified Posts (Announcements & Events)
     // Respect Status, Scheduling, Expiry, and Target Audience
     $target_queries = ["'all'"];
     if ($user_role === 'resident') $target_queries[] = "'residents'";
-    if ($user_role === 'business_owner' || $user_role === 'admin') $target_queries[] = "'business'"; // or whatever business role name is
-    if ($user_purok) $target_queries[] = "'purok_" . $user_purok . "'";
+    if ($user_role === 'business_owner' || $user_role === 'admin') $target_queries[] = "'business'";
+    
+    if ($user_address) {
+        $target_queries[] = $pdo->quote($user_address);
+    }
     
     $target_sql = implode(',', $target_queries);
 

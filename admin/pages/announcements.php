@@ -13,6 +13,10 @@ $page_title = "Manage Announcements";
 $status_filter   = isset($_GET['status'])   ? sanitize_input($_GET['status'])   : '';
 $priority_filter = isset($_GET['priority']) ? sanitize_input($_GET['priority']) : '';
 
+// Fetch unique resident addresses for targeting
+$stmt_addr = $pdo->query("SELECT DISTINCT address FROM residents WHERE user_id IS NOT NULL AND address != '' ORDER BY address ASC");
+$resident_addresses = $stmt_addr->fetchAll(PDO::FETCH_COLUMN);
+
 try {
     // Build query with filters
     $sql = "SELECT a.*, u.fullname as author_name FROM announcements a JOIN users u ON a.user_id = u.id WHERE 1=1";
@@ -334,7 +338,7 @@ try {
                                                             elseif ($aud === 'residents') echo 'Residents';
                                                             elseif ($aud === 'business') echo 'Business Owners';
                                                             elseif (str_starts_with($aud, 'purok_')) echo 'Purok ' . str_replace('purok_', '', $aud);
-                                                            else echo ucfirst($aud);
+                                                            else echo htmlspecialchars(strlen($aud) > 20 ? substr($aud, 0, 17) . '...' : $aud);
                                                         ?>
                                                     </span>
                                                 </div>
@@ -436,13 +440,11 @@ try {
                                             <option value="all">Everyone (Public)</option>
                                             <option value="residents">Registered Residents</option>
                                             <option value="business">Business Owners Only</option>
-                                            <option value="purok_1">Purok 1 Residents</option>
-                                            <option value="purok_2">Purok 2 Residents</option>
-                                            <option value="purok_3">Purok 3 Residents</option>
-                                            <option value="purok_4">Purok 4 Residents</option>
-                                            <option value="purok_5">Purok 5 Residents</option>
-                                            <option value="purok_6">Purok 6 Residents</option>
-                                            <option value="purok_7">Purok 7 Residents</option>
+                                            <optgroup label="Specific Addresses">
+                                                <?php foreach ($resident_addresses as $addr): ?>
+                                                    <option value="<?= htmlspecialchars($addr) ?>"><?= htmlspecialchars($addr) ?></option>
+                                                <?php endforeach; ?>
+                                            </optgroup>
                                         </select>
                                     </div>
                                 </div>
@@ -550,13 +552,11 @@ try {
                                             <option value="all">Everyone (Public)</option>
                                             <option value="residents">Registered Residents</option>
                                             <option value="business">Business Owners Only</option>
-                                            <option value="purok_1">Purok 1 Residents</option>
-                                            <option value="purok_2">Purok 2 Residents</option>
-                                            <option value="purok_3">Purok 3 Residents</option>
-                                            <option value="purok_4">Purok 4 Residents</option>
-                                            <option value="purok_5">Purok 5 Residents</option>
-                                            <option value="purok_6">Purok 6 Residents</option>
-                                            <option value="purok_7">Purok 7 Residents</option>
+                                            <optgroup label="Specific Addresses">
+                                                <?php foreach ($resident_addresses as $addr): ?>
+                                                    <option value="<?= htmlspecialchars($addr) ?>"><?= htmlspecialchars($addr) ?></option>
+                                                <?php endforeach; ?>
+                                            </optgroup>
                                         </select>
                                     </div>
                                     <div class="col-span-2 sm:col-span-1">
