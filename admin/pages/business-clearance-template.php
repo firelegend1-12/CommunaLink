@@ -10,6 +10,7 @@ require_once '../../includes/functions.php';
 require_login();
 
 $page_title = 'Barangay Business Clearance';
+$is_view_only = isset($_GET['view_only']) && $_GET['view_only'] === '1';
 $transaction = null;
 $error = null;
 
@@ -27,6 +28,10 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
 
         if (!$transaction) {
             $error = "Business transaction not found.";
+        }
+
+        if ($transaction && !$is_view_only && (($transaction['payment_status'] ?? 'Unpaid') !== 'Paid')) {
+            $error = "Printing is only allowed after payment is completed.";
         }
     } catch (PDOException $e) {
         $error = "Database error: " . $e->getMessage();
@@ -68,6 +73,20 @@ $month_issued = date('F');
             .no-print { display: none !important; }
             .printable-area { margin: 0; padding: 1rem; border: none; box-shadow: none; }
         }
+<?php if ($is_view_only): ?>
+        @media print {
+            body * { visibility: hidden !important; }
+            body::before {
+                content: 'VIEW ONLY - Printing disabled';
+                visibility: visible !important;
+                display: block;
+                text-align: center;
+                margin-top: 30vh;
+                font-size: 24px;
+                font-weight: 700;
+            }
+        }
+<?php endif; ?>
         .certificate-body {
             font-family: 'Times New Roman', Times, serif;
         }
@@ -86,10 +105,17 @@ $month_issued = date('F');
             <a href="monitoring-of-request.php" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md">
                 <i class="fas fa-arrow-left mr-2"></i> Back to Monitoring
             </a>
+<?php if (!$is_view_only): ?>
             <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md">
                 <i class="fas fa-print mr-2"></i> Print Certificate
             </button>
+<?php endif; ?>
         </div>
+<?php if ($is_view_only): ?>
+        <div class="no-print text-center mb-4">
+            <span class="inline-block bg-yellow-100 border border-yellow-300 text-yellow-900 px-3 py-2 rounded text-xs font-bold uppercase tracking-wide">Viewing purpose only</span>
+        </div>
+<?php endif; ?>
         <div id="certificate" class="printable-area bg-white p-12 border-4 border-blue-800 certificate-body relative">
             <div class="text-center">
                 <p class="text-lg">Republic of the Philippines</p>
@@ -143,4 +169,18 @@ $month_issued = date('F');
         </div>
     </div>
 </body>
+<?php if ($is_view_only): ?>
+<script>
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        alert('Printing is disabled in view-only mode.');
+    }
+});
+
+window.print = function() {
+    alert('Printing is disabled in view-only mode.');
+};
+</script>
+<?php endif; ?>
 </html> 

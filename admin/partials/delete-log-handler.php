@@ -8,21 +8,6 @@ if (!is_admin_or_official()) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['log_id'])) {
-    $log_id = (int)$_POST['log_id'];
-    try {
-        $stmt = $pdo->prepare('DELETE FROM activity_logs WHERE id = ?');
-        $stmt->execute([$log_id]);
-        if ($stmt->rowCount() > 0) {
-            $_SESSION['success_message'] = 'Log entry deleted.';
-        } else {
-            $_SESSION['error_message'] = 'Log entry not found or already deleted.';
-        }
-    } catch (Exception $e) {
-        $_SESSION['error_message'] = 'Error deleting log entry.';
-    }
-} else {
-    $_SESSION['error_message'] = 'Invalid request.';
-}
+$_SESSION['error_message'] = 'Log deletion is disabled. Logs are immutable.';
 header('Location: ../pages/logs.php');
 exit; 

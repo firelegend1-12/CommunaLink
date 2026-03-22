@@ -10,6 +10,7 @@ require_once '../../includes/functions.php';
 require_login();
 
 $page_title = "Print Certificate of Indigency";
+$is_view_only = isset($_GET['view_only']) && $_GET['view_only'] === '1';
 
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     $_SESSION['error_message'] = "Invalid request ID.";
@@ -28,6 +29,11 @@ try {
 
     if (!$request) {
         $_SESSION['error_message'] = "Certificate request not found.";
+        redirect_to('monitoring-of-request.php');
+    }
+
+    if (!$is_view_only && (($request['payment_status'] ?? 'Unpaid') !== 'Paid')) {
+        $_SESSION['error_message'] = "Printing is only allowed after payment is completed.";
         redirect_to('monitoring-of-request.php');
     }
 
@@ -60,6 +66,20 @@ $year_issued = date('Y');
             .printable-area { margin: 0; padding: 2rem; border: none; box-shadow: none; }
             .page-break { page-break-after: always; }
         }
+<?php if ($is_view_only): ?>
+        @media print {
+            body * { visibility: hidden !important; }
+            body::before {
+                content: 'VIEW ONLY - Printing disabled';
+                visibility: visible !important;
+                display: block;
+                text-align: center;
+                margin-top: 30vh;
+                font-size: 24px;
+                font-weight: 700;
+            }
+        }
+<?php endif; ?>
         .certificate-body {
             font-family: 'Times New Roman', Times, serif;
         }
@@ -71,10 +91,18 @@ $year_issued = date('Y');
         <a href="monitoring-of-request.php" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded shadow">
             Back
         </a>
+<?php if (!$is_view_only): ?>
         <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow">
             Print Certificate
         </button>
+<?php endif; ?>
     </div>
+
+<?php if ($is_view_only): ?>
+    <div class="no-print fixed top-4 right-4 z-50 bg-yellow-100 border border-yellow-300 text-yellow-900 px-3 py-2 rounded shadow text-xs font-bold uppercase tracking-wide">
+        Viewing purpose only
+    </div>
+<?php endif; ?>
 
     <div class="printable-area max-w-4xl mx-auto my-8 p-16 bg-white shadow-lg certificate-body text-black flex flex-col justify-between" style="min-height: 10in;">
         
@@ -132,4 +160,18 @@ $year_issued = date('Y');
     </div>
 
 </body>
+<?php if ($is_view_only): ?>
+<script>
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        alert('Printing is disabled in view-only mode.');
+    }
+});
+
+window.print = function() {
+    alert('Printing is disabled in view-only mode.');
+};
+</script>
+<?php endif; ?>
 </html> 

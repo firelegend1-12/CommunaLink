@@ -10,6 +10,7 @@ require_once '../../includes/functions.php';
 require_login();
 
 $page_title = "Print Barangay Clearance";
+$is_view_only = isset($_GET['view_only']) && $_GET['view_only'] === '1';
 
 // Validate Request ID
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
@@ -30,6 +31,11 @@ try {
 
     if (!$request) {
         $_SESSION['error_message'] = "Barangay Clearance request not found.";
+        redirect_to('monitoring-of-request.php');
+    }
+
+    if (!$is_view_only && (($request['payment_status'] ?? 'Unpaid') !== 'Paid')) {
+        $_SESSION['error_message'] = "Printing is only allowed after payment is completed.";
         redirect_to('monitoring-of-request.php');
     }
 
@@ -63,6 +69,20 @@ $punong_barangay = $_SESSION['fullname'] ?? '_________________________';
             .no-print { display: none !important; }
             .printable-area { margin: 0; padding: 1rem; border: none; box-shadow: none; }
         }
+<?php if ($is_view_only): ?>
+        @media print {
+            body * { visibility: hidden !important; }
+            body::before {
+                content: 'VIEW ONLY - Printing disabled';
+                visibility: visible !important;
+                display: block;
+                text-align: center;
+                margin-top: 30vh;
+                font-size: 24px;
+                font-weight: 700;
+            }
+        }
+<?php endif; ?>
         input[readonly], textarea[readonly] {
             background-color: #f3f4f6; /* Tailwind's gray-100 */
         }
@@ -74,10 +94,18 @@ $punong_barangay = $_SESSION['fullname'] ?? '_________________________';
         <a href="monitoring-of-request.php" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded shadow">
             Back
         </a>
+<?php if (!$is_view_only): ?>
         <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow">
             Print Application
         </button>
+<?php endif; ?>
     </div>
+
+<?php if ($is_view_only): ?>
+    <div class="no-print fixed top-4 right-4 z-50 bg-yellow-100 border border-yellow-300 text-yellow-900 px-3 py-2 rounded shadow text-xs font-bold uppercase tracking-wide">
+        Viewing purpose only
+    </div>
+<?php endif; ?>
 
     <div class="printable-area max-w-4xl mx-auto my-8 p-8 bg-white shadow-lg">
         <div class="text-center border-b pb-4 mb-6">
@@ -178,4 +206,18 @@ $punong_barangay = $_SESSION['fullname'] ?? '_________________________';
     </div>
 
 </body>
+<?php if ($is_view_only): ?>
+<script>
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        alert('Printing is disabled in view-only mode.');
+    }
+});
+
+window.print = function() {
+    alert('Printing is disabled in view-only mode.');
+};
+</script>
+<?php endif; ?>
 </html> 

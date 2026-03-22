@@ -983,8 +983,16 @@ foreach ($requests as $summary_req) {
                                  </button>
                                             <p x-show="selectedReq.paymentStatus !== 'Paid'" class="text-[11px] text-red-600 font-semibold text-center">Payment required before printing.</p>
 
-                                 <!-- View Full Details (Link to main page) -->
-                                 <button @click="viewPanelOpen = false;" class="w-full bg-gray-50 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-100 transition font-bold uppercase tracking-widest text-xs border border-gray-200">
+                                            <!-- View Full Details (opens filled request form/template) -->
+                                            <button @click="const templates = {
+                                                'Barangay Clearance': 'barangay-clearance-template.php',
+                                                'Certificate of Residency': 'certificate-of-residency-template.php',
+                                                'Certificate of Indigency': 'certificate-of-indigency-template.php',
+                                                'business': 'business-clearance-template.php'
+                                            };
+                                            const templateFile = selectedReq.type === 'business' ? templates['business'] : (templates[selectedReq.docType] || 'barangay-clearance-template.php');
+                                            window.open(templateFile + '?id=' + selectedReq.id + '&view_only=1', '_blank');
+                                            viewPanelOpen = false;" class="w-full bg-gray-50 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-100 transition font-bold uppercase tracking-widest text-xs border border-gray-200">
                                     <i class="fas fa-expand mr-2"></i>View Full Details
                                  </button>
                               </div>

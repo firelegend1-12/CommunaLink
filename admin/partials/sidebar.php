@@ -155,13 +155,13 @@ if ($hour >= 12 && $hour < 18) {
                 <!-- Admin Dropdown -->
                 <?php if (isset($_SESSION['role']) && in_array($_SESSION['role'], ['admin'])): ?>
                 <div id="admin-dropdown" class="dropdown-container">
-                    <button id="admin-dropdown-btn" onclick="toggleDropdown('admin-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php', 'rate-limiting.php', 'performance.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                        <i class="fas fa-cog mr-3 text-lg <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php', 'rate-limiting.php', 'performance.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
+                    <button id="admin-dropdown-btn" onclick="toggleDropdown('admin-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
+                        <i class="fas fa-cog mr-3 text-lg <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                         Admin
                         <span id="admin-unread-dot" class="chat-unread-dot"></span>
                         <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200" id="admin-chevron"></i>
                     </button>
-                    <div id="admin-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php', 'rate-limiting.php', 'performance.php']) ? 'block' : 'none'; ?>">
+                    <div id="admin-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'block' : 'none'; ?>">
                         <div>
                             <a href="<?php echo ($current_dir === 'admin') ? 'pages/user-management.php' : 'user-management.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'user-management.php' ? 'bg-gray-900 text-white' : ''; ?>">
                                 <i class="fas fa-users-cog mr-2 text-gray-400"></i>
@@ -181,20 +181,6 @@ if ($hour >= 12 && $hour < 18) {
                                 Logs
                             </a>
                         </div>
-                        <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/rate-limiting.php' : 'rate-limiting.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'rate-limiting.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-shield-alt mr-2 text-gray-400"></i>
-                                Rate Limiting
-                            </a>
-                        </div>
-                        <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/performance.php' : 'performance.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'performance.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-tachometer-alt mr-2 text-gray-400"></i>
-                                Performance
-                            </a>
-                        </div>
-
-
                     </div>
                 </div>
                 <?php endif; ?>
