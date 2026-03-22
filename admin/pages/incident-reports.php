@@ -412,53 +412,53 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                          x-transition:leave="transform transition ease-in duration-500 sm:duration-700" 
                          x-transition:leave-start="translate-x-0" 
                          x-transition:leave-end="translate-x-full" 
-                         class="pointer-events-auto w-screen max-w-2xl">
-                        <div class="flex h-full flex-col overflow-y-scroll bg-white shadow-2xl">
-                            <!-- Premium Header -->
-                            <div class="bg-indigo-700 px-6 py-10 sm:px-8 relative overflow-hidden">
-                                <!-- Abstract Background Pattern -->
-                                <div class="absolute inset-0 opacity-10">
-                                    <svg class="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                        <path d="M0 100 C 20 0 50 0 100 100 Z" fill="white"></path>
-                                    </svg>
-                                </div>
-                                <div class="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
-                                
-                                <div class="relative flex items-center justify-between z-10">
-                                    <div class="flex items-center gap-5">
-                                        <template x-if="viewData">
-                                            <div :class="{
-                                                'h-20 w-20 rounded-3xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-3xl shadow-xl transition-transform duration-500 hover:rotate-3 hover:scale-105': true,
-                                                'text-amber-300': viewData.type === 'Fire' || viewData.type === 'Emergency',
-                                                'text-indigo-200': viewData.type !== 'Fire' && viewData.type !== 'Emergency'
-                                            }">
-                                                <i :class="{
-                                                    'fas': true,
-                                                    'fa-fire': viewData.type === 'Fire',
-                                                    'fa-ambulance': viewData.type === 'Emergency',
-                                                    'fa-car': viewData.type === 'Traffic',
-                                                    'fa-exclamation-triangle': !['Fire', 'Emergency', 'Traffic'].includes(viewData.type)
-                                                }"></i>
-                                            </div>
-                                        </template>
-                                        <div>
-                                            <h2 class="text-2xl font-black text-white leading-tight uppercase tracking-tight" id="slide-over-title" x-text="viewData ? viewData.type : 'Loading...'"></h2>
-                                            <div class="flex items-center mt-2 gap-3 text-indigo-100">
-                                                <span class="text-[10px] font-black uppercase bg-white/20 px-2 py-0.5 rounded-lg tracking-widest" x-text="'ID: #' + (viewData ? viewData.id : '')"></span>
-                                                <span class="text-xs font-bold" x-text="viewData ? formatDate(viewData.reported_at) + ' @ ' + formatTime(viewData.reported_at) : ''"></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="ml-3 flex h-7 items-center">
-                                        <button @click="showView = false" class="rounded-lg bg-white/10 text-white hover:bg-white/20 transition p-2 focus:outline-none ring-1 ring-white/30">
-                                            <i class="fas fa-times text-xl"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                         class="pointer-events-auto w-screen max-w-4xl">
+                        <div class="flex h-full flex-col bg-white shadow-2xl">
+                             <!-- Premium Header: flex-shrink-0 prevents shrinking when content loads -->
+                             <div class="flex-shrink-0 min-h-[140px] bg-indigo-700 px-8 py-12 sm:px-10 relative overflow-hidden">
+                                 <!-- Abstract Background Pattern -->
+                                 <div class="absolute inset-0 opacity-10">
+                                     <svg class="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                         <path d="M0 100 C 20 0 50 0 100 100 Z" fill="white"></path>
+                                     </svg>
+                                 </div>
+                                 <div class="absolute top-0 right-0 -mt-10 -mr-10 h-48 w-48 rounded-full bg-white/10 blur-3xl"></div>
+                                 
+                                 <div class="relative flex items-center justify-between z-10">
+                                     <div class="flex items-center gap-8">
+                                         <template x-if="viewData">
+                                             <div :class="{
+                                                 'h-24 w-24 rounded-[32px] bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-4xl shadow-2xl transition-transform duration-500 hover:rotate-3 hover:scale-105': true,
+                                                 'text-amber-300': viewData.type === 'Fire' || viewData.type === 'Emergency',
+                                                 'text-indigo-200': viewData.type !== 'Fire' && viewData.type !== 'Emergency'
+                                             }">
+                                                 <i :class="{
+                                                     'fas': true,
+                                                     'fa-fire': viewData.type === 'Fire',
+                                                     'fa-ambulance': viewData.type === 'Emergency',
+                                                     'fa-car': viewData.type === 'Traffic',
+                                                     'fa-exclamation-triangle': !['Fire', 'Emergency', 'Traffic'].includes(viewData.type)
+                                                 }"></i>
+                                             </div>
+                                         </template>
+                                         <div>
+                                             <h2 class="text-3xl font-black text-white leading-none uppercase tracking-tighter" id="slide-over-title" x-text="viewData ? viewData.type : 'Loading...'"></h2>
+                                             <div class="flex items-center mt-3 gap-4 text-indigo-50">
+                                                 <span class="text-[11px] font-black uppercase bg-white/20 px-3 py-1 rounded-xl tracking-[0.2em] shadow-sm" x-text="'ID: #' + (viewData ? viewData.id : '')"></span>
+                                                 <span class="text-sm font-bold opacity-80" x-text="viewData ? formatDate(viewData.reported_at) + ' @ ' + formatTime(viewData.reported_at) : ''"></span>
+                                             </div>
+                                         </div>
+                                     </div>
+                                     <div class="ml-4 flex items-center">
+                                         <button @click="showView = false" class="h-12 w-12 rounded-2xl bg-white/10 text-white hover:bg-rose-500 hover:scale-110 transition-all duration-300 flex items-center justify-center border border-white/20 shadow-xl group">
+                                             <i class="fas fa-times text-2xl group-hover:rotate-90 transition-transform duration-300"></i>
+                                         </button>
+                                     </div>
+                                 </div>
+                             </div>
 
-                            <!-- Content -->
-                        <div class="relative flex-1 px-6 py-8 sm:px-8">
+                            <!-- Content: scrollable area only -->
+                        <div class="relative flex-1 overflow-y-auto min-h-0 px-6 py-6 sm:px-8">
                             <template x-if="loadingView">
                                 <div class="flex flex-col items-center justify-center h-64">
                                     <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-700 mb-4"></div>
@@ -467,28 +467,28 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                             </template>
 
                             <template x-if="!loadingView && viewData">
-                                <div class="space-y-10">
-                                    <div class="flex items-start gap-8">
+                                <div class="space-y-6">
+                                    <div class="flex items-start gap-6">
                                         <!-- Left Column: Details -->
-                                        <div class="flex-1 space-y-10">
-                                            <!-- Status Control Panel -->
+                                        <div class="flex-1 space-y-6">
+                                            <!-- Status Control Panel: Sleeker -->
                                             <div :class="{
-                                                'p-5 rounded-3xl border flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-500': true,
-                                                'bg-amber-50 border-amber-100': viewData.status === 'Pending',
-                                                'bg-indigo-50 border-indigo-100': viewData.status === 'In Progress' || viewData.status === 'Under Review',
-                                                'bg-emerald-50 border-emerald-100': viewData.status === 'Resolved',
-                                                'bg-rose-50 border-rose-100': viewData.status === 'Rejected'
+                                                'p-4 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-500 shadow-sm': true,
+                                                'bg-amber-50/50 border-amber-100': viewData.status === 'Pending',
+                                                'bg-indigo-50/50 border-indigo-100': viewData.status === 'In Progress' || viewData.status === 'Under Review',
+                                                'bg-emerald-50/50 border-emerald-100': viewData.status === 'Resolved',
+                                                'bg-rose-50/50 border-rose-100': viewData.status === 'Rejected'
                                             }">
                                                 <div class="flex items-center">
-                                                    <div class="h-3 w-3 rounded-full mr-4 animate-pulse shadow-sm" :class="{
+                                                    <div class="h-2.5 w-2.5 rounded-full mr-3 animate-pulse" :class="{
                                                         'bg-amber-500': viewData.status === 'Pending',
                                                         'bg-indigo-500': viewData.status === 'In Progress',
                                                         'bg-emerald-500': viewData.status === 'Resolved',
                                                         'bg-rose-500': viewData.status === 'Rejected'
                                                     }"></div>
                                                     <div>
-                                                        <p class="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-0.5">CURRENT STATE</p>
-                                                        <span class="text-xs font-black uppercase tracking-widest block" :class="{
+                                                        <p class="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-0.5">CURRENT STATE</p>
+                                                        <span class="text-[11px] font-black uppercase tracking-widest block" :class="{
                                                             'text-amber-800': viewData.status === 'Pending',
                                                             'text-indigo-800': viewData.status === 'In Progress',
                                                             'text-emerald-800': viewData.status === 'Resolved',
@@ -497,12 +497,12 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                                     </div>
                                                 </div>
 
-                                                <div class="flex items-center gap-2 bg-white/50 p-1.5 rounded-2xl border border-white/50 backdrop-blur-sm self-stretch sm:self-auto">
+                                                <div class="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-100 self-stretch sm:self-auto">
                                                     <select 
                                                         x-model="viewData.status" 
                                                         @change="saveStatus"
                                                         :disabled="isSavingStatus"
-                                                        class="bg-transparent border-none text-[10px] font-black uppercase tracking-wider focus:ring-0 cursor-pointer disabled:opacity-50"
+                                                        class="bg-transparent border-none text-[9px] font-black uppercase tracking-wider focus:ring-0 cursor-pointer disabled:opacity-50 h-8"
                                                     >
                                                         <option value="Pending">Pending</option>
                                                         <option value="In Progress">In Progress</option>
@@ -515,31 +515,31 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                                 </div>
                                             </div>
 
-                                            <!-- Reporter Info -->
-                                            <div class="group/section">
-                                                <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-3 mb-5 flex items-center group-hover/section:text-indigo-500 transition-colors">
-                                                    <i class="fas fa-user-shield mr-3"></i> REPORTER INFORMATION
-                                                </h3>
-                                                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group/reporter text-sm">
-                                                    <div class="absolute top-0 right-0 p-4 opacity-0 group-hover/reporter:opacity-100 transition-opacity">
-                                                        <a :href="'residents.php?search=' + encodeURIComponent(viewData.reporter_name)" class="text-[10px] font-black uppercase bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl hover:bg-indigo-600 hover:text-white transition-all">View History</a>
-                                                    </div>
-                                                    <div class="grid grid-cols-2 gap-4">
-                                                        <div>
-                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-tighter">Full Name</p>
-                                                            <p class="font-bold text-slate-800" x-text="viewData.reporter_name"></p>
-                                                        </div>
-                                                        <div>
-                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-tighter">Contact No.</p>
-                                                            <p class="font-bold text-slate-800" x-text="viewData.reporter_contact || 'N/A'"></p>
-                                                        </div>
-                                                        <div class="col-span-2">
-                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-tighter">Email Address</p>
-                                                            <p class="font-bold text-indigo-600 truncate" x-text="viewData.reporter_email"></p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                             <!-- Reporter Info: More Compact 3-Column Layout -->
+                                             <div class="group/section">
+                                                 <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2 mb-4 flex items-center group-hover/section:text-indigo-500 transition-colors">
+                                                     <i class="fas fa-user-shield mr-2"></i> REPORTER INFORMATION
+                                                 </h3>
+                                                 <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm relative overflow-hidden group/reporter text-sm">
+                                                     <div class="absolute top-0 right-0 p-3 opacity-0 group-hover/reporter:opacity-100 transition-opacity">
+                                                         <a :href="'residents.php?search=' + encodeURIComponent(viewData.reporter_name)" class="text-[9px] font-black uppercase bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg hover:bg-indigo-600 hover:text-white transition-all">View History</a>
+                                                     </div>
+                                                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                         <div>
+                                                             <p class="text-[9px] font-black text-slate-400 uppercase mb-0.5 tracking-tighter">Full Name</p>
+                                                             <p class="font-bold text-slate-800" x-text="viewData.reporter_name"></p>
+                                                         </div>
+                                                         <div>
+                                                             <p class="text-[9px] font-black text-slate-400 uppercase mb-0.5 tracking-tighter">Contact No.</p>
+                                                             <p class="font-bold text-slate-800" x-text="viewData.reporter_contact || 'N/A'"></p>
+                                                         </div>
+                                                         <div>
+                                                             <p class="text-[9px] font-black text-slate-400 uppercase mb-0.5 tracking-tighter">Email Address</p>
+                                                             <p class="font-bold text-indigo-600 truncate" x-text="viewData.reporter_email"></p>
+                                                         </div>
+                                                     </div>
+                                                 </div>
+                                             </div>
 
                                             <!-- Incident Details -->
                                             <div class="group/section">
@@ -554,7 +554,7 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                                     
                                                     <div>
                                                         <p class="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-tighter text-indigo-500">Investigation Map</p>
-                                                        <div class="rounded-2xl overflow-hidden border border-slate-200 shadow-sm h-48 relative bg-slate-100 group/map">
+                                                        <div class="rounded-2xl overflow-hidden border border-slate-200 shadow-sm h-64 relative bg-slate-100 group/map transition-all duration-500 hover:shadow-md">
                                                             <template x-if="viewData.latitude">
                                                                 <iframe 
                                                                     class="w-full h-full grayscale-[0.3] contrast-[1.1] hover:grayscale-0 transition-all duration-700"
@@ -562,7 +562,7 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                                                     scrolling="no" 
                                                                     marginheight="0" 
                                                                     marginwidth="0" 
-                                                                    :src="'https://maps.google.com/maps?q=' + viewData.latitude + ',' + viewData.longitude + '&hl=es&z=14&output=embed'"
+                                                                    :src="'https://maps.google.com/maps?q=' + viewData.latitude + ',' + viewData.longitude + '&hl=en&z=14&output=embed'"
                                                                 ></iframe>
                                                             </template>
                                                             <template x-if="!viewData.latitude">
@@ -577,7 +577,7 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                                     
                                                     <div>
                                                         <p class="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-tighter">Detailed Narrative</p>
-                                                        <div class="text-xs font-semibold leading-relaxed text-slate-600 bg-white p-4 rounded-xl border border-slate-100" x-text="viewData.description || 'No description provided.'"></div>
+                                                        <div class="text-xs font-semibold leading-relaxed text-slate-600 bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:border-slate-200" x-text="viewData.description || 'No description provided.'"></div>
                                                     </div>
 
                                                     <!-- Photos -->
@@ -599,74 +599,74 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
 
                                         <!-- Right Column: Timeline & Notes -->
                                         <div class="w-64 space-y-10">
-                                            <!-- Resolution Stepper -->
-                                            <div class="group/section">
-                                                <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-3 mb-5 group-hover/section:text-indigo-500 transition-colors">TIMELINE</h3>
-                                                <div class="relative pl-6 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100">
-                                                    <!-- Step: Reported -->
-                                                    <div class="relative">
-                                                        <div class="absolute -left-[23px] h-4 w-4 rounded-full border-4 border-white bg-indigo-500 shadow-sm"></div>
-                                                        <p class="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Reported</p>
-                                                        <p class="text-xs font-bold text-slate-800" x-text="formatDate(viewData.reported_at)"></p>
-                                                        <p class="text-[10px] text-slate-400" x-text="formatTime(viewData.reported_at)"></p>
-                                                    </div>
-
-                                                    <!-- Step: Processing -->
-                                                    <div class="relative">
-                                                        <div :class="{
-                                                            'absolute -left-[23px] h-4 w-4 rounded-full border-4 border-white shadow-sm': true,
-                                                            'bg-indigo-500': viewData.status !== 'Pending',
-                                                            'bg-slate-300': viewData.status === 'Pending'
-                                                        }"></div>
-                                                        <p :class="viewData.status !== 'Pending' ? 'text-[10px] font-black text-indigo-600 uppercase tracking-widest' : 'text-[10px] font-black text-slate-400 uppercase tracking-widest'">Acknowledge</p>
-                                                        <p class="text-xs font-bold" :class="viewData.status !== 'Pending' ? 'text-slate-800' : 'text-slate-400'" x-text="viewData.status !== 'Pending' ? 'Confirmed by Admin' : 'Awaiting Review'"></p>
-                                                    </div>
-
-                                                    <!-- Step: Resolved -->
-                                                    <div class="relative">
-                                                        <div :class="{
-                                                            'absolute -left-[23px] h-4 w-4 rounded-full border-4 border-white shadow-sm': true,
-                                                            'bg-emerald-500': viewData.status === 'Resolved',
-                                                            'bg-slate-300': viewData.status !== 'Resolved'
-                                                        }"></div>
-                                                        <p :class="viewData.status === 'Resolved' ? 'text-[10px] font-black text-emerald-600 uppercase tracking-widest' : 'text-[10px] font-black text-slate-400 uppercase tracking-widest'">Resolution</p>
-                                                        <p class="text-xs font-bold" :class="viewData.status === 'Resolved' ? 'text-slate-800' : 'text-slate-400'" x-text="viewData.status === 'Resolved' ? 'Case Closed' : 'In Progress'"></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- Admin Remarks Editor -->
-                                            <div class="group/section">
-                                                <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-3 mb-5 group-hover/section:text-indigo-500 transition-colors">ADMIN NOTES</h3>
-                                                <div class="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 shadow-inner relative group/remarks">
-                                                    <textarea 
-                                                        x-model="viewData.admin_remarks" 
-                                                        placeholder="Enter investigation notes..."
-                                                        class="w-full bg-transparent border-none focus:ring-0 text-xs font-medium text-slate-700 min-h-[150px] resize-none"
-                                                        @input="remarksChanged = true"
-                                                    ></textarea>
-                                                    <div class="mt-4 flex flex-col gap-2">
-                                                        <button 
-                                                            x-show="remarksChanged" 
-                                                            @click="saveRemarks" 
-                                                            class="w-full bg-indigo-600 text-white text-[10px] font-black uppercase py-2 rounded-xl shadow-md hover:bg-indigo-700 transition"
-                                                            :disabled="isSavingRemarks"
-                                                        >
-                                                            <template x-if="!isSavingRemarks"><span><i class="fas fa-save mr-1.5"></i> Save Notes</span></template>
-                                                            <template x-if="isSavingRemarks"><span><i class="fas fa-spinner fa-spin mr-1.5"></i> Saving...</span></template>
-                                                        </button>
-                                                        <p class="text-[9px] text-slate-400 text-center font-bold">Confidential internal remarks only visible to Barangay officials.</p>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                             <!-- Resolution Stepper: Cleaner & More Modern -->
+                                             <div class="group/section">
+                                                 <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2 mb-4 group-hover/section:text-indigo-500 transition-colors">TIMELINE</h3>
+                                                 <div class="relative pl-5 space-y-6 before:absolute before:left-[9px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100">
+                                                     <!-- Step: Reported -->
+                                                     <div class="relative">
+                                                         <div class="absolute -left-[20px] h-3 w-3 rounded-full border-2 border-white bg-indigo-500 shadow-sm"></div>
+                                                         <p class="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Reported</p>
+                                                         <p class="text-xs font-bold text-slate-800" x-text="formatDate(viewData.reported_at)"></p>
+                                                         <p class="text-[9px] text-slate-400" x-text="formatTime(viewData.reported_at)"></p>
+                                                     </div>
+ 
+                                                     <!-- Step: Processing -->
+                                                     <div class="relative">
+                                                         <div :class="{
+                                                             'absolute -left-[20px] h-3 w-3 rounded-full border-2 border-white shadow-sm': true,
+                                                             'bg-indigo-500': viewData.status !== 'Pending',
+                                                             'bg-slate-300': viewData.status === 'Pending'
+                                                         }"></div>
+                                                         <p :class="viewData.status !== 'Pending' ? 'text-[9px] font-black text-indigo-600 uppercase tracking-widest' : 'text-[9px] font-black text-slate-400 uppercase tracking-widest'">Acknowledge</p>
+                                                         <p class="text-xs font-bold" :class="viewData.status !== 'Pending' ? 'text-slate-800' : 'text-slate-400'" x-text="viewData.status !== 'Pending' ? 'Confirmed' : 'Pending Review'"></p>
+                                                     </div>
+ 
+                                                     <!-- Step: Resolved -->
+                                                     <div class="relative">
+                                                         <div :class="{
+                                                             'absolute -left-[20px] h-3 w-3 rounded-full border-2 border-white shadow-sm': true,
+                                                             'bg-emerald-500': viewData.status === 'Resolved',
+                                                             'bg-slate-300': viewData.status !== 'Resolved'
+                                                         }"></div>
+                                                         <p :class="viewData.status === 'Resolved' ? 'text-[9px] font-black text-emerald-600 uppercase tracking-widest' : 'text-[9px] font-black text-slate-400 uppercase tracking-widest'">Resolution</p>
+                                                         <p class="text-xs font-bold" :class="viewData.status === 'Resolved' ? 'text-slate-800' : 'text-slate-400'" x-text="viewData.status === 'Resolved' ? 'Resolved' : 'In Progress'"></p>
+                                                     </div>
+                                                 </div>
+                                             </div>
+ 
+                                             <!-- Admin Remarks Editor: Refined -->
+                                             <div class="group/section">
+                                                 <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2 mb-4 group-hover/section:text-indigo-500 transition-colors">ADMIN NOTES</h3>
+                                                 <div class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/50 shadow-sm relative group/remarks">
+                                                     <textarea 
+                                                         x-model="viewData.admin_remarks" 
+                                                         placeholder="Enter investigation notes..."
+                                                         class="w-full bg-transparent border-none focus:ring-0 text-[11px] font-medium text-slate-700 min-h-[120px] resize-none p-0"
+                                                         @input="remarksChanged = true"
+                                                     ></textarea>
+                                                     <div class="mt-3 flex flex-col gap-2">
+                                                         <button 
+                                                             x-show="remarksChanged" 
+                                                             @click="saveRemarks" 
+                                                             class="w-full bg-indigo-600 text-white text-[10px] font-black uppercase py-1.5 rounded-lg shadow-md hover:bg-indigo-700 transition"
+                                                             :disabled="isSavingRemarks"
+                                                         >
+                                                             <template x-if="!isSavingRemarks"><span><i class="fas fa-save mr-1.5"></i> Save</span></template>
+                                                             <template x-if="isSavingRemarks"><span><i class="fas fa-spinner fa-spin mr-1.5"></i> ...</span></template>
+                                                         </button>
+                                                         <p class="text-[8px] text-slate-400 text-center font-bold">Confidential internal remarks.</p>
+                                                     </div>
+                                                 </div>
+                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </template>
                         </div>
 
-                        <!-- Footer -->
-                        <div class="border-t border-slate-100 px-6 py-6 sm:px-8 bg-slate-50/50 flex justify-between gap-4">
+                        <!-- Footer: flex-shrink-0 keeps it fixed at bottom -->
+                        <div class="flex-shrink-0 border-t border-slate-100 px-6 py-6 sm:px-8 bg-slate-50/50 flex justify-between gap-4">
                              <template x-if="viewData">
                                 <a :href="'update-incident.php?id=' + viewData.id" class="flex-1 bg-white hover:bg-slate-50 text-slate-700 px-4 py-4 rounded-2xl text-sm font-bold border border-slate-200 text-center transition shadow-sm border-b-4 active:border-b-0 active:translate-y-1">
                                     <i class="fas fa-edit mr-2 text-indigo-500"></i> Update Report
