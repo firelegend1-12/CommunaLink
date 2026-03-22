@@ -22,6 +22,8 @@ try {
     $type_filter = isset($_GET['type']) ? sanitize_input($_GET['type']) : '';
     $date_from = isset($_GET['date_from']) ? sanitize_input($_GET['date_from']) : '';
     $date_to = isset($_GET['date_to']) ? sanitize_input($_GET['date_to']) : '';
+    $time_from = isset($_GET['time_from']) ? sanitize_input($_GET['time_from']) : '';
+    $time_to = isset($_GET['time_to']) ? sanitize_input($_GET['time_to']) : '';
     $date_mode = isset($_GET['date_mode']) ? sanitize_input($_GET['date_mode']) : 'request';
     $payment_filter = isset($_GET['payment']) ? sanitize_input($_GET['payment']) : '';
     $page_number = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
@@ -49,7 +51,15 @@ try {
     if (!in_array($date_mode, $valid_date_modes)) {
         $date_mode = 'request';
     }
+    if (!preg_match('/^\d{2}:\d{2}$/', $time_from)) {
+        $time_from = '';
+    }
+    if (!preg_match('/^\d{2}:\d{2}$/', $time_to)) {
+        $time_to = '';
+    }
     $date_column = ($date_mode === 'payment') ? 'payment_date' : 'date_requested';
+    $from_suffix = !empty($time_from) ? ($time_from . ':00') : '00:00:00';
+    $to_suffix = !empty($time_to) ? ($time_to . ':59') : '23:59:59';
     
     // Build WHERE conditions for the combined result
     $where_parts = [];
@@ -67,12 +77,12 @@ try {
     
     if (!empty($date_from)) {
         $where_parts[] = "{$date_column} >= ?";
-        $exec_params[] = "{$date_from} 00:00:00";
+        $exec_params[] = "{$date_from} {$from_suffix}";
     }
     
     if (!empty($date_to)) {
         $where_parts[] = "{$date_column} <= ?";
-        $exec_params[] = "{$date_to} 23:59:59";
+        $exec_params[] = "{$date_to} {$to_suffix}";
     }
     
     if (!empty($payment_filter) && in_array($payment_filter, $valid_payments)) {
@@ -152,18 +162,20 @@ $document_types = [
 ];
 
 // Helper function to build pagination URLs
-function buildPaginationUrl($page, $search = '', $status = '', $type = '', $date_from = '', $date_to = '', $payment = '') {
-    return buildPaginationUrlFull($page, $search, $status, $type, $date_from, $date_to, $payment, '', '', 'request');
+function buildPaginationUrl($page, $search = '', $status = '', $type = '', $date_from = '', $date_to = '', $payment = '', $time_from = '', $time_to = '') {
+    return buildPaginationUrlFull($page, $search, $status, $type, $date_from, $date_to, $payment, '', '', 'request', $time_from, $time_to);
 }
 
 // Enhanced helper function with sorting
-function buildPaginationUrlFull($page, $search = '', $status = '', $type = '', $date_from = '', $date_to = '', $payment = '', $sort = '', $dir = '', $date_mode = 'request') {
+function buildPaginationUrlFull($page, $search = '', $status = '', $type = '', $date_from = '', $date_to = '', $payment = '', $sort = '', $dir = '', $date_mode = 'request', $time_from = '', $time_to = '') {
     $params = ['page' => $page];
     if (!empty($search)) $params['search'] = urlencode($search);
     if (!empty($status)) $params['status'] = urlencode($status);
     if (!empty($type)) $params['type'] = urlencode($type);
     if (!empty($date_from)) $params['date_from'] = urlencode($date_from);
     if (!empty($date_to)) $params['date_to'] = urlencode($date_to);
+    if (!empty($time_from)) $params['time_from'] = urlencode($time_from);
+    if (!empty($time_to)) $params['time_to'] = urlencode($time_to);
     if (!empty($payment)) $params['payment'] = urlencode($payment);
     if (!empty($sort)) $params['sort'] = urlencode($sort);
     if (!empty($dir)) $params['dir'] = urlencode($dir);
@@ -172,12 +184,12 @@ function buildPaginationUrlFull($page, $search = '', $status = '', $type = '', $
 }
 
 // Helper function to get sort URL (toggles direction if same column)
-function getSortUrl($sort_column, $current_sort, $current_dir, $search, $status, $type, $date_from, $date_to, $payment, $date_mode = 'request') {
+function getSortUrl($sort_column, $current_sort, $current_dir, $search, $status, $type, $date_from, $date_to, $payment, $date_mode = 'request', $time_from = '', $time_to = '') {
     $new_dir = 'ASC';
     if ($sort_column === $current_sort && $current_dir === 'ASC') {
         $new_dir = 'DESC';
     }
-    return buildPaginationUrlFull(1, $search, $status, $type, $date_from, $date_to, $payment, $sort_column, $new_dir, $date_mode);
+    return buildPaginationUrlFull(1, $search, $status, $type, $date_from, $date_to, $payment, $sort_column, $new_dir, $date_mode, $time_from, $time_to);
 }
 
 // --- Analytics Calculations ---
@@ -230,6 +242,24 @@ try {
 
 } catch (PDOException $e) {
     error_log("Stats Error: " . $e->getMessage());
+}
+
+// Summary metrics on current page for quick scanning.
+$page_total = count($requests);
+$page_paid = 0;
+$page_unpaid = 0;
+$page_ready = 0;
+foreach ($requests as $summary_req) {
+    $payment_state = (string)($summary_req['payment_status'] ?? 'Unpaid');
+    $status_state = trim((string)($summary_req['status'] ?? ''));
+    if ($payment_state === 'Paid') {
+        $page_paid++;
+    } else {
+        $page_unpaid++;
+    }
+    if ($status_state === 'Ready for Pickup') {
+        $page_ready++;
+    }
 }
 
 ?>
@@ -365,9 +395,28 @@ try {
                                     <h2 class="text-xl font-bold text-gray-800">Pending Requests</h2>
                                     <div class="flex items-center space-x-2">
                                         <a href="monitoring-of-request.php" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Clear Filters</a>
-                                        <a href="#" onclick="exportRequests(event)" class="text-xs text-green-600 hover:text-green-800 font-medium flex items-center">
+                                        <a id="exportCsvBtn" href="#" onclick="exportRequests(event)" class="text-xs text-green-600 hover:text-green-800 font-medium flex items-center">
                                             <i class="fas fa-download mr-1"></i>Export CSV
                                         </a>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                    <div class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                                        <p class="text-[10px] uppercase tracking-wider text-gray-500 font-bold">Filtered Total</p>
+                                        <p class="text-lg font-black text-gray-900"><?php echo number_format($total_count); ?></p>
+                                    </div>
+                                    <div class="bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                                        <p class="text-[10px] uppercase tracking-wider text-green-700 font-bold">Paid On Page</p>
+                                        <p class="text-lg font-black text-green-800"><?php echo number_format($page_paid); ?></p>
+                                    </div>
+                                    <div class="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                                        <p class="text-[10px] uppercase tracking-wider text-red-700 font-bold">Unpaid On Page</p>
+                                        <p class="text-lg font-black text-red-800"><?php echo number_format($page_unpaid); ?></p>
+                                    </div>
+                                    <div class="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                                        <p class="text-[10px] uppercase tracking-wider text-blue-700 font-bold">Ready On Page</p>
+                                        <p class="text-lg font-black text-blue-800"><?php echo number_format($page_ready); ?></p>
                                     </div>
                                 </div>
                                 
@@ -440,33 +489,47 @@ try {
                                             <input type="hidden" name="type" value="<?php echo htmlspecialchars($type_filter); ?>">
                                             <input type="hidden" name="date_from" value="<?php echo htmlspecialchars($date_from); ?>">
                                             <input type="hidden" name="date_to" value="<?php echo htmlspecialchars($date_to); ?>">
+                                            <input type="hidden" name="time_from" value="<?php echo htmlspecialchars($time_from); ?>">
+                                            <input type="hidden" name="time_to" value="<?php echo htmlspecialchars($time_to); ?>">
                                             <input type="hidden" name="payment" value="<?php echo htmlspecialchars($payment_filter); ?>">
                                             <input type="hidden" name="date_mode" value="<?php echo htmlspecialchars($date_mode); ?>">
                                             <div class="relative flex-1">
                                                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 h-full"><i class="fas fa-search text-sm"></i></span>
-                                                <input type="text" name="search" class="w-full h-full pl-10 pr-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Search by name..." value="<?php echo htmlspecialchars($search_query); ?>">
+                                                <input id="requestSearchInput" type="text" name="search" class="w-full h-full pl-10 pr-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Search by name..." value="<?php echo htmlspecialchars($search_query); ?>">
                                             </div>
                                         </form>
                                     </div>
                                 </div>
                                 
                                 <!-- Filters Row 2: Date Range -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     <!-- Date From -->
                                     <div>
                                         <label class="block text-xs font-semibold text-gray-700 mb-1">Date From</label>
                                         <input type="date" value="<?php echo htmlspecialchars($date_from); ?>" onchange="updateFilter('date_from', this.value)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <input type="time" value="<?php echo htmlspecialchars($time_from); ?>" onchange="updateFilter('time_from', this.value)" class="w-full mt-2 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" title="Start time">
                                     </div>
                                     
                                     <!-- Date To -->
                                     <div>
                                         <label class="block text-xs font-semibold text-gray-700 mb-1">Date To</label>
                                         <input type="date" value="<?php echo htmlspecialchars($date_to); ?>" onchange="updateFilter('date_to', this.value)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <input type="time" value="<?php echo htmlspecialchars($time_to); ?>" onchange="updateFilter('time_to', this.value)" class="w-full mt-2 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" title="End time">
+                                    </div>
+
+                                    <!-- Date Basis -->
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-700 mb-1">Date Basis</label>
+                                        <select onchange="updateFilter('date_mode', this.value)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option value="request" <?php echo $date_mode === 'request' ? 'selected' : ''; ?>>Requested Date</option>
+                                            <option value="payment" <?php echo $date_mode === 'payment' ? 'selected' : ''; ?>>Payment Date</option>
+                                        </select>
+                                        <p class="text-[11px] text-gray-500 mt-2">Tip: Revenue Today uses Payment Date.</p>
                                     </div>
                                 </div>
                                 
                                 <!-- Active Filters Display -->
-                                <?php if (!empty($search_query) || !empty($status_filter) || !empty($type_filter) || !empty($date_from) || !empty($date_to) || !empty($payment_filter)): ?>
+                                <?php if (!empty($search_query) || !empty($status_filter) || !empty($type_filter) || !empty($date_from) || !empty($date_to) || !empty($payment_filter) || !empty($time_from) || !empty($time_to) || $date_mode !== 'request'): ?>
                                 <div class="mt-3 flex items-center space-x-2 text-xs text-gray-600">
                                     <span class="font-medium">Active filters:</span>
                                     <?php if (!empty($search_query)): ?><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">Search: <?php echo htmlspecialchars($search_query); ?></span><?php endif; ?>
@@ -474,6 +537,8 @@ try {
                                     <?php if (!empty($type_filter)): ?><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">Type: <?php echo htmlspecialchars($type_filter === 'document' ? 'Document' : 'Business'); ?></span><?php endif; ?>
                                     <?php if (!empty($payment_filter)): ?><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">Payment: <?php echo htmlspecialchars($payment_filter); ?></span><?php endif; ?>
                                     <?php if (!empty($date_from) || !empty($date_to)): ?><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">Date: <?php echo htmlspecialchars($date_from . ' to ' . $date_to); ?></span><?php endif; ?>
+                                    <?php if (!empty($time_from) || !empty($time_to)): ?><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">Time: <?php echo htmlspecialchars(($time_from ?: '00:00') . ' to ' . ($time_to ?: '23:59')); ?></span><?php endif; ?>
+                                    <?php if ($date_mode !== 'request'): ?><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">Basis: Payment Date</span><?php endif; ?>
                                 </div>
                                 <?php endif; ?>
                                 
@@ -502,7 +567,7 @@ try {
                                                     <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)" class="rounded border-gray-300">
                                                 </th>
                                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                                                        <a href="<?php echo getSortUrl('first_name', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $date_mode); ?>" class="flex items-center space-x-1 group">
+                                                        <a href="<?php echo getSortUrl('first_name', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $date_mode, $time_from, $time_to); ?>" class="flex items-center space-x-1 group">
                                                             <span>Name</span>
                                                             <?php if ($sort_by === 'first_name'): ?>
                                                                 <i class="fas fa-sort<?php echo $sort_dir === 'ASC' ? '-up' : '-down'; ?> text-blue-600"></i>
@@ -513,7 +578,7 @@ try {
                                                     </th>
                                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Certificate Type</th>
                                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                                                        <a href="<?php echo getSortUrl('date_requested', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $date_mode); ?>" class="flex items-center space-x-1 group">
+                                                        <a href="<?php echo getSortUrl('date_requested', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $date_mode, $time_from, $time_to); ?>" class="flex items-center space-x-1 group">
                                                             <span>Date Sent</span>
                                                             <?php if ($sort_by === 'date_requested'): ?>
                                                                 <i class="fas fa-sort<?php echo $sort_dir === 'ASC' ? '-up' : '-down'; ?> text-blue-600"></i>
@@ -523,7 +588,7 @@ try {
                                                         </a>
                                                     </th>
                                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                                                        <a href="<?php echo getSortUrl('status', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $date_mode); ?>" class="flex items-center space-x-1 group">
+                                                        <a href="<?php echo getSortUrl('status', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $date_mode, $time_from, $time_to); ?>" class="flex items-center space-x-1 group">
                                                             <span>Status</span>
                                                             <?php if ($sort_by === 'status'): ?>
                                                                 <i class="fas fa-sort<?php echo $sort_dir === 'ASC' ? '-up' : '-down'; ?> text-blue-600"></i>
@@ -533,7 +598,7 @@ try {
                                                         </a>
                                                     </th>
                                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                                                        <a href="<?php echo getSortUrl('payment_status', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $date_mode); ?>" class="flex items-center space-x-1 group">
+                                                        <a href="<?php echo getSortUrl('payment_status', $sort_by, $sort_dir, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $date_mode, $time_from, $time_to); ?>" class="flex items-center space-x-1 group">
                                                             <span>Payment</span>
                                                             <?php if ($sort_by === 'payment_status'): ?>
                                                                 <i class="fas fa-sort<?php echo $sort_dir === 'ASC' ? '-up' : '-down'; ?> text-blue-600"></i>
@@ -648,13 +713,39 @@ try {
                                                                 <?php endif; ?>
                                                                 
                                                                 <!-- Actions Menu -->
-                                                                <div class="relative inline-block text-left" x-data="{ open: false, top: 0, left: 0 }">
+                                                                <div class="relative inline-block text-left" x-data="{ 
+                                                                    open: false, 
+                                                                    top: 0, 
+                                                                    left: 0,
+                                                                    menuWidth: 192,
+                                                                    estimateMenuHeight: 260,
+                                                                    updateMenuPosition() {
+                                                                        const rect = this.$refs.dropdownBtn.getBoundingClientRect();
+                                                                        const viewportW = window.innerWidth;
+                                                                        const viewportH = window.innerHeight;
+                                                                        const gap = 6;
+
+                                                                        let nextLeft = rect.left;
+                                                                        let nextTop = rect.bottom + gap;
+
+                                                                        // Keep menu inside viewport horizontally.
+                                                                        if (nextLeft + this.menuWidth > viewportW - 8) {
+                                                                            nextLeft = Math.max(8, viewportW - this.menuWidth - 8);
+                                                                        }
+
+                                                                        // Flip upward if there is not enough room below.
+                                                                        if (nextTop + this.estimateMenuHeight > viewportH - 8) {
+                                                                            nextTop = Math.max(8, rect.top - this.estimateMenuHeight - gap);
+                                                                        }
+
+                                                                        this.left = Math.round(nextLeft);
+                                                                        this.top = Math.round(nextTop);
+                                                                    }
+                                                                }" @resize.window="if (open) updateMenuPosition()" @scroll.window="if (open) updateMenuPosition()">
                                                                     <button type="button" x-ref="dropdownBtn" @click="
                                                                         open = !open;
                                                                         if (open) {
-                                                                            const rect = $refs.dropdownBtn.getBoundingClientRect();
-                                                                            top = rect.bottom + window.scrollY;
-                                                                            left = rect.left + window.scrollX;
+                                                                            updateMenuPosition();
                                                                         }
                                                                     " class="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-200 focus:outline-none" aria-haspopup="true" aria-expanded="false">
                                                                         <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
@@ -706,7 +797,7 @@ try {
                                     <div class="flex space-x-2">
                                         <!-- Previous Button -->
                                         <?php if ($page_number > 1): ?>
-                                            <a href="<?php echo buildPaginationUrlFull($page_number - 1, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode); ?>" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                            <a href="<?php echo buildPaginationUrlFull($page_number - 1, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode, $time_from, $time_to); ?>" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
                                                 <i class="fas fa-chevron-left mr-1"></i>Previous
                                             </a>
                                         <?php else: ?>
@@ -722,7 +813,7 @@ try {
                                             $end_page = min($total_pages, $page_number + 2);
                                             
                                             if ($start_page > 1): ?>
-                                                <a href="<?php echo buildPaginationUrlFull(1, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode); ?>" class="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">1</a>
+                                                <a href="<?php echo buildPaginationUrlFull(1, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode, $time_from, $time_to); ?>" class="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">1</a>
                                                 <?php if ($start_page > 2): ?><span class="text-gray-500">...</span><?php endif; ?>
                                             <?php endif; ?>
                                             
@@ -730,19 +821,19 @@ try {
                                                 <?php if ($i === $page_number): ?>
                                                     <span class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium"><?php echo $i; ?></span>
                                                 <?php else: ?>
-                                                    <a href="<?php echo buildPaginationUrlFull($i, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode); ?>" class="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"><?php echo $i; ?></a>
+                                                    <a href="<?php echo buildPaginationUrlFull($i, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode, $time_from, $time_to); ?>" class="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"><?php echo $i; ?></a>
                                                 <?php endif; ?>
                                             <?php endfor; ?>
                                             
                                             <?php if ($end_page < $total_pages): ?>
                                                 <?php if ($end_page < $total_pages - 1): ?><span class="text-gray-500">...</span><?php endif; ?>
-                                                <a href="<?php echo buildPaginationUrlFull($total_pages, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode); ?>" class="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"><?php echo $total_pages; ?></a>
+                                                <a href="<?php echo buildPaginationUrlFull($total_pages, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode, $time_from, $time_to); ?>" class="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"><?php echo $total_pages; ?></a>
                                             <?php endif; ?>
                                         </div>
                                         
                                         <!-- Next Button -->
                                         <?php if ($page_number < $total_pages): ?>
-                                            <a href="<?php echo buildPaginationUrlFull($page_number + 1, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode); ?>" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                            <a href="<?php echo buildPaginationUrlFull($page_number + 1, $search_query, $status_filter, $type_filter, $date_from, $date_to, $payment_filter, $sort_by, $sort_dir, $date_mode, $time_from, $time_to); ?>" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
                                                 Next<i class="fas fa-chevron-right ml-1"></i>
                                             </a>
                                         <?php else: ?>
@@ -1059,6 +1150,35 @@ try {
                 alert.style.display = 'none';
             }, 3000);
         }
+
+        // Keyboard shortcuts: / focus search, Alt+E export, Alt+C clear selected rows.
+        document.addEventListener('keydown', function(e) {
+            const tagName = (e.target && e.target.tagName ? e.target.tagName : '').toLowerCase();
+            const isTyping = tagName === 'input' || tagName === 'textarea' || tagName === 'select' || (e.target && e.target.isContentEditable);
+
+            if (e.key === '/' && !isTyping) {
+                e.preventDefault();
+                const searchInput = document.getElementById('requestSearchInput');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
+                return;
+            }
+
+            if (e.altKey && e.key.toLowerCase() === 'e') {
+                e.preventDefault();
+                const exportBtn = document.getElementById('exportCsvBtn');
+                if (exportBtn) exportBtn.click();
+                return;
+            }
+
+            if (e.altKey && e.key.toLowerCase() === 'c') {
+                e.preventDefault();
+                clearSelection();
+                showToast('Selection cleared.');
+            }
+        });
     });
 
     function changeRequestStatus(id, type, status) {

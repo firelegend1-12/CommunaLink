@@ -15,6 +15,8 @@ $status_filter = isset($_GET['status']) ? sanitize_input($_GET['status']) : '';
 $type_filter = isset($_GET['type']) ? sanitize_input($_GET['type']) : '';
 $date_from = isset($_GET['date_from']) ? sanitize_input($_GET['date_from']) : '';
 $date_to = isset($_GET['date_to']) ? sanitize_input($_GET['date_to']) : '';
+$time_from = isset($_GET['time_from']) ? sanitize_input($_GET['time_from']) : '';
+$time_to = isset($_GET['time_to']) ? sanitize_input($_GET['time_to']) : '';
 $date_mode = isset($_GET['date_mode']) ? sanitize_input($_GET['date_mode']) : 'request';
 $payment_filter = isset($_GET['payment']) ? sanitize_input($_GET['payment']) : '';
 $sort_by = isset($_GET['sort']) ? sanitize_input($_GET['sort']) : 'date_requested';
@@ -35,8 +37,16 @@ if (!in_array($sort_dir, ['ASC', 'DESC'])) {
 if (!in_array($date_mode, $valid_date_modes)) {
     $date_mode = 'request';
 }
+if (!preg_match('/^\d{2}:\d{2}$/', $time_from)) {
+    $time_from = '';
+}
+if (!preg_match('/^\d{2}:\d{2}$/', $time_to)) {
+    $time_to = '';
+}
 
 $date_column = ($date_mode === 'payment') ? 'payment_date' : 'date_requested';
+$from_suffix = !empty($time_from) ? ($time_from . ':00') : '00:00:00';
+$to_suffix = !empty($time_to) ? ($time_to . ':59') : '23:59:59';
 
 // Build WHERE conditions
 $where_parts = [];
@@ -54,12 +64,12 @@ if (!empty($status_filter) && in_array($status_filter, $valid_statuses)) {
 
 if (!empty($date_from)) {
     $where_parts[] = "{$date_column} >= ?";
-    $exec_params[] = "{$date_from} 00:00:00";
+    $exec_params[] = "{$date_from} {$from_suffix}";
 }
 
 if (!empty($date_to)) {
     $where_parts[] = "{$date_column} <= ?";
-    $exec_params[] = "{$date_to} 23:59:59";
+    $exec_params[] = "{$date_to} {$to_suffix}";
 }
 
 if (!empty($payment_filter) && in_array($payment_filter, $valid_payments)) {
