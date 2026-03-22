@@ -16,9 +16,39 @@ if ($_SESSION['role'] !== 'admin') {
 
 $page_title = "Incident Reports";
 
-// Fetch initial count for header
+// Fetch counts for cards
+// 1. Total Reports
 $stmt = $pdo->query("SELECT COUNT(*) FROM incidents");
 $total_incidents = $stmt->fetchColumn();
+
+// 2. Active Cases (Pending + In Progress)
+$stmt = $pdo->query("SELECT COUNT(*) FROM incidents WHERE status IN ('Pending', 'In Progress')");
+$active_cases = $stmt->fetchColumn();
+
+// 3. Trending Today (Last 24 hours)
+$stmt = $pdo->query("SELECT COUNT(*) FROM incidents WHERE reported_at >= NOW() - INTERVAL 1 DAY");
+$trending_today = $stmt->fetchColumn();
+
+// 4. Resolution Rate (Current Month)
+$stmt = $pdo->query("SELECT 
+    COUNT(CASE WHEN status = 'Resolved' THEN 1 END) as resolved,
+    COUNT(*) as total
+    FROM incidents 
+    WHERE MONTH(reported_at) = MONTH(CURRENT_DATE()) AND YEAR(reported_at) = YEAR(CURRENT_DATE())");
+$current_month_stats = $stmt->fetch();
+$resolution_rate = ($current_month_stats['total'] > 0) 
+    ? round(($current_month_stats['resolved'] / $current_month_stats['total']) * 100) 
+    : 0;
+
+// 5. Critical Alerts (Most frequent type this month)
+$stmt = $pdo->query("SELECT type, COUNT(*) as count 
+    FROM incidents 
+    WHERE MONTH(reported_at) = MONTH(CURRENT_DATE()) AND YEAR(reported_at) = YEAR(CURRENT_DATE())
+    GROUP BY type 
+    ORDER BY count DESC 
+    LIMIT 1");
+$most_frequent = $stmt->fetch();
+$critical_type = $most_frequent ? $most_frequent['type'] : 'None';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -103,26 +133,119 @@ $total_incidents = $stmt->fetchColumn();
                     </div>
                 <?php unset($_SESSION['success_message']); endif; ?>
 
+                <!-- Summary Stats Bar -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- Stat Card: Active Cases -->
+                    <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition group overflow-hidden relative">
+                        <div class="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 bg-rose-50 rounded-full blur-2xl group-hover:bg-rose-100/50 transition duration-500"></div>
+                        <div class="flex items-center justify-between relative z-10">
+                            <div>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Active Cases</p>
+                                <h3 class="text-3xl font-black text-slate-900 leading-none"><?php echo $active_cases; ?></h3>
+                                <p class="text-[10px] font-bold text-rose-500 mt-2 flex items-center">
+                                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5 animate-pulse"></span>
+                                    Requires Action
+                                </p>
+                            </div>
+                            <div class="h-12 w-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center text-xl shadow-inner group-hover:scale-110 transition duration-300">
+                                <i class="fas fa-bolt"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stat Card: Trending Today -->
+                    <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition group overflow-hidden relative">
+                        <div class="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 bg-amber-50 rounded-full blur-2xl group-hover:bg-amber-100/50 transition duration-500"></div>
+                        <div class="flex items-center justify-between relative z-10">
+                            <div>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Trending Today</p>
+                                <h3 class="text-3xl font-black text-slate-900 leading-none"><?php echo $trending_today; ?></h3>
+                                <div class="mt-2 text-[10px] font-bold text-amber-600 flex items-center bg-amber-50 px-2 py-0.5 rounded-lg w-fit">
+                                    <i class="fas fa-chart-line mr-1.5"></i> LAST 24 HOURS
+                                </div>
+                            </div>
+                            <div class="h-12 w-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center text-xl shadow-inner group-hover:rotate-12 transition duration-300">
+                                <i class="fas fa-calendar-day"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stat Card: Resolution Rate -->
+                    <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition group overflow-hidden relative">
+                        <div class="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 bg-emerald-50 rounded-full blur-2xl group-hover:bg-emerald-100/50 transition duration-500"></div>
+                        <div class="flex items-center justify-between relative z-10">
+                            <div>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Resolution Rate</p>
+                                <div class="flex items-end gap-1">
+                                    <h3 class="text-3xl font-black text-slate-900 leading-none"><?php echo $resolution_rate; ?>%</h3>
+                                    <span class="text-[10px] font-bold text-slate-400 mb-0.5">mtd</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden border border-slate-50">
+                                    <div class="bg-emerald-500 h-full rounded-full" style="width: <?php echo $resolution_rate; ?>%"></div>
+                                </div>
+                            </div>
+                            <div class="h-12 w-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl shadow-inner group-hover:scale-95 transition duration-300">
+                                <i class="fas fa-check-double"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stat Card: Critical Type -->
+                    <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition group overflow-hidden relative">
+                        <div class="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 bg-indigo-50 rounded-full blur-2xl group-hover:bg-indigo-100/50 transition duration-500"></div>
+                        <div class="flex items-center justify-between relative z-10">
+                            <div>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Most Frequent</p>
+                                <h3 class="text-xl font-black text-slate-900 leading-tight truncate max-w-[140px]"><?php echo $critical_type; ?></h3>
+                                <p class="text-[10px] font-medium text-slate-500 mt-1 uppercase tracking-tighter">Frequent this month</p>
+                            </div>
+                            <div class="h-12 w-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-xl shadow-inner group-hover:translate-x-1 transition duration-300">
+                                <i class="fas fa-biohazard"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Main Grid -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <!-- Table Actions -->
-                    <div class="px-6 py-5 border-b border-slate-100 flex flex-wrap justify-between items-center bg-slate-50/50">
-                        <div class="flex-grow w-full sm:w-auto mb-2 sm:mb-0 sm:mr-6">
+                    <div class="px-6 py-5 border-b border-slate-100 flex flex-wrap justify-between items-center bg-slate-50/50 gap-4">
+                        <div class="flex-grow max-w-md">
                             <div class="relative group">
                                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 group-focus-within:text-indigo-500 transition">
                                     <i class="fas fa-search"></i>
                                 </span>
                                 <input type="text" x-model="search" 
-                                    class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition shadow-sm"
+                                    class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition shadow-sm text-sm"
                                     placeholder="Search by reporter, type or location...">
                             </div>
                         </div>
-                        <div class="flex items-center space-x-3">
-                            <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+
+                        <div class="flex flex-wrap items-center gap-3">
+                            <!-- Date Range Filter -->
+                            <div class="flex items-center bg-white border border-slate-200 rounded-xl p-1 gap-1 shadow-sm">
+                                <div class="flex items-center px-2 text-slate-400">
+                                    <i class="fas fa-calendar-alt text-xs"></i>
+                                </div>
+                                <input type="date" x-model="dateFrom" class="text-xs font-bold text-slate-600 focus:outline-none border-none p-1 w-28 bg-transparent" title="Start Date">
+                                <span class="text-slate-300 text-xs">/</span>
+                                <input type="date" x-model="dateTo" class="text-xs font-bold text-slate-600 focus:outline-none border-none p-1 w-28 bg-transparent" title="End Date">
+                                <button x-show="dateFrom || dateTo" @click="dateFrom = ''; dateTo = ''" class="text-slate-400 hover:text-rose-500 p-1 transition" title="Clear Date Filter">
+                                    <i class="fas fa-times-circle text-xs"></i>
+                                </button>
+                            </div>
+
+                            <!-- Status Filter -->
+                            <div class="flex bg-slate-200/50 p-1 rounded-xl border border-slate-200">
                                 <button @click="statusFilter = 'All'" :class="statusFilter === 'All' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">ALL</button>
-                                <button @click="statusFilter = 'Pending'" :class="statusFilter === 'Pending' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">PENDING</button>
+                                <button @click="statusFilter = 'Pending'" :class="statusFilter === 'Pending' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">PENDING</button>
                                 <button @click="statusFilter = 'Resolved'" :class="statusFilter === 'Resolved' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">RESOLVED</button>
                             </div>
+
+                            <!-- Export Button -->
+                            <button @click="exportCSV" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase transition-all shadow-md shadow-indigo-600/20 active:shadow-none flex items-center">
+                                <i class="fas fa-file-export mr-2"></i> EXPORT
+                            </button>
                         </div>
                     </div>
 
@@ -144,23 +267,44 @@ $total_incidents = $stmt->fetchColumn();
                                     <tr class="hover:bg-indigo-50/30 transition group">
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center">
-                                                <div :class="{
-                                                    'h-10 w-10 rounded-xl flex items-center justify-center text-sm shadow-sm': true,
-                                                    'bg-amber-100 text-amber-700': report.type === 'Fire' || report.type === 'Emergency',
-                                                    'bg-indigo-100 text-indigo-700': report.type === 'Traffic' || report.type === 'Crime',
-                                                    'bg-slate-100 text-slate-700': !['Fire', 'Emergency', 'Traffic', 'Crime'].includes(report.type)
-                                                }">
-                                                    <i :class="{
-                                                        'fas': true,
-                                                        'fa-fire': report.type === 'Fire',
-                                                        'fa-ambulance': report.type === 'Emergency',
-                                                        'fa-car': report.type === 'Traffic',
-                                                        'fa-exclamation-triangle': !['Fire', 'Emergency', 'Traffic'].includes(report.type)
-                                                    }"></i>
+                                                <div class="relative">
+                                                    <div :class="{
+                                                        'h-12 w-12 rounded-2xl flex items-center justify-center text-lg shadow-sm overflow-hidden border-2 transition-all duration-500 group-hover:rotate-3 group-hover:scale-105': true,
+                                                        'bg-rose-100/50 border-rose-200 text-rose-600': report.type === 'Fire' || report.type === 'Emergency',
+                                                        'bg-indigo-100/50 border-indigo-200 text-indigo-600': report.type === 'Traffic' || report.type === 'Crime',
+                                                        'bg-slate-100/50 border-slate-200 text-slate-600': !['Fire', 'Emergency', 'Traffic', 'Crime'].includes(report.type)
+                                                    }">
+                                                        <template x-if="report.image_path">
+                                                            <img :src="'../../' + report.image_path" class="h-full w-full object-cover">
+                                                        </template>
+                                                        <template x-if="!report.image_path">
+                                                            <i :class="{
+                                                                'fas': true,
+                                                                'fa-fire': report.type === 'Fire',
+                                                                'fa-ambulance': report.type === 'Emergency',
+                                                                'fa-car': report.type === 'Traffic',
+                                                                'fa-exclamation-triangle': !['Fire', 'Emergency', 'Traffic'].includes(report.type)
+                                                            }"></i>
+                                                        </template>
+                                                    </div>
+                                                    <!-- Urgency Pulse -->
+                                                    <template x-if="report.status === 'Pending'">
+                                                        <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                                                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                                          <span class="relative inline-flex rounded-full h-3 w-3 bg-rose-500 border border-white"></span>
+                                                        </span>
+                                                    </template>
                                                 </div>
                                                 <div class="ml-4">
                                                     <div class="text-sm font-bold text-slate-900 group-hover:text-indigo-700 transition" x-text="report.type"></div>
-                                                    <div class="text-[10px] font-black text-slate-400 uppercase tracking-tighter" x-text="'ID: #' + report.id"></div>
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="text-[10px] font-black text-slate-400 uppercase tracking-tighter" x-text="'ID: #' + report.id"></div>
+                                                        <template x-if="report.image_path">
+                                                            <span class="text-[8px] font-black bg-indigo-50 text-indigo-500 px-1 rounded flex items-center">
+                                                                <i class="fas fa-camera mr-0.5"></i> ATTACHED
+                                                            </span>
+                                                        </template>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
@@ -312,90 +456,166 @@ $total_incidents = $stmt->fetchColumn();
 
                             <template x-if="!loadingView && viewData">
                                 <div class="space-y-10">
-                                    <!-- Status Banner -->
-                                    <div :class="{
-                                        'p-4 rounded-2xl border flex items-center justify-between': true,
-                                        'bg-amber-50 border-amber-100 text-amber-800': viewData.status === 'Pending',
-                                        'bg-indigo-50 border-indigo-100 text-indigo-800': viewData.status === 'In Progress' || viewData.status === 'Under Review',
-                                        'bg-emerald-50 border-emerald-100 text-emerald-800': viewData.status === 'Resolved',
-                                        'bg-rose-50 border-rose-100 text-rose-800': viewData.status === 'Rejected'
-                                    }">
-                                        <div class="flex items-center">
-                                            <div class="h-2 w-2 rounded-full mr-3 animate-pulse" :class="{
-                                                'bg-amber-500': viewData.status === 'Pending',
-                                                'bg-indigo-500': viewData.status === 'In Progress',
-                                                'bg-emerald-500': viewData.status === 'Resolved',
-                                                'bg-rose-500': viewData.status === 'Rejected'
-                                            }"></div>
-                                            <span class="text-xs font-black uppercase tracking-widest" x-text="'STATUS: ' + viewData.status"></span>
-                                        </div>
-                                        <a :href="'update-incident.php?id=' + viewData.id" class="text-[10px] font-bold underline hover:no-underline uppercase tracking-wider">Update Status</a>
-                                    </div>
-
-                                    <!-- Reporter Info -->
-                                    <div>
-                                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-3 mb-5 flex items-center">
-                                            <i class="fas fa-user-shield mr-3 text-indigo-500"></i> REPORTER INFORMATION
-                                        </h3>
-                                        <div class="grid grid-cols-2 gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                                            <div>
-                                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Full Name</p>
-                                                <p class="text-sm font-bold text-slate-800" x-text="viewData.reporter_name"></p>
-                                            </div>
-                                            <div>
-                                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Contact No.</p>
-                                                <p class="text-sm font-bold text-slate-800" x-text="viewData.reporter_contact || 'N/A'"></p>
-                                            </div>
-                                            <div class="col-span-2">
-                                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Email Address</p>
-                                                <p class="text-sm font-bold text-indigo-600 truncate" x-text="viewData.reporter_email"></p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Incident Details -->
-                                    <div>
-                                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-3 mb-5 flex items-center">
-                                            <i class="fas fa-info-circle mr-3 text-indigo-500"></i> INCIDENT DETAILS
-                                        </h3>
-                                        <div class="space-y-6">
-                                            <div>
-                                                <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Location & Landmark</p>
-                                                <div class="bg-indigo-50/50 p-4 rounded-xl text-sm font-medium text-slate-700 border border-indigo-100" x-text="viewData.location"></div>
-                                            </div>
-                                            
-                                            <template x-if="viewData.description">
-                                                <div>
-                                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Description / Remarks</p>
-                                                    <div class="text-sm leading-relaxed text-slate-600 bg-white p-4 rounded-xl border border-slate-100" x-text="viewData.description"></div>
+                                    <div class="flex items-start gap-8">
+                                        <!-- Left Column: Details -->
+                                        <div class="flex-1 space-y-10">
+                                            <!-- Status Banner -->
+                                            <div :class="{
+                                                'p-4 rounded-2xl border flex items-center justify-between': true,
+                                                'bg-amber-50 border-amber-100 text-amber-800': viewData.status === 'Pending',
+                                                'bg-indigo-50 border-indigo-100 text-indigo-800': viewData.status === 'In Progress' || viewData.status === 'Under Review',
+                                                'bg-emerald-50 border-emerald-100 text-emerald-800': viewData.status === 'Resolved',
+                                                'bg-rose-50 border-rose-100 text-rose-800': viewData.status === 'Rejected'
+                                            }">
+                                                <div class="flex items-center">
+                                                    <div class="h-2 w-2 rounded-full mr-3 animate-pulse" :class="{
+                                                        'bg-amber-500': viewData.status === 'Pending',
+                                                        'bg-indigo-500': viewData.status === 'In Progress',
+                                                        'bg-emerald-500': viewData.status === 'Resolved',
+                                                        'bg-rose-500': viewData.status === 'Rejected'
+                                                    }"></div>
+                                                    <span class="text-xs font-black uppercase tracking-widest" x-text="'STATUS: ' + viewData.status"></span>
                                                 </div>
-                                            </template>
+                                                <a :href="'update-incident.php?id=' + viewData.id" class="text-[10px] font-bold underline hover:no-underline uppercase tracking-wider text-indigo-600">Update Status</a>
+                                            </div>
 
-                                            <!-- Photos if any -->
-                                            <template x-if="viewData.image_path">
-                                                <div>
-                                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-3 text-center">Attached Media</p>
-                                                    <div class="rounded-2xl overflow-hidden border-2 border-slate-100 shadow-lg">
-                                                        <img :src="'../../' + viewData.image_path" class="w-full h-auto object-cover max-h-[300px]">
+                                            <!-- Reporter Info -->
+                                            <div class="group/section">
+                                                <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-3 mb-5 flex items-center group-hover/section:text-indigo-500 transition-colors">
+                                                    <i class="fas fa-user-shield mr-3"></i> REPORTER INFORMATION
+                                                </h3>
+                                                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group/reporter">
+                                                    <div class="absolute top-0 right-0 p-4 opacity-0 group-hover/reporter:opacity-100 transition-opacity">
+                                                        <a :href="'residents.php?search=' + encodeURIComponent(viewData.reporter_name)" class="text-[10px] font-black uppercase bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl hover:bg-indigo-600 hover:text-white transition-all">View History</a>
                                                     </div>
-                                                </div>
-                                            </template>
-
-                                            <!-- Map Link Card -->
-                                            <template x-if="viewData.latitude">
-                                                <div class="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 flex items-center justify-between">
-                                                    <div class="flex items-center">
-                                                        <div class="h-12 w-12 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 mr-4 shadow-sm">
-                                                            <i class="fas fa-map-marked-alt text-xl"></i>
+                                                    <div class="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Full Name</p>
+                                                            <p class="text-sm font-bold text-slate-800" x-text="viewData.reporter_name"></p>
                                                         </div>
                                                         <div>
-                                                            <p class="text-sm font-bold text-emerald-900">GPS Coordinates Attached</p>
-                                                            <p class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider" x-text="viewData.latitude + ', ' + viewData.longitude"></p>
+                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Contact No.</p>
+                                                            <p class="text-sm font-bold text-slate-800" x-text="viewData.reporter_contact || 'N/A'"></p>
+                                                        </div>
+                                                        <div class="col-span-2">
+                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Email Address</p>
+                                                            <p class="text-sm font-bold text-indigo-600 truncate" x-text="viewData.reporter_email"></p>
                                                         </div>
                                                     </div>
-                                                    <a :href="'https://www.google.com/maps?q=' + viewData.latitude + ',' + viewData.longitude" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black uppercase transition-all shadow-md shadow-emerald-600/20">Open Map</a>
                                                 </div>
-                                            </template>
+                                            </div>
+
+                                            <!-- Incident Details -->
+                                            <div class="group/section">
+                                                <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-3 mb-5 flex items-center group-hover/section:text-indigo-500 transition-colors">
+                                                    <i class="fas fa-info-circle mr-3"></i> INCIDENT DETAILS
+                                                </h3>
+                                                <div class="space-y-6">
+                                                    <div>
+                                                        <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Location & Landmark</p>
+                                                        <div class="bg-indigo-50/50 p-4 rounded-xl text-sm font-semibold text-slate-700 border border-indigo-100" x-text="viewData.location"></div>
+                                                    </div>
+                                                    
+                                                    <div>
+                                                        <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Detailed Narrative</p>
+                                                        <div class="text-sm leading-relaxed text-slate-600 bg-white p-4 rounded-xl border border-slate-100" x-text="viewData.description || 'No description provided.'"></div>
+                                                    </div>
+
+                                                    <!-- Photos -->
+                                                    <template x-if="viewData.image_path">
+                                                        <div>
+                                                            <p class="text-[10px] font-black text-slate-400 uppercase mb-3 text-center tracking-widest">Attached Media</p>
+                                                            <div class="rounded-2xl overflow-hidden border border-slate-200 shadow-md group/media cursor-zoom-in">
+                                                                <img :src="'../../' + viewData.image_path" class="w-full h-auto object-cover max-h-[400px] border-b border-slate-100">
+                                                                <div class="bg-slate-50 p-3 flex items-center justify-between">
+                                                                    <span class="text-[10px] font-bold text-slate-500"><i class="fas fa-image mr-1.5"></i> Evidence Photo</span>
+                                                                    <a :href="'../../' + viewData.image_path" target="_blank" class="text-[10px] font-black uppercase text-indigo-600 hover:underline">Full Resolution</a>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+
+                                                    <!-- Map -->
+                                                    <template x-if="viewData.latitude">
+                                                        <div class="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 flex items-center justify-between group/map">
+                                                            <div class="flex items-center">
+                                                                <div class="h-12 w-12 bg-white rounded-xl flex items-center justify-center text-emerald-600 mr-4 shadow-sm border border-emerald-100 group-hover/map:rotate-6 transition-all">
+                                                                    <i class="fas fa-map-marked-alt text-xl"></i>
+                                                                </div>
+                                                                <div>
+                                                                    <p class="text-sm font-bold text-emerald-900">GPS Coordinates Attached</p>
+                                                                    <p class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider" x-text="viewData.latitude + ', ' + viewData.longitude"></p>
+                                                                </div>
+                                                            </div>
+                                                            <a :href="'https://www.google.com/maps?q=' + viewData.latitude + ',' + viewData.longitude" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black uppercase transition-all shadow-lg active:shadow-none">Open Map</a>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Right Column: Timeline & Notes -->
+                                        <div class="w-64 space-y-10">
+                                            <!-- Resolution Stepper -->
+                                            <div class="group/section">
+                                                <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-3 mb-5 group-hover/section:text-indigo-500 transition-colors">TIMELINE</h3>
+                                                <div class="relative pl-6 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100">
+                                                    <!-- Step: Reported -->
+                                                    <div class="relative">
+                                                        <div class="absolute -left-[23px] h-4 w-4 rounded-full border-4 border-white bg-indigo-500 shadow-sm"></div>
+                                                        <p class="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Reported</p>
+                                                        <p class="text-xs font-bold text-slate-800" x-text="formatDate(viewData.reported_at)"></p>
+                                                        <p class="text-[10px] text-slate-400" x-text="formatTime(viewData.reported_at)"></p>
+                                                    </div>
+
+                                                    <!-- Step: Processing -->
+                                                    <div class="relative">
+                                                        <div :class="{
+                                                            'absolute -left-[23px] h-4 w-4 rounded-full border-4 border-white shadow-sm': true,
+                                                            'bg-indigo-500': viewData.status !== 'Pending',
+                                                            'bg-slate-300': viewData.status === 'Pending'
+                                                        }"></div>
+                                                        <p :class="viewData.status !== 'Pending' ? 'text-[10px] font-black text-indigo-600 uppercase tracking-widest' : 'text-[10px] font-black text-slate-400 uppercase tracking-widest'">Acknowledge</p>
+                                                        <p class="text-xs font-bold" :class="viewData.status !== 'Pending' ? 'text-slate-800' : 'text-slate-400'" x-text="viewData.status !== 'Pending' ? 'Confirmed by Admin' : 'Awaiting Review'"></p>
+                                                    </div>
+
+                                                    <!-- Step: Resolved -->
+                                                    <div class="relative">
+                                                        <div :class="{
+                                                            'absolute -left-[23px] h-4 w-4 rounded-full border-4 border-white shadow-sm': true,
+                                                            'bg-emerald-500': viewData.status === 'Resolved',
+                                                            'bg-slate-300': viewData.status !== 'Resolved'
+                                                        }"></div>
+                                                        <p :class="viewData.status === 'Resolved' ? 'text-[10px] font-black text-emerald-600 uppercase tracking-widest' : 'text-[10px] font-black text-slate-400 uppercase tracking-widest'">Resolution</p>
+                                                        <p class="text-xs font-bold" :class="viewData.status === 'Resolved' ? 'text-slate-800' : 'text-slate-400'" x-text="viewData.status === 'Resolved' ? 'Case Closed' : 'In Progress'"></p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Admin Remarks Editor -->
+                                            <div class="group/section">
+                                                <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-3 mb-5 group-hover/section:text-indigo-500 transition-colors">ADMIN NOTES</h3>
+                                                <div class="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 shadow-inner relative group/remarks">
+                                                    <textarea 
+                                                        x-model="viewData.admin_remarks" 
+                                                        placeholder="Enter investigation notes..."
+                                                        class="w-full bg-transparent border-none focus:ring-0 text-xs font-medium text-slate-700 min-h-[150px] resize-none"
+                                                        @input="remarksChanged = true"
+                                                    ></textarea>
+                                                    <div class="mt-4 flex flex-col gap-2">
+                                                        <button 
+                                                            x-show="remarksChanged" 
+                                                            @click="saveRemarks" 
+                                                            class="w-full bg-indigo-600 text-white text-[10px] font-black uppercase py-2 rounded-xl shadow-md hover:bg-indigo-700 transition"
+                                                            :disabled="isSavingRemarks"
+                                                        >
+                                                            <template x-if="!isSavingRemarks"><span><i class="fas fa-save mr-1.5"></i> Save Notes</span></template>
+                                                            <template x-if="isSavingRemarks"><span><i class="fas fa-spinner fa-spin mr-1.5"></i> Saving...</span></template>
+                                                        </button>
+                                                        <p class="text-[9px] text-slate-400 text-center font-bold">Confidential internal remarks only visible to Barangay officials.</p>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -431,6 +651,10 @@ $total_incidents = $stmt->fetchColumn();
                 loadingView: false,
                 viewData: null,
                 pollingInterval: null,
+                remarksChanged: false,
+                isSavingRemarks: false,
+                dateFrom: '',
+                dateTo: '',
 
                 init() {
                     this.fetchReports();
@@ -468,14 +692,33 @@ $total_incidents = $stmt->fetchColumn();
                         
                         const matchesStatus = this.statusFilter === 'All' || r.status === this.statusFilter;
                         
-                        return matchesSearch && matchesStatus;
+                        // Date Filtering
+                        let matchesDate = true;
+                        const reportDate = new Date(r.reported_at).toISOString().split('T')[0];
+                        
+                        if (this.dateFrom && reportDate < this.dateFrom) matchesDate = false;
+                        if (this.dateTo && reportDate > this.dateTo) matchesDate = false;
+                        
+                        return matchesSearch && matchesStatus && matchesDate;
                     });
+                },
+
+                exportCSV() {
+                    const params = new URLSearchParams({
+                        search: this.search,
+                        status: this.statusFilter,
+                        from: this.dateFrom,
+                        to: this.dateTo
+                    });
+                    window.location.href = `../partials/export-incidents-csv.php?${params.toString()}`;
                 },
 
                 async openQuickView(id) {
                     this.showView = true;
                     this.loadingView = true;
                     this.viewData = null;
+                    this.remarksChanged = false;
+                    this.isSavingRemarks = false;
                     try {
                         const response = await fetch(`../partials/get-incident-details.php?id=${id}`);
                         const result = await response.json();
@@ -491,6 +734,34 @@ $total_incidents = $stmt->fetchColumn();
                         this.showView = false;
                     } finally {
                         this.loadingView = false;
+                    }
+                },
+
+                async saveRemarks() {
+                    if (!this.viewData || !this.remarksChanged) return;
+                    this.isSavingRemarks = true;
+                    try {
+                        const formData = new FormData();
+                        formData.append('id', this.viewData.id);
+                        formData.append('remarks', this.viewData.admin_remarks || '');
+
+                        const response = await fetch('../partials/update-incident-remarks.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            this.remarksChanged = false;
+                            // Optionally refresh reports to sync the data
+                            this.fetchReports(true);
+                        } else {
+                            alert(result.error || 'Failed to save remarks');
+                        }
+                    } catch (error) {
+                        console.error('Error saving remarks:', error);
+                        alert('An error occurred while saving.');
+                    } finally {
+                        this.isSavingRemarks = false;
                     }
                 },
 

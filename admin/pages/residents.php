@@ -216,8 +216,8 @@ try {
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="flex items-center">
                                                         <div class="flex-shrink-0 h-10 w-10">
-                                                            <?php if ($resident['profile_image_path'] && file_exists('../' . $resident['profile_image_path'])): ?>
-                                                                <img class="h-10 w-10 rounded-xl object-cover shadow-sm" src="<?php echo htmlspecialchars('../' . $resident['profile_image_path']); ?>" alt="Profile Image">
+                                                            <?php if (!empty($resident['profile_image_path'])): ?>
+                                                                <img class="h-10 w-10 rounded-xl object-cover shadow-sm" src="<?php echo htmlspecialchars('../' . $resident['profile_image_path']); ?>" alt="Profile Image" onerror="this.onerror=null; this.outerHTML='<div class=\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\'><?php echo strtoupper(substr($resident['first_name'], 0, 1) . substr($resident['last_name'], 0, 1)); ?></div>';">
                                                             <?php else: ?>
                                                                 <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm">
                                                                     <?php echo strtoupper(substr($resident['first_name'], 0, 1) . substr($resident['last_name'], 0, 1)); ?>
@@ -593,7 +593,7 @@ try {
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 h-10 w-10">
                                     ${resident.profile_image_path && resident.profile_image_path !== '' ?
-                                        `<img class=\"h-10 w-10 rounded-xl object-cover shadow-sm\" src=\"../${resident.profile_image_path}\" alt=\"Profile Image\">` :
+                                        `<img class=\"h-10 w-10 rounded-xl object-cover shadow-sm\" src=\"../${resident.profile_image_path}\" alt=\"Profile Image\" onerror=\"this.onerror=null; this.outerHTML='<div class=\\\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\\\'>${(resident.first_name[0] + resident.last_name[0]).toUpperCase()}</div>';\">` :
                                         `<div class=\"h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\">${(resident.first_name[0] + resident.last_name[0]).toUpperCase()}</div>`
                                     }
                                 </div>

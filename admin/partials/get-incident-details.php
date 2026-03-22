@@ -24,7 +24,7 @@ if (!$id) {
 try {
     // 1. Fetch Incident Info + Reporter Info
     // Assuming incidents table has: id, type, details, location, status, reported_at, image_path, resident_user_id
-    $stmt = $pdo->prepare("SELECT i.*, u.fullname AS reporter_name, u.email AS reporter_email, r.contact_no AS reporter_contact
+    $stmt = $pdo->prepare("SELECT i.*, u.fullname AS reporter_name, u.email AS reporter_email, r.contact_no AS reporter_contact, r.id AS resident_id
                            FROM incidents i
                            LEFT JOIN users u ON i.resident_user_id = u.id
                            LEFT JOIN residents r ON u.id = r.user_id
