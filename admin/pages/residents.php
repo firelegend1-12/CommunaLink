@@ -54,6 +54,8 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
+        [x-cloak] { display: none !important; }
+
         .id-card {
             width: 3.375in;
             height: 2.125in;
@@ -511,6 +513,17 @@ try {
         </div>
     </div>
     <script>
+        // Prevent accidental click-through right after navigation/render.
+        (function() {
+            const suppressUntil = Date.now() + 450;
+            document.addEventListener('click', function(e) {
+                if (Date.now() < suppressUntil) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }, true);
+        })();
+
         document.addEventListener('DOMContentLoaded', function() {
             const alert = document.getElementById('residents-success-alert');
             if (alert) {
@@ -527,6 +540,21 @@ try {
                 showView: false,
                 loadingResident: false,
                 residentData: null,
+                init() {
+                    window.addEventListener('resident-open-view', (e) => {
+                        const id = parseInt(e.detail, 10);
+                        if (!Number.isNaN(id)) {
+                            this.openView(id);
+                        }
+                    });
+
+                    window.addEventListener('resident-generate-id', (e) => {
+                        const id = parseInt(e.detail, 10);
+                        if (!Number.isNaN(id)) {
+                            this.generateId(id);
+                        }
+                    });
+                },
                 
                 openView(id) {
                     this.showView = true;
@@ -616,50 +644,26 @@ try {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div class="flex items-center space-x-2">
-                                <button onclick="window.pageDataScope.openView(${resident.id})" class="text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition" title="Quick View">
+                                <button onclick="window.dispatchEvent(new CustomEvent('resident-open-view', { detail: ${resident.id} }))" class="text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition" title="Quick View">
                                     <i class="fas fa-eye"></i>
                                 </button>
-                                
-                                <div class="relative inline-block text-left" x-data="{ open: false, top: 0, left: 0 }">
-                                    <button type="button" x-ref="dropdownBtn" @click="
-                                        open = !open;
-                                        if (open) {
-                                            const rect = $refs.dropdownBtn.getBoundingClientRect();
-                                            top = rect.bottom + window.scrollY;
-                                            left = rect.left + window.scrollX;
-                                        }
-                                    " class="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-gray-200 focus:outline-none transition" aria-haspopup="true" aria-expanded="false">
-                                        <i class="fas fa-ellipsis-v text-gray-400"></i>
+                                <a href="edit-resident.php?id=${resident.id}" class="text-gray-700 hover:bg-gray-100 p-2 rounded-lg transition" title="Edit Profile">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="button" onclick="window.dispatchEvent(new CustomEvent('resident-generate-id', { detail: ${resident.id} }))" class="text-indigo-600 hover:bg-indigo-100 p-2 rounded-lg transition" title="Generate ID">
+                                    <i class="fas fa-id-card"></i>
+                                </button>
+                                <form action="../partials/delete-resident-handler.php" method="POST" onsubmit="return confirm('Are you sure you want to remove this resident?');" class="inline">
+                                    <input type="hidden" name="resident_id" value="${resident.id}">
+                                    <button type="submit" class="text-red-600 hover:bg-red-100 p-2 rounded-lg transition" title="Delete Resident">
+                                        <i class="fas fa-trash-alt"></i>
                                     </button>
-                                    <template x-teleport="body">
-                                        <div x-show="open" @click.away="open = false" x-cloak
-                                             class="fixed z-50 w-48 rounded-xl shadow-xl bg-white ring-1 ring-black ring-opacity-5 overflow-hidden"
-                                             :style="'top: ' + top + 'px; left: ' + left + 'px;'">
-                                            <div class="py-1">
-                                                <a href="edit-resident.php?id=${resident.id}" class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition border-b border-gray-50">
-                                                    <i class="fas fa-edit mr-3 text-blue-500"></i> Edit Profile
-                                                </a>
-                                                <button type="button" onclick="window.pageDataScope.generateId(${resident.id});" class="flex items-center w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition border-b border-gray-50">
-                                                    <i class="fas fa-id-card mr-3 text-indigo-500"></i> Generate ID
-                                                </button>
-                                                <form action="../partials/delete-resident-handler.php" method="POST" onsubmit="return confirm('Are you sure you want to remove this resident?');">
-                                                    <input type="hidden" name="resident_id" value="${resident.id}">
-                                                    <button type="submit" class="flex items-center w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition">
-                                                        <i class="fas fa-trash-alt mr-3"></i> Delete Resident
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
+                                </form>
                             </div>
                         </td>
                     </tr>
                 `).join('');
             }
-
-            // Create a globally accessible scope for the Alpine data
-            window.pageDataScope = pageData();
 
             let currentVoterFilter = 'All';
 

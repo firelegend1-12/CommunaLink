@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resident_id'])) {
     $resident_id = intval($_POST['resident_id']);
     try {
         // Check for active document requests
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM document_requests WHERE resident_id = ? AND status NOT IN ('Completed', 'Rejected')");
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM document_requests WHERE resident_id = ? AND status NOT IN ('Completed', 'Rejected', 'Cancelled')");
         $stmt->execute([$resident_id]);
         $active_requests = $stmt->fetchColumn();
         if ($active_requests > 0) {
