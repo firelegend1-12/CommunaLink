@@ -326,6 +326,7 @@ try {
                                                     <?php if ($user['id'] != $_SESSION['user_id']): ?>
                                                         <form onsubmit="return confirm('WARNING: Are you sure you want to delete this user? This action is irreversible.');" 
                                                               action="../partials/delete-user-handler.php" method="POST" class="inline">
+                                                            <?php echo csrf_field(); ?>
                                                             <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
                                                             <button type="submit" class="text-rose-500 bg-white hover:bg-rose-500 hover:text-white p-2 rounded-xl transition shadow-sm border border-slate-200 hover:border-rose-500" title="Delete User">
                                                                 <i class="fas fa-trash-alt"></i>

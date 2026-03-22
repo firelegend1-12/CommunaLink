@@ -328,31 +328,25 @@ function archive_old_activity_logs($pdo, $days_to_keep = 90, $batch_size = 1000)
 }
 
 /**
- * Log activity to the activity_logs database table
+ * Insert an activity log row with hash-chain data.
  *
  * @param PDO $pdo PDO database connection
+ * @param int|null $user_id User ID (optional)
+ * @param string $username Username label
  * @param string $action Action performed (add, edit, delete, etc.)
- * @param string $target_type What was affected (resident, business, etc.)
+ * @param string $target_type What was affected
  * @param int|null $target_id ID of the affected record (optional)
  * @param string|null $details Description/details (optional)
  * @param string|null $old_value Old value (optional)
  * @param string|null $new_value New value (optional)
  * @param string|null $severity Severity level (optional: info, warning, error, critical)
  * @param string|null $request_id Request identifier (optional)
+ * @param string|null $session_id Session identifier (optional)
+ * @param string|null $user_agent User agent (optional)
+ * @param string|null $ip_address IP address (optional)
  * @return void
  */
-function log_activity_db($pdo, $action, $target_type, $target_id = null, $details = null, $old_value = null, $new_value = null, $severity = null, $request_id = null) {
-    // Only log for authorized admin/official roles
-    if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'])) {
-        return;
-    }
-    
-    $user_id = $_SESSION['user_id'] ?? null;
-    $username = $_SESSION['username'] ?? 'Unknown';
-    $session_id = session_id() ?: null;
-    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? null;
-    $ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
-
+function insert_activity_log_entry($pdo, $user_id, $username, $action, $target_type, $target_id = null, $details = null, $old_value = null, $new_value = null, $severity = null, $request_id = null, $session_id = null, $user_agent = null, $ip_address = null) {
     if ($request_id === null) {
         $request_id = $_SERVER['HTTP_X_REQUEST_ID'] ?? null;
     }
@@ -415,7 +409,7 @@ function log_activity_db($pdo, $action, $target_type, $target_id = null, $detail
         $previous_hash = '';
         $chain_hash = '';
     }
-    
+
     try {
         $stmt = $pdo->prepare("INSERT INTO activity_logs (user_id, username, action, target_type, target_id, details, ip_address, user_agent, session_id, request_id, severity, old_value, new_value, prev_hash, log_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
@@ -436,9 +430,72 @@ function log_activity_db($pdo, $action, $target_type, $target_id = null, $detail
             $chain_hash
         ]);
     } catch (PDOException $e) {
-        // Log failed, but don't break the application
-        // In production, you might want to log this to a file instead
+        // Logging failures must not break application flow.
     }
+}
+
+/**
+ * Log activity to the activity_logs database table
+ *
+ * @param PDO $pdo PDO database connection
+ * @param string $action Action performed (add, edit, delete, etc.)
+ * @param string $target_type What was affected (resident, business, etc.)
+ * @param int|null $target_id ID of the affected record (optional)
+ * @param string|null $details Description/details (optional)
+ * @param string|null $old_value Old value (optional)
+ * @param string|null $new_value New value (optional)
+ * @param string|null $severity Severity level (optional: info, warning, error, critical)
+ * @param string|null $request_id Request identifier (optional)
+ * @return void
+ */
+function log_activity_db($pdo, $action, $target_type, $target_id = null, $details = null, $old_value = null, $new_value = null, $severity = null, $request_id = null) {
+    // Only log for authorized admin/official roles
+    if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'])) {
+        return;
+    }
+    
+    $user_id = $_SESSION['user_id'] ?? null;
+    $username = $_SESSION['username'] ?? 'Unknown';
+    insert_activity_log_entry(
+        $pdo,
+        $user_id,
+        $username,
+        $action,
+        $target_type,
+        $target_id,
+        $details,
+        $old_value,
+        $new_value,
+        $severity,
+        $request_id,
+        session_id() ?: null,
+        $_SERVER['HTTP_USER_AGENT'] ?? null,
+        $_SERVER['REMOTE_ADDR'] ?? null
+    );
+}
+
+/**
+ * System-level activity logging that bypasses role-gating while preserving hash-chain integrity.
+ *
+ * @return void
+ */
+function log_activity_db_system($pdo, $action, $target_type, $target_id = null, $details = null, $old_value = null, $new_value = null, $severity = null, $request_id = null, $user_id = null, $username = 'system', $session_id = null, $user_agent = null, $ip_address = null) {
+    insert_activity_log_entry(
+        $pdo,
+        $user_id,
+        $username,
+        $action,
+        $target_type,
+        $target_id,
+        $details,
+        $old_value,
+        $new_value,
+        $severity,
+        $request_id,
+        $session_id,
+        $user_agent,
+        $ip_address
+    );
 }
 
 if (!function_exists('require_role')) {

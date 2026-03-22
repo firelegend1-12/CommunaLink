@@ -84,10 +84,6 @@ function clear_expired_active_sessions($pdo) {
 
 function log_concurrency_denial($pdo, $user, $scope, $cap, $active_count) {
     try {
-        $stmt = $pdo->prepare("INSERT INTO activity_logs
-                              (user_id, username, action, target_type, target_id, details, ip_address, user_agent, session_id, request_id, severity)
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
         $username = $user['username'] ?? 'unknown';
         $role = $user['role'] ?? 'unknown';
         $details = sprintf(
@@ -98,19 +94,22 @@ function log_concurrency_denial($pdo, $user, $scope, $cap, $active_count) {
             (int) $cap
         );
 
-        $stmt->execute([
-            $user['id'] ?? null,
-            $username,
+        log_activity_db_system(
+            $pdo,
             'deny',
             'session',
             null,
             $details,
-            $_SERVER['REMOTE_ADDR'] ?? null,
-            $_SERVER['HTTP_USER_AGENT'] ?? null,
             null,
-            uniqid('req_', true),
+            null,
             'warning',
-        ]);
+            uniqid('req_', true),
+            $user['id'] ?? null,
+            $username,
+            null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+        );
     } catch (Throwable $e) {
         // Do not block authentication flow if logging fails.
     }
@@ -118,23 +117,22 @@ function log_concurrency_denial($pdo, $user, $scope, $cap, $active_count) {
 
 function log_session_event_row($pdo, $user_id, $username, $action, $details, $severity = 'warning', $session_id = null) {
     try {
-        $stmt = $pdo->prepare("INSERT INTO activity_logs
-                              (user_id, username, action, target_type, target_id, details, ip_address, user_agent, session_id, request_id, severity)
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
-        $stmt->execute([
-            $user_id,
-            $username ?: 'unknown',
+        log_activity_db_system(
+            $pdo,
             $action,
             'session',
             null,
             $details,
-            $_SERVER['REMOTE_ADDR'] ?? null,
-            $_SERVER['HTTP_USER_AGENT'] ?? null,
-            $session_id,
-            uniqid('req_', true),
+            null,
+            null,
             $severity,
-        ]);
+            uniqid('req_', true),
+            $user_id,
+            $username ?: 'unknown',
+            $session_id,
+            $_SERVER['HTTP_USER_AGENT'] ?? null,
+            $_SERVER['REMOTE_ADDR'] ?? null
+        );
     } catch (Throwable $e) {
         // Do not block auth/session flow if logging fails.
     }
@@ -283,18 +281,20 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
 
 function refresh_active_session_heartbeat($pdo, $session_id, $session_lifetime_seconds) {
     if (!is_concurrency_caps_enabled() && !is_auto_kick_duplicate_sessions_enabled()) {
-        return;
+        return true;
     }
 
     $expires_at = date('Y-m-d H:i:s', time() + max(60, (int) $session_lifetime_seconds));
     $stmt = $pdo->prepare("UPDATE active_user_sessions
                           SET last_seen_at = NOW(),
                               expires_at = ?,
-                              is_active = 1,
-                              ended_at = NULL,
-                              ended_reason = NULL
-                          WHERE session_id = ?");
+                              is_active = 1
+                          WHERE session_id = ?
+                            AND is_active = 1
+                            AND (ended_reason IS NULL OR ended_reason = '')");
     $stmt->execute([$expires_at, $session_id]);
+
+    return ((int) $stmt->rowCount()) > 0;
 }
 
 function deactivate_active_session($pdo, $session_id, $reason = 'logout') {
@@ -453,8 +453,14 @@ function is_logged_in() {
             global $pdo;
             if (isset($pdo) && $pdo instanceof PDO) {
                 try {
-                    clear_expired_active_sessions($pdo);
-                    refresh_active_session_heartbeat($pdo, session_id(), $session_lifetime);
+                    if (is_admin_role($user_role) || is_official_role_only($user_role)) {
+                        clear_expired_active_sessions($pdo);
+                        $heartbeat_ok = refresh_active_session_heartbeat($pdo, session_id(), $session_lifetime);
+                        if (!$heartbeat_ok) {
+                            logout('revoked_by_admin');
+                            return false;
+                        }
+                    }
                 } catch (Throwable $e) {
                     // Ignore heartbeat update failures to avoid breaking user flow.
                 }
