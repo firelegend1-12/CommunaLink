@@ -6,6 +6,7 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -25,13 +26,58 @@ if (!csrf_validate()) {
     redirect_to('../pages/user-management.php');
 }
 
-$session_record_id = filter_input(INPUT_POST, 'session_record_id', FILTER_VALIDATE_INT);
-if (!$session_record_id) {
-    $_SESSION['error_message'] = 'Invalid session record selected.';
-    redirect_to('../pages/user-management.php');
-}
+$action_mode = sanitize_input($_POST['action_mode'] ?? 'single');
 
 try {
+    if ($action_mode === 'bulk_idle') {
+        $idle_minutes = filter_input(INPUT_POST, 'idle_minutes', FILTER_VALIDATE_INT);
+        if (!$idle_minutes) {
+            $idle_minutes = 15;
+        }
+        $idle_minutes = max(1, min(720, (int) $idle_minutes));
+        $idle_cutoff = date('Y-m-d H:i:s', time() - ($idle_minutes * 60));
+
+        $pdo->beginTransaction();
+
+        $bulk_stmt = $pdo->prepare("UPDATE active_user_sessions
+                                    SET is_active = 0,
+                                        ended_at = NOW(),
+                                        ended_reason = 'revoked_idle_bulk'
+                                    WHERE is_active = 1
+                                      AND expires_at > NOW()
+                                      AND last_seen_at < ?
+                                      AND session_id <> ?");
+        $bulk_stmt->execute([$idle_cutoff, session_id()]);
+        $affected = (int) $bulk_stmt->rowCount();
+
+        $pdo->commit();
+
+        log_activity_db(
+            $pdo,
+            'revoke',
+            'session',
+            null,
+            sprintf('Bulk idle session termination executed: %d session(s) older than %d minutes.', $affected, $idle_minutes),
+            null,
+            sprintf('idle_minutes=%d; affected=%d', $idle_minutes, $affected),
+            'warning'
+        );
+
+        if ($affected > 0) {
+            $_SESSION['success_message'] = sprintf('Terminated %d idle active session(s) older than %d minutes.', $affected, $idle_minutes);
+        } else {
+            $_SESSION['warning_message'] = sprintf('No active sessions exceeded %d idle minutes.', $idle_minutes);
+        }
+
+        redirect_to('../pages/user-management.php');
+    }
+
+    $session_record_id = filter_input(INPUT_POST, 'session_record_id', FILTER_VALIDATE_INT);
+    if (!$session_record_id) {
+        $_SESSION['error_message'] = 'Invalid session record selected.';
+        redirect_to('../pages/user-management.php');
+    }
+
     $pdo->beginTransaction();
 
     $stmt = $pdo->prepare("SELECT aus.id, aus.session_id, aus.user_id, aus.role, aus.is_active, u.username, u.fullname
@@ -76,7 +122,7 @@ try {
 
     log_activity_db(
         $pdo,
-        'edit',
+        'revoke',
         'session',
         (int) $session_row['id'],
         $details,

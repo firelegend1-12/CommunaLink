@@ -26,6 +26,9 @@ try {
 
         $admin_session_cap = function_exists('get_admin_max_concurrent') ? get_admin_max_concurrent() : 2;
         $official_session_cap = function_exists('get_official_max_concurrent') ? get_official_max_concurrent() : 5;
+        $auto_kick_duplicate_enabled = function_exists('is_auto_kick_duplicate_sessions_enabled') ? is_auto_kick_duplicate_sessions_enabled() : false;
+        $default_idle_minutes = function_exists('env') ? (int) env('BULK_IDLE_MINUTES_DEFAULT', 15) : 15;
+        $default_idle_minutes = max(1, min(720, $default_idle_minutes));
         $active_admin_sessions = 0;
         $active_official_sessions = 0;
         $active_total_sessions = 0;
@@ -181,6 +184,15 @@ try {
                     </div>
                 <?php unset($_SESSION['error_message']); endif; ?>
 
+                <?php if (isset($_SESSION['warning_message'])): ?>
+                    <div class="bg-amber-50 border-l-4 border-amber-500 text-amber-800 p-4 mb-6 rounded-r-xl shadow-sm" role="alert">
+                        <div class="flex items-center">
+                            <i class="fas fa-triangle-exclamation mr-3"></i>
+                            <p class="font-bold text-sm"><?php echo htmlspecialchars($_SESSION['warning_message']); ?></p>
+                        </div>
+                    </div>
+                <?php unset($_SESSION['warning_message']); endif; ?>
+
                 <!-- Summary Row -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 group hover:border-indigo-200 transition">
@@ -219,7 +231,11 @@ try {
                         <div class="space-y-1">
                             <p class="text-sm font-bold">Admins: <span class="text-white/90"><?php echo $active_admin_sessions; ?> / <?php echo $admin_session_cap; ?></span></p>
                             <p class="text-sm font-bold">Officials: <span class="text-white/90"><?php echo $active_official_sessions; ?> / <?php echo $official_session_cap; ?></span></p>
+                            <p class="text-[10px] uppercase tracking-widest font-black text-indigo-100">Auto-Kick Duplicate: <?php echo $auto_kick_duplicate_enabled ? 'Enabled' : 'Disabled'; ?></p>
                             <p class="text-[10px] text-indigo-100 font-bold opacity-90 uppercase tracking-widest mt-2">Total Active Sessions: <?php echo $active_total_sessions; ?></p>
+                            <a href="logs.php?quick_filter=session_events" class="inline-flex items-center mt-2 text-[10px] font-black uppercase tracking-widest text-white/90 hover:text-white underline">
+                                Open Session Audit Logs
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -332,7 +348,17 @@ try {
                             <h2 class="text-sm font-black uppercase tracking-widest text-slate-700">Active Sessions</h2>
                             <p class="text-xs text-slate-500 mt-1">Terminate stale or blocked slots to free capacity immediately.</p>
                         </div>
-                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Showing <?php echo count($active_sessions); ?> active session(s)</span>
+                        <div class="flex items-center gap-3">
+                            <form action="../partials/revoke-session-handler.php" method="POST" class="flex items-center gap-2" onsubmit="return confirm('Terminate all idle sessions older than selected minutes?');">
+                                <?php echo csrf_field(); ?>
+                                <input type="hidden" name="action_mode" value="bulk_idle">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-500">Idle &gt; </label>
+                                <input type="number" name="idle_minutes" min="1" max="720" value="<?php echo (int) $default_idle_minutes; ?>" class="w-20 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">minutes</span>
+                                <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition">Terminate Idle</button>
+                            </form>
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Showing <?php echo count($active_sessions); ?> active session(s)</span>
+                        </div>
                     </div>
 
                     <div class="overflow-x-auto">
@@ -369,6 +395,7 @@ try {
                                                 <?php else: ?>
                                                     <form action="../partials/revoke-session-handler.php" method="POST" class="inline" onsubmit="return confirm('Terminate this active session now?');">
                                                         <?php echo csrf_field(); ?>
+                                                        <input type="hidden" name="action_mode" value="single">
                                                         <input type="hidden" name="session_record_id" value="<?php echo (int) $session_row['id']; ?>">
                                                         <button type="submit" class="text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-200 transition">
                                                             Terminate

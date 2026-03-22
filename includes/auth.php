@@ -45,6 +45,14 @@ function is_concurrency_caps_enabled() {
     return env_to_bool(env('ENABLE_CONCURRENCY_CAPS', 'true'), true);
 }
 
+function is_auto_kick_duplicate_sessions_enabled() {
+    if (!function_exists('env')) {
+        require_once __DIR__ . '/../config/env_loader.php';
+    }
+
+    return env_to_bool(env('AUTO_KICK_DUPLICATE_SESSIONS', 'false'), false);
+}
+
 function get_official_max_concurrent() {
     if (!function_exists('env')) {
         require_once __DIR__ . '/../config/env_loader.php';
@@ -108,13 +116,95 @@ function log_concurrency_denial($pdo, $user, $scope, $cap, $active_count) {
     }
 }
 
+function log_session_event_row($pdo, $user_id, $username, $action, $details, $severity = 'warning', $session_id = null) {
+    try {
+        $stmt = $pdo->prepare("INSERT INTO activity_logs
+                              (user_id, username, action, target_type, target_id, details, ip_address, user_agent, session_id, request_id, severity)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+        $stmt->execute([
+            $user_id,
+            $username ?: 'unknown',
+            $action,
+            'session',
+            null,
+            $details,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null,
+            $session_id,
+            uniqid('req_', true),
+            $severity,
+        ]);
+    } catch (Throwable $e) {
+        // Do not block auth/session flow if logging fails.
+    }
+}
+
+function kick_duplicate_sessions_for_user($pdo, $user, $current_session_id) {
+    if (!is_auto_kick_duplicate_sessions_enabled()) {
+        return 0;
+    }
+
+    $user_id = isset($user['id']) ? (int) $user['id'] : 0;
+    if ($user_id <= 0) {
+        return 0;
+    }
+
+    $select_stmt = $pdo->prepare("SELECT id FROM active_user_sessions
+                                  WHERE is_active = 1
+                                    AND user_id = ?
+                                    AND session_id <> ?
+                                    AND expires_at > NOW()
+                                  FOR UPDATE");
+    $select_stmt->execute([$user_id, $current_session_id]);
+    $session_ids = $select_stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    if (empty($session_ids)) {
+        return 0;
+    }
+
+    $update_stmt = $pdo->prepare("UPDATE active_user_sessions
+                                  SET is_active = 0,
+                                      ended_at = NOW(),
+                                      ended_reason = 'duplicate_kick'
+                                  WHERE user_id = ?
+                                    AND session_id <> ?
+                                    AND is_active = 1
+                                    AND expires_at > NOW()");
+    $update_stmt->execute([$user_id, $current_session_id]);
+    $kicked = (int) $update_stmt->rowCount();
+
+    if ($kicked > 0) {
+        $details = sprintf(
+            'Duplicate login policy kicked %d existing session(s) for user_id=%d',
+            $kicked,
+            $user_id
+        );
+
+        log_session_event_row(
+            $pdo,
+            $user_id,
+            $user['username'] ?? 'unknown',
+            'duplicate_kick',
+            $details,
+            'warning',
+            $current_session_id
+        );
+    }
+
+    return $kicked;
+}
+
 function register_active_session_with_caps($pdo, $user, $session_id, $session_lifetime_seconds) {
-    if (!is_concurrency_caps_enabled()) {
+    $role = $user['role'] ?? 'resident';
+    $is_tracked_role = is_admin_role($role) || is_official_role_only($role);
+    if (!$is_tracked_role) {
         return ['allowed' => true];
     }
 
-    $role = $user['role'] ?? 'resident';
-    if (!is_admin_role($role) && !is_official_role_only($role)) {
+    $concurrency_caps_enabled = is_concurrency_caps_enabled();
+    $auto_kick_duplicates_enabled = is_auto_kick_duplicate_sessions_enabled();
+    if (!$concurrency_caps_enabled && !$auto_kick_duplicates_enabled) {
         return ['allowed' => true];
     }
 
@@ -122,8 +212,9 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
         $pdo->beginTransaction();
 
         clear_expired_active_sessions($pdo);
+        kick_duplicate_sessions_for_user($pdo, $user, $session_id);
 
-        if (is_admin_role($role)) {
+        if ($concurrency_caps_enabled && is_admin_role($role)) {
             $cap = get_admin_max_concurrent();
             $count_stmt = $pdo->prepare("SELECT id
                                          FROM active_user_sessions
@@ -139,7 +230,7 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
                 log_concurrency_denial($pdo, $user, 'admin', $cap, $active_count);
                 return ['allowed' => false, 'message' => "Admin concurrent login limit reached ({$cap}). Please wait for a slot to free up."];
             }
-        } else {
+        } elseif ($concurrency_caps_enabled) {
             $cap = get_official_max_concurrent();
             $count_stmt = $pdo->prepare("SELECT id
                                          FROM active_user_sessions
@@ -191,7 +282,7 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
 }
 
 function refresh_active_session_heartbeat($pdo, $session_id, $session_lifetime_seconds) {
-    if (!is_concurrency_caps_enabled()) {
+    if (!is_concurrency_caps_enabled() && !is_auto_kick_duplicate_sessions_enabled()) {
         return;
     }
 
@@ -207,9 +298,17 @@ function refresh_active_session_heartbeat($pdo, $session_id, $session_lifetime_s
 }
 
 function deactivate_active_session($pdo, $session_id, $reason = 'logout') {
-    if (!is_concurrency_caps_enabled()) {
+    if (!is_concurrency_caps_enabled() && !is_auto_kick_duplicate_sessions_enabled()) {
         return;
     }
+
+    $lookup_stmt = $pdo->prepare("SELECT aus.user_id, aus.role, u.username
+                                  FROM active_user_sessions aus
+                                  LEFT JOIN users u ON u.id = aus.user_id
+                                  WHERE aus.session_id = ?
+                                  LIMIT 1");
+    $lookup_stmt->execute([$session_id]);
+    $session_row = $lookup_stmt->fetch(PDO::FETCH_ASSOC);
 
     $stmt = $pdo->prepare("UPDATE active_user_sessions
                           SET is_active = 0,
@@ -217,6 +316,28 @@ function deactivate_active_session($pdo, $session_id, $reason = 'logout') {
                               ended_reason = ?
                           WHERE session_id = ?");
     $stmt->execute([$reason, $session_id]);
+
+    if ($stmt->rowCount() > 0) {
+        $action_map = [
+            'expired' => 'expire',
+            'revoked_by_admin' => 'revoke',
+            'duplicate_kick' => 'duplicate_kick',
+            'logout' => 'logout',
+        ];
+        $event_action = $action_map[$reason] ?? 'session_end';
+        $event_severity = in_array($reason, ['expired', 'revoked_by_admin', 'duplicate_kick'], true) ? 'warning' : 'info';
+        $event_details = sprintf('Session ended with reason=%s role=%s', $reason, (string) ($session_row['role'] ?? 'unknown'));
+
+        log_session_event_row(
+            $pdo,
+            isset($session_row['user_id']) ? (int) $session_row['user_id'] : null,
+            $session_row['username'] ?? 'unknown',
+            $event_action,
+            $event_details,
+            $event_severity,
+            $session_id
+        );
+    }
 }
 
 /**

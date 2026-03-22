@@ -76,6 +76,8 @@ ADMIN_SESSION_LIFETIME=1800  # admin/official timeout (30 minutes)
 ENABLE_CONCURRENCY_CAPS=true
 ADMIN_MAX_CONCURRENT=2       # max simultaneous admin sessions
 OFFICIAL_MAX_CONCURRENT=5    # max simultaneous official sessions (non-admin officials)
+AUTO_KICK_DUPLICATE_SESSIONS=false  # true = new login ends older active sessions of same account
+BULK_IDLE_MINUTES_DEFAULT=15        # default idle threshold shown in bulk terminate action
 
 # Account provisioning cap (separate from online session cap)
 ADMIN_MAX_USERS=5
