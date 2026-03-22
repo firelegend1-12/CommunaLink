@@ -540,12 +540,13 @@ function get_resident_id($pdo, $user_id) {
  * @param string $title Notification title
  * @param string $message Notification message
  * @param string $type Notification type (general, request_status, etc.)
+ * @param string|null $link Optional target URL for notification click-through
  * @return bool True if successful, false otherwise
  */
-function create_notification($pdo, $user_id, $title, $message, $type = 'general') {
+function create_notification($pdo, $user_id, $title, $message, $type = 'general', $link = null) {
     try {
-        $stmt = $pdo->prepare("INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, ?)");
-        return $stmt->execute([$user_id, $title, $message, $type]);
+        $stmt = $pdo->prepare("INSERT INTO notifications (user_id, title, message, type, link, is_read) VALUES (?, ?, ?, ?, ?, 0)");
+        return $stmt->execute([$user_id, $title, $message, $type, $link]);
     } catch (PDOException $e) {
         error_log("Error creating notification: " . $e->getMessage());
         return false;

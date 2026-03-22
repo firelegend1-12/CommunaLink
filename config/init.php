@@ -282,6 +282,7 @@ try {
             `title` VARCHAR(255) NOT NULL,
             `message` TEXT NOT NULL,
             `type` VARCHAR(50) DEFAULT 'general',
+            `link` VARCHAR(255) DEFAULT NULL,
             `is_read` TINYINT(1) DEFAULT 0,
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`),
@@ -704,7 +705,8 @@ try {
     $pdo->exec("ALTER TABLE `notifications` 
                 ADD COLUMN IF NOT EXISTS `user_id` INT(11) DEFAULT NULL AFTER `id`,
                 ADD COLUMN IF NOT EXISTS `title` VARCHAR(255) DEFAULT NULL AFTER `user_id`,
-                ADD COLUMN IF NOT EXISTS `type` VARCHAR(50) DEFAULT 'general' AFTER `message` ");
+                ADD COLUMN IF NOT EXISTS `type` VARCHAR(50) DEFAULT 'general' AFTER `message`,
+                ADD COLUMN IF NOT EXISTS `link` VARCHAR(255) DEFAULT NULL AFTER `type` ");
 
     // Sync resident_id to user_id for old records if user_id is null
     $pdo->exec("UPDATE `notifications` n 

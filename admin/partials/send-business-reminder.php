@@ -110,7 +110,7 @@ function send_sendgrid_email($to, $name, $subject, $html_message) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT r.id, r.first_name, r.last_name, r.email as resident_email, u.email as user_email
+    $stmt = $pdo->prepare("SELECT r.id, r.user_id, r.first_name, r.last_name, r.email as resident_email, u.email as user_email
                            FROM residents r
                            LEFT JOIN users u ON r.user_id = u.id
                            WHERE r.id = ?");
@@ -130,10 +130,19 @@ try {
         $message .= " Expiry date: {$expiry_date}.";
     }
 
-    $link = 'my-requests.php';
+    $resident_user_id = (int) ($resident['user_id'] ?? 0);
+    if ($resident_user_id <= 0) {
+        echo json_encode(['success' => false, 'error' => 'Resident account is not linked to a user profile']);
+        exit;
+    }
 
-    $notif_stmt = $pdo->prepare("INSERT INTO notifications (resident_id, message, link, is_read) VALUES (?, ?, ?, 0)");
-    $notif_stmt->execute([$resident_id, $message, $link]);
+    $title = 'Business Permit Renewal Reminder';
+    $link = 'my-requests.php';
+    $notification_created = create_notification($pdo, $resident_user_id, $title, $message, 'business_reminder', $link);
+    if (!$notification_created) {
+        echo json_encode(['success' => false, 'error' => 'Failed to create in-app notification']);
+        exit;
+    }
 
     $email_sent = false;
     if ($resident_email !== '') {
@@ -141,7 +150,7 @@ try {
             require_once '../../config/email_config.php';
         }
 
-        $subject = 'Business Permit Renewal Reminder';
+        $subject = $title;
         $html_message = '<p>Dear ' . htmlspecialchars($resident_name, ENT_QUOTES, 'UTF-8') . ',</p>'
             . '<p>' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p>'
             . '<p>Please visit the barangay office for renewal requirements.</p>'
