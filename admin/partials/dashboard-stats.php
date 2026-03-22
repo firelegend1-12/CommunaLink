@@ -2,7 +2,7 @@
 require_once '../../config/database.php';
 
 $pending_doc_requests = $pdo->query("SELECT COUNT(*) FROM document_requests WHERE status = 'Pending'")->fetchColumn();
-$pending_biz_requests = $pdo->query("SELECT COUNT(*) FROM business_transactions WHERE status = 'PENDING'")->fetchColumn();
+$pending_biz_requests = $pdo->query("SELECT COUNT(*) FROM business_transactions WHERE status = 'Pending'")->fetchColumn();
 $pending_requests = $pending_doc_requests + $pending_biz_requests;
 $business_count = $pdo->query("SELECT COUNT(*) FROM businesses")->fetchColumn();
 $resident_count = $pdo->query("SELECT COUNT(*) FROM residents")->fetchColumn();

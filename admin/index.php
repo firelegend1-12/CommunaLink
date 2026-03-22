@@ -90,7 +90,7 @@ if ($cached_data) {
         // Pending Requests (documents)
         $pending_doc_requests = $pdo->query("SELECT COUNT(*) FROM document_requests WHERE status = 'Pending'")->fetchColumn();
         // Pending Requests (business transactions)
-        $pending_biz_requests = $pdo->query("SELECT COUNT(*) FROM business_transactions WHERE status = 'PENDING'")->fetchColumn();
+        $pending_biz_requests = $pdo->query("SELECT COUNT(*) FROM business_transactions WHERE status = 'Pending'")->fetchColumn();
         $pending_requests = $pending_doc_requests + $pending_biz_requests;
         // Active Incidents
         $active_incidents = $pdo->query("SELECT COUNT(*) FROM incidents WHERE status IN ('Pending', 'In Progress')")->fetchColumn();
@@ -368,7 +368,7 @@ $today_quote = $quotes[array_rand($quotes)];
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo date('M d, Y', strtotime($trans['application_date'])); ?></td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                                                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                                <?php echo $trans['status'] === 'APPROVED' ? 'bg-green-100 text-green-800' : ($trans['status'] === 'REJECTED' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'); ?>">
+                                                                <?php echo $trans['status'] === 'Approved' ? 'bg-green-100 text-green-800' : ($trans['status'] === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'); ?>">
                                                                 <?php echo htmlspecialchars($trans['status']); ?>
                                                             </span>
                                                         </td>

@@ -85,7 +85,7 @@ try {
             `owner_name` VARCHAR(255) NOT NULL,
             `address` TEXT NOT NULL,
             `transaction_type` ENUM('New Permit', 'Renewal') NOT NULL,
-            `status` ENUM('PENDING', 'PROCESSING', 'READY FOR PICKUP', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+            `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Approved', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending',
             `application_date` DATETIME DEFAULT CURRENT_TIMESTAMP,
             `processed_date` DATETIME DEFAULT NULL,
             `remarks` TEXT DEFAULT NULL,
@@ -132,7 +132,7 @@ try {
             `insurance_date` DATE DEFAULT NULL,
             `applicant_name` VARCHAR(255) DEFAULT NULL,
             `applicant_position` VARCHAR(255) DEFAULT NULL,
-            `status` ENUM('PENDING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+            `status` ENUM('Pending', 'Approved', 'Rejected') NOT NULL DEFAULT 'Pending',
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
             `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`)

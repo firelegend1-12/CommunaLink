@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action'])) {
             $pendingBusinesses = (int)$stmtBiz->fetchColumn();
 
             // Pending business transactions (Transactions page)
-            $stmtTx = $pdo->query("SELECT COUNT(*) FROM business_transactions WHERE status = 'PENDING'");
+            $stmtTx = $pdo->query("SELECT COUNT(*) FROM business_transactions WHERE status = 'Pending'");
             $pendingTransactions = (int)$stmtTx->fetchColumn();
 
             $response = [

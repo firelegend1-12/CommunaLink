@@ -35,13 +35,13 @@ try {
         exit;
     }
 
-    if (strcasecmp((string) $transaction['status'], 'PENDING') !== 0) {
+    if (strcasecmp((string) $transaction['status'], 'Pending') !== 0) {
         echo json_encode(['success' => false, 'error' => 'Only pending applications can be cancelled']);
         exit;
     }
 
     $remarks = "Cancelled by resident: " . $reason;
-    $update = $pdo->prepare("UPDATE business_transactions SET status = 'REJECTED', remarks = ?, processed_date = NOW() WHERE id = ?");
+    $update = $pdo->prepare("UPDATE business_transactions SET status = 'Rejected', remarks = ?, processed_date = NOW() WHERE id = ?");
     $update->execute([$remarks, $transaction_id]);
 
     log_activity_db(
@@ -50,8 +50,8 @@ try {
         'business_transaction',
         $transaction_id,
         "Resident cancelled business application '{$transaction['business_name']}'",
-        'PENDING',
-        'REJECTED'
+        'Pending',
+        'Rejected'
     );
 
     echo json_encode(['success' => true, 'message' => 'Application cancelled successfully']);

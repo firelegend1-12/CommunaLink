@@ -22,16 +22,18 @@ if (!is_admin_or_official()) {
 $is_ajax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
 
 // Validate input
-$status = isset($_GET['status']) ? $_GET['status'] : (isset($_POST['status']) ? $_POST['status'] : '');
-$request_id = isset($_GET['id']) ? $_GET['id'] : (isset($_POST['id']) ? $_POST['id'] : '');
+$status = isset($_POST['status']) ? $_POST['status'] : '';
+$request_id = isset($_POST['id']) ? $_POST['id'] : '';
 
 if (empty($status) || empty($request_id)) {
+    header('Content-Type: application/json');
     echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
     exit;
 }
 
-$allowed_statuses = ['PENDING', 'PROCESSING', 'READY FOR PICKUP', 'APPROVED', 'REJECTED'];
+$allowed_statuses = ['Pending', 'Processing', 'Ready for Pickup', 'Approved', 'Rejected'];
 if (!in_array($status, $allowed_statuses, true)) {
+    header('Content-Type: application/json');
     echo json_encode(['success' => false, 'error' => 'Invalid status value']);
     exit;
 }
@@ -69,7 +71,7 @@ try {
     $update_stmt->execute([$status, $request_id]);
 
     // If approved, create/update the business record with enhanced features
-    if ($status === 'APPROVED') {
+    if ($status === 'Approved') {
         // Generate business permit number and expiration date
         $permit_number = 'BP-' . date('Y') . '-' . str_pad($request_id, 4, '0', STR_PAD_LEFT);
         $expiration_date = date('Y-m-d', strtotime('+1 year'));
@@ -147,8 +149,6 @@ try {
             $transaction['business_name'], 
             $expiration_date
         );
-        
-
     }
     
     // Commit transaction
@@ -174,11 +174,11 @@ try {
         $title = "Business Permit Update: " . $transaction['business_name'];
         $message = "Your request for " . $transaction['transaction_type'] . " for **" . $transaction['business_name'] . "** has been updated to: **" . $status . "**. ";
         
-        if ($status === 'READY FOR PICKUP') {
+        if ($status === 'Ready for Pickup') {
             $message .= "Please visit the Barangay Hall to claim your permit.";
-        } elseif ($status === 'REJECTED') {
+        } elseif ($status === 'Rejected') {
             $message .= "Reason: " . ($transaction['remarks'] ?? 'Please contact the office for more details.');
-        } elseif ($status === 'APPROVED') {
+        } elseif ($status === 'Approved') {
             $message .= "Your business permit is now active. You can view your record in the Business section.";
         }
 
@@ -191,7 +191,7 @@ try {
         exit;
     } else {
         $_SESSION['success_message'] = "Transaction status has been updated.";
-        if ($status === 'APPROVED') {
+        if ($status === 'Approved') {
             redirect_to('../pages/business-records.php');
         } else {
             redirect_to('../pages/business-transactions.php');

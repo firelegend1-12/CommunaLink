@@ -45,7 +45,7 @@ if (!$permit) {
 }
 
 $page_title = "Business Permit Details";
-$status = $trans['status'] ?? 'PENDING';
+$status = $trans['status'] ?? 'Pending';
 $date_applied = date('F j, Y', strtotime($trans['application_date']));
 
 require_once 'partials/header.php';
@@ -57,7 +57,7 @@ require_once 'partials/header.php';
             <i class="fas fa-arrow-left"></i> Back to My Requests
         </a>
         
-        <?php if(strtoupper($status) === 'PENDING'): ?>
+        <?php if($status === 'Pending'): ?>
             <button class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg font-semibold border border-red-200 transition-colors shadow-sm" onclick="cancelBusinessApplication(<?= (int) $trans['id'] ?>)">
                 <i class="fas fa-times-circle mr-1"></i> Cancel Application
             </button>

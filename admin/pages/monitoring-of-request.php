@@ -63,7 +63,8 @@ $document_types = [
 ];
 
 // --- Analytics Calculations ---
-$today = date('Y-m-d');
+$start_of_day = date('Y-m-d 00:00:00');
+$end_of_day = date('Y-m-d 23:59:59');
 $stats = [
     'today_queue' => 0,
     'workload' => 0,
@@ -72,34 +73,35 @@ $stats = [
 ];
 
 try {
-    // 1. Queue Today
+    // 1. Queue Today (Using indexed range)
     $q_today = $pdo->prepare("SELECT 
-        (SELECT COUNT(*) FROM document_requests WHERE DATE(date_requested) = ?) + 
-        (SELECT COUNT(*) FROM business_transactions WHERE DATE(application_date) = ?) as total");
-    $q_today->execute([$today, $today]);
+        (SELECT COUNT(*) FROM document_requests WHERE date_requested BETWEEN ? AND ?) + 
+        (SELECT COUNT(*) FROM business_transactions WHERE application_date BETWEEN ? AND ?) as total");
+    $q_today->execute([$start_of_day, $end_of_day, $start_of_day, $end_of_day]);
     $stats['today_queue'] = $q_today->fetchColumn();
 
     // 2. Active Workload (Pending + Processing)
     $q_workload = $pdo->query("SELECT 
         (SELECT COUNT(*) FROM document_requests WHERE status IN ('Pending', 'Processing')) + 
-        (SELECT COUNT(*) FROM business_transactions WHERE status IN ('PENDING', 'PROCESSING')) as total");
+        (SELECT COUNT(*) FROM business_transactions WHERE status IN ('Pending', 'Processing')) as total");
     $stats['workload'] = $q_workload->fetchColumn();
 
     // 3. Ready for Pickup
     $q_ready = $pdo->query("SELECT 
         (SELECT COUNT(*) FROM document_requests WHERE status = 'Ready for Pickup') + 
-        (SELECT COUNT(*) FROM business_transactions WHERE status = 'READY FOR PICKUP') as total");
+        (SELECT COUNT(*) FROM business_transactions WHERE status = 'Ready for Pickup') as total");
     $stats['ready'] = $q_ready->fetchColumn();
 
     // 4. Daily Revenue (Paid today)
+    $biz_fee = $document_types['Business Clearance'] ?? 500.00;
     $q_revenue = $pdo->prepare("SELECT 
-        COALESCE((SELECT SUM(price) FROM document_requests WHERE payment_status = 'Paid' AND DATE(payment_date) = ?), 0) + 
-        COALESCE((SELECT SUM(500) FROM business_transactions WHERE payment_status = 'Paid' AND DATE(payment_date) = ?), 0) as total"); // Note: Business clearance price is currently fixed at 500 in this context
-    $q_revenue->execute([$today, $today]);
+        COALESCE((SELECT SUM(price) FROM document_requests WHERE payment_status = 'Paid' AND payment_date BETWEEN ? AND ?), 0) + 
+        COALESCE((SELECT COUNT(*) * $biz_fee FROM business_transactions WHERE payment_status = 'Paid' AND payment_date BETWEEN ? AND ?), 0) as total");
+    $q_revenue->execute([$start_of_day, $end_of_day, $start_of_day, $end_of_day]);
     $stats['revenue'] = $q_revenue->fetchColumn();
 
 } catch (PDOException $e) {
-    // Fail silently for stats or log error
+    error_log("Stats Error: " . $e->getMessage());
 }
 
 ?>
@@ -270,34 +272,31 @@ try {
                                                     $date = date('M. d, Y h:i A', strtotime($req['date_requested']));
                                                     $status = trim((string)($req['status'] ?? ''));
                                                     $status = htmlspecialchars($status);
-                                                    $status_bg = 'bg-yellow-100 text-yellow-800'; // Default for Pending
+                                                    $status = htmlspecialchars($status);
+                                                    $status_bg = 'bg-yellow-100 text-yellow-800'; // Default
                                                     $status_text = $status ?: 'Pending';
-                                                    $is_printable = false;
-                                                    $print_url = '';
 
-                                                    if (strcasecmp($status, 'Processing') === 0) {
-                                                        $status_bg = 'bg-blue-100 text-blue-800';
-                                                        $status_text = 'Processing';
-                                                    } elseif (strcasecmp($status, 'Cancelled') === 0) {
-                                                        $status_bg = 'bg-gray-100 text-gray-800';
-                                                        $status_text = 'Cancelled';
-                                                    } elseif (
-                                                        strcasecmp($status, 'Ready for Pickup') === 0 ||
-                                                        strcasecmp($status, 'READY FOR PICKUP') === 0 ||
-                                                        strcasecmp($status, 'READY') === 0 ||
-                                                        strcasecmp($status, 'Completed') === 0
-                                                    ) {
-                                                        $status_bg = 'bg-blue-100 text-blue-800';
-                                                        $status_text = 'Ready for Pickup';
-                                                    } elseif (strcasecmp($status, 'Rejected') === 0) {
-                                                        $status_bg = 'bg-red-100 text-red-800';
-                                                        $status_text = 'Rejected';
-                                                    } elseif (strcasecmp($status, 'APPROVED') === 0) {
-                                                        $status_bg = 'bg-green-100 text-green-800';
-                                                        $status_text = 'Approved';
-                                                    } elseif (strcasecmp($status, 'Pending') === 0) {
-                                                        $status_bg = 'bg-yellow-100 text-yellow-800';
-                                                        $status_text = 'Pending';
+                                                    // Unified status logic
+                                                    switch($status) {
+                                                        case 'Processing':
+                                                            $status_bg = 'bg-blue-100 text-blue-800';
+                                                            break;
+                                                        case 'Ready for Pickup':
+                                                        case 'Ready':
+                                                            $status_bg = 'bg-blue-100 text-blue-800';
+                                                            $status_text = 'Ready for Pickup';
+                                                            break;
+                                                        case 'Approved':
+                                                            $status_bg = 'bg-green-100 text-green-800';
+                                                            break;
+                                                        case 'Rejected':
+                                                            $status_bg = 'bg-red-100 text-red-800';
+                                                            break;
+                                                        case 'Cancelled':
+                                                            $status_bg = 'bg-gray-100 text-gray-800';
+                                                            break;
+                                                        default:
+                                                            $status_bg = 'bg-yellow-100 text-yellow-800';
                                                     }
                                                 ?>
                                                     <tr id="request-row-<?php echo $req['request_type']; ?>-<?php echo $req['id']; ?>">
@@ -341,31 +340,18 @@ try {
                                                                          class="fixed z-50 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5"
                                                                          :style="'top: ' + top + 'px; left: ' + left + 'px;'">
                                                                         <div class="py-1">
-                                                                            <!-- Status change options -->
-                                                                            <?php if ($req['request_type'] === 'document'): ?>
-                                                                                <?php
-                                                                                $doc_statuses = ["Pending", "Processing", "Ready for Pickup", "Completed", "Rejected"];
-                                                                                foreach ($doc_statuses as $opt):
-                                                                                    if (strcasecmp($status, $opt) !== 0): ?>
-                                                                                        <button type="button" onclick="changeRequestStatus('<?php echo $req['id']; ?>', 'document', '<?php echo $opt; ?>')" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 <?php echo in_array($opt, ['Rejected', 'Cancelled'], true) ? 'text-red-600' : 'text-gray-700'; ?>">Set as <?php echo $opt; ?></button>
-                                                                                <?php endif;
-                                                                                endforeach; ?>
-                                                                                <?php if (strcasecmp($status, 'Pending') === 0): ?>
-                                                                                    <div class="border-t border-gray-100 my-1"></div>
-                                                                                    <button type="button" onclick="cancelRequest('<?php echo $req['id']; ?>', 'document')" class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">Cancel Request</button>
-                                                                                <?php endif; ?>
-                                                                            <?php elseif ($req['request_type'] === 'business'): ?>
-                                                                                <?php
-                                                                                $biz_statuses = ["PENDING", "PROCESSING", "READY FOR PICKUP", "APPROVED", "REJECTED"];
-                                                                                foreach ($biz_statuses as $opt):
-                                                                                    if (strcasecmp($status, $opt) !== 0): ?>
-                                                                                        <button type="button" onclick="changeRequestStatus('<?php echo $req['id']; ?>', 'business', '<?php echo $opt; ?>')" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 <?php echo $opt === 'REJECTED' ? 'text-red-600' : ($opt === 'APPROVED' ? 'text-green-700' : 'text-gray-700'); ?>">Set as <?php echo ucwords(strtolower($opt)); ?></button>
-                                                                                <?php endif;
-                                                                                endforeach; ?>
-                                                                                <?php if (strcasecmp($status, 'PENDING') === 0): ?>
-                                                                                    <div class="border-t border-gray-100 my-1"></div>
-                                                                                    <button type="button" onclick="cancelRequest('<?php echo $req['id']; ?>', 'business')" class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">Cancel Request</button>
-                                                                                <?php endif; ?>
+                                                                            <!-- Unified status options -->
+                                                                            <?php 
+                                                                            $opt_statuses = ["Pending", "Processing", "Ready for Pickup", "Approved", "Rejected"];
+                                                                            foreach ($opt_statuses as $opt):
+                                                                                if ($status !== $opt): ?>
+                                                                                    <button type="button" onclick="changeRequestStatus('<?php echo $req['id']; ?>', '<?php echo $req['request_type']; ?>', '<?php echo $opt; ?>')" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 <?php echo $opt === 'Rejected' ? 'text-red-600' : ($opt === 'Approved' ? 'text-green-700' : 'text-gray-700'); ?>">Set as <?php echo $opt; ?></button>
+                                                                            <?php endif;
+                                                                            endforeach; ?>
+                                                                            
+                                                                            <?php if ($status === 'Pending'): ?>
+                                                                                <div class="border-t border-gray-100 my-1"></div>
+                                                                                <button type="button" onclick="cancelRequest('<?php echo $req['id']; ?>', '<?php echo $req['request_type']; ?>')" class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">Cancel Request</button>
                                                                             <?php endif; ?>
                                                                             <!-- Delete option -->
                                                                             <div class="border-t border-gray-100 my-1"></div>
@@ -472,22 +458,13 @@ try {
                            </template>
                            
                            <!-- Quick Approval Action -->
-                           <div class="border-t border-gray-200 pt-6 mt-8" x-show="selectedReq.status === 'Pending' || selectedReq.status === 'PENDING'">
+                           <div class="border-t border-gray-200 pt-6 mt-8" x-show="selectedReq.status === 'Pending'">
                                <h3 class="text-sm font-medium text-gray-900 mb-3">Quick Actions</h3>
-                               <div class="flex space-x-3">
-                                   <!-- For documents -->
-                                   <template x-if="selectedReq.type === 'document'">
-                                        <button @click="changeRequestStatus(selectedReq.id, 'document', 'Processing'); viewPanelOpen = false;" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition">Start Processing</button>
-                                   </template>
-                                   <!-- For businesses -->
-                                   <template x-if="selectedReq.type === 'business'">
-                                        <button @click="changeRequestStatus(selectedReq.id, 'business', 'PROCESSING'); viewPanelOpen = false;" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition">Start Processing</button>
-                                   </template>
-                               </div>
+                               <button @click="changeRequestStatus(selectedReq.id, selectedReq.type, 'Processing'); viewPanelOpen = false;" class="w-full bg-blue-600 text-white px-4 py-3 rounded-xl shadow hover:bg-blue-700 transition font-bold uppercase tracking-widest text-xs">Start Processing</button>
                            </div>
 
                            <!-- Printing Action -->
-                           <div class="border-t border-gray-200 pt-6 mt-8" x-show="selectedReq.status !== 'Rejected' && selectedReq.status !== 'Cancelled' && selectedReq.status !== 'REJECTED'">
+                           <div class="border-t border-gray-200 pt-6 mt-8" x-show="selectedReq.status !== 'Rejected' && selectedReq.status !== 'Cancelled'">
                                <h3 class="text-sm font-medium text-gray-900 mb-3">Document Generation</h3>
                                <button @click="const templates = {
                                    'Barangay Clearance': 'barangay-clearance-template.php',
@@ -523,17 +500,18 @@ try {
     });
 
     function changeRequestStatus(id, type, status) {
-        let url = '';
-        if (type === 'document') {
-            url = '../partials/update-document-request-status.php?id=' + encodeURIComponent(id) + '&status=' + encodeURIComponent(status);
-        } else {
-            url = '../partials/update-transaction-status.php?id=' + encodeURIComponent(id) + '&status=' + encodeURIComponent(status);
-        }
+        if (!confirm('Are you sure you want to set status to ' + status + '?')) return;
+        
+        const formData = new FormData();
+        formData.append('id', id);
+        formData.append('status', status);
+
+        const url = type === 'document' ? '../partials/update-document-request-status.php' : '../partials/update-transaction-status.php';
+        
         fetch(url, {
-            method: 'GET',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
             .then(response => response.json())
             .then(data => {

@@ -14,7 +14,7 @@ $page_title = "Business Transactions - CommuniLink";
 try {
     // Handle search
     $search_query = isset($_GET['search']) ? sanitize_input($_GET['search']) : '';
-    $sql = "SELECT * FROM business_transactions WHERE status IS NOT NULL AND status != '' AND status != 'DELETED'";
+    $sql = "SELECT * FROM business_transactions WHERE status IS NOT NULL AND status != '' AND status != 'Deleted'";
     $params = [];
 
     if (!empty($search_query)) {
@@ -170,21 +170,25 @@ try {
                                                     $status = $trans['status'];
                                                     $status_label = $status;
                                                     $status_class = 'bg-yellow-100 text-yellow-800';
-                                                    if ($status === 'APPROVED') {
-                                                        $status_class = 'bg-green-100 text-green-800';
-                                                        $status_label = 'Approved';
-                                                    } elseif ($status === 'REJECTED') {
-                                                        $status_class = 'bg-red-100 text-red-800';
-                                                        $status_label = 'Rejected';
-                                                    } elseif ($status === 'READY FOR PICKUP' || $status === 'READY') {
-                                                        $status_class = 'bg-blue-100 text-blue-800';
-                                                        $status_label = 'Ready for Pickup';
-                                                    } elseif ($status === 'PROCESSING') {
-                                                        $status_class = 'bg-yellow-200 text-yellow-900';
-                                                        $status_label = 'Processing';
-                                                    } elseif ($status === 'PENDING') {
-                                                        $status_class = 'bg-yellow-100 text-yellow-800';
-                                                        $status_label = 'Pending';
+                                                    
+                                                    switch($status) {
+                                                        case 'Approved':
+                                                            $status_class = 'bg-green-100 text-green-800';
+                                                            break;
+                                                        case 'Rejected':
+                                                            $status_class = 'bg-red-100 text-red-800';
+                                                            break;
+                                                        case 'Ready for Pickup':
+                                                        case 'Ready':
+                                                            $status_class = 'bg-blue-100 text-blue-800';
+                                                            $status_label = 'Ready for Pickup';
+                                                            break;
+                                                        case 'Processing':
+                                                            $status_class = 'bg-yellow-200 text-yellow-900';
+                                                            break;
+                                                        case 'Pending':
+                                                            $status_class = 'bg-yellow-100 text-yellow-800';
+                                                            break;
                                                     }
                                                     ?>
                                                     <span class="status-badge <?php echo $status_class; ?>">
@@ -223,12 +227,12 @@ try {
                                                                             statusBg: '<?php echo $status_class; ?>',
                                                                             date: '<?php echo date('M. d, Y h:i A', strtotime($trans['application_date'])); ?>'
                                                                         })" class="block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50">View Details</button>
-                                                                        <button type="button" onclick="changeTransactionStatus('<?php echo $trans['id']; ?>', 'APPROVED')" class="block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50">Set as Approved</button>
-                                                                        <button type="button" onclick="changeTransactionStatus('<?php echo $trans['id']; ?>', 'REJECTED')" class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">Set as Rejected</button>
-                                                                        <?php if ($trans['status'] === 'APPROVED'): ?>
+                                                                        <button type="button" onclick="changeTransactionStatus('<?php echo $trans['id']; ?>', 'Approved')" class="block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50">Set as Approved</button>
+                                                                        <button type="button" onclick="changeTransactionStatus('<?php echo $trans['id']; ?>', 'Rejected')" class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">Set as Rejected</button>
+                                                                        <?php if ($trans['status'] === 'Approved'): ?>
                                                                         <a href="generate-business-permit.php?id=<?php echo $trans['id']; ?>" class="block px-4 py-2 text-sm text-blue-700 hover:bg-blue-50">Generate Permit</a>
                                                                         <?php endif; ?>
-                                                                        <button type="button" onclick="changeTransactionStatus('<?php echo $trans['id']; ?>', 'DELETED')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50">Delete</button>
+                                                                        <button type="button" onclick="changeTransactionStatus('<?php echo $trans['id']; ?>', 'Deleted')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50">Delete</button>
                                                                     </div>
                                                                 </div>
                                                             </template>
@@ -385,12 +389,12 @@ try {
                             </div>
                            
                            <!-- Quick Approval Action -->
-                           <div class="border-t border-gray-200 pt-6 mt-8" x-show="selectedTrans.status === 'Pending' || selectedTrans.status === 'PROCESSING' || selectedTrans.status === 'Processing'">
+                           <div class="border-t border-gray-200 pt-6 mt-8" x-show="selectedTrans.status === 'Pending' || selectedTrans.status === 'Processing'">
                                <h3 class="text-sm font-medium text-gray-900 mb-3">Quick Actions</h3>
                                <div class="flex space-x-3">
                                    <!-- For businesses -->
-                                   <button @click="changeTransactionStatus(selectedTrans.id, 'APPROVED'); viewPanelOpen = false;" class="flex-1 bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700 transition">Approve Permit</button>
-                                   <button @click="changeTransactionStatus(selectedTrans.id, 'REJECTED'); viewPanelOpen = false;" class="flex-1 bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700 transition">Reject Permit</button>
+                                   <button @click="changeTransactionStatus(selectedTrans.id, 'Approved'); viewPanelOpen = false;" class="flex-1 bg-green-600 text-white px-4 py-3 rounded-xl shadow hover:bg-green-700 transition font-bold uppercase tracking-widest text-xs">Approve Permit</button>
+                                   <button @click="changeTransactionStatus(selectedTrans.id, 'Rejected'); viewPanelOpen = false;" class="flex-1 bg-red-600 text-white px-4 py-3 rounded-xl shadow hover:bg-red-700 transition font-bold uppercase tracking-widest text-xs">Reject Permit</button>
                                </div>
                            </div>
                         </div>
@@ -471,19 +475,19 @@ try {
                                 <svg class=\"w-5 h-5 text-gray-500\" fill=\"currentColor\" viewBox=\"0 0 20 20\"><circle cx=\"4\" cy=\"10\" r=\"1.5\"/><circle cx=\"10\" cy=\"10\" r=\"1.5\"/><circle cx=\"16\" cy=\"10\" r=\"1.5\"/></svg>
                             </button>
                             <template x-teleport=\"body\">
-                                <div x-show=\"open\" @click.away=\"open = false\" x-cloak class=\"fixed z-50 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5\" :style=\"'top: ' + top + 'px; left: ' + left + 'px;'\">
-                                    <div class=\"py-1\">
-                                        <button type=\"button\" @click=\"open = false; openView({ id: trans.id, permit_id: trans.permit_id, name: trans.business_name, owner: trans.owner_name, type: trans.business_type, address: trans.address, status: trans.status, statusBg: (trans.status === 'APPROVED' ? 'bg-green-100 text-green-800' : (trans.status === 'REJECTED' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')), date: (trans.application_date ? new Date(trans.application_date).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : '')})\" class=\"block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50\">View Details</button>
-                                        <button type=\"button\" onclick=\"changeTransactionStatus('${trans.id}', 'APPROVED')\" class=\"block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50\">Set as Approved</button>
-                                        <button type=\"button\" onclick=\"changeTransactionStatus('${trans.id}', 'REJECTED')\" class=\"block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50\">Set as Rejected</button>
-                                        ${trans.status === 'APPROVED' ? `<a href=\"generate-business-permit.php?id=${trans.id}\" class=\"block px-4 py-2 text-sm text-blue-700 hover:bg-blue-50\">Generate Permit</a>` : ''}
-                                        <button type=\"button\" onclick=\"changeTransactionStatus('${trans.id}', 'DELETED')\" class=\"block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50\">Delete</button>
+                                <div x-show="open" @click.away="open = false" x-cloak class="fixed z-50 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5" :style="'top: ' + top + 'px; left: ' + left + 'px;'">
+                                    <div class="py-1">
+                                        <button type="button" @click="open = false; openView({ id: trans.id, permit_id: trans.permit_id, name: trans.business_name, owner: trans.owner_name, type: trans.business_type, address: trans.address, status: trans.status, statusBg: (trans.status === 'Approved' ? 'bg-green-100 text-green-800' : (trans.status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')), date: (trans.application_date ? new Date(trans.application_date).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : '')})" class="block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50">View Details</button>
+                                        <button type="button" onclick="changeTransactionStatus('${trans.id}', 'Approved')" class="block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50">Set as Approved</button>
+                                        <button type="button" onclick="changeTransactionStatus('${trans.id}', 'Rejected')" class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">Set as Rejected</button>
+                                        ${trans.status === 'Approved' ? `<a href="generate-business-permit.php?id=${trans.id}" class="block px-4 py-2 text-sm text-blue-700 hover:bg-blue-50">Generate Permit</a>` : ''}
+                                        <button type="button" onclick="changeTransactionStatus('${trans.id}', 'Deleted')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50">Delete</button>
                                     </div>
                                 </div>
                             </template>
                         </div>
-                        <button type=\"button\" @click=\"openView({ id: trans.id, permit_id: trans.permit_id, name: trans.business_name, owner: trans.owner_name, type: trans.business_type, address: trans.address, status: trans.status, statusBg: (trans.status === 'APPROVED' ? 'bg-green-100 text-green-800' : (trans.status === 'REJECTED' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')), date: (trans.application_date ? new Date(trans.application_date).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : '')})\" class=\"ml-2 inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-600 hover:bg-blue-50 focus:outline-none\" title=\"Quick View\">
-                            <i class=\"fas fa-eye\"></i>
+                        <button type="button" @click="openView({ id: trans.id, permit_id: trans.permit_id, name: trans.business_name, owner: trans.owner_name, type: trans.business_type, address: trans.address, status: trans.status, statusBg: (trans.status === 'Approved' ? 'bg-green-100 text-green-800' : (trans.status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')), date: (trans.application_date ? new Date(trans.application_date).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : '')})" class="ml-2 inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-600 hover:bg-blue-50 focus:outline-none" title="Quick View">
+                            <i class="fas fa-eye"></i>
                         </button>
                     </td>
                 </tr>
