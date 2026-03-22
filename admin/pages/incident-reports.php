@@ -391,10 +391,9 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                 </div>
             </main>
         </div>
-    </div>
 
-    <!-- Quick View Slide-over Panel -->
-    <template x-if="showView">
+        <!-- Quick View Slide-over Panel (must be inside x-data scope for Alpine.js) -->
+        <template x-if="showView">
         <div class="fixed inset-0 overflow-hidden z-50 shadow-2xl" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
             <div class="absolute inset-0 overflow-hidden">
                 <!-- Background backdrop with blur -->
@@ -682,6 +681,7 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
             </div>
         </div>
     </template>
+    </div>
 
     <script>
         function pageData() {
