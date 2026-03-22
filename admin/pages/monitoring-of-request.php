@@ -866,19 +866,14 @@ try {
         updateBulkState();
     }
 
-    async function doBulkStatusUpdate() {
+    function doBulkStatusUpdate() {
         const status = document.getElementById('bulkStatusSelect').value;
         if (!status) {
-            await showAlert('Attention', 'Please select a status first.');
+            showToast('Please select a status.', 'error');
             return;
         }
 
-        const confirmed = await openModal({ 
-            type: 'confirm', 
-            title: 'Bulk Update', 
-            message: `Are you sure you want to set ${selectedRequests.size} request(s) to <b>${status}</b>?` 
-        });
-        if (!confirmed) return;
+        confirmModal(`Set ${selectedRequests.size} request(s) to <strong>${status}</strong>?`, () => {
 
         const ids = Array.from(selectedRequests.keys());
         const types = Array.from(selectedRequests.values());
@@ -897,33 +892,28 @@ try {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(response => response.json())
-        .then(async data => {
+        .then(data => {
             if (data.success) {
+                // Remove rows from UI without reload
                 ids.forEach((id, i) => {
                     const row = document.getElementById(`request-row-${types[i]}-${id}`);
                     if (row) row.style.opacity = '0.5';
                 });
-                await showAlert('Success', data.message);
-                location.reload();
+                showToast(data.message || 'Status updated successfully.');
+                setTimeout(() => location.reload(), 1200);
             } else {
-                await showAlert('Error', 'Failed: ' + (data.error || 'Unknown error'));
+                showToast('Failed: ' + (data.error || 'Unknown error'), 'error');
             }
         })
-        .catch(async error => {
+        .catch(error => {
             console.error('Error:', error);
-            await showAlert('Error', 'Failed to update requests');
+            showToast('Failed to update requests.', 'error');
         });
+        }); // end confirmModal
     }
 
-    async function doBulkDelete() {
-        const confirmed = await openModal({ 
-            type: 'confirm', 
-            title: 'Bulk Delete', 
-            message: `Delete ${selectedRequests.size} request(s)? This action cannot be undone.`,
-            confirmClass: 'bg-red-600 hover:bg-red-700 text-white',
-            confirmText: 'Delete'
-        });
-        if (!confirmed) return;
+    function doBulkDelete() {
+        confirmModal(`<span class="text-red-600 font-bold">Delete ${selectedRequests.size} request(s)?</span><br><span class="text-sm text-gray-500">This cannot be undone.</span>`, () => {
 
         const ids = Array.from(selectedRequests.keys());
         const types = Array.from(selectedRequests.values());
@@ -941,22 +931,24 @@ try {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(response => response.json())
-        .then(async data => {
+        .then(data => {
             if (data.success) {
+                // Remove rows from UI
                 ids.forEach((id, i) => {
                     const row = document.getElementById(`request-row-${types[i]}-${id}`);
                     if (row) row.remove();
                 });
-                await showAlert('Success', data.message);
+                showToast(data.message || 'Requests deleted.');
                 clearSelection();
             } else {
-                await showAlert('Error', 'Failed: ' + (data.error || 'Unknown error'));
+                showToast('Failed: ' + (data.error || 'Unknown error'), 'error');
             }
         })
-        .catch(async error => {
+        .catch(error => {
             console.error('Error:', error);
-            await showAlert('Error', 'Failed to delete requests');
+            showToast('Failed to delete requests.', 'error');
         });
+        }); // end confirmModal
     }
 
     function exportRequests(event) {
@@ -974,13 +966,8 @@ try {
         }
     });
 
-    async function changeRequestStatus(id, type, status) {
-        const confirmed = await openModal({ 
-            type: 'confirm', 
-            title: 'Update Status', 
-            message: `Are you sure you want to set status to <b>${status}</b>?` 
-        });
-        if (!confirmed) return;
+    function changeRequestStatus(id, type, status) {
+        confirmModal(`Set status to <strong>${status}</strong>?`, () => {
         
         const formData = new FormData();
         formData.append('id', id);
@@ -993,8 +980,9 @@ try {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
             .then(response => response.json())
-            .then(async data => {
+            .then(data => {
                 if (data.success) {
+                    // Update row status badge without reload
                     const row = document.getElementById(`request-row-${type}-${id}`);
                     if (row) {
                         const statusCell = row.querySelector('.status-badge');
@@ -1003,17 +991,18 @@ try {
                             statusCell.className = 'status-badge ' + getStatusBgClass(status);
                         }
                         row.style.backgroundColor = '#f0fdf4';
-                        setTimeout(() => row.style.backgroundColor = '', 500);
+                        setTimeout(() => row.style.backgroundColor = '', 600);
                     }
-                    showToast('Status updated successfully');
+                    showToast('Status updated to ' + status + '.');
                 } else {
-                    await showAlert('Error', 'Failed to update status: ' + (data.error || 'Unknown error'));
+                    showToast('Failed to update status: ' + (data.error || 'Unknown error'), 'error');
                 }
             })
-            .catch(async (error) => {
+            .catch((error) => {
                 console.error('Error:', error);
-                await showAlert('Error', 'Failed to update status. Please try again.');
+                showToast('Failed to update status. Please try again.', 'error');
             });
+        }); // end confirmModal
     }
 
     function getStatusBgClass(status) {
@@ -1034,7 +1023,7 @@ try {
         }
     }
 
-    async function updatePaymentInfo(id, type, orNumber, status) {
+    function updatePaymentInfo(id, type, orNumber, status) {
         const formData = new FormData();
         formData.append('id', id);
         formData.append('type', type);
@@ -1047,203 +1036,202 @@ try {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(response => response.json())
-        .then(async data => {
+        .then(data => {
             if (data.success) {
                 location.reload();
             } else {
-                await showAlert('Error', 'Failed to update payment: ' + (data.error || 'Unknown error'));
+                showToast('Failed to update payment: ' + (data.error || 'Unknown error'), 'error');
             }
         })
-        .catch(async error => {
+        .catch(error => {
             console.error('Error:', error);
-            await showAlert('Error', 'An error occurred. Please try again.');
+            showToast('An error occurred. Please try again.', 'error');
         });
     }
 
-    async function cancelRequest(id, type) {
-        const reason = await openModal({ 
-            type: 'prompt', 
-            title: 'Cancel Request', 
-            message: 'Provide cancellation reason (required):', 
-            requireInput: true, 
-            confirmClass: 'bg-red-600 hover:bg-red-700 text-white', 
-            confirmText: 'Cancel Request' 
-        });
-        if (reason === null) return;
-        const trimmedReason = reason.trim();
-
-        fetch('../partials/cancel-request.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: 'id=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type) + '&reason=' + encodeURIComponent(trimmedReason)
-        })
-        .then(response => response.json())
-        .then(async data => {
-            if (data.success) {
-                showToast('Request cancelled successfully');
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                await showAlert('Error', 'Failed to cancel request: ' + (data.error || 'Unknown error'));
+    function cancelRequest(id, type) {
+        promptModal('Provide a cancellation reason:', '', (reason) => {
+            if (reason === null) return;
+            const trimmedReason = reason.trim();
+            if (!trimmedReason) {
+                showToast('Cancellation reason is required.', 'error');
+                return;
             }
-        })
-        .catch(async () => {
-            await showAlert('Error', 'Failed to cancel request. Please try again.');
+            fetch('../partials/cancel-request.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: 'id=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type) + '&reason=' + encodeURIComponent(trimmedReason)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    showToast('Failed to cancel request: ' + (data.error || 'Unknown error'), 'error');
+                }
+            })
+            .catch(() => {
+                showToast('Failed to cancel request. Please try again.', 'error');
+            });
         });
     }
     </script>
 
-    <!-- Dynamic Modal -->
-    <div id="dynamicModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900 bg-opacity-50 hidden transition-opacity duration-300 backdrop-blur-sm">
-      <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm transform scale-95 transition-transform duration-300" id="dynamicModalContent">
-        <h2 id="dynamicModalTitle" class="text-xl font-bold mb-2 text-gray-800">Confirm</h2>
-        <p id="dynamicModalMessage" class="mb-5 text-gray-600 text-sm leading-relaxed"></p>
-        
-        <!-- Optional Input for Prompt -->
-        <div id="dynamicModalInputContainer" class="hidden mb-6">
-            <textarea id="dynamicModalInput" rows="3" class="w-full px-4 py-3 border border-gray-200 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all" placeholder="Type here..."></textarea>
-            <p id="dynamicModalInputError" class="text-[10px] text-red-500 mt-2 hidden font-bold tracking-wide uppercase"><i class="fas fa-exclamation-circle mr-1"></i>This field is required.</p>
+    <!-- Custom Modal System -->
+    <!-- Confirm Modal -->
+    <div id="confirmModalOverlay" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 hidden" style="backdrop-filter:blur(2px)">
+      <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 transform transition-all">
+        <div class="flex items-center space-x-3 mb-4">
+          <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-question text-blue-600"></i>
+          </div>
+          <h3 class="text-base font-bold text-gray-800">Confirm Action</h3>
         </div>
-
-        <div class="flex justify-end space-x-3 mt-2">
-          <button id="dynamicModalCancel" class="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm font-bold transition-colors hidden">Cancel</button>
-          <button id="dynamicModalConfirm" class="px-5 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-sm font-bold transition-colors shadow-md">OK</button>
+        <p id="confirmModalMessage" class="text-sm text-gray-600 mb-6 leading-relaxed"></p>
+        <div class="flex justify-end space-x-3">
+          <button id="confirmModalCancel" class="px-5 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200 transition">Cancel</button>
+          <button id="confirmModalOk" class="px-5 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">Confirm</button>
         </div>
       </div>
     </div>
 
+    <!-- Prompt Modal -->
+    <div id="promptModalOverlay" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 hidden" style="backdrop-filter:blur(2px)">
+      <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+        <div class="flex items-center space-x-3 mb-4">
+          <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-pen text-amber-600"></i>
+          </div>
+          <h3 class="text-base font-bold text-gray-800">Input Required</h3>
+        </div>
+        <p id="promptModalMessage" class="text-sm text-gray-600 mb-3"></p>
+        <textarea id="promptModalInput" rows="3" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Enter reason..."></textarea>
+        <div class="flex justify-end space-x-3 mt-4">
+          <button id="promptModalCancel" class="px-5 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200 transition">Cancel</button>
+          <button id="promptModalOk" class="px-5 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">Submit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 z-[9999] flex items-center space-x-3 px-5 py-3 rounded-xl shadow-2xl hidden transition-all duration-300 max-w-sm" style="min-width:260px">
+      <span id="toastIcon" class="text-lg"></span>
+      <span id="toastMessage" class="text-sm font-semibold"></span>
+    </div>
+
     <script>
-    function openModal({ type = 'alert', title, message, confirmText = 'OK', cancelText = 'Cancel', confirmClass = 'bg-blue-600 hover:bg-blue-700 text-white', requireInput = false, inputPlaceholder = '' }) {
-        return new Promise((resolve) => {
-            const modal = document.getElementById('dynamicModal');
-            const titleEl = document.getElementById('dynamicModalTitle');
-            const messageEl = document.getElementById('dynamicModalMessage');
-            const cancelBtn = document.getElementById('dynamicModalCancel');
-            const confirmBtn = document.getElementById('dynamicModalConfirm');
-            const inputContainer = document.getElementById('dynamicModalInputContainer');
-            const inputEl = document.getElementById('dynamicModalInput');
-            const inputError = document.getElementById('dynamicModalInputError');
+    /* =========================================================
+       Custom Modal & Toast System
+    ========================================================= */
+    function showToast(message, type = 'success') {
+        const toast = document.getElementById('toast');
+        const icon  = document.getElementById('toastIcon');
+        const msg   = document.getElementById('toastMessage');
+        const isErr = type === 'error';
+        toast.className = `fixed bottom-6 right-6 z-[9999] flex items-center space-x-3 px-5 py-3 rounded-xl shadow-2xl transition-all duration-300 max-w-sm ${isErr ? 'bg-red-600' : 'bg-green-600'} text-white`;
+        icon.textContent  = isErr ? '✕' : '✓';
+        msg.textContent   = message;
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+        toast.classList.remove('hidden');
+        clearTimeout(toast._hideTimer);
+        toast._hideTimer = setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(8px)';
+            setTimeout(() => toast.classList.add('hidden'), 300);
+        }, 3000);
+    }
 
-            titleEl.textContent = title;
-            messageEl.innerHTML = message;
-            confirmBtn.textContent = confirmText;
-            confirmBtn.className = `px-5 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-md ${confirmClass}`;
-            cancelBtn.textContent = cancelText;
-
-            inputEl.value = '';
-            inputEl.placeholder = inputPlaceholder;
-            inputError.classList.add('hidden');
-
-            if (type === 'alert') {
-                cancelBtn.classList.add('hidden');
-                inputContainer.classList.add('hidden');
-            } else if (type === 'confirm') {
-                cancelBtn.classList.remove('hidden');
-                inputContainer.classList.add('hidden');
-            } else if (type === 'prompt') {
-                cancelBtn.classList.remove('hidden');
-                inputContainer.classList.remove('hidden');
-                setTimeout(() => inputEl.focus(), 100);
-            }
-
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                document.getElementById('dynamicModalContent').classList.remove('scale-95');
-                document.getElementById('dynamicModalContent').classList.add('scale-100');
-            }, 10);
-            
-            const clonedClose = cancelBtn.cloneNode(true);
-            cancelBtn.parentNode.replaceChild(clonedClose, cancelBtn);
-            const clonedConfirm = confirmBtn.cloneNode(true);
-            confirmBtn.parentNode.replaceChild(clonedConfirm, confirmBtn);
-
-            const closeModal = (ret) => {
-                document.getElementById('dynamicModalContent').classList.remove('scale-100');
-                document.getElementById('dynamicModalContent').classList.add('scale-95');
-                setTimeout(() => {
-                    modal.classList.add('hidden');
-                    resolve(ret);
-                }, 200);
-            };
-
-            clonedClose.addEventListener('click', () => closeModal(null));
-            clonedConfirm.addEventListener('click', () => {
-                if (type === 'prompt') {
-                    const val = inputEl.value.trim();
-                    if (requireInput && !val) {
-                        inputError.classList.remove('hidden');
-                        return;
-                    }
-                    closeModal(val);
-                } else {
-                    closeModal(true);
-                }
-            });
+    function confirmModal(messageHtml, onConfirm) {
+        const overlay = document.getElementById('confirmModalOverlay');
+        document.getElementById('confirmModalMessage').innerHTML = messageHtml;
+        overlay.classList.remove('hidden');
+        const ok     = document.getElementById('confirmModalOk');
+        const cancel = document.getElementById('confirmModalCancel');
+        const newOk     = ok.cloneNode(true);
+        const newCancel = cancel.cloneNode(true);
+        ok.parentNode.replaceChild(newOk, ok);
+        cancel.parentNode.replaceChild(newCancel, cancel);
+        newOk.addEventListener('click', () => { overlay.classList.add('hidden'); onConfirm(); });
+        newCancel.addEventListener('click', () => overlay.classList.add('hidden'));
+        overlay.addEventListener('click', function oc(e) {
+            if (e.target === overlay) { overlay.classList.add('hidden'); overlay.removeEventListener('click', oc); }
         });
     }
 
-    window.showAlert = (title, message) => openModal({ type: 'alert', title, message });
+    function promptModal(labelText, defaultValue, onSubmit) {
+        const overlay = document.getElementById('promptModalOverlay');
+        document.getElementById('promptModalMessage').textContent = labelText;
+        const input = document.getElementById('promptModalInput');
+        input.value = defaultValue || '';
+        overlay.classList.remove('hidden');
+        setTimeout(() => input.focus(), 50);
+        const ok     = document.getElementById('promptModalOk');
+        const cancel = document.getElementById('promptModalCancel');
+        const newOk     = ok.cloneNode(true);
+        const newCancel = cancel.cloneNode(true);
+        ok.parentNode.replaceChild(newOk, ok);
+        cancel.parentNode.replaceChild(newCancel, cancel);
+        newOk.addEventListener('click', () => { overlay.classList.add('hidden'); onSubmit(input.value); });
+        newCancel.addEventListener('click', () => { overlay.classList.add('hidden'); onSubmit(null); });
+        overlay.addEventListener('click', function oc(e) {
+            if (e.target === overlay) { overlay.classList.add('hidden'); onSubmit(null); overlay.removeEventListener('click', oc); }
+        });
+    }
 
     let deleteRequestId = null;
     let deleteRequestType = null;
 
-    async function deleteRequest(id, type) {
-        const requestTypeText = type === 'document' ? 'document request' : 'business transaction';
-        const confirmed = await openModal({ 
-            type: 'confirm', 
-            title: 'Confirm Deletion', 
-            message: `Are you sure you want to delete this ${requestTypeText}? This action cannot be undone.`,
-            confirmClass: 'bg-red-600 hover:bg-red-700 text-white',
-            confirmText: 'Delete'
-        });
-
-        if (!confirmed) return;
-        
+    function deleteRequest(id, type) {
         deleteRequestId = id;
         deleteRequestType = type;
-        
-        let url = '';
-        if (deleteRequestType === 'document') {
-            url = '../partials/delete-document-request.php?id=' + encodeURIComponent(deleteRequestId);
-        } else {
-            url = '../partials/delete-business-transaction.php?id=' + encodeURIComponent(deleteRequestId);
-        }
-        
-        fetch(url, {
-            method: 'GET',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(response => response.json())
-        .then(async data => {
-            if (data.success) {
-                const rowId = `request-row-${deleteRequestType}-${deleteRequestId}`;
-                const row = document.getElementById(rowId);
-                if (row) row.remove();
-                showToast('Request has been successfully deleted.');
-            } else {
-                await showAlert('Error', 'Failed to delete request: ' + (data.error || 'Unknown error'));
-            }
-        })
-        .catch(async (error) => {
-            await showAlert('Error', 'Failed to delete request. Please try again.');
-        });
-    }
-
-    function showToast(message) {
-        const toast = document.getElementById('toast');
-        toast.textContent = message;
-        toast.classList.remove('hidden');
-        toast.style.opacity = '1';
-        setTimeout(() => {
-            toast.style.opacity = '0';
-        }, 1800);
+        const requestTypeText = type === 'document' ? 'document request' : 'business transaction';
+        document.getElementById('deleteModalMessage').textContent =
+            `Are you sure you want to delete this ${requestTypeText}? This action cannot be undone and all associated data will be permanently removed.`;
+        document.getElementById('deleteModal').classList.remove('hidden');
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Initialization code if needed
+        document.getElementById('deleteModalCancel').onclick = function() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            deleteRequestId = null;
+            deleteRequestType = null;
+        };
+        document.getElementById('deleteModalConfirm').onclick = function() {
+            if (!deleteRequestId || !deleteRequestType) return;
+            let url = '';
+            if (deleteRequestType === 'document') {
+                url = '../partials/delete-document-request.php?id=' + encodeURIComponent(deleteRequestId);
+            } else {
+                url = '../partials/delete-business-transaction.php?id=' + encodeURIComponent(deleteRequestId);
+            }
+            fetch(url, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('deleteModal').classList.add('hidden');
+                if (data.success) {
+                    const rowId = `request-row-${deleteRequestType}-${deleteRequestId}`;
+                    const row = document.getElementById(rowId);
+                    if (row) row.remove();
+                    showToast('Request has been successfully deleted.');
+                } else {
+                    showToast('Failed to delete request: ' + (data.error || 'Unknown error'), 'error');
+                }
+            })
+            .catch(() => {
+                document.getElementById('deleteModal').classList.add('hidden');
+                showToast('Failed to delete request. Please try again.', 'error');
+            });
+        };
     });
     </script>
+
 </body>
-</html> 
+</html>
+ 
