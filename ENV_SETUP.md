@@ -67,6 +67,21 @@ EMAIL_FROM_NAME=CommuniLink Barangay System
 APP_ENV=development          # development or production
 APP_DEBUG=false              # true to show errors, false for production
 APP_URL=http://localhost/barangay
+
+# Session timeouts (seconds)
+SESSION_LIFETIME=300         # resident/default timeout (5 minutes)
+ADMIN_SESSION_LIFETIME=1800  # admin/official timeout (30 minutes)
+
+# Concurrency controls
+ENABLE_CONCURRENCY_CAPS=true
+ADMIN_MAX_CONCURRENT=2       # max simultaneous admin sessions
+OFFICIAL_MAX_CONCURRENT=5    # max simultaneous official sessions (non-admin officials)
+AUTO_KICK_DUPLICATE_SESSIONS=false  # true = new login ends older active sessions of same account
+BULK_IDLE_MINUTES_DEFAULT=15        # default idle threshold shown in bulk terminate action
+                                    # Note: duplicate auto-kick scope is admin/official roles only by policy
+
+# Account provisioning cap (separate from online session cap)
+ADMIN_MAX_USERS=5
 ```
 
 ## Security Notes
@@ -89,4 +104,14 @@ APP_URL=http://localhost/barangay
 ### Still using old credentials?
 
 The system falls back to defaults if `.env` is missing, but you should create `.env` for security.
+
+### Recommended Session Cleanup Automation
+
+Set up a scheduled task to run expired-session cleanup periodically:
+
+```bash
+php cron_cleanup_active_sessions.php
+```
+
+For Windows Task Scheduler, run every 5 to 10 minutes to keep active-session records clean and up to date.
 

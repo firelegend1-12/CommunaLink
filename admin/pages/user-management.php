@@ -12,6 +12,7 @@ if ($_SESSION['role'] !== 'admin') {
 }
 
 $page_title = "User Management";
+$live_sessions_csrf_token = csrf_token();
 
 try {
     // Get stats
@@ -23,6 +24,57 @@ try {
     
     $resident_stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'resident'");
     $total_residents = $resident_stmt->fetchColumn();
+
+        $admin_session_cap = function_exists('get_admin_max_concurrent') ? get_admin_max_concurrent() : 2;
+        $official_session_cap = function_exists('get_official_max_concurrent') ? get_official_max_concurrent() : 5;
+        $auto_kick_duplicate_enabled = function_exists('is_auto_kick_duplicate_sessions_enabled') ? is_auto_kick_duplicate_sessions_enabled() : false;
+        $default_idle_minutes = function_exists('env') ? (int) env('BULK_IDLE_MINUTES_DEFAULT', 15) : 15;
+        $default_idle_minutes = max(1, min(720, $default_idle_minutes));
+        $active_admin_sessions = 0;
+        $active_official_sessions = 0;
+        $active_total_sessions = 0;
+        $active_sessions = [];
+
+        try {
+                $active_admin_stmt = $pdo->query("SELECT COUNT(*) FROM active_user_sessions
+                                                                                    WHERE is_active = 1
+                                                                                        AND role = 'admin'
+                                                                                        AND expires_at > NOW()");
+                $active_admin_sessions = (int) $active_admin_stmt->fetchColumn();
+
+                $active_official_stmt = $pdo->query("SELECT COUNT(*) FROM active_user_sessions
+                                                                                         WHERE is_active = 1
+                                                                                             AND role IN ('barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod')
+                                                                                             AND expires_at > NOW()");
+                $active_official_sessions = (int) $active_official_stmt->fetchColumn();
+
+                $active_total_stmt = $pdo->query("SELECT COUNT(*) FROM active_user_sessions
+                                                                                    WHERE is_active = 1
+                                                                                        AND expires_at > NOW()");
+                $active_total_sessions = (int) $active_total_stmt->fetchColumn();
+
+                $active_sessions_stmt = $pdo->query("SELECT aus.id,
+                                                                                                        aus.session_id,
+                                                                                                        aus.user_id,
+                                                                                                        aus.role,
+                                                                                                        aus.ip_address,
+                                                                                                        aus.last_seen_at,
+                                                                                                        aus.expires_at,
+                                                                                                        u.username,
+                                                                                                        u.fullname
+                                                                                         FROM active_user_sessions aus
+                                                                                         LEFT JOIN users u ON u.id = aus.user_id
+                                                                                         WHERE aus.is_active = 1
+                                                                                             AND aus.expires_at > NOW()
+                                                                                         ORDER BY aus.last_seen_at DESC
+                                                                                         LIMIT 30");
+                $active_sessions = $active_sessions_stmt->fetchAll();
+        } catch (PDOException $sessionMetricsError) {
+                $active_admin_sessions = 0;
+                $active_official_sessions = 0;
+                $active_total_sessions = 0;
+                $active_sessions = [];
+        }
 
     // Get filter
     $role_filter = isset($_GET['role']) ? sanitize_input($_GET['role']) : '';
@@ -106,6 +158,33 @@ try {
             
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-8">
+                <?php if (isset($_SESSION['success_message'])): ?>
+                    <div class="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-700 p-4 mb-6 rounded-r-xl shadow-sm" role="alert">
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle mr-3"></i>
+                            <p class="font-bold text-sm"><?php echo htmlspecialchars($_SESSION['success_message']); ?></p>
+                        </div>
+                    </div>
+                <?php unset($_SESSION['success_message']); endif; ?>
+
+                <?php if (isset($_SESSION['error_message'])): ?>
+                    <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-4 mb-6 rounded-r-xl shadow-sm" role="alert">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-circle mr-3"></i>
+                            <p class="font-bold text-sm"><?php echo htmlspecialchars($_SESSION['error_message']); ?></p>
+                        </div>
+                    </div>
+                <?php unset($_SESSION['error_message']); endif; ?>
+
+                <?php if (isset($_SESSION['warning_message'])): ?>
+                    <div class="bg-amber-50 border-l-4 border-amber-500 text-amber-800 p-4 mb-6 rounded-r-xl shadow-sm" role="alert">
+                        <div class="flex items-center">
+                            <i class="fas fa-triangle-exclamation mr-3"></i>
+                            <p class="font-bold text-sm"><?php echo htmlspecialchars($_SESSION['warning_message']); ?></p>
+                        </div>
+                    </div>
+                <?php unset($_SESSION['warning_message']); endif; ?>
+
                 <!-- Summary Row -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 group hover:border-indigo-200 transition">
@@ -138,11 +217,19 @@ try {
                         </div>
                     </div>
 
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-indigo-500 bg-indigo-600 text-white relative overflow-hidden">
-                        <div class="absolute -right-4 -bottom-4 opacity-10 rotate-12"><i class="fas fa-shield-alt text-7xl"></i></div>
-                        <p class="text-[10px] font-black text-indigo-200 uppercase tracking-widest mb-1">System Status</p>
-                        <h3 class="text-xl font-black">All Systems Online</h3>
-                        <p class="text-[10px] text-indigo-100 font-bold opacity-75 mt-2">ACCESS AUDIT LOGS ➔</p>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-indigo-200 bg-gradient-to-br from-indigo-600 to-sky-600 text-white relative overflow-hidden">
+                        <div class="absolute -right-4 -bottom-4 opacity-10 rotate-12"><i class="fas fa-network-wired text-7xl"></i></div>
+                        <p class="text-[10px] font-black text-indigo-100 uppercase tracking-widest mb-2">Live Session Slots</p>
+                        <div class="space-y-1">
+                            <p class="text-sm font-bold">Admins: <span id="live-admin-count" class="text-white/90"><?php echo $active_admin_sessions; ?></span> / <span id="live-admin-cap" class="text-white/90"><?php echo $admin_session_cap; ?></span></p>
+                            <p class="text-sm font-bold">Officials: <span id="live-official-count" class="text-white/90"><?php echo $active_official_sessions; ?></span> / <span id="live-official-cap" class="text-white/90"><?php echo $official_session_cap; ?></span></p>
+                            <p class="text-[10px] uppercase tracking-widest font-black text-indigo-100">Auto-Kick Duplicate: <span id="live-auto-kick-state"><?php echo $auto_kick_duplicate_enabled ? 'Enabled' : 'Disabled'; ?></span></p>
+                            <p class="text-[10px] text-indigo-100 font-bold opacity-90 uppercase tracking-widest mt-2">Total Active Sessions: <span id="live-total-count"><?php echo $active_total_sessions; ?></span></p>
+                            <p class="text-[10px] text-indigo-100/90 font-bold uppercase tracking-widest">Last Refresh: <span id="live-refresh-time">Initial</span></p>
+                            <a href="logs.php?quick_filter=session_events" class="inline-flex items-center mt-2 text-[10px] font-black uppercase tracking-widest text-white/90 hover:text-white underline">
+                                Open Session Audit Logs
+                            </a>
+                        </div>
                     </div>
                 </div>
 
@@ -232,6 +319,7 @@ try {
                                                     <?php if ($user['id'] != $_SESSION['user_id']): ?>
                                                         <form onsubmit="return confirm('WARNING: Are you sure you want to delete this user? This action is irreversible.');" 
                                                               action="../partials/delete-user-handler.php" method="POST" class="inline">
+                                                            <?php echo csrf_field(); ?>
                                                             <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
                                                             <button type="submit" class="text-rose-500 bg-white hover:bg-rose-500 hover:text-white p-2 rounded-xl transition shadow-sm border border-slate-200 hover:border-rose-500" title="Delete User">
                                                                 <i class="fas fa-trash-alt"></i>
@@ -247,8 +335,201 @@ try {
                         </table>
                     </div>
                 </div>
+
+                <div class="mt-8 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/40 flex items-center justify-between">
+                        <div>
+                            <h2 class="text-sm font-black uppercase tracking-widest text-slate-700">Active Sessions</h2>
+                            <p class="text-xs text-slate-500 mt-1">Terminate stale or blocked slots to free capacity immediately.</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <form action="../partials/revoke-session-handler.php" method="POST" class="inline" onsubmit="return confirm('Run expired session cleanup now?');">
+                                <?php echo csrf_field(); ?>
+                                <input type="hidden" name="action_mode" value="cleanup_expired">
+                                <button type="submit" class="bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition">Cleanup Expired</button>
+                            </form>
+
+                            <form action="../partials/revoke-session-handler.php" method="POST" class="flex items-center gap-2" onsubmit="return confirm('Terminate all idle sessions older than selected minutes?');">
+                                <?php echo csrf_field(); ?>
+                                <input type="hidden" name="action_mode" value="bulk_idle">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-500">Idle &gt; </label>
+                                <input type="number" name="idle_minutes" min="1" max="720" value="<?php echo (int) $default_idle_minutes; ?>" class="w-20 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">minutes</span>
+                                <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition">Terminate Idle</button>
+                            </form>
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Showing <span id="active-session-count"><?php echo count($active_sessions); ?></span> active session(s)</span>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-100">
+                            <thead>
+                                <tr class="bg-slate-50/50">
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">User</th>
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Role</th>
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">IP</th>
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Last Seen</th>
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Expires</th>
+                                    <th class="px-6 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="active-sessions-body" class="divide-y divide-slate-50">
+                                <?php if (empty($active_sessions)): ?>
+                                    <tr>
+                                        <td colspan="6" class="px-6 py-8 text-center text-slate-400 italic font-medium">No active tracked sessions.</td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($active_sessions as $session_row): ?>
+                                        <tr class="hover:bg-indigo-50/20 transition">
+                                            <td class="px-6 py-3">
+                                                <div class="text-sm font-bold text-slate-900"><?php echo htmlspecialchars($session_row['fullname'] ?: 'Unknown User'); ?></div>
+                                                <div class="text-[10px] text-slate-400 font-bold uppercase tracking-tight">@<?php echo htmlspecialchars($session_row['username'] ?: 'unknown'); ?></div>
+                                            </td>
+                                            <td class="px-6 py-3 text-xs font-bold text-slate-600"><?php echo htmlspecialchars(get_role_display_name($session_row['role'])); ?></td>
+                                            <td class="px-6 py-3 text-xs text-slate-500"><?php echo htmlspecialchars($session_row['ip_address'] ?: '-'); ?></td>
+                                            <td class="px-6 py-3 text-xs text-slate-600"><?php echo date('M d, h:i A', strtotime($session_row['last_seen_at'])); ?></td>
+                                            <td class="px-6 py-3 text-xs text-slate-600"><?php echo date('M d, h:i A', strtotime($session_row['expires_at'])); ?></td>
+                                            <td class="px-6 py-3 text-right">
+                                                <?php if ($session_row['session_id'] === session_id()): ?>
+                                                    <span class="text-[10px] px-2 py-1 rounded-lg bg-slate-100 text-slate-500 font-black uppercase tracking-widest">Current Session</span>
+                                                <?php else: ?>
+                                                    <form action="../partials/revoke-session-handler.php" method="POST" class="inline" onsubmit="return confirm('Terminate this active session now?');">
+                                                        <?php echo csrf_field(); ?>
+                                                        <input type="hidden" name="action_mode" value="single">
+                                                        <input type="hidden" name="session_record_id" value="<?php echo (int) $session_row['id']; ?>">
+                                                        <button type="submit" class="text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-200 transition">
+                                                            Terminate
+                                                        </button>
+                                                    </form>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </main>
         </div>
     </div>
+
+    <script>
+    (function () {
+        var endpoint = '../partials/active-sessions-data.php';
+        var currentSessionId = <?php echo json_encode(session_id()); ?>;
+        var csrfToken = <?php echo json_encode($live_sessions_csrf_token); ?>;
+        var pollingIntervalMs = <?php echo json_encode((int) env('POLLING_INTERVAL_MS', 15000), JSON_NUMERIC_CHECK); ?>; // Configurable via .env
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function formatDateTime(input) {
+            if (!input) {
+                return '-';
+            }
+
+            var normalized = input.replace(' ', 'T');
+            var parsed = new Date(normalized);
+            if (Number.isNaN(parsed.getTime())) {
+                return input;
+            }
+
+            return parsed.toLocaleString([], {
+                month: 'short',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+        function updateCounters(data) {
+            document.getElementById('live-admin-count').textContent = data.counts.admin;
+            document.getElementById('live-official-count').textContent = data.counts.official;
+            document.getElementById('live-total-count').textContent = data.counts.total;
+            document.getElementById('live-admin-cap').textContent = data.caps.admin;
+            document.getElementById('live-official-cap').textContent = data.caps.official;
+            document.getElementById('live-auto-kick-state').textContent = data.policy.auto_kick_duplicate_enabled ? 'Enabled' : 'Disabled';
+            document.getElementById('active-session-count').textContent = data.sessions.length;
+            document.getElementById('live-refresh-time').textContent = formatDateTime(data.refreshed_at);
+        }
+
+        function buildTerminateForm(sessionId, sessionRecordId) {
+            if (sessionId === currentSessionId) {
+                return '<span class="text-[10px] px-2 py-1 rounded-lg bg-slate-100 text-slate-500 font-black uppercase tracking-widest">Current Session</span>';
+            }
+
+            return '<form action="../partials/revoke-session-handler.php" method="POST" class="inline" onsubmit="return confirm(\'Terminate this active session now?\');">'
+                + '<input type="hidden" name="csrf_token" value="' + escapeHtml(csrfToken) + '">'
+                + '<input type="hidden" name="action_mode" value="single">'
+                + '<input type="hidden" name="session_record_id" value="' + Number(sessionRecordId) + '">'
+                + '<button type="submit" class="text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-200 transition">Terminate</button>'
+                + '</form>';
+        }
+
+        function updateActiveSessionsTable(data) {
+            var tbody = document.getElementById('active-sessions-body');
+            if (!tbody) {
+                return;
+            }
+
+            if (!data.sessions.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-slate-400 italic font-medium">No active tracked sessions.</td></tr>';
+                return;
+            }
+
+            var html = '';
+            data.sessions.forEach(function (sessionRow) {
+                html += '<tr class="hover:bg-indigo-50/20 transition">';
+                html += '<td class="px-6 py-3"><div class="text-sm font-bold text-slate-900">' + escapeHtml(sessionRow.fullname || 'Unknown User') + '</div>';
+                html += '<div class="text-[10px] text-slate-400 font-bold uppercase tracking-tight">@' + escapeHtml(sessionRow.username || 'unknown') + '</div></td>';
+                html += '<td class="px-6 py-3 text-xs font-bold text-slate-600">' + escapeHtml(sessionRow.role_display || sessionRow.role || '') + '</td>';
+                html += '<td class="px-6 py-3 text-xs text-slate-500">' + escapeHtml(sessionRow.ip_address || '-') + '</td>';
+                html += '<td class="px-6 py-3 text-xs text-slate-600">' + escapeHtml(formatDateTime(sessionRow.last_seen_at)) + '</td>';
+                html += '<td class="px-6 py-3 text-xs text-slate-600">' + escapeHtml(formatDateTime(sessionRow.expires_at)) + '</td>';
+                html += '<td class="px-6 py-3 text-right">' + buildTerminateForm(sessionRow.session_id, sessionRow.id) + '</td>';
+                html += '</tr>';
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function refreshActiveSessions() {
+            fetch(endpoint, {
+                credentials: 'same-origin',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch active sessions.');
+                    }
+                    return response.json();
+                })
+                .then(function (data) {
+                    if (!data || !data.success) {
+                        return;
+                    }
+
+                    updateCounters(data);
+                    updateActiveSessionsTable(data);
+                })
+                .catch(function () {
+                    // Keep existing UI if refresh fails.
+                });
+        }
+
+        setInterval(refreshActiveSessions, pollingIntervalMs);
+        refreshActiveSessions();
+    })();
+    </script>
 </body>
 </html>

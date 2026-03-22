@@ -37,11 +37,15 @@ if ($export_preset === 'daily_ops') {
     $date_to = date('Y-m-d');
 } elseif ($export_preset === 'security_review') {
     if ($quick_filter === '') {
-        $quick_filter = 'auth_events';
+        $quick_filter = 'session_events';
     }
 } elseif ($export_preset === 'payment_audit') {
     if ($quick_filter === '') {
         $quick_filter = 'payment_events';
+    }
+} elseif ($export_preset === 'session_audit') {
+    if ($quick_filter === '') {
+        $quick_filter = 'session_events';
     }
 }
 
@@ -90,6 +94,9 @@ switch ($quick_filter) {
         break;
     case 'auth_events':
         $where[] = "(target_type = 'auth' OR action IN ('login', 'logout', 'failed_login', 'password_reset') OR details LIKE '%login%' OR details LIKE '%logout%')";
+        break;
+    case 'session_events':
+        $where[] = "(target_type = 'session' OR action IN ('deny', 'revoke', 'expire', 'duplicate_kick', 'session_end') OR details LIKE '%session%' OR details LIKE '%concurrency%' OR details LIKE '%revoked%' OR details LIKE '%expired%')";
         break;
 }
 
@@ -171,6 +178,24 @@ $page_title = 'System Logs';
 
         <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div class="bg-white rounded-lg shadow p-6">
+                <?php if (isset($_SESSION['success_message'])): ?>
+                    <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 text-sm font-semibold">
+                        <i class="fas fa-check-circle mr-2"></i><?php echo htmlspecialchars($_SESSION['success_message']); ?>
+                    </div>
+                <?php unset($_SESSION['success_message']); endif; ?>
+
+                <?php if (isset($_SESSION['warning_message'])): ?>
+                    <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 text-sm font-semibold">
+                        <i class="fas fa-triangle-exclamation mr-2"></i><?php echo htmlspecialchars($_SESSION['warning_message']); ?>
+                    </div>
+                <?php unset($_SESSION['warning_message']); endif; ?>
+
+                <?php if (isset($_SESSION['error_message'])): ?>
+                    <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800 text-sm font-semibold">
+                        <i class="fas fa-exclamation-circle mr-2"></i><?php echo htmlspecialchars($_SESSION['error_message']); ?>
+                    </div>
+                <?php unset($_SESSION['error_message']); endif; ?>
+
                 <div class="mb-4 flex flex-wrap gap-2 items-center">
                     <a href="logs.php" class="inline-flex items-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
                         <i class="fas fa-list mr-2"></i>Show All Logs
@@ -184,6 +209,7 @@ $page_title = 'System Logs';
                     <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'payment_events', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php echo $quick_filter === 'payment_events' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'; ?>">Payment Events</a>
                     <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'status_changes', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php echo $quick_filter === 'status_changes' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'; ?>">Status Changes</a>
                     <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'auth_events', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php echo $quick_filter === 'auth_events' ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'; ?>">Auth Events</a>
+                    <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'session_events', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php echo $quick_filter === 'session_events' ? 'bg-fuchsia-600 text-white' : 'bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100'; ?>">Session Events</a>
                     <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => '', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">Clear Quick Filter</a>
                 </div>
 
@@ -245,6 +271,7 @@ $page_title = 'System Logs';
                         <option value="">Choose report...</option>
                         <option value="daily_ops">Daily Ops</option>
                         <option value="security_review">Security Review</option>
+                        <option value="session_audit">Session Audit</option>
                         <option value="payment_audit">Payment Audit</option>
                     </select>
                     <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold inline-flex items-center">

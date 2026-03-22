@@ -56,17 +56,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         if ($user) {
             // Password is correct, start a new session
-            create_session($user, $pdo);
+            $session_result = create_session($user, $pdo);
+            if (!$session_result['success']) {
+                $login_err = $session_result['message'] ?? 'Unable to sign in due to active session limits.';
+                $user = false;
+            }
             
             // Redirect user based on role
-            if ($user['role'] === 'resident') {
-                redirect_to('resident/dashboard.php');
-            } else {
-                redirect_to('admin/index.php');
+            if ($user) {
+                if ($user['role'] === 'resident') {
+                    redirect_to('resident/dashboard.php');
+                } else {
+                    redirect_to('admin/index.php');
+                }
             }
         } else {
             // Password is not valid, display generic error
-            $login_err = "Invalid username or password.";
+            if (empty($login_err)) {
+                $login_err = "Invalid username or password.";
+            }
             
             // Record failed login attempt
             record_login_attempt();
