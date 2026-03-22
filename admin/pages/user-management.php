@@ -29,6 +29,7 @@ try {
         $active_admin_sessions = 0;
         $active_official_sessions = 0;
         $active_total_sessions = 0;
+        $active_sessions = [];
 
         try {
                 $pdo->exec("UPDATE active_user_sessions
@@ -55,10 +56,29 @@ try {
                                                                                     WHERE is_active = 1
                                                                                         AND expires_at > NOW()");
                 $active_total_sessions = (int) $active_total_stmt->fetchColumn();
+
+                $active_sessions_stmt = $pdo->query("SELECT aus.id,
+                                                                                                        aus.session_id,
+                                                                                                        aus.user_id,
+                                                                                                        aus.role,
+                                                                                                        aus.ip_address,
+                                                                                                        aus.started_at,
+                                                                                                        aus.last_seen_at,
+                                                                                                        aus.expires_at,
+                                                                                                        u.username,
+                                                                                                        u.fullname
+                                                                                         FROM active_user_sessions aus
+                                                                                         LEFT JOIN users u ON u.id = aus.user_id
+                                                                                         WHERE aus.is_active = 1
+                                                                                             AND aus.expires_at > NOW()
+                                                                                         ORDER BY aus.last_seen_at DESC
+                                                                                         LIMIT 30");
+                $active_sessions = $active_sessions_stmt->fetchAll();
         } catch (PDOException $sessionMetricsError) {
                 $active_admin_sessions = 0;
                 $active_official_sessions = 0;
                 $active_total_sessions = 0;
+                $active_sessions = [];
         }
 
     // Get filter
@@ -297,6 +317,64 @@ try {
                                                         </form>
                                                     <?php endif; ?>
                                                 </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mt-8 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/40 flex items-center justify-between">
+                        <div>
+                            <h2 class="text-sm font-black uppercase tracking-widest text-slate-700">Active Sessions</h2>
+                            <p class="text-xs text-slate-500 mt-1">Terminate stale or blocked slots to free capacity immediately.</p>
+                        </div>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Showing <?php echo count($active_sessions); ?> active session(s)</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-100">
+                            <thead>
+                                <tr class="bg-slate-50/50">
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">User</th>
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Role</th>
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">IP</th>
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Last Seen</th>
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Expires</th>
+                                    <th class="px-6 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50">
+                                <?php if (empty($active_sessions)): ?>
+                                    <tr>
+                                        <td colspan="6" class="px-6 py-8 text-center text-slate-400 italic font-medium">No active tracked sessions.</td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($active_sessions as $session_row): ?>
+                                        <tr class="hover:bg-indigo-50/20 transition">
+                                            <td class="px-6 py-3">
+                                                <div class="text-sm font-bold text-slate-900"><?php echo htmlspecialchars($session_row['fullname'] ?: 'Unknown User'); ?></div>
+                                                <div class="text-[10px] text-slate-400 font-bold uppercase tracking-tight">@<?php echo htmlspecialchars($session_row['username'] ?: 'unknown'); ?></div>
+                                            </td>
+                                            <td class="px-6 py-3 text-xs font-bold text-slate-600"><?php echo htmlspecialchars(get_role_display_name($session_row['role'])); ?></td>
+                                            <td class="px-6 py-3 text-xs text-slate-500"><?php echo htmlspecialchars($session_row['ip_address'] ?: '-'); ?></td>
+                                            <td class="px-6 py-3 text-xs text-slate-600"><?php echo date('M d, h:i A', strtotime($session_row['last_seen_at'])); ?></td>
+                                            <td class="px-6 py-3 text-xs text-slate-600"><?php echo date('M d, h:i A', strtotime($session_row['expires_at'])); ?></td>
+                                            <td class="px-6 py-3 text-right">
+                                                <?php if ($session_row['session_id'] === session_id()): ?>
+                                                    <span class="text-[10px] px-2 py-1 rounded-lg bg-slate-100 text-slate-500 font-black uppercase tracking-widest">Current Session</span>
+                                                <?php else: ?>
+                                                    <form action="../partials/revoke-session-handler.php" method="POST" class="inline" onsubmit="return confirm('Terminate this active session now?');">
+                                                        <?php echo csrf_field(); ?>
+                                                        <input type="hidden" name="session_record_id" value="<?php echo (int) $session_row['id']; ?>">
+                                                        <button type="submit" class="text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-200 transition">
+                                                            Terminate
+                                                        </button>
+                                                    </form>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
