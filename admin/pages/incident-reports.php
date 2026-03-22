@@ -394,7 +394,7 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
 
         <!-- Quick View Slide-over Panel (must be inside x-data scope for Alpine.js) -->
         <template x-if="showView">
-        <div class="fixed inset-0 overflow-hidden z-50 shadow-2xl" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 overflow-hidden z-50 shadow-2xl" aria-labelledby="slide-over-title" role="dialog" aria-modal="true" @keydown.window.escape="showView = false">
             <div class="absolute inset-0 overflow-hidden">
                 <!-- Background backdrop with blur -->
                 <div x-transition:enter="ease-out duration-500" 
@@ -415,7 +415,8 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                          class="pointer-events-auto w-screen max-w-4xl">
                         <div class="flex h-full flex-col bg-white shadow-2xl">
                              <!-- Premium Header: flex-shrink-0 prevents shrinking when content loads -->
-                             <div class="flex-shrink-0 min-h-[140px] bg-indigo-700 px-8 py-12 sm:px-10 relative overflow-hidden">
+                             <!-- Premium Header: Maximized Visibility -->
+                             <div class="flex-shrink-0 min-h-[140px] bg-indigo-700 px-8 py-8 sm:py-12 sm:px-10 relative overflow-hidden transition-all duration-500">
                                  <!-- Abstract Background Pattern -->
                                  <div class="absolute inset-0 opacity-10">
                                      <svg class="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -425,8 +426,23 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                  <div class="absolute top-0 right-0 -mt-10 -mr-10 h-48 w-48 rounded-full bg-white/10 blur-3xl"></div>
                                  
                                  <div class="relative flex items-center justify-between z-10">
-                                     <div class="flex items-center gap-8">
-                                         <template x-if="viewData">
+                                     <!-- Skeleton Header -->
+                                     <template x-if="loadingView">
+                                         <div class="flex items-center gap-8 animate-pulse w-full">
+                                             <div class="h-24 w-24 rounded-[32px] bg-white/10 backdrop-blur-md"></div>
+                                             <div class="flex-1 space-y-4">
+                                                 <div class="h-8 bg-white/10 rounded-lg w-1/3"></div>
+                                                 <div class="flex gap-4">
+                                                     <div class="h-5 bg-white/10 rounded-lg w-20"></div>
+                                                     <div class="h-5 bg-white/10 rounded-lg w-32"></div>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                     </template>
+
+                                     <!-- Real Header Content -->
+                                     <template x-if="!loadingView && viewData">
+                                         <div class="flex items-center gap-8">
                                              <div :class="{
                                                  'h-24 w-24 rounded-[32px] bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-4xl shadow-2xl transition-transform duration-500 hover:rotate-3 hover:scale-105': true,
                                                  'text-amber-300': viewData.type === 'Fire' || viewData.type === 'Emergency',
@@ -440,15 +456,16 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                                      'fa-exclamation-triangle': !['Fire', 'Emergency', 'Traffic'].includes(viewData.type)
                                                  }"></i>
                                              </div>
-                                         </template>
-                                         <div>
-                                             <h2 class="text-3xl font-black text-white leading-none uppercase tracking-tighter" id="slide-over-title" x-text="viewData ? viewData.type : 'Loading...'"></h2>
-                                             <div class="flex items-center mt-3 gap-4 text-indigo-50">
-                                                 <span class="text-[11px] font-black uppercase bg-white/20 px-3 py-1 rounded-xl tracking-[0.2em] shadow-sm" x-text="'ID: #' + (viewData ? viewData.id : '')"></span>
-                                                 <span class="text-sm font-bold opacity-80" x-text="viewData ? formatDate(viewData.reported_at) + ' @ ' + formatTime(viewData.reported_at) : ''"></span>
+                                             <div>
+                                                 <h2 class="text-3xl font-black text-white leading-none uppercase tracking-tighter" id="slide-over-title" x-text="viewData ? viewData.type : ''"></h2>
+                                                 <div class="flex items-center mt-3 gap-4 text-indigo-50">
+                                                     <span class="text-[11px] font-black uppercase bg-white/20 px-3 py-1 rounded-xl tracking-[0.2em] shadow-sm" x-text="'ID: #' + (viewData ? viewData.id : '')"></span>
+                                                     <span class="text-sm font-bold opacity-80" x-text="viewData ? formatDate(viewData.reported_at) + ' @ ' + formatTime(viewData.reported_at) : ''"></span>
+                                                 </div>
                                              </div>
                                          </div>
-                                     </div>
+                                     </template>
+
                                      <div class="ml-4 flex items-center">
                                          <button @click="showView = false" class="h-12 w-12 rounded-2xl bg-white/10 text-white hover:bg-rose-500 hover:scale-110 transition-all duration-300 flex items-center justify-center border border-white/20 shadow-xl group">
                                              <i class="fas fa-times text-2xl group-hover:rotate-90 transition-transform duration-300"></i>
@@ -553,17 +570,25 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                                     </div>
                                                     
                                                     <div>
-                                                        <p class="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-tighter text-indigo-500">Investigation Map</p>
+                                                         <div class="flex items-center justify-between mb-2">
+                                                             <p class="text-[10px] font-black text-slate-400 uppercase tracking-tighter text-indigo-500">Investigation Map</p>
+                                                             <template x-if="viewData.latitude">
+                                                                 <a :href="'https://www.google.com/maps/search/?api=1&query=' + viewData.latitude + ',' + viewData.longitude" target="_blank" class="text-[9px] font-bold text-slate-400 hover:text-indigo-500 flex items-center transition-colors">
+                                                                     <i class="fas fa-external-link-alt mr-1"></i> Report Error
+                                                                 </a>
+                                                             </template>
+                                                         </div>
                                                         <div class="rounded-2xl overflow-hidden border border-slate-200 shadow-sm h-64 relative bg-slate-100 group/map transition-all duration-500 hover:shadow-md">
                                                             <template x-if="viewData.latitude">
-                                                                <iframe 
-                                                                    class="w-full h-full grayscale-[0.3] contrast-[1.1] hover:grayscale-0 transition-all duration-700"
-                                                                    frameborder="0" 
-                                                                    scrolling="no" 
-                                                                    marginheight="0" 
-                                                                    marginwidth="0" 
-                                                                    :src="'https://maps.google.com/maps?q=' + viewData.latitude + ',' + viewData.longitude + '&hl=en&z=14&output=embed'"
-                                                                ></iframe>
+                                                                 <iframe 
+                                                                     class="w-full h-full grayscale-[0.3] contrast-[1.1] hover:grayscale-0 transition-all duration-700"
+                                                                     frameborder="0" 
+                                                                     scrolling="no" 
+                                                                     marginheight="0" 
+                                                                     marginwidth="0" 
+                                                                     loading="lazy"
+                                                                     :src="'https://maps.google.com/maps?q=' + viewData.latitude + ',' + viewData.longitude + '&hl=en&z=14&output=embed'"
+                                                                 ></iframe>
                                                             </template>
                                                             <template x-if="!viewData.latitude">
                                                                 <div class="flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center">
