@@ -37,6 +37,11 @@ function is_admin_role($role) {
     return $role === 'admin';
 }
 
+function is_session_policy_tracked_role($role) {
+    // Policy decision: session concurrency and duplicate-login auto-kick apply only to admin/official roles.
+    return is_admin_role($role) || is_official_role_only($role);
+}
+
 function is_concurrency_caps_enabled() {
     if (!function_exists('env')) {
         require_once __DIR__ . '/../config/env_loader.php';
@@ -195,7 +200,7 @@ function kick_duplicate_sessions_for_user($pdo, $user, $current_session_id) {
 
 function register_active_session_with_caps($pdo, $user, $session_id, $session_lifetime_seconds) {
     $role = $user['role'] ?? 'resident';
-    $is_tracked_role = is_admin_role($role) || is_official_role_only($role);
+    $is_tracked_role = is_session_policy_tracked_role($role);
     if (!$is_tracked_role) {
         return ['allowed' => true];
     }
@@ -453,7 +458,7 @@ function is_logged_in() {
             global $pdo;
             if (isset($pdo) && $pdo instanceof PDO) {
                 try {
-                    if (is_admin_role($user_role) || is_official_role_only($user_role)) {
+                    if (is_session_policy_tracked_role($user_role)) {
                         clear_expired_active_sessions($pdo);
                         $heartbeat_ok = refresh_active_session_heartbeat($pdo, session_id(), $session_lifetime);
                         if (!$heartbeat_ok) {

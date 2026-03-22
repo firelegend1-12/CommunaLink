@@ -178,6 +178,24 @@ $page_title = 'System Logs';
 
         <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div class="bg-white rounded-lg shadow p-6">
+                <?php if (isset($_SESSION['success_message'])): ?>
+                    <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 text-sm font-semibold">
+                        <i class="fas fa-check-circle mr-2"></i><?php echo htmlspecialchars($_SESSION['success_message']); ?>
+                    </div>
+                <?php unset($_SESSION['success_message']); endif; ?>
+
+                <?php if (isset($_SESSION['warning_message'])): ?>
+                    <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 text-sm font-semibold">
+                        <i class="fas fa-triangle-exclamation mr-2"></i><?php echo htmlspecialchars($_SESSION['warning_message']); ?>
+                    </div>
+                <?php unset($_SESSION['warning_message']); endif; ?>
+
+                <?php if (isset($_SESSION['error_message'])): ?>
+                    <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800 text-sm font-semibold">
+                        <i class="fas fa-exclamation-circle mr-2"></i><?php echo htmlspecialchars($_SESSION['error_message']); ?>
+                    </div>
+                <?php unset($_SESSION['error_message']); endif; ?>
+
                 <div class="mb-4 flex flex-wrap gap-2 items-center">
                     <a href="logs.php" class="inline-flex items-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
                         <i class="fas fa-list mr-2"></i>Show All Logs

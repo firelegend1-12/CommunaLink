@@ -78,6 +78,7 @@ ADMIN_MAX_CONCURRENT=2       # max simultaneous admin sessions
 OFFICIAL_MAX_CONCURRENT=5    # max simultaneous official sessions (non-admin officials)
 AUTO_KICK_DUPLICATE_SESSIONS=false  # true = new login ends older active sessions of same account
 BULK_IDLE_MINUTES_DEFAULT=15        # default idle threshold shown in bulk terminate action
+                                    # Note: duplicate auto-kick scope is admin/official roles only by policy
 
 # Account provisioning cap (separate from online session cap)
 ADMIN_MAX_USERS=5

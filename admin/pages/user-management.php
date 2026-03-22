@@ -35,14 +35,6 @@ try {
         $active_sessions = [];
 
         try {
-                $pdo->exec("UPDATE active_user_sessions
-                                        SET is_active = 0,
-                                                ended_at = NOW(),
-                                                ended_reason = 'expired'
-                                        WHERE is_active = 1
-                                            AND expires_at IS NOT NULL
-                                            AND expires_at < NOW()");
-
                 $active_admin_stmt = $pdo->query("SELECT COUNT(*) FROM active_user_sessions
                                                                                     WHERE is_active = 1
                                                                                         AND role = 'admin'
