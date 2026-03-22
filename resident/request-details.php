@@ -19,8 +19,16 @@ if (!$req_id) {
 
 require_once '../config/database.php';
 
-$stmt = $pdo->prepare("SELECT * FROM document_requests WHERE id = ? AND requested_by_user_id = ?");
-$stmt->execute([$req_id, $_SESSION['user_id']]);
+$resident_id = $_SESSION['resident_id'] ?? 0;
+if (!$resident_id && isset($_SESSION['user_id'])) {
+    $resident_id = get_resident_id($pdo, $_SESSION['user_id']) ?? 0;
+    if ($resident_id) {
+        $_SESSION['resident_id'] = $resident_id;
+    }
+}
+
+$stmt = $pdo->prepare("SELECT * FROM document_requests WHERE id = ? AND (requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?))");
+$stmt->execute([$req_id, $_SESSION['user_id'], $resident_id]);
 $req = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$req) {

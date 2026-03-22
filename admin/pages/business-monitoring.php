@@ -18,8 +18,17 @@ $expiry_filter = isset($_GET['expiry']) ? $_GET['expiry'] : '';
 
 try {
     // Build query with filters
-    $sql = "SELECT b.*, r.first_name, r.last_name, r.contact_no, 
+        $sql = "SELECT b.*, r.first_name, r.last_name, r.contact_no,
                    DATEDIFF(b.permit_expiration_date, CURDATE()) as days_until_expiry,
+                                     (
+                                             SELECT bt.id
+                                             FROM business_transactions bt
+                                             WHERE bt.resident_id = b.resident_id
+                                                 AND bt.business_name = b.business_name
+                                                 AND bt.status = 'APPROVED'
+                                             ORDER BY bt.application_date DESC
+                                             LIMIT 1
+                                     ) as transaction_id,
                    CASE 
                        WHEN b.permit_expiration_date < CURDATE() THEN 'expired'
                        WHEN b.permit_expiration_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'expiring_soon'
@@ -291,10 +300,17 @@ try {
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <div class="flex space-x-2">
-                                                    <a href="generate-business-permit.php?id=<?php echo $business['id']; ?>" 
-                                                       class="text-blue-600 hover:text-blue-900">
-                                                        <i class="fas fa-eye"></i> View
-                                                    </a>
+                                                    <?php if (!empty($business['transaction_id'])): ?>
+                                                        <a href="generate-business-permit.php?id=<?php echo (int) $business['transaction_id']; ?>"
+                                                           class="text-blue-600 hover:text-blue-900">
+                                                            <i class="fas fa-eye"></i> View
+                                                        </a>
+                                                    <?php else: ?>
+                                                        <a href="business-transactions.php?search=<?php echo urlencode($business['business_name']); ?>"
+                                                           class="text-gray-600 hover:text-gray-900">
+                                                            <i class="fas fa-search"></i> Find Transaction
+                                                        </a>
+                                                    <?php endif; ?>
                                                     <?php if ($business['expiry_status'] === 'expired' || $business['expiry_status'] === 'expiring_soon'): ?>
                                                         <button onclick="sendReminder(<?php echo $business['resident_id']; ?>)" 
                                                                 class="text-yellow-600 hover:text-yellow-900">

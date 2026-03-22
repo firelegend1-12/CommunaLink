@@ -24,9 +24,10 @@ if (empty($resident_id) || empty($document_type) || empty($purpose)) {
 }
 
 try {
-    $sql = "INSERT INTO document_requests (resident_id, document_type, purpose, price, status) VALUES (?, ?, ?, ?, 'Processing')";
+    $details = json_encode(['purpose' => $purpose]);
+    $sql = "INSERT INTO document_requests (resident_id, requested_by_user_id, document_type, purpose, details, price, status) VALUES (?, NULL, ?, ?, ?, ?, 'Processing')";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$resident_id, $document_type, $purpose, $price]);
+    $stmt->execute([$resident_id, $document_type, $purpose, $details, $price]);
     
     $request_id = $pdo->lastInsertId();
     log_activity_db(

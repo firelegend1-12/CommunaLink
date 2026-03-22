@@ -139,6 +139,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 } else {
     // Not a POST request
-    header("Location: ../pages/new-barangay-clearance.php");
+    header("Location: ../pages/new-barangay-business-clearance.php");
     exit();
 } 

@@ -31,9 +31,18 @@ if (!$trans) {
 }
 
 // Try to fetch extended permit details if it exists
-$stmtPermit = $pdo->prepare("SELECT * FROM business_permits WHERE business_trade_name = ? AND taxpayer_name = ? LIMIT 1");
-$stmtPermit->execute([$trans['business_name'], $trans['owner_name']]);
-$permit = $stmtPermit->fetch(PDO::FETCH_ASSOC);
+$permit = null;
+if (!empty($trans['permit_id'])) {
+    $stmtPermit = $pdo->prepare("SELECT * FROM business_permits WHERE id = ? LIMIT 1");
+    $stmtPermit->execute([(int) $trans['permit_id']]);
+    $permit = $stmtPermit->fetch(PDO::FETCH_ASSOC);
+}
+
+if (!$permit) {
+    $stmtPermit = $pdo->prepare("SELECT * FROM business_permits WHERE business_trade_name = ? AND taxpayer_name = ? LIMIT 1");
+    $stmtPermit->execute([$trans['business_name'], $trans['owner_name']]);
+    $permit = $stmtPermit->fetch(PDO::FETCH_ASSOC);
+}
 
 $page_title = "Business Permit Details";
 $status = $trans['status'] ?? 'PENDING';
