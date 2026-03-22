@@ -13,6 +13,212 @@ if (session_status() == PHP_SESSION_NONE) {
 require_once __DIR__ . '/../config/init.php'; // Includes DB and functions
 require_once __DIR__ . '/functions.php';
 
+function env_to_bool($value, $default = false) {
+    if ($value === null || $value === false) {
+        return $default;
+    }
+
+    $normalized = strtolower(trim((string) $value));
+    if (in_array($normalized, ['1', 'true', 'yes', 'on'], true)) {
+        return true;
+    }
+    if (in_array($normalized, ['0', 'false', 'no', 'off'], true)) {
+        return false;
+    }
+
+    return $default;
+}
+
+function is_official_role_only($role) {
+    return in_array($role, ['barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true);
+}
+
+function is_admin_role($role) {
+    return $role === 'admin';
+}
+
+function is_concurrency_caps_enabled() {
+    if (!function_exists('env')) {
+        require_once __DIR__ . '/../config/env_loader.php';
+    }
+
+    return env_to_bool(env('ENABLE_CONCURRENCY_CAPS', 'true'), true);
+}
+
+function get_official_max_concurrent() {
+    if (!function_exists('env')) {
+        require_once __DIR__ . '/../config/env_loader.php';
+    }
+
+    $value = (int) env('OFFICIAL_MAX_CONCURRENT', 5);
+    return max(1, min(100, $value));
+}
+
+function get_admin_max_concurrent() {
+    if (!function_exists('env')) {
+        require_once __DIR__ . '/../config/env_loader.php';
+    }
+
+    $value = (int) env('ADMIN_MAX_CONCURRENT', 2);
+    return max(1, min(100, $value));
+}
+
+function clear_expired_active_sessions($pdo) {
+    $stmt = $pdo->prepare("UPDATE active_user_sessions
+                          SET is_active = 0,
+                              ended_at = NOW(),
+                              ended_reason = 'expired'
+                          WHERE is_active = 1
+                            AND expires_at IS NOT NULL
+                            AND expires_at < NOW()");
+    $stmt->execute();
+}
+
+function log_concurrency_denial($pdo, $user, $scope, $cap, $active_count) {
+    try {
+        $stmt = $pdo->prepare("INSERT INTO activity_logs
+                              (user_id, username, action, target_type, target_id, details, ip_address, user_agent, session_id, request_id, severity)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+        $username = $user['username'] ?? 'unknown';
+        $role = $user['role'] ?? 'unknown';
+        $details = sprintf(
+            'Concurrency admission denied (%s cap reached): role=%s active=%d cap=%d',
+            $scope,
+            $role,
+            (int) $active_count,
+            (int) $cap
+        );
+
+        $stmt->execute([
+            $user['id'] ?? null,
+            $username,
+            'deny',
+            'session',
+            null,
+            $details,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null,
+            null,
+            uniqid('req_', true),
+            'warning',
+        ]);
+    } catch (Throwable $e) {
+        // Do not block authentication flow if logging fails.
+    }
+}
+
+function register_active_session_with_caps($pdo, $user, $session_id, $session_lifetime_seconds) {
+    if (!is_concurrency_caps_enabled()) {
+        return ['allowed' => true];
+    }
+
+    $role = $user['role'] ?? 'resident';
+    if (!is_admin_role($role) && !is_official_role_only($role)) {
+        return ['allowed' => true];
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        clear_expired_active_sessions($pdo);
+
+        if (is_admin_role($role)) {
+            $cap = get_admin_max_concurrent();
+            $count_stmt = $pdo->prepare("SELECT id
+                                         FROM active_user_sessions
+                                         WHERE is_active = 1
+                                           AND role = 'admin'
+                                           AND expires_at > NOW()
+                                         FOR UPDATE");
+            $count_stmt->execute();
+            $active_count = $count_stmt->rowCount();
+
+            if ($active_count >= $cap) {
+                $pdo->rollBack();
+                log_concurrency_denial($pdo, $user, 'admin', $cap, $active_count);
+                return ['allowed' => false, 'message' => "Admin concurrent login limit reached ({$cap}). Please wait for a slot to free up."];
+            }
+        } else {
+            $cap = get_official_max_concurrent();
+            $count_stmt = $pdo->prepare("SELECT id
+                                         FROM active_user_sessions
+                                         WHERE is_active = 1
+                                           AND role IN ('barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod')
+                                           AND expires_at > NOW()
+                                         FOR UPDATE");
+            $count_stmt->execute();
+            $active_count = $count_stmt->rowCount();
+
+            if ($active_count >= $cap) {
+                $pdo->rollBack();
+                log_concurrency_denial($pdo, $user, 'official', $cap, $active_count);
+                return ['allowed' => false, 'message' => "Official concurrent login limit reached ({$cap}). Please wait for a slot to free up."];
+            }
+        }
+
+        $expires_at = date('Y-m-d H:i:s', time() + max(60, (int) $session_lifetime_seconds));
+        $insert_stmt = $pdo->prepare("INSERT INTO active_user_sessions
+                                      (session_id, user_id, role, ip_address, user_agent, started_at, last_seen_at, expires_at, is_active, ended_at, ended_reason)
+                                      VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?, 1, NULL, NULL)
+                                      ON DUPLICATE KEY UPDATE
+                                        user_id = VALUES(user_id),
+                                        role = VALUES(role),
+                                        ip_address = VALUES(ip_address),
+                                        user_agent = VALUES(user_agent),
+                                        last_seen_at = NOW(),
+                                        expires_at = VALUES(expires_at),
+                                        is_active = 1,
+                                        ended_at = NULL,
+                                        ended_reason = NULL");
+        $insert_stmt->execute([
+            $session_id,
+            $user['id'] ?? null,
+            $role,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null,
+            $expires_at,
+        ]);
+
+        $pdo->commit();
+        return ['allowed' => true];
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        return ['allowed' => false, 'message' => 'Unable to establish session right now. Please try again.'];
+    }
+}
+
+function refresh_active_session_heartbeat($pdo, $session_id, $session_lifetime_seconds) {
+    if (!is_concurrency_caps_enabled()) {
+        return;
+    }
+
+    $expires_at = date('Y-m-d H:i:s', time() + max(60, (int) $session_lifetime_seconds));
+    $stmt = $pdo->prepare("UPDATE active_user_sessions
+                          SET last_seen_at = NOW(),
+                              expires_at = ?,
+                              is_active = 1,
+                              ended_at = NULL,
+                              ended_reason = NULL
+                          WHERE session_id = ?");
+    $stmt->execute([$expires_at, $session_id]);
+}
+
+function deactivate_active_session($pdo, $session_id, $reason = 'logout') {
+    if (!is_concurrency_caps_enabled()) {
+        return;
+    }
+
+    $stmt = $pdo->prepare("UPDATE active_user_sessions
+                          SET is_active = 0,
+                              ended_at = NOW(),
+                              ended_reason = ?
+                          WHERE session_id = ?");
+    $stmt->execute([$reason, $session_id]);
+}
+
 /**
  * Authenticate a user
  * 
@@ -51,10 +257,27 @@ function authenticate_user($username, $password, $pdo) {
  * 
  * @param array $user User data array
  * @param PDO $pdo Database connection (optional)
- * @return void
+ * @return array{success: bool, message?: string}
  */
 function create_session($user, $pdo = null) {
     session_regenerate_id(true); // Prevent session fixation
+
+    $user_role = $user['role'] ?? 'resident';
+    $is_official = in_array($user_role, ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true);
+    $session_lifetime = $is_official
+        ? (int) env('ADMIN_SESSION_LIFETIME', 30 * 60)
+        : (int) env('SESSION_LIFETIME', 5 * 60);
+
+    if ($pdo) {
+        $session_registration = register_active_session_with_caps($pdo, $user, session_id(), $session_lifetime);
+        if (!$session_registration['allowed']) {
+            return [
+                'success' => false,
+                'message' => $session_registration['message'] ?? 'Session limit reached.',
+            ];
+        }
+    }
+
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['username'] = $user['username'];
     $_SESSION['fullname'] = $user['fullname'];
@@ -76,6 +299,8 @@ function create_session($user, $pdo = null) {
             error_log("Error fetching resident ID: " . $e->getMessage());
         }
     }
+
+    return ['success' => true];
 }
 
 /**
@@ -103,9 +328,20 @@ function is_logged_in() {
         
         if ((time() - $_SESSION['last_activity']) < $session_lifetime) {
             $_SESSION['last_activity'] = time();
+
+            global $pdo;
+            if (isset($pdo) && $pdo instanceof PDO) {
+                try {
+                    clear_expired_active_sessions($pdo);
+                    refresh_active_session_heartbeat($pdo, session_id(), $session_lifetime);
+                } catch (Throwable $e) {
+                    // Ignore heartbeat update failures to avoid breaking user flow.
+                }
+            }
+
             return true;
         } else {
-            logout();
+            logout('expired');
             return false;
         }
     }
@@ -127,7 +363,18 @@ function is_admin_or_official() {
  * 
  * @return void
  */
-function logout() {
+function logout($reason = 'logout') {
+    $current_session_id = session_id();
+
+    global $pdo;
+    if (!empty($current_session_id) && isset($pdo) && $pdo instanceof PDO) {
+        try {
+            deactivate_active_session($pdo, $current_session_id, $reason);
+        } catch (Throwable $e) {
+            // Ignore deactivation failures during logout.
+        }
+    }
+
     $_SESSION = array();
     
     if (ini_get("session.use_cookies")) {

@@ -49,6 +49,50 @@ function redirect_to($url) {
 }
 
 /**
+ * Get the configured maximum number of admin users.
+ * Defaults to 5 and is bounded to a sensible range.
+ *
+ * @return int
+ */
+function get_admin_user_cap() {
+    $default_cap = 5;
+
+    if (function_exists('env')) {
+        $configured = (int) env('ADMIN_MAX_USERS', $default_cap);
+    } else {
+        $configured = $default_cap;
+    }
+
+    if ($configured < 1) {
+        $configured = 1;
+    }
+    if ($configured > 50) {
+        $configured = 50;
+    }
+
+    return $configured;
+}
+
+/**
+ * Count existing admin users, optionally with row locks for transaction-safe checks.
+ *
+ * @param PDO $pdo Database connection
+ * @param bool $lock_for_update Whether to lock matched rows
+ * @return int
+ */
+function count_admin_users($pdo, $lock_for_update = false) {
+    $sql = "SELECT id FROM users WHERE role = 'admin'";
+    if ($lock_for_update) {
+        $sql .= ' FOR UPDATE';
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+
+    return count($stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/**
  * Display error message
  *
  * @param string $message Error message

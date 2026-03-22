@@ -67,6 +67,18 @@ EMAIL_FROM_NAME=CommuniLink Barangay System
 APP_ENV=development          # development or production
 APP_DEBUG=false              # true to show errors, false for production
 APP_URL=http://localhost/barangay
+
+# Session timeouts (seconds)
+SESSION_LIFETIME=300         # resident/default timeout (5 minutes)
+ADMIN_SESSION_LIFETIME=1800  # admin/official timeout (30 minutes)
+
+# Concurrency controls
+ENABLE_CONCURRENCY_CAPS=true
+ADMIN_MAX_CONCURRENT=2       # max simultaneous admin sessions
+OFFICIAL_MAX_CONCURRENT=5    # max simultaneous official sessions (non-admin officials)
+
+# Account provisioning cap (separate from online session cap)
+ADMIN_MAX_USERS=5
 ```
 
 ## Security Notes

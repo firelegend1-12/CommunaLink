@@ -286,6 +286,26 @@ try {
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`),
             FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS `active_user_sessions` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `session_id` VARCHAR(128) NOT NULL,
+            `user_id` INT(11) DEFAULT NULL,
+            `role` VARCHAR(50) NOT NULL,
+            `ip_address` VARCHAR(45) DEFAULT NULL,
+            `user_agent` VARCHAR(255) DEFAULT NULL,
+            `started_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            `last_seen_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            `expires_at` DATETIME DEFAULT NULL,
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `ended_at` DATETIME DEFAULT NULL,
+            `ended_reason` VARCHAR(50) DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_active_session_id` (`session_id`),
+            KEY `idx_active_sessions_role_active_expires` (`role`, `is_active`, `expires_at`),
+            KEY `idx_active_sessions_user_active` (`user_id`, `is_active`),
+            CONSTRAINT `fk_active_sessions_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     ];
 
@@ -555,6 +575,27 @@ try {
     if ($stmt && $stmt->rowCount() == 0) {
         $pdo->exec("ALTER TABLE `activity_logs` ADD COLUMN `new_value` TEXT DEFAULT NULL AFTER old_value;");
     }
+
+    // Ensure active_user_sessions table exists for concurrent session controls
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `active_user_sessions` (
+        `id` INT(11) NOT NULL AUTO_INCREMENT,
+        `session_id` VARCHAR(128) NOT NULL,
+        `user_id` INT(11) DEFAULT NULL,
+        `role` VARCHAR(50) NOT NULL,
+        `ip_address` VARCHAR(45) DEFAULT NULL,
+        `user_agent` VARCHAR(255) DEFAULT NULL,
+        `started_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+        `last_seen_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+        `expires_at` DATETIME DEFAULT NULL,
+        `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+        `ended_at` DATETIME DEFAULT NULL,
+        `ended_reason` VARCHAR(50) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uniq_active_session_id` (`session_id`),
+        KEY `idx_active_sessions_role_active_expires` (`role`, `is_active`, `expires_at`),
+        KEY `idx_active_sessions_user_active` (`user_id`, `is_active`),
+        CONSTRAINT `fk_active_sessions_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
     // --- Schema Migration for activity_logs: prev_hash ---
     $stmt = $pdo->query("SHOW COLUMNS FROM `activity_logs` LIKE 'prev_hash'");

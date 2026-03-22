@@ -13,6 +13,135 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     redirect_to('../index.php');
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!csrf_validate()) {
+        $_SESSION['error_message'] = 'Invalid security token. Please refresh the page and try again.';
+        $redirect_id = (int) ($_POST['user_id'] ?? 0);
+        redirect_to('edit-user.php?id=' . $redirect_id);
+    }
+
+    $target_user_id = filter_input(INPUT_POST, 'user_id', FILTER_VALIDATE_INT);
+    $fullname = sanitize_input($_POST['fullname'] ?? '');
+    $username = sanitize_input($_POST['username'] ?? '');
+    $email = filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL);
+    $role = sanitize_input($_POST['role'] ?? '');
+    $new_password = $_POST['new_password'] ?? '';
+
+    if (!$target_user_id || !$fullname || !$username || !$email || !$role) {
+        $_SESSION['error_message'] = 'Please complete all required fields with valid values.';
+        redirect_to('edit-user.php?id=' . (int) $target_user_id);
+    }
+
+    if (!in_array($role, ['admin', 'resident', 'official'], true)) {
+        $_SESSION['error_message'] = 'Invalid role specified.';
+        redirect_to('edit-user.php?id=' . (int) $target_user_id);
+    }
+
+    if ($role === 'official') {
+        $official_position = sanitize_input($_POST['official_position'] ?? '');
+        if (!in_array($official_position, ['barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true)) {
+            $_SESSION['error_message'] = 'Please select a valid official position.';
+            redirect_to('edit-user.php?id=' . (int) $target_user_id);
+        }
+        $final_role = $official_position;
+    } else {
+        $final_role = $role;
+    }
+
+    if (!in_array($final_role, ['admin', 'resident', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true)) {
+        $_SESSION['error_message'] = 'Invalid role specified.';
+        redirect_to('edit-user.php?id=' . (int) $target_user_id);
+    }
+
+    $admin_cap = get_admin_user_cap();
+
+    try {
+        $pdo->beginTransaction();
+
+        $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ? FOR UPDATE');
+        $stmt->execute([$target_user_id]);
+        $existing_user = $stmt->fetch();
+
+        if (!$existing_user) {
+            $pdo->rollBack();
+            $_SESSION['error_message'] = 'User not found.';
+            redirect_to('user-management.php');
+        }
+
+        // Enforce max admin limit on promotions.
+        if ($final_role === 'admin' && $existing_user['role'] !== 'admin') {
+            $admin_count = count_admin_users($pdo, true);
+            if ($admin_count >= $admin_cap) {
+                $pdo->rollBack();
+                $_SESSION['error_message'] = "Admin account limit reached ({$admin_cap}).";
+                redirect_to('edit-user.php?id=' . (int) $target_user_id);
+            }
+        }
+
+        // Keep at least one admin in the system.
+        if ($existing_user['role'] === 'admin' && $final_role !== 'admin') {
+            $admin_count = count_admin_users($pdo, true);
+            if ($admin_count <= 1) {
+                $pdo->rollBack();
+                $_SESSION['error_message'] = 'At least one admin account must remain in the system.';
+                redirect_to('edit-user.php?id=' . (int) $target_user_id);
+            }
+        }
+
+        $dup_stmt = $pdo->prepare('SELECT id FROM users WHERE (email = ? OR username = ?) AND id != ? LIMIT 1');
+        $dup_stmt->execute([$email, $username, $target_user_id]);
+        if ($dup_stmt->fetch()) {
+            $pdo->rollBack();
+            $_SESSION['error_message'] = 'Email or username is already used by another account.';
+            redirect_to('edit-user.php?id=' . (int) $target_user_id);
+        }
+
+        $update_fields = 'fullname = ?, username = ?, email = ?, role = ?';
+        $update_params = [$fullname, $username, $email, $final_role];
+
+        if (!empty($new_password)) {
+            $passwordValidation = PasswordSecurity::validatePassword($new_password);
+            if (!$passwordValidation['valid']) {
+                $pdo->rollBack();
+                $_SESSION['error_message'] = 'Password does not meet security requirements: ' . implode(' ', $passwordValidation['errors']);
+                redirect_to('edit-user.php?id=' . (int) $target_user_id);
+            }
+
+            $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+            $update_fields .= ', password = ?';
+            $update_params[] = $hashed_password;
+        }
+
+        $update_params[] = $target_user_id;
+        $update_stmt = $pdo->prepare("UPDATE users SET {$update_fields} WHERE id = ?");
+        $update_stmt->execute($update_params);
+
+        $pdo->commit();
+
+        $old_snapshot = sprintf('fullname=%s; username=%s; email=%s; role=%s', $existing_user['fullname'], $existing_user['username'], $existing_user['email'], $existing_user['role']);
+        $new_snapshot = sprintf('fullname=%s; username=%s; email=%s; role=%s', $fullname, $username, $email, $final_role);
+        log_activity_db(
+            $pdo,
+            'edit',
+            'user',
+            $target_user_id,
+            'User account updated',
+            $old_snapshot,
+            $new_snapshot
+        );
+
+        $_SESSION['success_message'] = 'User updated successfully.';
+        redirect_to('user-management.php');
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $_SESSION['error_message'] = 'Failed to update user due to a database error.';
+        error_log('Edit user failed: ' . $e->getMessage());
+        redirect_to('edit-user.php?id=' . (int) $target_user_id);
+    }
+}
+
 $user_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 $user = null;
 $error_message = '';
@@ -89,6 +218,20 @@ $page_title = "Manage Account Profile";
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-12">
                 <div class="max-w-2xl mx-auto">
+                    <?php if (isset($_SESSION['success_message'])): ?>
+                        <div class="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-700 p-6 mb-8 rounded-r-2xl shadow-sm">
+                            <i class="fas fa-check-circle mr-3"></i>
+                            <span class="font-bold uppercase tracking-widest text-xs"><?php echo htmlspecialchars($_SESSION['success_message']); ?></span>
+                        </div>
+                    <?php unset($_SESSION['success_message']); endif; ?>
+
+                    <?php if (isset($_SESSION['error_message'])): ?>
+                        <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-6 mb-8 rounded-r-2xl shadow-sm">
+                            <i class="fas fa-exclamation-circle mr-3"></i>
+                            <span class="font-bold uppercase tracking-widest text-xs"><?php echo htmlspecialchars($_SESSION['error_message']); ?></span>
+                        </div>
+                    <?php unset($_SESSION['error_message']); endif; ?>
+
                     <?php if ($error_message): ?>
                         <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-6 mb-8 rounded-r-2xl shadow-sm">
                             <i class="fas fa-exclamation-circle mr-3"></i>

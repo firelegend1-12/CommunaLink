@@ -89,24 +89,25 @@ if (!in_array($final_role, ['admin', 'resident', 'barangay-captain', 'kagawad', 
     redirect_to('../pages/add-user.php');
 }
 
-// Prevent adding another admin if one already exists
-if ($role === 'admin') {
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role = 'admin'");
-    $stmt->execute();
-    $admin_count = $stmt->fetchColumn();
-    if ($admin_count > 0) {
-        $_SESSION['error_message'] = "There can only be one admin in the system.";
-        redirect_to('../pages/add-user.php');
-    }
-}
+$admin_cap = get_admin_user_cap();
 
 try {
     $pdo->beginTransaction();
+
+    if ($final_role === 'admin') {
+        $admin_count = count_admin_users($pdo, true);
+        if ($admin_count >= $admin_cap) {
+            $pdo->rollBack();
+            $_SESSION['error_message'] = "Admin account limit reached ({$admin_cap}).";
+            redirect_to('../pages/add-user.php');
+        }
+    }
 
     // Check if email already exists
     $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
     $stmt->execute([$email]);
     if ($stmt->fetch()) {
+        $pdo->rollBack();
         $_SESSION['error_message'] = "A user with this email already exists.";
         redirect_to('../pages/add-user.php');
     }

@@ -24,6 +24,43 @@ try {
     $resident_stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'resident'");
     $total_residents = $resident_stmt->fetchColumn();
 
+        $admin_session_cap = function_exists('get_admin_max_concurrent') ? get_admin_max_concurrent() : 2;
+        $official_session_cap = function_exists('get_official_max_concurrent') ? get_official_max_concurrent() : 5;
+        $active_admin_sessions = 0;
+        $active_official_sessions = 0;
+        $active_total_sessions = 0;
+
+        try {
+                $pdo->exec("UPDATE active_user_sessions
+                                        SET is_active = 0,
+                                                ended_at = NOW(),
+                                                ended_reason = 'expired'
+                                        WHERE is_active = 1
+                                            AND expires_at IS NOT NULL
+                                            AND expires_at < NOW()");
+
+                $active_admin_stmt = $pdo->query("SELECT COUNT(*) FROM active_user_sessions
+                                                                                    WHERE is_active = 1
+                                                                                        AND role = 'admin'
+                                                                                        AND expires_at > NOW()");
+                $active_admin_sessions = (int) $active_admin_stmt->fetchColumn();
+
+                $active_official_stmt = $pdo->query("SELECT COUNT(*) FROM active_user_sessions
+                                                                                         WHERE is_active = 1
+                                                                                             AND role IN ('barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod')
+                                                                                             AND expires_at > NOW()");
+                $active_official_sessions = (int) $active_official_stmt->fetchColumn();
+
+                $active_total_stmt = $pdo->query("SELECT COUNT(*) FROM active_user_sessions
+                                                                                    WHERE is_active = 1
+                                                                                        AND expires_at > NOW()");
+                $active_total_sessions = (int) $active_total_stmt->fetchColumn();
+        } catch (PDOException $sessionMetricsError) {
+                $active_admin_sessions = 0;
+                $active_official_sessions = 0;
+                $active_total_sessions = 0;
+        }
+
     // Get filter
     $role_filter = isset($_GET['role']) ? sanitize_input($_GET['role']) : '';
     
@@ -106,6 +143,24 @@ try {
             
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-8">
+                <?php if (isset($_SESSION['success_message'])): ?>
+                    <div class="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-700 p-4 mb-6 rounded-r-xl shadow-sm" role="alert">
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle mr-3"></i>
+                            <p class="font-bold text-sm"><?php echo htmlspecialchars($_SESSION['success_message']); ?></p>
+                        </div>
+                    </div>
+                <?php unset($_SESSION['success_message']); endif; ?>
+
+                <?php if (isset($_SESSION['error_message'])): ?>
+                    <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-4 mb-6 rounded-r-xl shadow-sm" role="alert">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-circle mr-3"></i>
+                            <p class="font-bold text-sm"><?php echo htmlspecialchars($_SESSION['error_message']); ?></p>
+                        </div>
+                    </div>
+                <?php unset($_SESSION['error_message']); endif; ?>
+
                 <!-- Summary Row -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 group hover:border-indigo-200 transition">
@@ -138,11 +193,14 @@ try {
                         </div>
                     </div>
 
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-indigo-500 bg-indigo-600 text-white relative overflow-hidden">
-                        <div class="absolute -right-4 -bottom-4 opacity-10 rotate-12"><i class="fas fa-shield-alt text-7xl"></i></div>
-                        <p class="text-[10px] font-black text-indigo-200 uppercase tracking-widest mb-1">System Status</p>
-                        <h3 class="text-xl font-black">All Systems Online</h3>
-                        <p class="text-[10px] text-indigo-100 font-bold opacity-75 mt-2">ACCESS AUDIT LOGS ➔</p>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-indigo-200 bg-gradient-to-br from-indigo-600 to-sky-600 text-white relative overflow-hidden">
+                        <div class="absolute -right-4 -bottom-4 opacity-10 rotate-12"><i class="fas fa-network-wired text-7xl"></i></div>
+                        <p class="text-[10px] font-black text-indigo-100 uppercase tracking-widest mb-2">Live Session Slots</p>
+                        <div class="space-y-1">
+                            <p class="text-sm font-bold">Admins: <span class="text-white/90"><?php echo $active_admin_sessions; ?> / <?php echo $admin_session_cap; ?></span></p>
+                            <p class="text-sm font-bold">Officials: <span class="text-white/90"><?php echo $active_official_sessions; ?> / <?php echo $official_session_cap; ?></span></p>
+                            <p class="text-[10px] text-indigo-100 font-bold opacity-90 uppercase tracking-widest mt-2">Total Active Sessions: <?php echo $active_total_sessions; ?></p>
+                        </div>
                     </div>
                 </div>
 

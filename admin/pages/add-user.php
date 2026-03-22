@@ -13,6 +13,10 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     redirect_to('../index.php');
 }
 
+$admin_cap = get_admin_user_cap();
+$admin_count_stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'");
+$admin_count = (int) $admin_count_stmt->fetchColumn();
+
 $page_title = "Add New User";
 ?>
 <!DOCTYPE html>
@@ -79,6 +83,13 @@ $page_title = "Add New User";
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-12">
                 <div class="max-w-xl mx-auto">
+                    <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 mb-6 rounded-r-xl shadow-sm" role="status">
+                        <div class="flex items-center">
+                            <i class="fas fa-user-shield mr-3"></i>
+                            <p class="font-bold text-xs uppercase tracking-widest">Admin Slots Used: <?php echo $admin_count; ?> / <?php echo $admin_cap; ?></p>
+                        </div>
+                    </div>
+
                     <?php if (isset($_SESSION['error_message'])): ?>
                         <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-5 mb-8 rounded-r-2xl shadow-sm animate-pulse">
                             <div class="flex items-center">
