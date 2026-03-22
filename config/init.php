@@ -502,7 +502,14 @@ try {
         ['table' => 'residents', 'name' => 'idx_residents_name', 'columns' => 'last_name, first_name'],
         ['table' => 'business_transactions', 'name' => 'idx_biztrans_status', 'columns' => 'status'],
         ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_resident', 'columns' => 'resident_id'],
-        ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_announcement', 'columns' => 'announcement_id']
+        ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_announcement', 'columns' => 'announcement_id'],
+        // Monitoring of Request Page Optimization Indexes
+        ['table' => 'document_requests', 'name' => 'idx_docreq_payment_status', 'columns' => 'payment_status'],
+        ['table' => 'document_requests', 'name' => 'idx_docreq_resident_id', 'columns' => 'resident_id'],
+        ['table' => 'document_requests', 'name' => 'idx_docreq_status_payment_date', 'columns' => 'status, payment_status, date_requested'],
+        ['table' => 'business_transactions', 'name' => 'idx_biztrans_payment_status', 'columns' => 'payment_status'],
+        ['table' => 'business_transactions', 'name' => 'idx_biztrans_resident_id', 'columns' => 'resident_id'],
+        ['table' => 'business_transactions', 'name' => 'idx_biztrans_status_payment_date', 'columns' => 'status, payment_status, application_date']
     ];
 
     foreach ($performance_indexes as $idx) {
