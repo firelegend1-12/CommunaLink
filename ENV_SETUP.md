@@ -82,6 +82,11 @@ BULK_IDLE_MINUTES_DEFAULT=15        # default idle threshold shown in bulk termi
 
 # Account provisioning cap (separate from online session cap)
 ADMIN_MAX_USERS=5
+
+# CSP rollout controls (recommended for no-downtime hardening)
+CSP_REPORT_ONLY=true
+CSP_REPORT_URI=/api/csp-report.php
+CSP_REPORT_ENDPOINT_ENABLED=true
 ```
 
 ## Security Notes

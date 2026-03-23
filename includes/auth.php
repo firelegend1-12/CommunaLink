@@ -4,14 +4,17 @@
  * Handles user authentication, sessions, and access control
  */
 
-// Start session if not already started
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-}
-
 // Include necessary files
 require_once __DIR__ . '/../config/init.php'; // Includes DB and functions
 require_once __DIR__ . '/functions.php';
+
+// Fallback session start for direct execution paths that bypass init bootstrap.
+if (session_status() === PHP_SESSION_NONE) {
+    if (function_exists('configure_session_cookie_security')) {
+        configure_session_cookie_security();
+    }
+    session_start();
+}
 
 function env_to_bool($value, $default = false) {
     if ($value === null || $value === false) {

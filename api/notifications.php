@@ -13,6 +13,19 @@ if (!is_logged_in()) {
     exit;
 }
 
+$notifications_rate_limit = RateLimiter::checkRateLimit('notifications_api', RateLimiter::getClientIP());
+if (!$notifications_rate_limit['allowed']) {
+    http_response_code(429);
+    echo json_encode([
+        'error' => 'Too Many Requests',
+        'message' => $notifications_rate_limit['message'] ?? 'Rate limit exceeded. Please try again later.',
+        'retry_after' => $notifications_rate_limit['lockout_remaining'] ?? 60
+    ]);
+    exit;
+}
+
+RateLimiter::recordAttempt('notifications_api', RateLimiter::getClientIP());
+
 $action = $_GET['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'mark_read') {

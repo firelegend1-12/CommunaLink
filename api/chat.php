@@ -14,6 +14,19 @@ if (!is_logged_in()) {
     exit;
 }
 
+$chat_rate_limit = RateLimiter::checkRateLimit('chat_api', RateLimiter::getClientIP());
+if (!$chat_rate_limit['allowed']) {
+    http_response_code(429);
+    echo json_encode([
+        'error' => 'Too Many Requests',
+        'message' => $chat_rate_limit['message'] ?? 'Rate limit exceeded. Please try again later.',
+        'retry_after' => $chat_rate_limit['lockout_remaining'] ?? 60
+    ]);
+    exit;
+}
+
+RateLimiter::recordAttempt('chat_api', RateLimiter::getClientIP());
+
 $user_id = $_SESSION['user_id'];
 $role    = $_SESSION['role'];
 

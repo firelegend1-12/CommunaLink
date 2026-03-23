@@ -4,7 +4,38 @@
  * Establishes a PDO connection and creates necessary tables if they don't exist.
  */
 
+function configure_session_cookie_security() {
+    if (session_status() !== PHP_SESSION_NONE) {
+        return;
+    }
+
+    $is_https = (
+        (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+        (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443) ||
+        (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
+    );
+
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.use_strict_mode', '1');
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.cookie_secure', $is_https ? '1' : '0');
+    ini_set('session.cookie_samesite', 'Lax');
+
+    if (PHP_VERSION_ID >= 70300) {
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => '/',
+            'secure' => $is_https,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
+    } else {
+        session_set_cookie_params(0, '/; samesite=Lax', '', $is_https, true);
+    }
+}
+
 if (session_status() === PHP_SESSION_NONE) {
+    configure_session_cookie_security();
     session_start();
 }
 

@@ -15,6 +15,19 @@ if (!is_logged_in()) {
     exit;
 }
 
+$reactions_rate_limit = RateLimiter::checkRateLimit('post_reactions_api', RateLimiter::getClientIP());
+if (!$reactions_rate_limit['allowed']) {
+    http_response_code(429);
+    echo json_encode([
+        'success' => false,
+        'message' => $reactions_rate_limit['message'] ?? 'Too many requests. Please try again later.',
+        'retry_after' => $reactions_rate_limit['lockout_remaining'] ?? 60
+    ]);
+    exit;
+}
+
+RateLimiter::recordAttempt('post_reactions_api', RateLimiter::getClientIP());
+
 if (!csrf_validate()) {
     echo json_encode(['success' => false, 'message' => 'Invalid security token']);
     exit;
