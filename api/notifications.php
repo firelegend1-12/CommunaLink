@@ -2,6 +2,7 @@
 header('Content-Type: application/json');
 require_once '../config/database.php';
 require_once '../includes/auth.php';
+require_once '../includes/csrf.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -15,6 +16,17 @@ if (!is_logged_in()) {
 $action = $_GET['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'mark_read') {
+    $allowed_mark_read_roles = ['resident', 'admin', 'barangay-captain', 'barangay-secretary', 'barangay-treasurer', 'kagawad', 'barangay-tanod'];
+    if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], $allowed_mark_read_roles, true)) {
+        echo json_encode(['error' => 'Unauthorized']);
+        exit;
+    }
+
+    if (!csrf_validate()) {
+        echo json_encode(['error' => 'Invalid security token.']);
+        exit;
+    }
+
     $notification_id = filter_input(INPUT_POST, 'notification_id', FILTER_VALIDATE_INT);
     $user_id = (int) ($_SESSION['user_id'] ?? 0);
 

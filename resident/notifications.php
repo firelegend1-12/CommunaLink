@@ -2,12 +2,37 @@
 session_start();
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
+require_once '../includes/csrf.php';
 require_role('resident');
 $page_title = 'Alerts & Announcements';
 require_once 'partials/header.php';
 
 $resident_id = $_SESSION['resident_id'] ?? null;
+$mark_read_csrf_token = csrf_token();
 require_once '../config/database.php';
+
+function sanitize_notification_link($raw_link) {
+    $link = trim((string) $raw_link);
+    if ($link === '') {
+        return '';
+    }
+
+    $lower_link = strtolower($link);
+    if (strpos($lower_link, 'javascript:') === 0 || strpos($lower_link, 'data:') === 0) {
+        return '';
+    }
+
+    if (filter_var($link, FILTER_VALIDATE_URL)) {
+        $scheme = strtolower((string) parse_url($link, PHP_URL_SCHEME));
+        return in_array($scheme, ['http', 'https'], true) ? $link : '';
+    }
+
+    if (strpos($link, '/') === 0) {
+        return $link;
+    }
+
+    return preg_match('/^[A-Za-z0-9_\-\/\.]+(?:\?[A-Za-z0-9_\-\.=&%]*)?$/', $link) ? $link : '';
+}
 
 // Fetch all notifications (Alerts)
 if (isset($_SESSION['user_id'])) {
@@ -46,7 +71,7 @@ $announcements = $stmt_a->fetchAll(PDO::FETCH_ASSOC);
             <?php else: ?>
                 <?php foreach ($notifications as $notif): ?>
                     <?php
-                        $notif_link = trim((string) ($notif['link'] ?? ''));
+                        $notif_link = sanitize_notification_link($notif['link'] ?? '');
                         $has_link = $notif_link !== '';
                     ?>
                     <<?= $has_link ? 'a' : 'button' ?>
@@ -140,13 +165,14 @@ function switchTab(tab) {
 
 function markNotificationRead(notificationId) {
     if (!notificationId) {
-        return;
+        return Promise.resolve();
     }
 
     const formData = new URLSearchParams();
     formData.append('notification_id', String(notificationId));
+    formData.append('csrf_token', <?php echo json_encode($mark_read_csrf_token); ?>);
 
-    fetch('../api/notifications.php?action=mark_read', {
+    return fetch('../api/notifications.php?action=mark_read', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
@@ -162,9 +188,14 @@ function markNotificationRead(notificationId) {
 document.addEventListener('DOMContentLoaded', function () {
     var clickableRows = document.querySelectorAll('.js-mark-read');
     clickableRows.forEach(function (row) {
-        row.addEventListener('click', function () {
+        row.addEventListener('click', function (event) {
+            var targetHref = this.tagName.toLowerCase() === 'a' ? this.getAttribute('href') : '';
+            if (targetHref) {
+                event.preventDefault();
+            }
+
             var notificationId = this.getAttribute('data-notification-id');
-            markNotificationRead(notificationId);
+            var request = markNotificationRead(notificationId);
 
             // Optimistic UI update
             this.classList.remove('bg-blue-50/50');
@@ -172,6 +203,12 @@ document.addEventListener('DOMContentLoaded', function () {
             if (dot) {
                 dot.classList.remove('bg-blue-600');
                 dot.classList.add('bg-gray-300');
+            }
+
+            if (targetHref) {
+                Promise.resolve(request).finally(function () {
+                    window.location.href = targetHref;
+                });
             }
         });
     });
