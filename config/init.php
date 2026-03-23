@@ -505,7 +505,12 @@ try {
     $admin_initial_password = trim((string) env('ADMIN_INITIAL_PASSWORD', ''));
     if ($stmt->rowCount() == 0) {
         if ($admin_initial_password === '') {
-            error_log('Admin seed skipped: required environment variable ADMIN_INITIAL_PASSWORD is not configured.');
+            $app_env = strtolower((string) env('APP_ENV', 'production'));
+            $already_logged = isset($_SESSION['admin_seed_warning_logged']) && $_SESSION['admin_seed_warning_logged'] === true;
+            if ($app_env !== 'production' && !$already_logged) {
+                error_log('Admin seed skipped: required environment variable ADMIN_INITIAL_PASSWORD is not configured.');
+                $_SESSION['admin_seed_warning_logged'] = true;
+            }
         } else {
             $admin_username = 'admin';
             $admin_fullname = 'Administrator';

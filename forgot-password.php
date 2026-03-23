@@ -76,11 +76,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             $mailgun = new MailgunSender();
                             $email_sent = $mailgun->sendPasswordResetEmail($email, $user_name, $reset_link);
                             if (!$email_sent) {
-                                $email_error = 'Mailgun email sending failed. ';
+                                $email_error = 'mailgun_send_failed';
                             }
                         } catch (Exception $e) {
-                            $email_error = 'Mailgun error: ' . $e->getMessage() . ' ';
-                            error_log("Mailgun email error: " . $e->getMessage());
+                            $email_error = 'mailgun_exception';
+                            error_log('Mailgun email error occurred during password reset flow.');
                         }
                     }
                     
@@ -100,15 +100,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 // Check if credentials are configured
                                 $has_username = defined('EMAIL_SMTP_USERNAME') && !empty(EMAIL_SMTP_USERNAME);
                                 $has_password = defined('EMAIL_SMTP_PASSWORD') && !empty(EMAIL_SMTP_PASSWORD);
-                                if (!$has_username || !$has_password) {
-                                    $email_error .= 'Gmail SMTP credentials not configured in .env file. ';
+                                $has_from_email = defined('EMAIL_FROM_EMAIL') && !empty(EMAIL_FROM_EMAIL);
+                                if (!$has_username || !$has_password || !$has_from_email) {
+                                    $email_error = trim($email_error . ' smtp_not_configured');
                                 } else {
-                                    $email_error .= 'Gmail SMTP connection failed. ';
+                                    $email_error = trim($email_error . ' smtp_send_failed');
                                 }
                             }
                         } catch (Exception $e) {
-                            $email_error .= 'Gmail SMTP error: ' . $e->getMessage() . ' ';
-                            error_log("Gmail SMTP email error: " . $e->getMessage());
+                            $email_error = trim($email_error . ' smtp_exception');
+                            error_log('Gmail SMTP email error occurred during password reset flow.');
                         }
                     }
                     
@@ -119,13 +120,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             $simple = new SimpleSMTP();
                             $email_sent = $simple->sendPasswordResetEmail($email, $user_name, $reset_link);
                         } catch (Exception $e) {
-                            // Silent fail for fallback
-                            error_log("Simple mail() error: " . $e->getMessage());
+                            $email_error = trim($email_error . ' simple_mail_exception');
+                            error_log('Simple mail fallback error occurred during password reset flow.');
                         }
                     }
 
                     if (!$email_sent) {
-                        error_log('Password reset email delivery failed for user ID: ' . (int) $user['id'] . '. ' . trim($email_error));
+                        error_log('Password reset email delivery failed for user ID: ' . (int) $user['id'] . '. Failure codes: ' . trim($email_error));
                     }
 
                     // Always return a generic response to avoid account and delivery-state disclosure.
@@ -138,6 +139,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 } else {
                     // Don't reveal if email exists or not for security
                     $success_message = $generic_reset_response;
+                    $show_form = false;
                 }
                 
             } catch (PDOException $e) {
