@@ -48,6 +48,7 @@ $response = ['error' => 'Invalid request.'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!csrf_validate()) {
+        http_response_code(403);
         echo json_encode(['error' => 'Invalid security token.']);
         exit;
     }
@@ -80,6 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $admin_id  = getAdminId($pdo);
 
         if ($role !== 'admin') {
+            http_response_code(403);
             $response = ['error' => 'Unauthorized'];
             echo json_encode($response);
             exit;

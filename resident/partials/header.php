@@ -12,6 +12,29 @@ $user_fullname = $_SESSION['fullname'] ?? 'Resident';
 $user_id = $_SESSION['user_id'] ?? null;
 $mark_read_csrf_token = csrf_token();
 
+function sanitize_notification_link_server($raw_link) {
+    $link = trim((string) $raw_link);
+    if ($link === '') {
+        return '';
+    }
+
+    $lower_link = strtolower($link);
+    if (strpos($lower_link, 'javascript:') === 0 || strpos($lower_link, 'data:') === 0) {
+        return '';
+    }
+
+    if (filter_var($link, FILTER_VALIDATE_URL)) {
+        $scheme = strtolower((string) parse_url($link, PHP_URL_SCHEME));
+        return in_array($scheme, ['http', 'https'], true) ? $link : '';
+    }
+
+    if (strpos($link, '/') === 0) {
+        return $link;
+    }
+
+    return preg_match('/^[A-Za-z0-9_\-\/\.]+(?:\?[A-Za-z0-9_\-\.=&%]*)?$/', $link) ? $link : '';
+}
+
 // Fetch unread notifications count and latest notifications
 $notifications = [];
 $unread_count = 0;
@@ -166,11 +189,20 @@ if ($user_id) {
                                     <li class="p-4 text-gray-500 text-center">No notifications</li>
                                 <?php else: ?>
                                     <?php foreach ($notifications as $notif): ?>
+                                        <?php $notif_link = sanitize_notification_link_server($notif['link'] ?? ''); ?>
                                         <li class="px-4 py-3 border-b last:border-b-0 <?php echo !$notif['is_read'] ? 'bg-blue-50' : ''; ?>">
-                                            <a href="<?php echo htmlspecialchars($notif['link'] ?? '#'); ?>" class="block text-gray-800 hover:text-blue-700">
+                                            <?php if ($notif_link !== ''): ?>
+                                            <a href="<?php echo htmlspecialchars($notif_link, ENT_QUOTES, 'UTF-8'); ?>" class="block text-gray-800 hover:text-blue-700">
+                                            <?php else: ?>
+                                            <span class="block text-gray-800">
+                                            <?php endif; ?>
                                                 <div class="text-sm"><?php echo htmlspecialchars($notif['message']); ?></div>
                                                 <div class="text-xs text-gray-400 mt-1"><?php echo date('M d, Y h:i A', strtotime($notif['created_at'])); ?></div>
+                                            <?php if ($notif_link !== ''): ?>
                                             </a>
+                                            <?php else: ?>
+                                            </span>
+                                            <?php endif; ?>
                                         </li>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
