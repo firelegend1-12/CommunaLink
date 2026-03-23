@@ -16,11 +16,13 @@ if (!is_logged_in()) {
 
 $notifications_rate_limit = RateLimiter::checkRateLimit('notifications_api', RateLimiter::getClientIP());
 if (!$notifications_rate_limit['allowed']) {
+    $retry_after = (int) ($notifications_rate_limit['lockout_remaining'] ?? 60);
+    header('Retry-After: ' . $retry_after);
     http_response_code(429);
     echo json_encode([
         'error' => 'Too Many Requests',
         'message' => $notifications_rate_limit['message'] ?? 'Rate limit exceeded. Please try again later.',
-        'retry_after' => $notifications_rate_limit['lockout_remaining'] ?? 60
+        'retry_after' => $retry_after
     ]);
     exit;
 }

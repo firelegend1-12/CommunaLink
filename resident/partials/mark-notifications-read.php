@@ -18,6 +18,21 @@ require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/csrf.php';
 
+if (function_exists('env')) {
+    $legacy_enabled_raw = env('LEGACY_MARK_NOTIFICATIONS_READ_ENABLED', 'true');
+    $legacy_enabled = in_array(strtolower(trim((string) $legacy_enabled_raw)), ['1', 'true', 'yes', 'on'], true);
+    if (!$legacy_enabled) {
+        http_response_code(410);
+        echo json_encode([
+            'success' => false,
+            'deprecated' => true,
+            'error' => 'Endpoint retired',
+            'migrate_to' => '/api/notifications.php?action=mark_all_read',
+        ]);
+        exit;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'error' => 'Method not allowed']);

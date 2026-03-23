@@ -6,22 +6,26 @@ require_once '../includes/csrf.php';
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Invalid request method']);
     exit;
 }
 
 if (!is_logged_in()) {
+    http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Authentication required']);
     exit;
 }
 
 $reactions_rate_limit = RateLimiter::checkRateLimit('post_reactions_api', RateLimiter::getClientIP());
 if (!$reactions_rate_limit['allowed']) {
+    $retry_after = (int) ($reactions_rate_limit['lockout_remaining'] ?? 60);
+    header('Retry-After: ' . $retry_after);
     http_response_code(429);
     echo json_encode([
         'success' => false,
         'message' => $reactions_rate_limit['message'] ?? 'Too many requests. Please try again later.',
-        'retry_after' => $reactions_rate_limit['lockout_remaining'] ?? 60
+        'retry_after' => $retry_after
     ]);
     exit;
 }
@@ -29,6 +33,7 @@ if (!$reactions_rate_limit['allowed']) {
 RateLimiter::recordAttempt('post_reactions_api', RateLimiter::getClientIP());
 
 if (!csrf_validate()) {
+    http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Invalid security token']);
     exit;
 }
@@ -38,6 +43,7 @@ $post_id = $_POST['post_id'] ?? null;
 $reaction_type = $_POST['reaction_type'] ?? null;
 
 if (!$user_id || !$post_id || !in_array($reaction_type, ['like', 'acknowledge'])) {
+    http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Missing or invalid parameters']);
     exit;
 }

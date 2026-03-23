@@ -130,3 +130,11 @@ After migration, consider:
 2. Setting up different `.env` files for different environments
 3. Using a secrets management service for production (AWS Secrets Manager, etc.)
 
+## Legacy Endpoint Retirement (Notifications)
+
+Use this sequence for staggered/cloud rollouts of the deprecated endpoint at resident/partials/mark-notifications-read.php:
+
+1. Keep `LEGACY_MARK_NOTIFICATIONS_READ_ENABLED=true` for one deployment cycle.
+2. Monitor traffic/logs for legacy endpoint hits.
+3. Set `LEGACY_MARK_NOTIFICATIONS_READ_ENABLED=false` to retire safely with 410 Gone.
+

@@ -10,17 +10,20 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 if (!is_logged_in()) {
+    http_response_code(401);
     echo json_encode(['error' => 'Authentication required.']);
     exit;
 }
 
 $chat_rate_limit = RateLimiter::checkRateLimit('chat_api', RateLimiter::getClientIP());
 if (!$chat_rate_limit['allowed']) {
+    $retry_after = (int) ($chat_rate_limit['lockout_remaining'] ?? 60);
+    header('Retry-After: ' . $retry_after);
     http_response_code(429);
     echo json_encode([
         'error' => 'Too Many Requests',
         'message' => $chat_rate_limit['message'] ?? 'Rate limit exceeded. Please try again later.',
-        'retry_after' => $chat_rate_limit['lockout_remaining'] ?? 60
+        'retry_after' => $retry_after
     ]);
     exit;
 }

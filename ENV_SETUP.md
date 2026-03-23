@@ -87,7 +87,18 @@ ADMIN_MAX_USERS=5
 CSP_REPORT_ONLY=true
 CSP_REPORT_URI=/api/csp-report.php
 CSP_REPORT_ENDPOINT_ENABLED=true
+
+# Legacy endpoint retirement control for staggered deployments
+# true  = keep backward-compat shim active
+# false = return 410 Gone from resident/partials/mark-notifications-read.php
+LEGACY_MARK_NOTIFICATIONS_READ_ENABLED=true
 ```
+
+### Legacy Endpoint Retirement Runbook
+
+1. Keep `LEGACY_MARK_NOTIFICATIONS_READ_ENABLED=true` for one deployment cycle.
+2. Monitor traffic/logs for legacy endpoint hits.
+3. Set `LEGACY_MARK_NOTIFICATIONS_READ_ENABLED=false` to retire safely with 410 Gone.
 
 ## Security Notes
 
