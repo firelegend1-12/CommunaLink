@@ -53,11 +53,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 if ($user) {
                     // Generate reset token
                     $reset_token = bin2hex(random_bytes(32));
+                    $reset_token_hash = hash('sha256', $reset_token);
                     $reset_expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
                     
-                    // Store reset token in database
+                    // Store reset token hash in database
                     $stmt = $pdo->prepare("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?");
-                    $stmt->execute([$reset_token, $reset_expires, $user['id']]);
+                    $stmt->execute([$reset_token_hash, $reset_expires, $user['id']]);
                     
                     // Create reset link
                     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';

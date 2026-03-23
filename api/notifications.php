@@ -44,7 +44,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'mark_read') {
             'updated' => ((int) $stmt->rowCount()) > 0,
         ]);
     } catch (PDOException $e) {
-        echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+        error_log('notifications mark_read database error: ' . $e->getMessage());
+        echo json_encode(['error' => 'Database error while updating notification.']);
     }
     exit;
 }
@@ -75,7 +76,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action !== '') {
                 'total'        => $pendingBusinesses + $pendingTransactions,
             ];
         } catch (PDOException $e) {
-            $response = ['error' => 'Database error: ' . $e->getMessage()];
+            error_log('notifications get_business_counts database error: ' . $e->getMessage());
+            $response = ['error' => 'Database error while fetching business counts.'];
         }
 
     } elseif ($action === 'get_incident_counts') {
@@ -87,7 +89,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action !== '') {
                 'incidents' => $pendingIncidents,
             ];
         } catch (PDOException $e) {
-            $response = ['error' => 'Database error: ' . $e->getMessage()];
+            error_log('notifications get_incident_counts database error: ' . $e->getMessage());
+            $response = ['error' => 'Database error while fetching incident counts.'];
         }
     } elseif ($action === 'get_events_counts') {
         try {
@@ -99,7 +102,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action !== '') {
                 'events'  => $upcomingEvents,
             ];
         } catch (PDOException $e) {
-            $response = ['error' => 'Database error: ' . $e->getMessage()];
+            error_log('notifications get_events_counts database error: ' . $e->getMessage());
+            $response = ['error' => 'Database error while fetching event counts.'];
         }
     }
 }

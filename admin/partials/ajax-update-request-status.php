@@ -6,6 +6,7 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
 
 require_login();
 
@@ -20,6 +21,12 @@ if (!is_admin_or_official()) {
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid request method']);
+    exit;
+}
+
+if (!csrf_validate()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Invalid security token.']);
     exit;
 }
 

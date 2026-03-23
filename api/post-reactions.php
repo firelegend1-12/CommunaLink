@@ -1,11 +1,22 @@
 <?php
 require_once '../config/database.php';
 require_once '../includes/auth.php'; // Ensure user is logged in
+require_once '../includes/csrf.php';
 
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+    exit;
+}
+
+if (!is_logged_in()) {
+    echo json_encode(['success' => false, 'message' => 'Authentication required']);
+    exit;
+}
+
+if (!csrf_validate()) {
+    echo json_encode(['success' => false, 'message' => 'Invalid security token']);
     exit;
 }
 
@@ -49,5 +60,6 @@ try {
     ]);
 
 } catch (PDOException $e) {
-    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    error_log('post-reactions database error: ' . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'Database error while updating reaction']);
 }

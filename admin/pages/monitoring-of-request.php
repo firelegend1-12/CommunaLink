@@ -8,6 +8,7 @@ require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 
 require_login();
+$monitoring_csrf_token = csrf_token();
 
 $page_title = "Monitoring of Request - CommuniLink";
 
@@ -1025,6 +1026,7 @@ foreach ($requests as $summary_req) {
 
     // Bulk Selection State
     let selectedRequests = new Map();
+    const MONITORING_CSRF_TOKEN = <?php echo json_encode($monitoring_csrf_token); ?>;
 
     function updateBulkState() {
         selectedRequests.clear();
@@ -1079,6 +1081,7 @@ foreach ($requests as $summary_req) {
             formData.append('types[]', types[i]);
         });
         formData.append('status', status);
+        formData.append('csrf_token', MONITORING_CSRF_TOKEN);
 
         fetch('../partials/bulk-action-requests.php', {
             method: 'POST',
@@ -1118,6 +1121,7 @@ foreach ($requests as $summary_req) {
             formData.append('ids[]', id);
             formData.append('types[]', types[i]);
         });
+        formData.append('csrf_token', MONITORING_CSRF_TOKEN);
 
         fetch('../partials/bulk-action-requests.php', {
             method: 'POST',
@@ -1196,6 +1200,7 @@ foreach ($requests as $summary_req) {
         formData.append('id', id);
         formData.append('type', type);
         formData.append('status', status);
+        formData.append('csrf_token', MONITORING_CSRF_TOKEN);
 
         fetch('../partials/ajax-update-request-status.php', {
             method: 'POST',
