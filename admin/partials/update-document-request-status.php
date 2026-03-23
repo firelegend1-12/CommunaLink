@@ -6,6 +6,7 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/notification_system.php';
 
 header('Content-Type: application/json');
 
@@ -33,6 +34,7 @@ if (!in_array($status, $allowed_statuses, true)) {
 
 try {
     $pdo->beginTransaction();
+    $notification_warning = null;
 
     // Get old status for logging
     $stmt = $pdo->prepare('SELECT status, resident_id, document_type FROM document_requests WHERE id = ?');
@@ -84,23 +86,23 @@ try {
     $res_user_id = $stmt_user->fetchColumn();
 
     if ($res_user_id) {
-        $title = "Request Update: " . $document_type;
-        $message = "Your request for " . $document_type . " has been updated to: **" . $status . "**. ";
-        
-        if ($status === 'Ready for Pickup') {
-            $message .= "Please visit the Barangay Hall to claim your document.";
-        } elseif ($status === 'Rejected') {
-            $message .= "Please contact the office for more details.";
+        $notification_sent = NotificationSystem::notify_document_status($pdo, (int) $res_user_id, $document_type, $status, 'my-requests.php');
+        if (!$notification_sent) {
+            $notification_warning = 'Status updated, but notification delivery failed.';
+            error_log('Notification delivery failed in update-document-request-status for request_id=' . $id);
         }
-
-        create_notification($pdo, $res_user_id, $title, $message, 'request_status');
     }
 
     $pdo->commit();
 
 
     
-    echo json_encode(['success' => true]);
+    $response = ['success' => true];
+    if ($notification_warning !== null) {
+        $response['warning'] = $notification_warning;
+    }
+
+    echo json_encode($response);
     
 } catch (PDOException $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();

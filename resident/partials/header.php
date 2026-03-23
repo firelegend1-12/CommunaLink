@@ -246,6 +246,34 @@ if ($resident_id) {
                 }
 
                 // Live notification polling
+                function escapeHtml(value) {
+                    return String(value || '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/\"/g, '&quot;')
+                        .replace(/'/g, '&#39;');
+                }
+
+                function sanitizeNotificationLink(rawLink) {
+                    const link = String(rawLink || '').trim();
+                    if (!link) {
+                        return '';
+                    }
+
+                    const lower = link.toLowerCase();
+                    if (lower.startsWith('javascript:') || lower.startsWith('data:')) {
+                        return '';
+                    }
+
+                    if (lower.startsWith('http://') || lower.startsWith('https://') || link.startsWith('/')) {
+                        return link;
+                    }
+
+                    // Allow only constrained relative paths.
+                    return /^[A-Za-z0-9_\-\/.]+(?:\?[A-Za-z0-9_\-\.=&%]*)?$/.test(link) ? link : '';
+                }
+
                 function updateNotifications(notifications) {
                     let unread = notifications.filter(n => n.is_read == 0).length;
                     // Update badge
@@ -271,10 +299,25 @@ if ($resident_id) {
                             notifications.forEach(function(notif) {
                                 let li = document.createElement('li');
                                 li.className = 'px-4 py-3 border-b last:border-b-0 ' + (notif.is_read == 0 ? 'bg-blue-50' : '');
-                                li.innerHTML = `<a href="${notif.link || '#'}" class="block text-gray-800 hover:text-blue-700">
-                                    <div class="text-sm">${notif.message}</div>
-                                    <div class="text-xs text-gray-400 mt-1">${new Date(notif.created_at).toLocaleString()}</div>
-                                </a>`;
+                                const safeLink = sanitizeNotificationLink(notif.link);
+                                const hasLink = safeLink !== '';
+                                const titleHtml = notif.title ? `<div class="text-xs font-bold text-gray-700 mb-1">${escapeHtml(notif.title)}</div>` : '';
+                                const messageHtml = `<div class="text-sm">${escapeHtml(notif.message)}</div>`;
+                                const createdAt = new Date(notif.created_at).toLocaleString();
+                                const createdAtHtml = `<div class="text-xs text-gray-400 mt-1">${escapeHtml(createdAt)}</div>`;
+                                if (hasLink) {
+                                    li.innerHTML = `<a href="${escapeHtml(safeLink)}" class="block text-gray-800 hover:text-blue-700">
+                                        ${titleHtml}
+                                        ${messageHtml}
+                                        ${createdAtHtml}
+                                    </a>`;
+                                } else {
+                                    li.innerHTML = `<div class="block text-gray-800 cursor-default">
+                                        ${titleHtml}
+                                        ${messageHtml}
+                                        ${createdAtHtml}
+                                    </div>`;
+                                }
                                 dropdownList.appendChild(li);
                             });
                         }

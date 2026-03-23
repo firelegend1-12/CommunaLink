@@ -6,6 +6,7 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/notification_system.php';
 
 header('Content-Type: application/json');
 
@@ -39,6 +40,7 @@ if (!in_array($payment_status, ['Unpaid', 'Paid'])) {
 
 try {
     $pdo->beginTransaction();
+    $notification_warning = null;
 
     $table = ($type === 'document') ? 'document_requests' : 'business_transactions';
     
@@ -58,16 +60,19 @@ try {
 
     if ($res_info && $res_info['user_id']) {
         $item_name = $res_info['item_name'];
-        $title = "Payment Updated: " . $item_name;
-        $message = "Payment information for **" . $item_name . "** has been updated. ";
-        
-        if ($payment_status === 'Paid') {
-            $message .= "Status: **Paid**. Official Receipt #: **" . $or_number . "**. Date: " . date('M d, Y') . ".";
-        } else {
-            $message .= "Status: **Unpaid**. Please settle your balance at the Barangay Hall.";
-        }
+        $notification_sent = NotificationSystem::notify_payment_update(
+            $pdo,
+            (int) $res_info['user_id'],
+            $item_name,
+            $payment_status,
+            $or_number,
+            'my-requests.php'
+        );
 
-        create_notification($pdo, $res_info['user_id'], $title, $message, 'payment_update');
+        if (!$notification_sent) {
+            $notification_warning = 'Payment updated, but notification delivery failed.';
+            error_log('Notification delivery failed in update-payment-info for id=' . $id . ' type=' . $type);
+        }
     }
 
     // Log the action
@@ -82,7 +87,12 @@ try {
     );
 
     $pdo->commit();
-    echo json_encode(['success' => true]);
+    $response = ['success' => true];
+    if ($notification_warning !== null) {
+        $response['warning'] = $notification_warning;
+    }
+
+    echo json_encode($response);
 } catch (PDOException $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);

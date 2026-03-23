@@ -6,6 +6,7 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/notification_system.php';
 
 header('Content-Type: application/json');
 
@@ -48,6 +49,7 @@ $business_fee = 500.00;
 
 try {
     $pdo->beginTransaction();
+    $notification_warning = null;
 
     if ($type === 'document') {
         $stmt = $pdo->prepare("SELECT dr.id, dr.document_type, dr.price, dr.payment_status, dr.or_number, r.user_id, CONCAT(r.first_name, ' ', r.last_name) AS resident_name FROM document_requests dr LEFT JOIN residents r ON dr.resident_id = r.id WHERE dr.id = ? FOR UPDATE");
@@ -92,9 +94,19 @@ try {
     $update->execute([$or_number, $cash_received, $change_amount, $id]);
 
     if (!empty($row['user_id'])) {
-        $title = 'Cash Payment Received';
-        $message = 'Your payment for **' . $item_name . '** has been received. O.R. #: **' . $or_number . '**.';
-        create_notification($pdo, (int) $row['user_id'], $title, $message, 'payment_update');
+        $notification_sent = NotificationSystem::notify_payment_update(
+            $pdo,
+            (int) $row['user_id'],
+            $item_name,
+            'Paid',
+            $or_number,
+            'my-requests.php'
+        );
+
+        if (!$notification_sent) {
+            $notification_warning = 'Payment recorded, but notification delivery failed.';
+            error_log('Notification delivery failed in make-cash-payment for id=' . $id . ' type=' . $type);
+        }
     }
 
     log_activity_db(
@@ -109,14 +121,20 @@ try {
 
     $pdo->commit();
 
-    echo json_encode([
+    $response = [
         'success' => true,
         'message' => 'Payment recorded successfully.',
         'or_number' => $or_number,
         'amount_due' => number_format($amount_due, 2, '.', ''),
         'cash_received' => number_format($cash_received, 2, '.', ''),
         'change_amount' => number_format($change_amount, 2, '.', ''),
-    ]);
+    ];
+
+    if ($notification_warning !== null) {
+        $response['warning'] = $notification_warning;
+    }
+
+    echo json_encode($response);
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
