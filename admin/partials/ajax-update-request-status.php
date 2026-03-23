@@ -11,6 +11,12 @@ require_login();
 
 header('Content-Type: application/json');
 
+if (!is_admin_or_official()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid request method']);

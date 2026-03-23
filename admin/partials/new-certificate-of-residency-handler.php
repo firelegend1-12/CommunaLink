@@ -9,6 +9,12 @@ require_once '../../includes/functions.php';
 
 require_login();
 
+if (!is_admin_or_official()) {
+    $_SESSION['error_message'] = 'Unauthorized access.';
+    header('Location: ../pages/new-certificate-of-residency.php');
+    exit();
+}
+
 // Check if the request method is POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ../pages/new-certificate-of-residency.php');

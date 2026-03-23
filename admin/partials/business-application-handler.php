@@ -11,6 +11,11 @@ require_once '../../includes/functions.php';
 // Check if user is logged in
 require_login();
 
+if (!is_admin_or_official()) {
+    $_SESSION['error_message'] = 'Unauthorized access.';
+    redirect_to('../pages/business-application-form.php');
+}
+
 // Only process POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect_to('../pages/business-application-form.php');

@@ -9,7 +9,6 @@ require_once '../../includes/functions.php';
 require_login();
 
 if (!is_admin_or_official()) {
-    http_response_code(403);
     $_SESSION['error_message'] = 'Unauthorized access.';
     redirect_to('../pages/monitoring-of-request.php');
 }

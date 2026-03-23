@@ -11,9 +11,8 @@ require_once '../../includes/functions.php';
 // Check if user is logged in
 require_login();
 
-// Restrict resident access to admin-only resident creation flow
+// Restrict this flow to admin or official roles
 if (!is_admin_or_official()) {
-    http_response_code(403);
     $_SESSION['error_message'] = 'Unauthorized access.';
     redirect_to('../pages/add-resident.php');
 }

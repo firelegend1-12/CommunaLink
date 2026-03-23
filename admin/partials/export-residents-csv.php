@@ -11,6 +11,11 @@ require_once '../../includes/functions.php';
 // Ensure user is logged in
 require_login();
 
+if (!is_admin_or_official()) {
+    $_SESSION['error_message'] = 'Unauthorized access.';
+    redirect_to('../pages/residents.php');
+}
+
 // Set headers for CSV file download
 $filename = "residents_export_" . date('Y-m-d') . ".csv";
 header('Content-Type: text/csv; charset=utf-8');

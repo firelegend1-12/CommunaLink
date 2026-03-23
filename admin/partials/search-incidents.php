@@ -6,6 +6,12 @@ require_once '../../includes/auth.php';
 header('Content-Type: application/json');
 require_login();
 
+if (!is_admin_or_official()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+    exit();
+}
+
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'overall';
 
 $sql = "SELECT * FROM incidents WHERE 1";
