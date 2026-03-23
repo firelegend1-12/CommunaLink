@@ -87,6 +87,73 @@ if (!class_exists('NotificationSystem')) {
         }
 
         /**
+         * Notify user that a document request status was updated.
+         *
+         * @param PDO $pdo
+         * @param int $recipient_user_id
+         * @param string $document_type
+         * @param string $status
+         * @param string $link
+         * @return bool
+         */
+        public static function notify_document_status($pdo, $recipient_user_id, $document_type, $status, $link = 'my-requests.php') {
+            $recipient_user_id = (int) $recipient_user_id;
+            if ($recipient_user_id <= 0) {
+                return false;
+            }
+
+            $document_type = trim((string) $document_type);
+            $status = trim((string) $status);
+
+            $title = 'Request Update: ' . $document_type;
+            $message = 'Your request for ' . $document_type . ' has been updated to: ' . $status . '. ';
+            if ($status === 'Ready for Pickup') {
+                $message .= 'Please visit the Barangay Hall to claim your document.';
+            } elseif ($status === 'Rejected') {
+                $message .= 'Please contact the office for more details.';
+            }
+
+            return create_notification($pdo, $recipient_user_id, $title, $message, 'request_status', $link);
+        }
+
+        /**
+         * Notify user about payment status updates.
+         *
+         * @param PDO $pdo
+         * @param int $recipient_user_id
+         * @param string $item_name
+         * @param string $payment_status
+         * @param string $or_number
+         * @param string $link
+         * @return bool
+         */
+        public static function notify_payment_update($pdo, $recipient_user_id, $item_name, $payment_status, $or_number = '', $link = 'my-requests.php') {
+            $recipient_user_id = (int) $recipient_user_id;
+            if ($recipient_user_id <= 0) {
+                return false;
+            }
+
+            $item_name = trim((string) $item_name);
+            $payment_status = trim((string) $payment_status);
+            $or_number = trim((string) $or_number);
+
+            $title = 'Payment Updated: ' . $item_name;
+            $message = 'Payment information for ' . $item_name . ' has been updated. ';
+
+            if (strcasecmp($payment_status, 'Paid') === 0) {
+                $message .= 'Status: Paid.';
+                if ($or_number !== '') {
+                    $message .= ' Official Receipt #: ' . $or_number . '.';
+                }
+                $message .= ' Date: ' . date('M d, Y') . '.';
+            } else {
+                $message .= 'Status: Unpaid. Please settle your balance at the Barangay Hall.';
+            }
+
+            return create_notification($pdo, $recipient_user_id, $title, $message, 'payment_update', $link);
+        }
+
+        /**
          * Send email using Mailgun -> SendGrid -> native mail fallback.
          *
          * @param string $to
@@ -133,11 +200,23 @@ if (!class_exists('NotificationSystem')) {
                 'Authorization: Basic ' . base64_encode('api:' . MAILGUN_API_KEY),
             ]);
 
-            curl_exec($ch);
+            $response = curl_exec($ch);
+            $curl_errno = curl_errno($ch);
+            $curl_error = curl_error($ch);
             $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
-            return $http_code >= 200 && $http_code < 300;
+            if ($response === false || $curl_errno !== 0) {
+                error_log('NotificationSystem Mailgun transport error: ' . $curl_error . ' (' . $curl_errno . ')');
+                return false;
+            }
+
+            if ($http_code < 200 || $http_code >= 300) {
+                error_log('NotificationSystem Mailgun API error. HTTP ' . $http_code . ' Response: ' . (string) $response);
+                return false;
+            }
+
+            return true;
         }
 
         private static function send_sendgrid_email($to, $name, $subject, $html_message) {
@@ -176,11 +255,23 @@ if (!class_exists('NotificationSystem')) {
                 'Content-Type: application/json',
             ]);
 
-            curl_exec($ch);
+            $response = curl_exec($ch);
+            $curl_errno = curl_errno($ch);
+            $curl_error = curl_error($ch);
             $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
-            return $http_code === 202;
+            if ($response === false || $curl_errno !== 0) {
+                error_log('NotificationSystem SendGrid transport error: ' . $curl_error . ' (' . $curl_errno . ')');
+                return false;
+            }
+
+            if ($http_code !== 202) {
+                error_log('NotificationSystem SendGrid API error. HTTP ' . $http_code . ' Response: ' . (string) $response);
+                return false;
+            }
+
+            return true;
         }
 
         private static function send_native_email($to, $subject, $html_message) {

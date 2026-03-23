@@ -51,6 +51,15 @@ try {
         exit;
     }
 
+    $business_owner_stmt = $pdo->prepare("SELECT COUNT(*) FROM businesses WHERE id = ? AND resident_id = ?");
+    $business_owner_stmt->execute([$business_id, $resident_id]);
+    $is_business_owned_by_resident = ((int) $business_owner_stmt->fetchColumn()) > 0;
+
+    if (!$is_business_owned_by_resident) {
+        echo json_encode(['success' => false, 'error' => 'Business record does not belong to the selected resident']);
+        exit;
+    }
+
     $resident_name = trim(($resident['first_name'] ?? '') . ' ' . ($resident['last_name'] ?? 'Resident'));
     $resident_email = trim((string) ($resident['resident_email'] ?: $resident['user_email'] ?: ''));
 
@@ -94,5 +103,6 @@ try {
         'email_sent' => $email_sent
     ]);
 } catch (Exception $e) {
+    error_log('send-business-reminder failed: ' . $e->getMessage());
     echo json_encode(['success' => false, 'error' => 'Failed to send reminder']);
 }
