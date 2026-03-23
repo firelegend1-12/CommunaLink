@@ -45,7 +45,7 @@ class RateLimiter {
             'lockout_minutes' => 15
         ],
         'notifications_api' => [
-            'max_attempts' => 600,
+            'max_attempts' => 3600,
             'window_minutes' => 60,
             'lockout_minutes' => 15
         ]

@@ -9,15 +9,16 @@ require_role('resident');
 
 $page_title = $page_title ?? "Resident Portal"; // Allow pages to set their own title
 $user_fullname = $_SESSION['fullname'] ?? 'Resident';
-$resident_id = $_SESSION['resident_id'] ?? null;
+$user_id = $_SESSION['user_id'] ?? null;
+$mark_read_csrf_token = csrf_token();
 
 // Fetch unread notifications count and latest notifications
 $notifications = [];
 $unread_count = 0;
-if ($resident_id) {
+if ($user_id) {
     require_once '../config/database.php';
-    $stmt = $pdo->prepare('SELECT * FROM notifications WHERE resident_id = ? ORDER BY created_at DESC LIMIT 10');
-    $stmt->execute([$resident_id]);
+    $stmt = $pdo->prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 10');
+    $stmt->execute([$user_id]);
     $notifications = $stmt->fetchAll();
     $unread_count = 0;
     foreach ($notifications as $notif) {
@@ -231,7 +232,17 @@ if ($resident_id) {
                         dropdown.classList.toggle('hidden');
                         // Mark notifications as read via AJAX
                         if (!dropdown.classList.contains('hidden')) {
-                            fetch('../resident/partials/mark-notifications-read.php', { method: 'POST' });
+                            const formData = new URLSearchParams();
+                            formData.append('csrf_token', <?php echo json_encode($mark_read_csrf_token); ?>);
+                            fetch('../api/notifications.php?action=mark_all_read', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                                },
+                                body: formData.toString(),
+                                credentials: 'same-origin',
+                                keepalive: true
+                            }).catch(function () {});
                             // Optionally, remove the badge
                             const badge = bell.querySelector('span');
                             if (badge) badge.style.display = 'none';
