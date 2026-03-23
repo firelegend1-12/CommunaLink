@@ -12,6 +12,7 @@ class GmailSMTPSenderFixed {
     private $from_email;
     private $from_name;
     private $secure = 'ssl'; // ssl or tls
+    private $is_configured = false;
     
     public function __construct() {
         // Load configuration
@@ -21,17 +22,23 @@ class GmailSMTPSenderFixed {
         
         $this->host = defined('EMAIL_SMTP_HOST') ? EMAIL_SMTP_HOST : 'smtp.gmail.com';
         $this->port = defined('EMAIL_SMTP_PORT') ? (int)EMAIL_SMTP_PORT : 465;
-        $this->username = defined('EMAIL_SMTP_USERNAME') ? EMAIL_SMTP_USERNAME : 'shaunrosario023@gmail.com';
-        $this->password = defined('EMAIL_SMTP_PASSWORD') ? EMAIL_SMTP_PASSWORD : '';
-        $this->from_email = defined('EMAIL_FROM_EMAIL') ? EMAIL_FROM_EMAIL : 'shaunrosario023@gmail.com';
+        $this->username = defined('EMAIL_SMTP_USERNAME') ? trim((string) EMAIL_SMTP_USERNAME) : '';
+        $this->password = defined('EMAIL_SMTP_PASSWORD') ? trim((string) EMAIL_SMTP_PASSWORD) : '';
+        $this->from_email = defined('EMAIL_FROM_EMAIL') ? trim((string) EMAIL_FROM_EMAIL) : '';
         $this->from_name = defined('EMAIL_FROM_NAME') ? EMAIL_FROM_NAME : 'CommuniLink Barangay System';
         $this->secure = defined('EMAIL_SMTP_SECURE') ? EMAIL_SMTP_SECURE : 'ssl';
+        $this->is_configured = ($this->username !== '' && $this->password !== '' && $this->from_email !== '');
     }
     
     /**
      * Send password reset email via Gmail SMTP
      */
     public function sendPasswordResetEmail($user_email, $user_name, $reset_link) {
+        if (!$this->is_configured) {
+            error_log('Gmail SMTP fixed sender is not configured: required SMTP credentials are missing.');
+            return false;
+        }
+
         try {
             // Create email content
             $subject = 'Password Reset - CommuniLink';

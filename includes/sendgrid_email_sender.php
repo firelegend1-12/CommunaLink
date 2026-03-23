@@ -17,7 +17,7 @@ class SendGridEmailSender {
         
         // SendGrid configuration
         $this->api_key = defined('SENDGRID_API_KEY') ? SENDGRID_API_KEY : '';
-        $this->from_email = defined('SENDGRID_FROM_EMAIL') ? SENDGRID_FROM_EMAIL : 'shaunrosario023@gmail.com';
+        $this->from_email = defined('SENDGRID_FROM_EMAIL') ? SENDGRID_FROM_EMAIL : 'noreply@yourbarangay.com';
         $this->from_name = defined('SENDGRID_FROM_NAME') ? SENDGRID_FROM_NAME : 'CommuniLink Barangay System';
     }
     

@@ -19,6 +19,7 @@ $email = "";
 $email_err = "";
 $success_message = "";
 $show_form = true; // Control whether the form is shown or not
+$generic_reset_response = "If an account with that email exists, we've sent a password reset link to your email address.";
 
 // Process form data when form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -117,34 +118,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             require_once 'includes/simple_smtp_sender.php';
                             $simple = new SimpleSMTP();
                             $email_sent = $simple->sendPasswordResetEmail($email, $user_name, $reset_link);
-                            if ($email_sent) {
-                                $email_error = ''; // Clear error if simple mail worked
-                            }
                         } catch (Exception $e) {
                             // Silent fail for fallback
                             error_log("Simple mail() error: " . $e->getMessage());
                         }
                     }
-                    
-                    if ($email_sent) {
-                        // Email sent successfully
-                        $success_message = "A password reset link has been sent to your email address. Please check your inbox and follow the instructions to reset your password.";
-                        $show_form = false;
-                    } else {
-                        // Email failed, show link as fallback (for development/testing)
-                        $error_note = !empty($email_error) ? "<br><br><em>Error: " . htmlspecialchars($email_error) . "</em>" : "<br><br><em>Note: Email sending failed. Please check your email configuration in .env file.</em>";
-                        $success_message = "Your password reset link is ready. Click the link below to reset your password:<br><br>"
-                            . '<a href="' . htmlspecialchars($reset_link, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($reset_link, ENT_QUOTES, 'UTF-8') . '</a>'
-                            . "<br><br>This link will expire in 1 hour." . $error_note;
-                        $show_form = false;
+
+                    if (!$email_sent) {
+                        error_log('Password reset email delivery failed for user ID: ' . (int) $user['id'] . '. ' . trim($email_error));
                     }
+
+                    // Always return a generic response to avoid account and delivery-state disclosure.
+                    $success_message = $generic_reset_response;
+                    $show_form = false;
                     
                     // Log the password reset request
                     error_log("Password reset requested for user ID: " . $user['id'] . " (Email: " . $email . ") - Email sent: " . ($email_sent ? 'Yes' : 'No'));
                     
                 } else {
                     // Don't reveal if email exists or not for security
-                    $success_message = "If an account with that email exists, we've sent a password reset link to your email address.";
+                    $success_message = $generic_reset_response;
                 }
                 
             } catch (PDOException $e) {

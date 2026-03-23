@@ -502,19 +502,22 @@ try {
     $admin_email = 'admin@communalink.com';
     $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
     $stmt->execute([$admin_email]);
+    $admin_initial_password = trim((string) env('ADMIN_INITIAL_PASSWORD', ''));
     if ($stmt->rowCount() == 0) {
-        $admin_username = 'admin';
-        $admin_fullname = 'Administrator';
-        $admin_password = 'Admin@2024!'; // Enhanced secure password
-        $hashed_password = password_hash($admin_password, PASSWORD_DEFAULT);
+        if ($admin_initial_password === '') {
+            error_log('Admin seed skipped: required environment variable ADMIN_INITIAL_PASSWORD is not configured.');
+        } else {
+            $admin_username = 'admin';
+            $admin_fullname = 'Administrator';
+            $hashed_password = password_hash($admin_initial_password, PASSWORD_DEFAULT);
 
-        $insert_stmt = $pdo->prepare(
-            "INSERT INTO users (username, fullname, email, password, role) VALUES (?, ?, ?, ?, 'admin')"
-        );
-        $insert_stmt->execute([$admin_username, $admin_fullname, $admin_email, $hashed_password]);
+            $insert_stmt = $pdo->prepare(
+                "INSERT INTO users (username, fullname, email, password, role) VALUES (?, ?, ?, ?, 'admin')"
+            );
+            $insert_stmt->execute([$admin_username, $admin_fullname, $admin_email, $hashed_password]);
+        }
     }
     // Note: If admin account already exists, it keeps its existing password
-    // Current working password appears to be: admin123
 
     // --- Schema Migration for post_reactions ---
     try {
