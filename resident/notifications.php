@@ -9,12 +9,6 @@ require_once 'partials/header.php';
 $resident_id = $_SESSION['resident_id'] ?? null;
 require_once '../config/database.php';
 
-// Mark all as read when visiting this page
-if (isset($_SESSION['user_id'])) {
-    $stmt = $pdo->prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0');
-    $stmt->execute([$_SESSION['user_id']]);
-}
-
 // Fetch all notifications (Alerts)
 if (isset($_SESSION['user_id'])) {
     $stmt = $pdo->prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 50');
@@ -51,7 +45,15 @@ $announcements = $stmt_a->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             <?php else: ?>
                 <?php foreach ($notifications as $notif): ?>
-                    <a href="<?= htmlspecialchars($notif['link'] ?? '#') ?>" class="block p-5 hover:bg-gray-50 transition-colors <?= !$notif['is_read'] ? 'bg-blue-50/50' : '' ?>">
+                    <?php
+                        $notif_link = trim((string) ($notif['link'] ?? ''));
+                        $has_link = $notif_link !== '';
+                    ?>
+                    <<?= $has_link ? 'a' : 'button' ?>
+                        <?= $has_link ? 'href="' . htmlspecialchars($notif_link) . '"' : 'type="button"' ?>
+                        data-notification-id="<?= (int) $notif['id'] ?>"
+                        class="js-mark-read block w-full text-left p-5 hover:bg-gray-50 transition-colors <?= !$notif['is_read'] ? 'bg-blue-50/50' : '' ?>"
+                    >
                         <div class="flex items-start">
                             <div class="flex-shrink-0 mt-1">
                                 <?php if (!$notif['is_read']): ?>
@@ -67,13 +69,13 @@ $announcements = $stmt_a->fetchAll(PDO::FETCH_ASSOC);
                                 <p class="text-gray-700 leading-snug"><?= htmlspecialchars($notif['message']) ?></p>
                                 <span class="text-xs text-gray-400 mt-2 block"><?= date('F j, Y, h:i A', strtotime($notif['created_at'])) ?></span>
                             </div>
-                            <?php if ($notif['link']): ?>
+                            <?php if ($has_link): ?>
                                 <div class="ml-4 flex-shrink-0 text-gray-300">
                                     <i class="fas fa-chevron-right text-xs"></i>
                                 </div>
                             <?php endif; ?>
                         </div>
-                    </a>
+                    </<?= $has_link ? 'a' : 'button' ?>>
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
@@ -135,6 +137,45 @@ function switchTab(tab) {
         alertsContent.classList.add('hidden');
     }
 }
+
+function markNotificationRead(notificationId) {
+    if (!notificationId) {
+        return;
+    }
+
+    const formData = new URLSearchParams();
+    formData.append('notification_id', String(notificationId));
+
+    fetch('../api/notifications.php?action=mark_read', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+        },
+        body: formData.toString(),
+        credentials: 'same-origin',
+        keepalive: true
+    }).catch(function () {
+        // Do not interrupt navigation/interaction when mark-read fails.
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    var clickableRows = document.querySelectorAll('.js-mark-read');
+    clickableRows.forEach(function (row) {
+        row.addEventListener('click', function () {
+            var notificationId = this.getAttribute('data-notification-id');
+            markNotificationRead(notificationId);
+
+            // Optimistic UI update
+            this.classList.remove('bg-blue-50/50');
+            var dot = this.querySelector('span');
+            if (dot) {
+                dot.classList.remove('bg-blue-600');
+                dot.classList.add('bg-gray-300');
+            }
+        });
+    });
+});
 </script>
 
 <?php require_once 'partials/footer.php'; ?>

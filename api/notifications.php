@@ -7,16 +7,46 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-if (!is_logged_in() || !in_array($_SESSION['role'], ['admin', 'barangay-captain', 'barangay-secretary', 'barangay-treasurer', 'kagawad', 'barangay-tanod'])) {
+if (!is_logged_in()) {
     echo json_encode(['error' => 'Authentication required.']);
+    exit;
+}
+
+$action = $_GET['action'] ?? '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'mark_read') {
+    $notification_id = filter_input(INPUT_POST, 'notification_id', FILTER_VALIDATE_INT);
+    $user_id = (int) ($_SESSION['user_id'] ?? 0);
+
+    if ($notification_id <= 0 || $user_id <= 0) {
+        echo json_encode(['error' => 'Invalid request.']);
+        exit;
+    }
+
+    try {
+        $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?");
+        $stmt->execute([$notification_id, $user_id]);
+
+        echo json_encode([
+            'success' => true,
+            'updated' => ((int) $stmt->rowCount()) > 0,
+        ]);
+    } catch (PDOException $e) {
+        echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if (!in_array($_SESSION['role'], ['admin', 'barangay-captain', 'barangay-secretary', 'barangay-treasurer', 'kagawad', 'barangay-tanod'])) {
+    echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
 
 $response = ['error' => 'Invalid request.'];
 
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action !== '') {
 
-    if ($_GET['action'] === 'get_business_counts') {
+    if ($action === 'get_business_counts') {
         try {
             // Pending businesses (Business Records)
             $stmtBiz = $pdo->query("SELECT COUNT(*) FROM businesses WHERE status = 'Pending'");
@@ -36,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action'])) {
             $response = ['error' => 'Database error: ' . $e->getMessage()];
         }
 
-    } elseif ($_GET['action'] === 'get_incident_counts') {
+    } elseif ($action === 'get_incident_counts') {
         try {
             $stmtInc = $pdo->query("SELECT COUNT(*) FROM incidents WHERE status = 'Pending'");
             $pendingIncidents = (int)$stmtInc->fetchColumn();
@@ -47,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action'])) {
         } catch (PDOException $e) {
             $response = ['error' => 'Database error: ' . $e->getMessage()];
         }
-    } elseif ($_GET['action'] === 'get_events_counts') {
+    } elseif ($action === 'get_events_counts') {
         try {
             // Events happening today or tomorrow
             $stmtEvt = $pdo->query("SELECT COUNT(*) FROM events WHERE event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 1 DAY)");
