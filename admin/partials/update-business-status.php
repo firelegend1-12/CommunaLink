@@ -13,6 +13,15 @@ require_login();
 // Set content type to JSON
 header('Content-Type: application/json');
 
+if (!is_admin_or_official()) {
+    http_response_code(403);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Unauthorized'
+    ]);
+    exit;
+}
+
 try {
     // Validate request method
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
