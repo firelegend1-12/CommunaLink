@@ -157,13 +157,6 @@ $page_title = "Add New User";
                                     <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">System Role</label>
                                     <div class="flex gap-3">
                                         <label class="flex-1 cursor-pointer">
-                                            <input type="radio" name="role" value="resident" x-model="role" class="sr-only peer">
-                                            <div class="p-4 border-2 border-slate-100 rounded-2xl text-center transition hover:bg-indigo-50 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 group">
-                                                <i class="fas fa-house-user text-slate-400 group-hover:text-indigo-600 peer-checked:text-indigo-600 mb-2"></i>
-                                                <div class="text-[10px] font-black text-slate-900 uppercase">Resident</div>
-                                            </div>
-                                        </label>
-                                        <label class="flex-1 cursor-pointer">
                                             <input type="radio" name="role" value="official" x-model="role" class="sr-only peer">
                                             <div class="p-4 border-2 border-slate-100 rounded-2xl text-center transition hover:bg-emerald-50 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 group">
                                                 <i class="fas fa-award text-slate-400 group-hover:text-emerald-600 mb-2"></i>

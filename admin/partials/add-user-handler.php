@@ -65,7 +65,7 @@ if (!$passwordValidation['valid']) {
     redirect_to('../pages/add-user.php');
 }
 
-if (!in_array($role, ['admin', 'resident', 'official'])) {
+if (!in_array($role, ['admin', 'official'])) {
     $_SESSION['error_message'] = "Invalid role specified.";
     redirect_to('../pages/add-user.php');
 }
@@ -84,7 +84,7 @@ if ($role === 'official') {
 }
 
 // Validate final role
-if (!in_array($final_role, ['admin', 'resident', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'])) {
+if (!in_array($final_role, ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'])) {
     $_SESSION['error_message'] = "Invalid role specified.";
     redirect_to('../pages/add-user.php');
 }
@@ -119,18 +119,6 @@ try {
     $stmt_user = $pdo->prepare($sql_user);
     $stmt_user->execute([$username, $fullname, $email, $hashed_password, $final_role]);
     
-    // If the role is resident, also create a record in the residents table
-    if ($final_role === 'resident') {
-        $user_id = $pdo->lastInsertId();
-        $name_parts = explode(' ', $fullname);
-        $last_name = array_pop($name_parts);
-        $first_name = implode(' ', $name_parts);
-
-        $sql_resident = "INSERT INTO residents (user_id, first_name, last_name, email) VALUES (?, ?, ?, ?)";
-        $stmt_resident = $pdo->prepare($sql_resident);
-        $stmt_resident->execute([$user_id, $first_name, $last_name, $email]);
-    }
-
     $pdo->commit();
     
     // Prepare user details for logging
