@@ -160,9 +160,14 @@ $chat_csrf_token = csrf_token();
             let firstDiv = null;
             conversations.forEach((convo, idx) => {
                 const convoDiv = document.createElement('div');
-                convoDiv.className = 'flex items-center p-4 cursor-pointer hover:bg-gray-50 border-b border-gray-200';
+                convoDiv.className = 'relative flex items-center p-4 cursor-pointer hover:bg-gray-50 border-b border-gray-200';
                 convoDiv.dataset.userId = convo.user_id;
+                const unreadCount = Number(convo.unread_count || 0);
+                const unreadBadge = unreadCount > 0
+                    ? `<span class="absolute top-2 right-3 bg-red-600 text-white text-[11px] leading-none px-2 py-1 rounded-full font-semibold">${unreadCount > 99 ? '99+' : unreadCount}</span>`
+                    : '';
                 convoDiv.innerHTML = `
+                    ${unreadBadge}
                     <div class="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-xl mr-4">
                         ${escapeHTML(convo.fullname).charAt(0)}
                     </div>

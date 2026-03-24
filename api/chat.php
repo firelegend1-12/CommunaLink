@@ -169,7 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     } elseif ($_GET['action'] === 'get_conversations' && $role === 'admin') {
         try {
             $sql = "
-            SELECT u.id AS user_id, u.fullname, m.message, m.sent_at
+            SELECT u.id AS user_id, u.fullname, m.message, m.sent_at, COALESCE(unread.unread_count, 0) AS unread_count
             FROM users u
             LEFT JOIN (
                 SELECT latest.resident_id, cm.message, cm.sent_at
@@ -190,6 +190,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 ) latest
                 INNER JOIN chat_messages cm ON cm.id = latest.latest_message_id
             ) m ON u.id = m.resident_id
+                        LEFT JOIN (
+                                SELECT sender_id AS resident_id, COUNT(*) AS unread_count
+                                FROM chat_messages
+                                WHERE receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                                    AND is_read = 0
+                                GROUP BY sender_id
+                        ) unread ON unread.resident_id = u.id
             WHERE u.role = 'resident'
             ORDER BY (m.sent_at IS NULL) ASC, m.sent_at DESC, u.fullname ASC
             ";
