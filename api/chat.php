@@ -2,6 +2,7 @@
 header('Content-Type: application/json');
 // Use lightweight database-only bootstrap — not init.php, which runs all schema migrations on every poll
 require_once '../config/database.php';
+define('AUTH_LIGHTWEIGHT_BOOTSTRAP', true);
 require_once '../includes/auth.php';
 require_once '../includes/csrf.php';
 
@@ -136,23 +137,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             SELECT u.id AS user_id, u.fullname, m.message, m.sent_at
             FROM users u
             LEFT JOIN (
-                SELECT
-                    CASE
+                SELECT latest.resident_id, cm.message, cm.sent_at
+                FROM (
+                    SELECT
+                        CASE
+                            WHEN sender_id = ? THEN receiver_id
+                            ELSE sender_id
+                        END AS resident_id,
+                        MAX(id) AS latest_message_id
+                    FROM chat_messages
+                    WHERE sender_id = ? OR receiver_id = ?
+                    GROUP BY CASE
                         WHEN sender_id = ? THEN receiver_id
                         ELSE sender_id
-                    END AS resident_id,
-                    message,
-                    sent_at
-                FROM chat_messages
-                WHERE sender_id = ? OR receiver_id = ?
-                ORDER BY sent_at DESC
+                    END
+                ) latest
+                INNER JOIN chat_messages cm ON cm.id = latest.latest_message_id
             ) m ON u.id = m.resident_id
             WHERE u.role = 'resident'
-            GROUP BY u.id
-            ORDER BY MAX(m.sent_at) DESC, u.fullname ASC
+            ORDER BY (m.sent_at IS NULL) ASC, m.sent_at DESC, u.fullname ASC
             ";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([$admin_id, $admin_id, $admin_id]);
+            $stmt->execute([$admin_id, $admin_id, $admin_id, $admin_id]);
             $conversations = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $response = ['success' => true, 'conversations' => $conversations];
         } catch (PDOException $e) {

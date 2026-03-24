@@ -240,7 +240,7 @@ $chat_csrf_token = csrf_token();
 
         function startConversationPolling() {
             if (conversationPollingInterval) clearInterval(conversationPollingInterval);
-            conversationPollingInterval = setInterval(fetchConversations, 2000);
+            conversationPollingInterval = setInterval(fetchConversations, 8000);
         }
 
         function stopConversationPolling() {
@@ -249,7 +249,7 @@ $chat_csrf_token = csrf_token();
 
         function startMessagePolling(partnerId) {
             if (messagePollingInterval) clearInterval(messagePollingInterval);
-            messagePollingInterval = setInterval(() => fetchMessages(partnerId), 2000);
+            messagePollingInterval = setInterval(() => fetchMessages(partnerId), 3000);
         }
 
         function stopMessagePolling() {

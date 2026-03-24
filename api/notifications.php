@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require_once '../config/database.php';
+define('AUTH_LIGHTWEIGHT_BOOTSTRAP', true);
 require_once '../includes/auth.php';
 require_once '../includes/csrf.php';
 

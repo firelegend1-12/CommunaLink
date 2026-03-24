@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+define('AUTH_LIGHTWEIGHT_BOOTSTRAP', true);
 require_once '../includes/auth.php'; // Ensure user is logged in
 require_once '../includes/csrf.php';
 

@@ -5,7 +5,43 @@
  */
 
 // Include necessary files
-require_once __DIR__ . '/../config/init.php'; // Includes DB and functions
+if (defined('AUTH_LIGHTWEIGHT_BOOTSTRAP') && AUTH_LIGHTWEIGHT_BOOTSTRAP === true) {
+    require_once __DIR__ . '/../config/database.php';
+
+    if (!function_exists('configure_session_cookie_security')) {
+        function configure_session_cookie_security() {
+            if (session_status() !== PHP_SESSION_NONE) {
+                return;
+            }
+
+            $is_https = (
+                (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+                (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443) ||
+                (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
+            );
+
+            ini_set('session.use_only_cookies', '1');
+            ini_set('session.use_strict_mode', '1');
+            ini_set('session.cookie_httponly', '1');
+            ini_set('session.cookie_secure', $is_https ? '1' : '0');
+            ini_set('session.cookie_samesite', 'Lax');
+
+            if (PHP_VERSION_ID >= 70300) {
+                session_set_cookie_params([
+                    'lifetime' => 0,
+                    'path' => '/',
+                    'secure' => $is_https,
+                    'httponly' => true,
+                    'samesite' => 'Lax'
+                ]);
+            } else {
+                session_set_cookie_params(0, '/; samesite=Lax', '', $is_https, true);
+            }
+        }
+    }
+} else {
+    require_once __DIR__ . '/../config/init.php'; // Includes DB and functions
+}
 require_once __DIR__ . '/functions.php';
 
 // Fallback session start for direct execution paths that bypass init bootstrap.

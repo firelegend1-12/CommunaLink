@@ -209,8 +209,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initial fetch
     fetchMessages();
 
-    // Poll for new messages every 3 seconds
-    setInterval(fetchMessages, 3000);
+    // Poll for new messages every 4 seconds to reduce API load.
+    setInterval(fetchMessages, 4000);
 });
 </script>
 <?php require_once 'partials/footer.php'; ?> 
