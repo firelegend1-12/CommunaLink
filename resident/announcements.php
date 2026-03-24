@@ -2,6 +2,7 @@
 require_once '../config/database.php';
 $page_title = "Community Board";
 require_once 'partials/header.php';
+$post_reaction_csrf_token = csrf_token();
 
 // Ensure user is logged in (should be handled by header/middleware)
 $user_id = $_SESSION['user_id'] ?? null;
@@ -249,11 +250,12 @@ try {
 
 <script>
 async function toggleReaction(postId, type) {
+    const POST_REACTION_CSRF_TOKEN = <?php echo json_encode($post_reaction_csrf_token); ?>;
     try {
         const response = await fetch('../api/post-reactions.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `post_id=${postId}&reaction_type=${type}`
+            body: `post_id=${postId}&reaction_type=${type}&csrf_token=${encodeURIComponent(POST_REACTION_CSRF_TOKEN)}`
         });
         
         const data = await response.json();

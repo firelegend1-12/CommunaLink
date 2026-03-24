@@ -19,6 +19,7 @@ require_once '../config/database.php';
 $stmtAdmin = $pdo->query("SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
 $adminUser = $stmtAdmin ? $stmtAdmin->fetch(PDO::FETCH_ASSOC) : null;
 $admin_user_id = $adminUser ? (int)$adminUser['id'] : 1;
+$chat_csrf_token = csrf_token();
 
 require_once 'partials/header.php';
 ?>
@@ -139,6 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const messageInput = document.getElementById('message-input');
     
     const ADMIN_ID = <?php echo $admin_user_id; ?>;
+    const CHAT_CSRF_TOKEN = <?php echo json_encode($chat_csrf_token); ?>;
     let lastMessageId = 0;
 
     function escapeHTML(str) {
@@ -183,6 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('action', 'send_message');
         formData.append('message', messageText);
         formData.append('receiver_id', ADMIN_ID);
+        formData.append('csrf_token', CHAT_CSRF_TOKEN);
 
         try {
             const response = await fetch('../api/chat.php', {

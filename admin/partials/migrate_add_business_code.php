@@ -1,5 +1,13 @@
 <?php
 require_once '../../config/init.php';
+require_once '../../includes/auth.php';
+
+require_login();
+
+if (!is_admin_or_official()) {
+    http_response_code(403);
+    exit('Unauthorized');
+}
 
 try {
     // Check if business_code column exists

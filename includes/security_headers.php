@@ -7,6 +7,8 @@
  */
 
 class SecurityHeaders {
+
+    const CSP_REPORT_PAYLOAD_MAX_BYTES = 65535;
     
     /**
      * Security header configurations
@@ -55,8 +57,14 @@ class SecurityHeaders {
      * Apply Content Security Policy header
      */
     public static function applyContentSecurityPolicy() {
-        $csp = self::buildCSPString();
+        $csp = self::buildCSPString(self::$headers['content_security_policy']);
         header("Content-Security-Policy: " . $csp);
+
+        // No-downtime hardening: emit stricter policy in report-only mode first.
+        if (self::isCSPReportOnlyEnabled()) {
+            $strict_csp = self::buildStrictReportOnlyPolicy();
+            header("Content-Security-Policy-Report-Only: " . self::buildCSPString($strict_csp));
+        }
     }
     
     /**
@@ -120,18 +128,105 @@ class SecurityHeaders {
     /**
      * Build Content Security Policy string
      */
-    private static function buildCSPString() {
+    private static function buildCSPString($policy) {
         $csp_parts = [];
-        
-        foreach (self::$headers['content_security_policy'] as $directive => $values) {
+
+        foreach ($policy as $directive => $values) {
             if (is_array($values)) {
                 $csp_parts[] = $directive . " " . implode(' ', $values);
+            } elseif (is_bool($values)) {
+                if ($values) {
+                    $csp_parts[] = $directive;
+                }
             } else {
                 $csp_parts[] = $directive . " " . $values;
             }
         }
-        
+
         return implode('; ', $csp_parts);
+    }
+
+    /**
+     * Build stricter CSP policy for report-only rollout.
+     */
+    private static function buildStrictReportOnlyPolicy() {
+        $strict_policy = self::$headers['content_security_policy'];
+
+        // Remove unsafe-inline from script/style to surface inline execution debt without breaking traffic.
+        if (isset($strict_policy['script-src']) && is_array($strict_policy['script-src'])) {
+            $strict_policy['script-src'] = array_values(array_filter(
+                $strict_policy['script-src'],
+                function ($value) {
+                    return $value !== "'unsafe-inline'";
+                }
+            ));
+        }
+
+        if (isset($strict_policy['style-src']) && is_array($strict_policy['style-src'])) {
+            $strict_policy['style-src'] = array_values(array_filter(
+                $strict_policy['style-src'],
+                function ($value) {
+                    return $value !== "'unsafe-inline'";
+                }
+            ));
+        }
+
+        $report_uri = self::getCSPReportUri();
+        if ($report_uri !== '') {
+            $strict_policy['report-uri'] = [$report_uri];
+        }
+
+        return $strict_policy;
+    }
+
+    /**
+     * Determine if CSP report-only mode should be enabled.
+     */
+    private static function isCSPReportOnlyEnabled() {
+        return self::envToBool(self::getEnvValue('CSP_REPORT_ONLY', 'false'));
+    }
+
+    /**
+     * Get report URI for CSP violations.
+     */
+    private static function getCSPReportUri() {
+        $report_uri = trim((string) self::getEnvValue('CSP_REPORT_URI', ''));
+        return $report_uri;
+    }
+
+    /**
+     * Read environment value safely with fallback support.
+     */
+    private static function getEnvValue($key, $default = null) {
+        if (function_exists('env')) {
+            return env($key, $default);
+        }
+
+        $value = getenv($key);
+        if ($value === false) {
+            return $default;
+        }
+
+        return $value;
+    }
+
+    /**
+     * Convert environment values to strict booleans.
+     */
+    private static function envToBool($value, $default = false) {
+        if ($value === null || $value === false) {
+            return $default;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+        if (in_array($normalized, ['1', 'true', 'yes', 'on'], true)) {
+            return true;
+        }
+        if (in_array($normalized, ['0', 'false', 'no', 'off'], true)) {
+            return false;
+        }
+
+        return $default;
     }
     
     /**

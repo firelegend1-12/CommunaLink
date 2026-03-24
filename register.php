@@ -2,7 +2,11 @@
 /**
  * Registration Page
  */
-session_start();
+
+require_once 'config/init.php';
+
+// Apply security headers for public page rollout
+apply_page_security_headers('public');
 
 // If user is already logged in, redirect to dashboard
 if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {

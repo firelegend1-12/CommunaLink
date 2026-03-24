@@ -1,6 +1,7 @@
 <?php
 require_once '../config/init.php';
 require_once '../includes/auth.php';
+require_once '../includes/csrf.php';
 
 // Apply security headers for API endpoints
 apply_page_security_headers('api');
@@ -19,7 +20,7 @@ function require_role($role) {
 $response = ['error' => 'Invalid request.'];
 $user_id = $_SESSION['user_id'] ?? null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'report_incident') {
     // Check API rate limiting
     $api_rate_limit = RateLimiter::checkRateLimit('api_calls', RateLimiter::getClientIP());
     if (!$api_rate_limit['allowed']) {
@@ -34,6 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     
     // Record API call attempt
     RateLimiter::recordAttempt('api_calls', RateLimiter::getClientIP());
+
+    if (!csrf_validate()) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Invalid security token.']);
+        exit;
+    }
     
     require_role('resident');
 
@@ -66,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $validated_file = $file_validation['sanitized'];
             
             if (!file_exists($upload_dir)) {
-                mkdir($upload_dir, 0777, true);
+                mkdir($upload_dir, 0755, true);
             }
             
             $unique_filename = uniqid('incident_', true) . '.' . $validated_file['extension'];
@@ -137,6 +144,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
     
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_report_status') {
+    if (!csrf_validate()) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Invalid security token.']);
+        exit;
+    }
+
     if ($_SESSION['role'] === 'admin') {
         $report_id = intval($_POST['report_id'] ?? 0);
         $status = trim(htmlspecialchars($_POST['status'] ?? ''));

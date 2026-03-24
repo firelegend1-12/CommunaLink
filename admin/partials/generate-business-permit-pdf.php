@@ -6,6 +6,12 @@ require_once '../../includes/simple_pdf.php';
 
 require_login();
 
+if (!is_admin_or_official()) {
+    $_SESSION['error_message'] = 'Unauthorized access.';
+    header('Location: ../pages/monitoring-of-request.php?type=business');
+    exit;
+}
+
 $transaction_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if ($transaction_id <= 0) {
     $_SESSION['error_message'] = 'Invalid transaction ID.';

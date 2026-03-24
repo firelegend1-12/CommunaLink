@@ -4,7 +4,38 @@
  * Establishes a PDO connection and creates necessary tables if they don't exist.
  */
 
+function configure_session_cookie_security() {
+    if (session_status() !== PHP_SESSION_NONE) {
+        return;
+    }
+
+    $is_https = (
+        (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+        (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443) ||
+        (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
+    );
+
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.use_strict_mode', '1');
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.cookie_secure', $is_https ? '1' : '0');
+    ini_set('session.cookie_samesite', 'Lax');
+
+    if (PHP_VERSION_ID >= 70300) {
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => '/',
+            'secure' => $is_https,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
+    } else {
+        session_set_cookie_params(0, '/; samesite=Lax', '', $is_https, true);
+    }
+}
+
 if (session_status() === PHP_SESSION_NONE) {
+    configure_session_cookie_security();
     session_start();
 }
 
@@ -502,19 +533,27 @@ try {
     $admin_email = 'admin@communalink.com';
     $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
     $stmt->execute([$admin_email]);
+    $admin_initial_password = trim((string) env('ADMIN_INITIAL_PASSWORD', ''));
     if ($stmt->rowCount() == 0) {
-        $admin_username = 'admin';
-        $admin_fullname = 'Administrator';
-        $admin_password = 'Admin@2024!'; // Enhanced secure password
-        $hashed_password = password_hash($admin_password, PASSWORD_DEFAULT);
+        if ($admin_initial_password === '') {
+            $app_env = strtolower((string) env('APP_ENV', 'production'));
+            $already_logged = isset($_SESSION['admin_seed_warning_logged']) && $_SESSION['admin_seed_warning_logged'] === true;
+            if ($app_env !== 'production' && !$already_logged) {
+                error_log('Admin seed skipped: required environment variable ADMIN_INITIAL_PASSWORD is not configured.');
+                $_SESSION['admin_seed_warning_logged'] = true;
+            }
+        } else {
+            $admin_username = 'admin';
+            $admin_fullname = 'Administrator';
+            $hashed_password = password_hash($admin_initial_password, PASSWORD_DEFAULT);
 
-        $insert_stmt = $pdo->prepare(
-            "INSERT INTO users (username, fullname, email, password, role) VALUES (?, ?, ?, ?, 'admin')"
-        );
-        $insert_stmt->execute([$admin_username, $admin_fullname, $admin_email, $hashed_password]);
+            $insert_stmt = $pdo->prepare(
+                "INSERT INTO users (username, fullname, email, password, role) VALUES (?, ?, ?, ?, 'admin')"
+            );
+            $insert_stmt->execute([$admin_username, $admin_fullname, $admin_email, $hashed_password]);
+        }
     }
     // Note: If admin account already exists, it keeps its existing password
-    // Current working password appears to be: admin123
 
     // --- Schema Migration for post_reactions ---
     try {

@@ -9,6 +9,11 @@ require_once '../../includes/functions.php';
 
 require_login();
 
+if (!is_admin_or_official()) {
+    $_SESSION['error_message'] = 'Unauthorized access.';
+    redirect_to('../pages/new-barangay-clearance.php');
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect_to('../pages/new-barangay-clearance.php');
 }

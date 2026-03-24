@@ -18,7 +18,7 @@ class MailgunSender {
         
         $this->api_key = defined('MAILGUN_API_KEY') ? MAILGUN_API_KEY : '';
         $this->domain = defined('MAILGUN_DOMAIN') ? MAILGUN_DOMAIN : '';
-        $this->from_email = defined('MAILGUN_FROM_EMAIL') ? MAILGUN_FROM_EMAIL : 'shaunrosario023@gmail.com';
+        $this->from_email = defined('MAILGUN_FROM_EMAIL') ? MAILGUN_FROM_EMAIL : 'noreply@yourbarangay.com';
         $this->from_name = defined('MAILGUN_FROM_NAME') ? MAILGUN_FROM_NAME : 'CommuniLink Barangay System';
     }
     

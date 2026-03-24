@@ -13,6 +13,15 @@ require_login();
 // Set content type to JSON
 header('Content-Type: application/json');
 
+if (!is_admin_or_official()) {
+    http_response_code(403);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Unauthorized'
+    ]);
+    exit;
+}
+
 try {
     // Validate request method
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -44,6 +53,11 @@ try {
         throw new Exception('Business not found');
     }
 
+    // Capture status before update for correct activity logging.
+    $old_status = $pdo->prepare("SELECT status FROM businesses WHERE id = ?");
+    $old_status->execute([$business_id]);
+    $old_status_value = $old_status->fetchColumn();
+
     // Update business status
     $update_sql = "UPDATE businesses SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
     $update_stmt = $pdo->prepare($update_sql);
@@ -53,21 +67,16 @@ try {
         throw new Exception('Failed to update business status');
     }
 
-    // Get old status for logging (before update)
-    $old_status_stmt = $pdo->prepare("SELECT status FROM businesses WHERE id = ?");
-    $old_status_stmt->execute([$business_id]);
-    $old_status = $old_status_stmt->fetchColumn();
-    
     // Only log if status actually changed
-    if ($old_status !== $status) {
+    if ($old_status_value !== $status) {
         // Log the activity with readable format
         log_activity_db(
             $pdo,
             'update_status',
             'business',
             $business_id,
-            "Business: {$business['business_name']} - status: {$old_status} → {$status}",
-            $old_status,
+            "Business: {$business['business_name']} - status: {$old_status_value} → {$status}",
+            $old_status_value,
             $status
         );
     }
@@ -81,10 +90,11 @@ try {
     ]);
 
 } catch (Exception $e) {
+    error_log('update-business-status failed: ' . $e->getMessage());
     // Return error response
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage()
+        'message' => 'Unable to update business status.'
     ]);
 }
 ?> 

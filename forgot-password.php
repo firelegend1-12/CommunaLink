@@ -19,6 +19,7 @@ $email = "";
 $email_err = "";
 $success_message = "";
 $show_form = true; // Control whether the form is shown or not
+$generic_reset_response = "If an account with that email exists, we've sent a password reset link to your email address.";
 
 // Process form data when form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -52,11 +53,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 if ($user) {
                     // Generate reset token
                     $reset_token = bin2hex(random_bytes(32));
+                    $reset_token_hash = hash('sha256', $reset_token);
                     $reset_expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
                     
-                    // Store reset token in database
+                    // Store reset token hash in database
                     $stmt = $pdo->prepare("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?");
-                    $stmt->execute([$reset_token, $reset_expires, $user['id']]);
+                    $stmt->execute([$reset_token_hash, $reset_expires, $user['id']]);
                     
                     // Create reset link
                     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
@@ -75,11 +77,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             $mailgun = new MailgunSender();
                             $email_sent = $mailgun->sendPasswordResetEmail($email, $user_name, $reset_link);
                             if (!$email_sent) {
-                                $email_error = 'Mailgun email sending failed. ';
+                                $email_error = 'mailgun_send_failed';
                             }
                         } catch (Exception $e) {
-                            $email_error = 'Mailgun error: ' . $e->getMessage() . ' ';
-                            error_log("Mailgun email error: " . $e->getMessage());
+                            $email_error = 'mailgun_exception';
+                            error_log('Mailgun email error occurred during password reset flow.');
                         }
                     }
                     
@@ -99,15 +101,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 // Check if credentials are configured
                                 $has_username = defined('EMAIL_SMTP_USERNAME') && !empty(EMAIL_SMTP_USERNAME);
                                 $has_password = defined('EMAIL_SMTP_PASSWORD') && !empty(EMAIL_SMTP_PASSWORD);
-                                if (!$has_username || !$has_password) {
-                                    $email_error .= 'Gmail SMTP credentials not configured in .env file. ';
+                                $has_from_email = defined('EMAIL_FROM_EMAIL') && !empty(EMAIL_FROM_EMAIL);
+                                if (!$has_username || !$has_password || !$has_from_email) {
+                                    $email_error = trim($email_error . ' smtp_not_configured');
                                 } else {
-                                    $email_error .= 'Gmail SMTP connection failed. ';
+                                    $email_error = trim($email_error . ' smtp_send_failed');
                                 }
                             }
                         } catch (Exception $e) {
-                            $email_error .= 'Gmail SMTP error: ' . $e->getMessage() . ' ';
-                            error_log("Gmail SMTP email error: " . $e->getMessage());
+                            $email_error = trim($email_error . ' smtp_exception');
+                            error_log('Gmail SMTP email error occurred during password reset flow.');
                         }
                     }
                     
@@ -117,34 +120,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             require_once 'includes/simple_smtp_sender.php';
                             $simple = new SimpleSMTP();
                             $email_sent = $simple->sendPasswordResetEmail($email, $user_name, $reset_link);
-                            if ($email_sent) {
-                                $email_error = ''; // Clear error if simple mail worked
-                            }
                         } catch (Exception $e) {
-                            // Silent fail for fallback
-                            error_log("Simple mail() error: " . $e->getMessage());
+                            $email_error = trim($email_error . ' simple_mail_exception');
+                            error_log('Simple mail fallback error occurred during password reset flow.');
                         }
                     }
-                    
-                    if ($email_sent) {
-                        // Email sent successfully
-                        $success_message = "A password reset link has been sent to your email address. Please check your inbox and follow the instructions to reset your password.";
-                        $show_form = false;
-                    } else {
-                        // Email failed, show link as fallback (for development/testing)
-                        $error_note = !empty($email_error) ? "<br><br><em>Error: " . htmlspecialchars($email_error) . "</em>" : "<br><br><em>Note: Email sending failed. Please check your email configuration in .env file.</em>";
-                        $success_message = "Your password reset link is ready. Click the link below to reset your password:<br><br>"
-                            . '<a href="' . htmlspecialchars($reset_link, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($reset_link, ENT_QUOTES, 'UTF-8') . '</a>'
-                            . "<br><br>This link will expire in 1 hour." . $error_note;
-                        $show_form = false;
+
+                    if (!$email_sent) {
+                        error_log('Password reset email delivery failed for user ID: ' . (int) $user['id'] . '. Failure codes: ' . trim($email_error));
                     }
+
+                    // Always return a generic response to avoid account and delivery-state disclosure.
+                    $success_message = $generic_reset_response;
+                    $show_form = false;
                     
                     // Log the password reset request
                     error_log("Password reset requested for user ID: " . $user['id'] . " (Email: " . $email . ") - Email sent: " . ($email_sent ? 'Yes' : 'No'));
                     
                 } else {
                     // Don't reveal if email exists or not for security
-                    $success_message = "If an account with that email exists, we've sent a password reset link to your email address.";
+                    $success_message = $generic_reset_response;
+                    $show_form = false;
                 }
                 
             } catch (PDOException $e) {

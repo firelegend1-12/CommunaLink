@@ -11,6 +11,12 @@ require_once '../../includes/functions.php';
 // Check if user is logged in
 require_login();
 
+// Restrict this flow to admin or official roles
+if (!is_admin_or_official()) {
+    $_SESSION['error_message'] = 'Unauthorized access.';
+    redirect_to('../pages/add-resident.php');
+}
+
 // Only process POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect_to('../pages/add-resident.php');
@@ -19,23 +25,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // Function to handle file uploads
 function handle_upload($file_input_name, $upload_dir) {
     if (isset($_FILES[$file_input_name]) && $_FILES[$file_input_name]['error'] == UPLOAD_ERR_OK) {
-        $file_tmp_path = $_FILES[$file_input_name]['tmp_name'];
-        $file_name = basename($_FILES[$file_input_name]['name']);
-        $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
-        
-        // Sanitize filename
-        $safe_filename = preg_replace('/[^A-Za-z0-9\._-]/', '', $file_name);
-        $new_filename = uniqid('', true) . '.' . $file_ext;
-        
-        $dest_path = $upload_dir . $new_filename;
-        
-        // Check if it is a valid image
-        $allowed_exts = ['jpg', 'jpeg', 'png', 'gif'];
-        if (!in_array($file_ext, $allowed_exts)) {
-            return ['error' => 'Invalid file type. Only JPG, JPEG, PNG, and GIF are allowed.'];
+        $file_validation = validate_input($_FILES[$file_input_name], 'file', [
+            'max_size' => 5 * 1024 * 1024,
+            'allowed_types' => ['image/jpeg', 'image/png', 'image/gif']
+        ]);
+
+        if (!$file_validation['valid']) {
+            return ['error' => 'Invalid upload. ' . implode(' ', $file_validation['errors'])];
         }
-        
-        if (move_uploaded_file($file_tmp_path, $dest_path)) {
+
+        $validated_file = $file_validation['sanitized'];
+        $new_filename = uniqid('', true) . '.' . $validated_file['extension'];
+        $dest_path = $upload_dir . $new_filename;
+
+        if (move_uploaded_file($validated_file['tmp_name'], $dest_path)) {
             return ['filename' => $new_filename];
         } else {
             return ['error' => 'Failed to move uploaded file.'];

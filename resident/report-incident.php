@@ -17,6 +17,7 @@ require_role('resident');
 
 $page_title = "Report an Incident";
 $user_fullname = $_SESSION['fullname'] ?? 'Resident';
+$incident_csrf_token = csrf_token();
 
 require_once 'partials/header.php';
 ?>
@@ -29,6 +30,7 @@ require_once 'partials/header.php';
         <form id="incident-form" enctype="multipart/form-data">
             <input type="hidden" id="latitude" name="latitude">
             <input type="hidden" id="longitude" name="longitude">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($incident_csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
 
             <div class="form-group">
                 <label for="incident-type">Nature of Report</label>

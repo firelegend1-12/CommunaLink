@@ -8,6 +8,12 @@ require_once '../../includes/auth.php';
 
 require_login();
 
+if (!is_admin_or_official()) {
+    $_SESSION['error_message'] = 'Unauthorized access.';
+    header("Location: ../pages/new-barangay-business-clearance.php?error=true");
+    exit();
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Basic sanitization and data retrieval
     $data = [];

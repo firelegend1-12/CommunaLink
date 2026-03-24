@@ -31,17 +31,21 @@ if (empty($token)) {
     $token_error = "Invalid reset link. Please request a new password reset.";
 } else {
     try {
-        // Check if token exists and is valid
-        $stmt = $pdo->prepare("SELECT id, username, email, reset_token FROM users WHERE reset_token = ? AND reset_token_expires > NOW() AND status = 'active'");
-        $stmt->execute([$token]);
+        // Check if token exists and is valid. Support legacy plaintext tokens during transition.
+        $token_hash = hash('sha256', $token);
+        $stmt = $pdo->prepare("SELECT id, username, email, reset_token FROM users WHERE (reset_token = ? OR reset_token = ?) AND reset_token_expires > NOW() AND status = 'active'");
+        $stmt->execute([$token_hash, $token]);
         $user = $stmt->fetch();
         
         if ($user) {
-            // Additional security: Check if token was already used
-            if (isset($user['reset_token']) && $user['reset_token'] === null) {
-                $token_error = "This reset link has already been used. Please request a new password reset.";
-            } else {
+            $stored_token = (string) ($user['reset_token'] ?? '');
+            $is_hashed_match = hash_equals($stored_token, $token_hash);
+            $is_legacy_match = hash_equals($stored_token, $token);
+
+            if ($is_hashed_match || $is_legacy_match) {
                 $token_valid = true;
+            } else {
+                $token_error = "Reset link has expired or is invalid. Please request a new password reset.";
             }
         } else {
             $token_error = "Reset link has expired or is invalid. Please request a new password reset.";
@@ -86,8 +90,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $token_valid) {
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
                 
                 // Update password and clear reset token
-                $stmt = $pdo->prepare("UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE reset_token = ?");
-                $stmt->execute([$hashed_password, $token]);
+                $stmt = $pdo->prepare("UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ? AND reset_token_expires > NOW()");
+                $stmt->execute([$hashed_password, (int) $user['id']]);
                 
                 if ($stmt->rowCount() > 0) {
                     $success_message = "Password updated successfully! You can now sign in with your new password.";

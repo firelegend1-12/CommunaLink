@@ -1,6 +1,15 @@
 <?php
 require_once '../../config/init.php';
+require_once '../../includes/auth.php';
 header('Content-Type: application/json');
+
+require_login();
+
+if (!is_admin_or_official()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+    exit;
+}
 
 $incident_id = isset($_GET['incident_id']) ? (int)$_GET['incident_id'] : 0;
 if (!$incident_id) {

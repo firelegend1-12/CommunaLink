@@ -9,6 +9,11 @@ require_once '../../includes/auth.php';
 
 require_login();
 
+if (!is_admin_or_official()) {
+    $_SESSION['error_message'] = 'Unauthorized access.';
+    redirect_to('../pages/monitoring-of-request.php');
+}
+
 // Get filter parameters
 $search_query = isset($_GET['search']) ? sanitize_input($_GET['search']) : '';
 $status_filter = isset($_GET['status']) ? sanitize_input($_GET['status']) : '';

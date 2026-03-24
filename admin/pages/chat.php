@@ -22,6 +22,8 @@ $messages = [
     ['sender' => 'Super Admin', 'text' => 'Good morning! How can I help you with your clearance?', 'time' => '10:46 AM', 'is_me' => true],
 ];
 
+$chat_csrf_token = csrf_token();
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -104,6 +106,7 @@ $messages = [
     </div>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        const CHAT_CSRF_TOKEN = <?php echo json_encode($chat_csrf_token); ?>;
         const conversationList = document.getElementById('conversation-list');
         const chatWindow = document.getElementById('chat-window');
         const placeholderWindow = document.getElementById('placeholder-window');
@@ -257,6 +260,7 @@ $messages = [
             const fd = new FormData();
             fd.append('action', 'mark_as_read');
             fd.append('sender_id', partnerId);
+            fd.append('csrf_token', CHAT_CSRF_TOKEN);
             fetch('../../api/chat.php', { method: 'POST', body: fd })
                 .then(r => r.json())
                 .then(() => {
@@ -295,6 +299,7 @@ $messages = [
             formData.append('action', 'send_message');
             formData.append('message', messageText);
             formData.append('receiver_id', activePartnerId);
+            formData.append('csrf_token', CHAT_CSRF_TOKEN);
 
             try {
                 console.log('Sending to API...');

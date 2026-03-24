@@ -3,15 +3,32 @@ header('Content-Type: application/json');
 // Use lightweight database-only bootstrap — not init.php, which runs all schema migrations on every poll
 require_once '../config/database.php';
 require_once '../includes/auth.php';
+require_once '../includes/csrf.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 if (!is_logged_in()) {
+    http_response_code(401);
     echo json_encode(['error' => 'Authentication required.']);
     exit;
 }
+
+$chat_rate_limit = RateLimiter::checkRateLimit('chat_api', RateLimiter::getClientIP());
+if (!$chat_rate_limit['allowed']) {
+    $retry_after = (int) ($chat_rate_limit['lockout_remaining'] ?? 60);
+    header('Retry-After: ' . $retry_after);
+    http_response_code(429);
+    echo json_encode([
+        'error' => 'Too Many Requests',
+        'message' => $chat_rate_limit['message'] ?? 'Rate limit exceeded. Please try again later.',
+        'retry_after' => $retry_after
+    ]);
+    exit;
+}
+
+RateLimiter::recordAttempt('chat_api', RateLimiter::getClientIP());
 
 $user_id = $_SESSION['user_id'];
 $role    = $_SESSION['role'];
@@ -30,6 +47,12 @@ function getAdminId($pdo) {
 $response = ['error' => 'Invalid request.'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if (!csrf_validate()) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Invalid security token.']);
+        exit;
+    }
+
     if ($_POST['action'] === 'send_message' && !empty($_POST['message'])) {
         $message_text = trim(htmlspecialchars($_POST['message']));
 
@@ -45,7 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmt->execute([$user_id, $receiver_id, $message_text]);
                 $response = ['success' => true, 'message' => 'Message sent.'];
             } catch (PDOException $e) {
-                $response = ['error' => 'Database error: ' . $e->getMessage()];
+                error_log('chat send_message database error: ' . $e->getMessage());
+                $response = ['error' => 'Database error while sending message.'];
             }
         } else {
             $response = ['error' => 'Missing message or recipient.'];
@@ -55,6 +79,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         // Mark all messages from a specific resident as read
         $sender_id = intval($_POST['sender_id']);
         $admin_id  = getAdminId($pdo);
+
+        if ($role !== 'admin') {
+            http_response_code(403);
+            $response = ['error' => 'Unauthorized'];
+            echo json_encode($response);
+            exit;
+        }
+
         try {
             $stmt = $pdo->prepare(
                 "UPDATE chat_messages SET is_read = 1
@@ -63,7 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->execute([$sender_id, $admin_id]);
             $response = ['success' => true, 'marked' => $stmt->rowCount()];
         } catch (PDOException $e) {
-            $response = ['error' => 'Database error: ' . $e->getMessage()];
+            error_log('chat mark_as_read database error: ' . $e->getMessage());
+            $response = ['error' => 'Database error while updating messages.'];
         }
     }
 
@@ -92,7 +125,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $messages  = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $response  = ['success' => true, 'messages' => $messages];
         } catch (PDOException $e) {
-            $response = ['error' => 'Database error: ' . $e->getMessage()];
+            error_log('chat get_messages database error: ' . $e->getMessage());
+            $response = ['error' => 'Database error while fetching messages.'];
         }
 
     } elseif ($_GET['action'] === 'get_conversations' && $role === 'admin') {
@@ -122,7 +156,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $conversations = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $response = ['success' => true, 'conversations' => $conversations];
         } catch (PDOException $e) {
-            $response = ['error' => 'Database error: ' . $e->getMessage()];
+            error_log('chat get_conversations database error: ' . $e->getMessage());
+            $response = ['error' => 'Database error while fetching conversations.'];
         }
     } elseif ($_GET['action'] === 'get_unread_count' && $role === 'admin') {
         $admin_id = getAdminId($pdo);
@@ -136,7 +171,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $count = (int)$stmt->fetchColumn();
             $response = ['success' => true, 'unread' => $count];
         } catch (PDOException $e) {
-            $response = ['error' => 'Database error: ' . $e->getMessage()];
+            error_log('chat get_unread_count database error: ' . $e->getMessage());
+            $response = ['error' => 'Database error while fetching unread count.'];
         }
     }
 }

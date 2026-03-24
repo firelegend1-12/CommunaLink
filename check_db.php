@@ -1,4 +1,22 @@
 <?php
+require_once __DIR__ . '/config/env_loader.php';
+
+$app_env = strtolower((string) env('APP_ENV', 'production'));
+
+if ($app_env === 'production') {
+    http_response_code(404);
+    exit('Not Found');
+}
+
+if (PHP_SAPI !== 'cli') {
+    require_once __DIR__ . '/includes/auth.php';
+
+    if (!is_logged_in() || !is_admin_or_official()) {
+        http_response_code(403);
+        exit('Forbidden');
+    }
+}
+
 require_once 'config/init.php';
 
 try {
