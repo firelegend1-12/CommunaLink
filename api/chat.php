@@ -79,7 +79,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     } elseif ($_POST['action'] === 'mark_as_read' && isset($_POST['sender_id'])) {
         // Mark all messages from a specific resident as read
         $sender_id = intval($_POST['sender_id']);
-        $admin_id  = getAdminId($pdo);
 
         if ($role !== 'admin') {
             http_response_code(403);
@@ -91,9 +90,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             $stmt = $pdo->prepare(
                 "UPDATE chat_messages SET is_read = 1
-                 WHERE sender_id = ? AND receiver_id = ? AND is_read = 0"
+                 WHERE sender_id = ?
+                   AND receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                   AND is_read = 0"
             );
-            $stmt->execute([$sender_id, $admin_id]);
+            $stmt->execute([$sender_id]);
             $response = ['success' => true, 'marked' => $stmt->rowCount()];
         } catch (PDOException $e) {
             error_log('chat mark_as_read database error: ' . $e->getMessage());
@@ -106,22 +107,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $partner_id = intval($_GET['partner_id']);
         try {
             if ($role === 'resident') {
-                $admin_id = getAdminId($pdo);
-                // Resident always chats with the admin; ignore partner_id for safety
+                // Resident sees full shared admin-history thread.
                 $stmt = $pdo->prepare(
                     "SELECT * FROM chat_messages
-                     WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
+                     WHERE (
+                            sender_id = ?
+                        AND receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                     ) OR (
+                            receiver_id = ?
+                        AND sender_id IN (SELECT id FROM users WHERE role = 'admin')
+                     )
                      ORDER BY sent_at ASC"
                 );
-                $stmt->execute([$user_id, $admin_id, $admin_id, $user_id]);
+                $stmt->execute([$user_id, $user_id]);
             } else {
-                // Admin: chat with a specific resident
+                // Admin sees shared admin-history thread for the resident.
                 $stmt = $pdo->prepare(
                     "SELECT * FROM chat_messages
-                     WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
+                     WHERE (
+                            sender_id IN (SELECT id FROM users WHERE role = 'admin')
+                        AND receiver_id = ?
+                     ) OR (
+                            receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                        AND sender_id = ?
+                     )
                      ORDER BY sent_at ASC"
                 );
-                $stmt->execute([$user_id, $partner_id, $partner_id, $user_id]);
+                $stmt->execute([$partner_id, $partner_id]);
             }
             $messages  = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $response  = ['success' => true, 'messages' => $messages];
@@ -131,7 +143,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
 
     } elseif ($_GET['action'] === 'get_conversations' && $role === 'admin') {
-        $admin_id = getAdminId($pdo);
         try {
             $sql = "
             SELECT u.id AS user_id, u.fullname, m.message, m.sent_at
@@ -141,14 +152,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 FROM (
                     SELECT
                         CASE
-                            WHEN sender_id = ? THEN receiver_id
+                            WHEN sender_id IN (SELECT id FROM users WHERE role = 'admin') THEN receiver_id
                             ELSE sender_id
                         END AS resident_id,
                         MAX(id) AS latest_message_id
                     FROM chat_messages
-                    WHERE sender_id = ? OR receiver_id = ?
+                    WHERE sender_id IN (SELECT id FROM users WHERE role = 'admin')
+                       OR receiver_id IN (SELECT id FROM users WHERE role = 'admin')
                     GROUP BY CASE
-                        WHEN sender_id = ? THEN receiver_id
+                        WHEN sender_id IN (SELECT id FROM users WHERE role = 'admin') THEN receiver_id
                         ELSE sender_id
                     END
                 ) latest
@@ -158,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ORDER BY (m.sent_at IS NULL) ASC, m.sent_at DESC, u.fullname ASC
             ";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([$admin_id, $admin_id, $admin_id, $admin_id]);
+            $stmt->execute();
             $conversations = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $response = ['success' => true, 'conversations' => $conversations];
         } catch (PDOException $e) {
@@ -166,14 +178,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $response = ['error' => 'Database error while fetching conversations.'];
         }
     } elseif ($_GET['action'] === 'get_unread_count' && $role === 'admin') {
-        $admin_id = getAdminId($pdo);
         try {
-            // Count all unread messages directed at any admin user
+            // Count all unread messages directed at any admin user (shared inbox semantics)
             $stmt = $pdo->prepare(
                 "SELECT COUNT(*) FROM chat_messages
-                 WHERE receiver_id = ? AND is_read = 0"
+                 WHERE receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                   AND is_read = 0"
             );
-            $stmt->execute([$admin_id]);
+            $stmt->execute();
             $count = (int)$stmt->fetchColumn();
             $response = ['success' => true, 'unread' => $count];
         } catch (PDOException $e) {

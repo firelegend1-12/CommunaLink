@@ -7,6 +7,7 @@
 // Include necessary files
 if (defined('AUTH_LIGHTWEIGHT_BOOTSTRAP') && AUTH_LIGHTWEIGHT_BOOTSTRAP === true) {
     require_once __DIR__ . '/../config/database.php';
+    require_once __DIR__ . '/rate_limiter.php';
 
     if (!function_exists('configure_session_cookie_security')) {
         function configure_session_cookie_security() {
@@ -311,17 +312,17 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
             }
         }
 
-        $expires_at = date('Y-m-d H:i:s', time() + max(60, (int) $session_lifetime_seconds));
+                $session_lifetime_seconds = max(60, (int) $session_lifetime_seconds);
         $insert_stmt = $pdo->prepare("INSERT INTO active_user_sessions
                                       (session_id, user_id, role, ip_address, user_agent, started_at, last_seen_at, expires_at, is_active, ended_at, ended_reason)
-                                      VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?, 1, NULL, NULL)
+                                                                            VALUES (?, ?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL ? SECOND), 1, NULL, NULL)
                                       ON DUPLICATE KEY UPDATE
                                         user_id = VALUES(user_id),
                                         role = VALUES(role),
                                         ip_address = VALUES(ip_address),
                                         user_agent = VALUES(user_agent),
                                         last_seen_at = NOW(),
-                                        expires_at = VALUES(expires_at),
+                                                                                expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND),
                                         is_active = 1,
                                         ended_at = NULL,
                                         ended_reason = NULL");
@@ -331,7 +332,8 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
             $role,
             $_SERVER['REMOTE_ADDR'] ?? null,
             $_SERVER['HTTP_USER_AGENT'] ?? null,
-            $expires_at,
+                        $session_lifetime_seconds,
+                        $session_lifetime_seconds,
         ]);
 
         $pdo->commit();
@@ -349,15 +351,15 @@ function refresh_active_session_heartbeat($pdo, $session_id, $session_lifetime_s
         return true;
     }
 
-    $expires_at = date('Y-m-d H:i:s', time() + max(60, (int) $session_lifetime_seconds));
+    $session_lifetime_seconds = max(60, (int) $session_lifetime_seconds);
     $stmt = $pdo->prepare("UPDATE active_user_sessions
                           SET last_seen_at = NOW(),
-                              expires_at = ?,
+                              expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND),
                               is_active = 1
                           WHERE session_id = ?
                             AND is_active = 1
                             AND (ended_reason IS NULL OR ended_reason = '')");
-    $stmt->execute([$expires_at, $session_id]);
+    $stmt->execute([$session_lifetime_seconds, $session_id]);
 
     $affected = (int) $stmt->rowCount();
     
