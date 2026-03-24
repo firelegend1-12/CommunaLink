@@ -44,7 +44,7 @@ try {
 
                 $active_official_stmt = $pdo->query("SELECT COUNT(*) FROM active_user_sessions
                                                                                          WHERE is_active = 1
-                                                                                             AND role IN ('barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod')
+                                                                                             AND role IN ('official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod')
                                                                                              AND expires_at > NOW()");
                 $active_official_sessions = (int) $active_official_stmt->fetchColumn();
 

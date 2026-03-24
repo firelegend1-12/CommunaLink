@@ -33,7 +33,7 @@ function env_to_bool($value, $default = false) {
 }
 
 function is_official_role_only($role) {
-    return in_array($role, ['barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true);
+    return in_array($role, ['official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true);
 }
 
 function is_admin_role($role) {
@@ -262,7 +262,7 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
             $count_stmt = $pdo->prepare("SELECT id
                                          FROM active_user_sessions
                                          WHERE is_active = 1
-                                           AND role IN ('barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod')
+                                                                                     AND role IN ('official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod')
                                            AND expires_at > NOW()
                                          FOR UPDATE");
             $count_stmt->execute();
@@ -433,7 +433,7 @@ function create_session($user, $pdo = null) {
     session_regenerate_id(true); // Prevent session fixation
 
     $user_role = $user['role'] ?? 'resident';
-    $is_official = in_array($user_role, ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true);
+    $is_official = is_session_policy_tracked_role($user_role);
     $session_lifetime = $is_official
         ? (int) env('ADMIN_SESSION_LIFETIME', 30 * 60)
         : (int) env('SESSION_LIFETIME', 5 * 60);
@@ -488,7 +488,7 @@ function is_logged_in() {
         // Get session timeout from environment or use defaults
         // Officials (including admin) get longer timeout (30 minutes), regular users get 5 minutes
         $user_role = $_SESSION['role'] ?? 'resident';
-        $is_official = in_array($user_role, ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod']);
+        $is_official = is_session_policy_tracked_role($user_role);
         
         if ($is_official) {
             $session_lifetime = (int)env('ADMIN_SESSION_LIFETIME', 30 * 60); // 30 minutes for officials
@@ -541,7 +541,7 @@ function is_logged_in() {
  */
 function is_admin_or_official() {
     if (!isset($_SESSION['role'])) return false;
-    return in_array($_SESSION['role'], ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod']);
+    return in_array($_SESSION['role'], ['admin', 'official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod']);
 }
 
 /**
