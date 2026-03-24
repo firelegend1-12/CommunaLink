@@ -197,8 +197,9 @@ $chat_csrf_token = csrf_token();
         });
 
         function renderMessage(message) {
-            // Compare sender_id to myUserId for correct alignment
-            const isAdminMsg = message.sender_id == myUserId;
+            // In shared admin inbox mode, any admin-authored message should align to admin side.
+            const senderRole = String(message.sender_role || '').toLowerCase();
+            const isAdminMsg = senderRole === 'admin' || message.sender_id == myUserId;
             const bubble = document.createElement('div');
             bubble.className = `flex w-full mt-2 space-x-3 max-w-xs ${isAdminMsg ? 'ml-auto justify-end' : 'justify-start'}`;
             

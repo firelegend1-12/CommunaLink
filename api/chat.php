@@ -109,29 +109,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ($role === 'resident') {
                 // Resident sees full shared admin-history thread.
                 $stmt = $pdo->prepare(
-                    "SELECT * FROM chat_messages
+                    "SELECT cm.*, sender.role AS sender_role, sender.fullname AS sender_name
+                     FROM chat_messages cm
+                     LEFT JOIN users sender ON sender.id = cm.sender_id
                      WHERE (
-                            sender_id = ?
-                        AND receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                            cm.sender_id = ?
+                        AND cm.receiver_id IN (SELECT id FROM users WHERE role = 'admin')
                      ) OR (
-                            receiver_id = ?
-                        AND sender_id IN (SELECT id FROM users WHERE role = 'admin')
+                            cm.receiver_id = ?
+                        AND cm.sender_id IN (SELECT id FROM users WHERE role = 'admin')
                      )
-                     ORDER BY sent_at ASC"
+                     ORDER BY cm.sent_at ASC"
                 );
                 $stmt->execute([$user_id, $user_id]);
             } else {
                 // Admin sees shared admin-history thread for the resident.
                 $stmt = $pdo->prepare(
-                    "SELECT * FROM chat_messages
+                    "SELECT cm.*, sender.role AS sender_role, sender.fullname AS sender_name
+                     FROM chat_messages cm
+                     LEFT JOIN users sender ON sender.id = cm.sender_id
                      WHERE (
-                            sender_id IN (SELECT id FROM users WHERE role = 'admin')
-                        AND receiver_id = ?
+                            cm.sender_id IN (SELECT id FROM users WHERE role = 'admin')
+                        AND cm.receiver_id = ?
                      ) OR (
-                            receiver_id IN (SELECT id FROM users WHERE role = 'admin')
-                        AND sender_id = ?
+                            cm.receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                        AND cm.sender_id = ?
                      )
-                     ORDER BY sent_at ASC"
+                     ORDER BY cm.sent_at ASC"
                 );
                 $stmt->execute([$partner_id, $partner_id]);
             }
