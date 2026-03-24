@@ -107,6 +107,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $partner_id = intval($_GET['partner_id']);
         try {
             if ($role === 'resident') {
+                // Mark admin -> resident messages as read when resident opens thread.
+                $mark_stmt = $pdo->prepare(
+                    "UPDATE chat_messages
+                     SET is_read = 1
+                     WHERE receiver_id = ?
+                       AND sender_id IN (SELECT id FROM users WHERE role = 'admin')
+                       AND is_read = 0"
+                );
+                $mark_stmt->execute([$user_id]);
+
                 // Resident sees full shared admin-history thread.
                 $stmt = $pdo->prepare(
                     "SELECT cm.*, sender.role AS sender_role, sender.fullname AS sender_name
@@ -123,6 +133,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 );
                 $stmt->execute([$user_id, $user_id]);
             } else {
+                // Mark resident -> admin messages as read when admin opens thread.
+                $mark_stmt = $pdo->prepare(
+                    "UPDATE chat_messages
+                     SET is_read = 1
+                     WHERE sender_id = ?
+                       AND receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                       AND is_read = 0"
+                );
+                $mark_stmt->execute([$partner_id]);
+
                 // Admin sees shared admin-history thread for the resident.
                 $stmt = $pdo->prepare(
                     "SELECT cm.*, sender.role AS sender_role, sender.fullname AS sender_name

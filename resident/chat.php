@@ -150,7 +150,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderMessage(message, isMe) {
         const bubble = document.createElement('div');
         bubble.classList.add('message-bubble', isMe ? 'message-bubble-me' : 'message-bubble-other');
-        bubble.innerHTML = `<p>${escapeHTML(message.message)}</p>`;
+        const timestamp = message.sent_at ? new Date(message.sent_at).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit'
+        }) : '';
+        const statusLabel = isMe ? (message.is_read ? 'Read' : 'Sent') : '';
+        const meta = timestamp ? `${timestamp}${isMe ? ' • ' + statusLabel : ''}` : (isMe ? statusLabel : '');
+        bubble.innerHTML = `<p>${escapeHTML(message.message)}</p>${meta ? `<p style="font-size:11px;opacity:.75;margin-top:4px;">${escapeHTML(meta)}</p>` : ''}`;
         messagesArea.appendChild(bubble);
     }
 

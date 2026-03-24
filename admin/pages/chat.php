@@ -200,6 +200,7 @@ $chat_csrf_token = csrf_token();
             // In shared admin inbox mode, any admin-authored message should align to admin side.
             const senderRole = String(message.sender_role || '').toLowerCase();
             const isAdminMsg = senderRole === 'admin' || message.sender_id == myUserId;
+            const statusLabel = isAdminMsg ? (message.is_read ? 'Read' : 'Sent') : '';
             const bubble = document.createElement('div');
             bubble.className = `flex w-full mt-2 space-x-3 max-w-xs ${isAdminMsg ? 'ml-auto justify-end' : 'justify-start'}`;
             
@@ -213,7 +214,7 @@ $chat_csrf_token = csrf_token();
                 <div>
                     <div class="${isAdminMsg ? 'bg-blue-600 text-white p-3 rounded-l-lg rounded-br-lg' : 'bg-gray-300 p-3 rounded-r-lg rounded-bl-lg'}">
                         <p class="text-sm">${escapeHTML(message.message)}</p>
-                        <p class="text-xs ${isAdminMsg ? 'text-blue-100' : 'text-gray-500'} mt-1">${timestamp}</p>
+                        <p class="text-xs ${isAdminMsg ? 'text-blue-100' : 'text-gray-500'} mt-1">${timestamp}${isAdminMsg ? ' • ' + statusLabel : ''}</p>
                     </div>
                 </div>
             `;
