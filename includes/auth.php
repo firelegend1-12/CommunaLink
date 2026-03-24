@@ -5,7 +5,44 @@
  */
 
 // Include necessary files
-require_once __DIR__ . '/../config/init.php'; // Includes DB and functions
+if (defined('AUTH_LIGHTWEIGHT_BOOTSTRAP') && AUTH_LIGHTWEIGHT_BOOTSTRAP === true) {
+    require_once __DIR__ . '/../config/database.php';
+    require_once __DIR__ . '/rate_limiter.php';
+
+    if (!function_exists('configure_session_cookie_security')) {
+        function configure_session_cookie_security() {
+            if (session_status() !== PHP_SESSION_NONE) {
+                return;
+            }
+
+            $is_https = (
+                (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+                (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443) ||
+                (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
+            );
+
+            ini_set('session.use_only_cookies', '1');
+            ini_set('session.use_strict_mode', '1');
+            ini_set('session.cookie_httponly', '1');
+            ini_set('session.cookie_secure', $is_https ? '1' : '0');
+            ini_set('session.cookie_samesite', 'Lax');
+
+            if (PHP_VERSION_ID >= 70300) {
+                session_set_cookie_params([
+                    'lifetime' => 0,
+                    'path' => '/',
+                    'secure' => $is_https,
+                    'httponly' => true,
+                    'samesite' => 'Lax'
+                ]);
+            } else {
+                session_set_cookie_params(0, '/; samesite=Lax', '', $is_https, true);
+            }
+        }
+    }
+} else {
+    require_once __DIR__ . '/../config/init.php'; // Includes DB and functions
+}
 require_once __DIR__ . '/functions.php';
 
 // Fallback session start for direct execution paths that bypass init bootstrap.
@@ -33,7 +70,7 @@ function env_to_bool($value, $default = false) {
 }
 
 function is_official_role_only($role) {
-    return in_array($role, ['barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true);
+    return in_array($role, ['official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true);
 }
 
 function is_admin_role($role) {
@@ -262,7 +299,7 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
             $count_stmt = $pdo->prepare("SELECT id
                                          FROM active_user_sessions
                                          WHERE is_active = 1
-                                           AND role IN ('barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod')
+                                                                                     AND role IN ('official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod')
                                            AND expires_at > NOW()
                                          FOR UPDATE");
             $count_stmt->execute();
@@ -275,17 +312,17 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
             }
         }
 
-        $expires_at = date('Y-m-d H:i:s', time() + max(60, (int) $session_lifetime_seconds));
+                $session_lifetime_seconds = max(60, (int) $session_lifetime_seconds);
         $insert_stmt = $pdo->prepare("INSERT INTO active_user_sessions
                                       (session_id, user_id, role, ip_address, user_agent, started_at, last_seen_at, expires_at, is_active, ended_at, ended_reason)
-                                      VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?, 1, NULL, NULL)
+                                                                            VALUES (?, ?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL ? SECOND), 1, NULL, NULL)
                                       ON DUPLICATE KEY UPDATE
                                         user_id = VALUES(user_id),
                                         role = VALUES(role),
                                         ip_address = VALUES(ip_address),
                                         user_agent = VALUES(user_agent),
                                         last_seen_at = NOW(),
-                                        expires_at = VALUES(expires_at),
+                                                                                expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND),
                                         is_active = 1,
                                         ended_at = NULL,
                                         ended_reason = NULL");
@@ -295,7 +332,8 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
             $role,
             $_SERVER['REMOTE_ADDR'] ?? null,
             $_SERVER['HTTP_USER_AGENT'] ?? null,
-            $expires_at,
+                        $session_lifetime_seconds,
+                        $session_lifetime_seconds,
         ]);
 
         $pdo->commit();
@@ -313,15 +351,15 @@ function refresh_active_session_heartbeat($pdo, $session_id, $session_lifetime_s
         return true;
     }
 
-    $expires_at = date('Y-m-d H:i:s', time() + max(60, (int) $session_lifetime_seconds));
+    $session_lifetime_seconds = max(60, (int) $session_lifetime_seconds);
     $stmt = $pdo->prepare("UPDATE active_user_sessions
                           SET last_seen_at = NOW(),
-                              expires_at = ?,
+                              expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND),
                               is_active = 1
                           WHERE session_id = ?
                             AND is_active = 1
                             AND (ended_reason IS NULL OR ended_reason = '')");
-    $stmt->execute([$expires_at, $session_id]);
+    $stmt->execute([$session_lifetime_seconds, $session_id]);
 
     $affected = (int) $stmt->rowCount();
     
@@ -433,7 +471,7 @@ function create_session($user, $pdo = null) {
     session_regenerate_id(true); // Prevent session fixation
 
     $user_role = $user['role'] ?? 'resident';
-    $is_official = in_array($user_role, ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true);
+    $is_official = is_session_policy_tracked_role($user_role);
     $session_lifetime = $is_official
         ? (int) env('ADMIN_SESSION_LIFETIME', 30 * 60)
         : (int) env('SESSION_LIFETIME', 5 * 60);
@@ -488,7 +526,7 @@ function is_logged_in() {
         // Get session timeout from environment or use defaults
         // Officials (including admin) get longer timeout (30 minutes), regular users get 5 minutes
         $user_role = $_SESSION['role'] ?? 'resident';
-        $is_official = in_array($user_role, ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod']);
+        $is_official = is_session_policy_tracked_role($user_role);
         
         if ($is_official) {
             $session_lifetime = (int)env('ADMIN_SESSION_LIFETIME', 30 * 60); // 30 minutes for officials
@@ -541,7 +579,7 @@ function is_logged_in() {
  */
 function is_admin_or_official() {
     if (!isset($_SESSION['role'])) return false;
-    return in_array($_SESSION['role'], ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod']);
+    return in_array($_SESSION['role'], ['admin', 'official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod']);
 }
 
 /**

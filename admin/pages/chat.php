@@ -160,9 +160,14 @@ $chat_csrf_token = csrf_token();
             let firstDiv = null;
             conversations.forEach((convo, idx) => {
                 const convoDiv = document.createElement('div');
-                convoDiv.className = 'flex items-center p-4 cursor-pointer hover:bg-gray-50 border-b border-gray-200';
+                convoDiv.className = 'relative flex items-center p-4 cursor-pointer hover:bg-gray-50 border-b border-gray-200';
                 convoDiv.dataset.userId = convo.user_id;
+                const unreadCount = Number(convo.unread_count || 0);
+                const unreadBadge = unreadCount > 0
+                    ? `<span class="absolute top-2 right-3 bg-red-600 text-white text-[11px] leading-none px-2 py-1 rounded-full font-semibold">${unreadCount > 99 ? '99+' : unreadCount}</span>`
+                    : '';
                 convoDiv.innerHTML = `
+                    ${unreadBadge}
                     <div class="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-xl mr-4">
                         ${escapeHTML(convo.fullname).charAt(0)}
                     </div>
@@ -197,8 +202,10 @@ $chat_csrf_token = csrf_token();
         });
 
         function renderMessage(message) {
-            // Compare sender_id to myUserId for correct alignment
-            const isAdminMsg = message.sender_id == myUserId;
+            // In shared admin inbox mode, any admin-authored message should align to admin side.
+            const senderRole = String(message.sender_role || '').toLowerCase();
+            const isAdminMsg = senderRole === 'admin' || message.sender_id == myUserId;
+            const statusLabel = isAdminMsg ? (message.is_read ? 'Read' : 'Sent') : '';
             const bubble = document.createElement('div');
             bubble.className = `flex w-full mt-2 space-x-3 max-w-xs ${isAdminMsg ? 'ml-auto justify-end' : 'justify-start'}`;
             
@@ -212,7 +219,7 @@ $chat_csrf_token = csrf_token();
                 <div>
                     <div class="${isAdminMsg ? 'bg-blue-600 text-white p-3 rounded-l-lg rounded-br-lg' : 'bg-gray-300 p-3 rounded-r-lg rounded-bl-lg'}">
                         <p class="text-sm">${escapeHTML(message.message)}</p>
-                        <p class="text-xs ${isAdminMsg ? 'text-blue-100' : 'text-gray-500'} mt-1">${timestamp}</p>
+                        <p class="text-xs ${isAdminMsg ? 'text-blue-100' : 'text-gray-500'} mt-1">${timestamp}${isAdminMsg ? ' • ' + statusLabel : ''}</p>
                     </div>
                 </div>
             `;
@@ -240,7 +247,7 @@ $chat_csrf_token = csrf_token();
 
         function startConversationPolling() {
             if (conversationPollingInterval) clearInterval(conversationPollingInterval);
-            conversationPollingInterval = setInterval(fetchConversations, 2000);
+            conversationPollingInterval = setInterval(fetchConversations, 8000);
         }
 
         function stopConversationPolling() {
@@ -249,7 +256,7 @@ $chat_csrf_token = csrf_token();
 
         function startMessagePolling(partnerId) {
             if (messagePollingInterval) clearInterval(messagePollingInterval);
-            messagePollingInterval = setInterval(() => fetchMessages(partnerId), 2000);
+            messagePollingInterval = setInterval(() => fetchMessages(partnerId), 3000);
         }
 
         function stopMessagePolling() {
