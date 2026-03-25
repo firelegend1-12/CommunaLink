@@ -45,16 +45,16 @@ class OTPEmailService {
             $fromEmail = defined('EMAIL_FROM_EMAIL') && EMAIL_FROM_EMAIL !== '' 
                 ? EMAIL_FROM_EMAIL 
                 : $mail->Username;
-            $fromName = defined('EMAIL_FROM_NAME') ? EMAIL_FROM_NAME : 'CommuniLink Barangay System';
+            $fromName = defined('EMAIL_FROM_NAME') ? EMAIL_FROM_NAME : 'CommunaLink Barangay System';
 
             $mail->setFrom($fromEmail, $fromName);
             $mail->addAddress($toEmail, $toName);
 
             // Email content
             $mail->isHTML(true);
-            $mail->Subject = 'Your Verification Code - CommuniLink';
+            $mail->Subject = 'Your Verification Code - CommunaLink';
             $mail->Body    = self::getOTPEmailTemplate($toName, $otpCode);
-            $mail->AltBody = "Hi $toName,\n\nYour CommuniLink verification code is: $otpCode\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.";
+            $mail->AltBody = "Hi $toName,\n\nYour CommunaLink verification code is: $otpCode\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.";
 
             $mail->send();
             error_log("OTP email sent successfully to: $toEmail");
@@ -160,15 +160,15 @@ class OTPEmailService {
             $fromEmail = defined('EMAIL_FROM_EMAIL') && EMAIL_FROM_EMAIL !== '' 
                 ? EMAIL_FROM_EMAIL 
                 : $mail->Username;
-            $fromName = defined('EMAIL_FROM_NAME') ? EMAIL_FROM_NAME : 'CommuniLink Barangay System';
+            $fromName = defined('EMAIL_FROM_NAME') ? EMAIL_FROM_NAME : 'CommunaLink Barangay System';
 
             $mail->setFrom($fromEmail, $fromName);
             $mail->addAddress($toEmail, $toName);
 
             $mail->isHTML(true);
-            $mail->Subject = 'Password Reset - CommuniLink';
+            $mail->Subject = 'Password Reset - CommunaLink';
             $mail->Body    = self::getPasswordResetEmailTemplate($toName, $resetLink);
-            $mail->AltBody = "Hi $toName,\n\nWe received a request to reset your CommuniLink password.\n\nClick the link below to reset your password:\n$resetLink\n\nThis link expires in 1 hour.\n\nIf you did not request this, please ignore this email.";
+            $mail->AltBody = "Hi $toName,\n\nWe received a request to reset your CommunaLink password.\n\nClick the link below to reset your password:\n$resetLink\n\nThis link expires in 1 hour.\n\nIf you did not request this, please ignore this email.";
 
             $mail->send();
             error_log("Password reset email sent successfully to: $toEmail");
@@ -195,7 +195,7 @@ class OTPEmailService {
 <table width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
     <tr>
         <td style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:32px 40px;text-align:center;">
-            <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:700;letter-spacing:0.5px;">CommuniLink</h1>
+            <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:700;letter-spacing:0.5px;">CommunaLink</h1>
             <p style="color:#c7d2fe;margin:6px 0 0;font-size:13px;">Barangay Management System</p>
         </td>
     </tr>
@@ -224,7 +224,7 @@ class OTPEmailService {
     </tr>
     <tr>
         <td style="background-color:#f8fafc;padding:20px 40px;text-align:center;border-top:1px solid #e2e8f0;">
-            <p style="color:#94a3b8;font-size:11px;margin:0;">&copy; ' . date('Y') . ' CommuniLink Barangay System. All rights reserved.</p>
+            <p style="color:#94a3b8;font-size:11px;margin:0;">&copy; ' . date('Y') . ' CommunaLink Barangay System. All rights reserved.</p>
         </td>
     </tr>
 </table>
@@ -258,7 +258,7 @@ class OTPEmailService {
 <table width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
     <tr>
         <td style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:32px 40px;text-align:center;">
-            <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:700;letter-spacing:0.5px;">CommuniLink</h1>
+            <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:700;letter-spacing:0.5px;">CommunaLink</h1>
             <p style="color:#c7d2fe;margin:6px 0 0;font-size:13px;">Barangay Management System</p>
         </td>
     </tr>
@@ -275,13 +275,13 @@ class OTPEmailService {
                 <strong>This code expires in 10 minutes.</strong>
             </p>
             <p style="color:#94a3b8;font-size:13px;line-height:1.5;margin:0;">
-                If you did not create an account on CommuniLink, you can safely ignore this email.
+                If you did not create an account on CommunaLink, you can safely ignore this email.
             </p>
         </td>
     </tr>
     <tr>
         <td style="background-color:#f8fafc;padding:20px 40px;text-align:center;border-top:1px solid #e2e8f0;">
-            <p style="color:#94a3b8;font-size:11px;margin:0;">&copy; ' . date('Y') . ' CommuniLink Barangay System. All rights reserved.</p>
+            <p style="color:#94a3b8;font-size:11px;margin:0;">&copy; ' . date('Y') . ' CommunaLink Barangay System. All rights reserved.</p>
         </td>
     </tr>
 </table>
