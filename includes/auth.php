@@ -15,10 +15,25 @@ if (defined('AUTH_LIGHTWEIGHT_BOOTSTRAP') && AUTH_LIGHTWEIGHT_BOOTSTRAP === true
                 return;
             }
 
+            // Cloud environments might require a specific session save path (e.g., /tmp for App Engine)
+            $session_path = '';
+            if (function_exists('env')) {
+                $session_path = env('SESSION_SAVE_PATH', '');
+            } else {
+                $session_path = getenv('SESSION_SAVE_PATH') ?: ($_ENV['SESSION_SAVE_PATH'] ?? $_SERVER['SESSION_SAVE_PATH'] ?? '');
+            }
+            
+            if (!empty($session_path)) {
+                if (!is_dir($session_path)) {
+                    @mkdir($session_path, 0777, true);
+                }
+                session_save_path($session_path);
+            }
+
             $is_https = (
                 (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
                 (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443) ||
-                (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
+                (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strpos(strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']), 'https') !== false)
             );
 
             ini_set('session.use_only_cookies', '1');
@@ -27,17 +42,13 @@ if (defined('AUTH_LIGHTWEIGHT_BOOTSTRAP') && AUTH_LIGHTWEIGHT_BOOTSTRAP === true
             ini_set('session.cookie_secure', $is_https ? '1' : '0');
             ini_set('session.cookie_samesite', 'Lax');
 
-            if (PHP_VERSION_ID >= 70300) {
-                session_set_cookie_params([
-                    'lifetime' => 0,
-                    'path' => '/',
-                    'secure' => $is_https,
-                    'httponly' => true,
-                    'samesite' => 'Lax'
-                ]);
-            } else {
-                session_set_cookie_params(0, '/; samesite=Lax', '', $is_https, true);
-            }
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path' => '/',
+                'secure' => $is_https,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
         }
     }
 } else {

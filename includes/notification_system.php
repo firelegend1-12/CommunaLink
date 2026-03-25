@@ -251,7 +251,7 @@ if (!class_exists('NotificationSystem')) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'Authorization: Bearer ' . SENDGRID_API_KEY,
+                'Authorization: Bearer ' . constant('SENDGRID_API_KEY'),
                 'Content-Type: application/json',
             ]);
 
