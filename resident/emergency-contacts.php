@@ -256,7 +256,7 @@ require_once 'partials/header.php';
                 <i class="fas fa-envelope info-icon"></i>
                 <div class="info-content">
                     <h3>Email Address</h3>
-                    <p style="font-size: 1rem;"><a href="mailto:info@barangaymasigasig.gov.ph">info@barangaymasigasig.gov.ph</a></p>
+                    <p style="font-size: 1rem;"><a href="mailto:info@barangaypakiad.gov.ph">info@barangaypakiad.gov.ph</a></p>
                     <span class="subtext">General Inquiries</span>
                 </div>
             </div>
@@ -264,8 +264,8 @@ require_once 'partials/header.php';
                 <i class="fas fa-map-marker-alt info-icon"></i>
                 <div class="info-content">
                     <h3>Office Address</h3>
-                    <p style="font-size: 1rem;">Barangay Hall, Masigasig Street</p>
-                    <span class="subtext">Quezon City, Metro Manila</span>
+                    <p style="font-size: 1rem;">Pakiad, Cagbang Road</p>
+                    <span class="subtext">Oton, Iloilo City</span>
                 </div>
             </div>
         </div>
