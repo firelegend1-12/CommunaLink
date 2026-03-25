@@ -1,0 +1,19 @@
+runtime: php82 # Adjust to your specific PHP version (e.g., php81, php83)
+env: standard
+instance_class: F1 # Forces the use of the Free Tier instance class
+
+# Scaling settings to scale to zero when no traffic exists (saves costs)
+automatic_scaling:
+  max_instances: 2
+  min_instances: 0
+
+env_variables:
+  # Database Config
+  DB_SOCKET: "/cloudsql/communalink-prod:us-central1:communalink-db"
+  DB_NAME: "barangay_reports"
+  DB_USER: "communalink_admin"
+  DB_PASS: "M@k@tao123"
+  
+  # Storage and API Config
+  STORAGE_BUCKET: "communalink-media-bucket"
+  MAPS_API_KEY: "AIzaSyDSePOKkt_W5bY7YsYaEJrMoSRWxTMGnuI"
