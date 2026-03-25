@@ -3,6 +3,10 @@
 .env.local
 .env.*.local
 
+# Deployment config with secrets
+app.yaml
+!app.yaml.example
+
 # Logs
 logs/*.log
 *.log

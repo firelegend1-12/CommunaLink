@@ -1,0 +1,31 @@
+runtime: php82
+env: standard
+instance_class: F1
+
+automatic_scaling:
+  max_instances: 2
+  min_instances: 0
+
+env_variables:
+  # Database Config - use your NEW rotated password
+  DB_SOCKET: "/cloudsql/communalink-prod:us-central1:communalink-db"
+  DB_NAME: "barangay_reports"
+  DB_USER: "communalink_admin"
+  DB_PASS: "P@Rent$123"  # ← Put new password here
+  
+  # Storage and API Config
+  STORAGE_BUCKET: "communalink-media-bucket"
+  MAPS_API_KEY: "AIzaSyDSePOKkt_W5bY7YsYaEJrMoSRWxTMGnuI"  # ← If you rotated it, put new key here
+  
+  # Email Configuration
+  EMAIL_SMTP_HOST: "smtp.gmail.com"
+  EMAIL_SMTP_PORT: "465"
+  EMAIL_SMTP_USERNAME: "gmreyes@usa.edu.ph"
+  EMAIL_SMTP_PASSWORD: "idts hblw crcx wjbi"  # ← Your new email app password
+  EMAIL_SMTP_SECURE: "ssl"
+  EMAIL_FROM_EMAIL: "gmreyes@usa.edu.ph"
+  EMAIL_FROM_NAME: "CommunaLink Barangay System"
+  
+  # App Config
+  APP_ENV: "production"
+  APP_DEBUG: "false"
