@@ -237,11 +237,11 @@ function cancelReport(id) {
         if (data.success) {
             window.location.href = 'my-reports.php?cancelled=1';
         } else {
-            alert(data.error || 'Failed to cancel report.');
+            window.location.href = 'my-reports.php?cancel_error=1';
         }
     })
     .catch(() => {
-        alert('Failed to cancel report. Please try again.');
+        window.location.href = 'my-reports.php?cancel_error=1';
     });
 }
 </script>

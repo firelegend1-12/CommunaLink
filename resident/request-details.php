@@ -258,11 +258,11 @@ function cancelDocumentRequest(requestId) {
         if (data.success) {
             window.location.href = 'my-requests.php?cancelled=1';
         } else {
-            alert(data.error || 'Failed to cancel request.');
+            window.location.href = 'my-requests.php?cancel_error=1';
         }
     })
     .catch(() => {
-        alert('Failed to cancel request. Please try again.');
+        window.location.href = 'my-requests.php?cancel_error=1';
     });
 }
 </script>
