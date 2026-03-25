@@ -41,7 +41,7 @@ $qr_code_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' 
     <div class="flex items-center justify-between z-10">
         <div class="text-left">
             <p class="font-bold text-xs">REPUBLIC OF THE PHILIPPINES</p>
-            <p class="font-semibold">CITY OF ILOILO - BARANGAY MASIGASIG</p>
+            <p class="font-semibold">CITY OF ILOILO - BARANGAY PAKIAD</p>
             <p>Tel No.: (63) 917 986 9611 | (63) 917 986 9611</p>
         </div>
     </div>
