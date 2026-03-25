@@ -13,6 +13,8 @@ require_role('resident');
 
 $page_title = "My Incident Reports";
 $user_fullname = $_SESSION['fullname'] ?? 'Resident';
+$show_cancel_success = isset($_GET['cancelled']) && $_GET['cancelled'] === '1';
+$show_cancel_error = isset($_GET['cancel_error']) && $_GET['cancel_error'] === '1';
 
 require_once '../config/database.php';
 
@@ -74,6 +76,17 @@ require_once 'partials/header.php';
         gap: 0;
     }
 </style>
+<?php if ($show_cancel_success): ?>
+<div id="toast-banner" class="ui-toast success" role="status" aria-live="polite">
+    <i class="fas fa-check-circle" aria-hidden="true"></i>
+    <span>Report cancelled successfully.</span>
+</div>
+<?php elseif ($show_cancel_error): ?>
+<div id="toast-banner" class="ui-toast error" role="alert" aria-live="assertive">
+    <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
+    <span>Failed to cancel report. Please try again.</span>
+</div>
+<?php endif; ?>
 <div class="table-container">
     <div class="table-header">
         <h2>My Submitted Reports</h2>
@@ -87,6 +100,20 @@ require_once 'partials/header.php';
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const toast = document.getElementById('toast-banner');
+    if (toast) {
+        const container = document.getElementById('residentToastContainer');
+        if (container) {
+            container.appendChild(toast);
+        }
+        setTimeout(() => toast.classList.add('hide'), 2600);
+        setTimeout(() => {
+            if (toast && toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 3000);
+    }
+
 function renderTimeline(status) {
     let activeStep = 1;
     let isRejected = false;

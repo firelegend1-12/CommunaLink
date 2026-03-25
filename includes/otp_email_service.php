@@ -4,7 +4,9 @@
  * Sends OTP verification codes during registration
  */
 
-require_once __DIR__ . '/../vendor/autoload.php';
+if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+}
 require_once __DIR__ . '/../config/email_config.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
@@ -12,6 +14,49 @@ use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
 
 class OTPEmailService {
+
+    /**
+     * Returns true when SMTP credentials are present and not obvious placeholders.
+     */
+    private static function hasValidSmtpCredentials(string $username, string $password): bool {
+        $username = trim($username);
+        $password = trim($password);
+
+        if ($username === '' || $password === '') {
+            return false;
+        }
+
+        $invalidUsernames = ['your-email@gmail.com', 'example@gmail.com', 'your-email@example.com'];
+        $invalidPasswords = ['your-app-password-here', 'your-16-character-app-password', 'changeme'];
+
+        return !in_array(strtolower($username), $invalidUsernames, true)
+            && !in_array(strtolower($password), $invalidPasswords, true);
+    }
+
+    /**
+     * Build PHPMailer encryption mode from EMAIL_SMTP_SECURE.
+     */
+    private static function getSmtpEncryptionMode() {
+        $secure = strtolower(trim((string) (defined('EMAIL_SMTP_SECURE') ? EMAIL_SMTP_SECURE : 'ssl')));
+
+        if ($secure === 'tls' || $secure === 'starttls') {
+            return PHPMailer::ENCRYPTION_STARTTLS;
+        }
+
+        if ($secure === '' || $secure === 'none' || $secure === 'off' || $secure === 'false' || $secure === '0') {
+            return false;
+        }
+
+        return PHPMailer::ENCRYPTION_SMTPS;
+    }
+
+    /**
+     * Whether native mail() fallback is allowed for current environment.
+     */
+    private static function allowNativeFallback(): bool {
+        $appEnv = strtolower(trim((string) env('APP_ENV', 'production')));
+        return $appEnv !== 'production';
+    }
     
     /**
      * Generate a 6-digit OTP code
@@ -24,6 +69,16 @@ class OTPEmailService {
      * Send OTP verification email via Gmail SMTP using PHPMailer
      */
     public static function sendOTP(string $toEmail, string $toName, string $otpCode): bool {
+        if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
+            if (!self::allowNativeFallback()) {
+                error_log('OTP Email: PHPMailer is unavailable in production. Install Composer dependencies.');
+                return false;
+            }
+
+            error_log('OTP Email: PHPMailer not available, using native mail() fallback in non-production.');
+            return self::sendOTPViaNativeMail($toEmail, $toName, $otpCode);
+        }
+
         $mail = new PHPMailer(true);
 
         try {
@@ -33,10 +88,11 @@ class OTPEmailService {
             $mail->SMTPAuth   = true;
             $mail->Username   = defined('EMAIL_SMTP_USERNAME') ? EMAIL_SMTP_USERNAME : '';
             $mail->Password   = defined('EMAIL_SMTP_PASSWORD') ? EMAIL_SMTP_PASSWORD : '';
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+            $mail->SMTPSecure = self::getSmtpEncryptionMode();
             $mail->Port       = defined('EMAIL_SMTP_PORT') ? EMAIL_SMTP_PORT : 465;
+            $mail->Timeout    = 20;
 
-            if (empty($mail->Username) || empty($mail->Password)) {
+            if (!self::hasValidSmtpCredentials($mail->Username, $mail->Password)) {
                 error_log("OTP Email: Gmail SMTP credentials not configured.");
                 return false;
             }
@@ -141,6 +197,16 @@ class OTPEmailService {
      * Send password reset email via Gmail SMTP using PHPMailer
      */
     public static function sendPasswordResetEmail(string $toEmail, string $toName, string $resetLink): bool {
+        if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
+            if (!self::allowNativeFallback()) {
+                error_log('Password Reset Email: PHPMailer is unavailable in production. Install Composer dependencies.');
+                return false;
+            }
+
+            error_log('Password Reset Email: PHPMailer not available, using native mail() fallback in non-production.');
+            return self::sendPasswordResetViaNativeMail($toEmail, $toName, $resetLink);
+        }
+
         $mail = new PHPMailer(true);
 
         try {
@@ -149,10 +215,11 @@ class OTPEmailService {
             $mail->SMTPAuth   = true;
             $mail->Username   = defined('EMAIL_SMTP_USERNAME') ? EMAIL_SMTP_USERNAME : '';
             $mail->Password   = defined('EMAIL_SMTP_PASSWORD') ? EMAIL_SMTP_PASSWORD : '';
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+            $mail->SMTPSecure = self::getSmtpEncryptionMode();
             $mail->Port       = defined('EMAIL_SMTP_PORT') ? EMAIL_SMTP_PORT : 465;
+            $mail->Timeout    = 20;
 
-            if (empty($mail->Username) || empty($mail->Password)) {
+            if (!self::hasValidSmtpCredentials($mail->Username, $mail->Password)) {
                 error_log("Password Reset Email: Gmail SMTP credentials not configured.");
                 return false;
             }
@@ -232,6 +299,42 @@ class OTPEmailService {
 </table>
 </body>
 </html>';
+    }
+
+    /**
+     * Native PHP mail() fallback for OTP when PHPMailer is unavailable.
+     */
+    private static function sendOTPViaNativeMail(string $toEmail, string $toName, string $otpCode): bool {
+        $fromEmail = defined('EMAIL_FROM_EMAIL') && EMAIL_FROM_EMAIL !== '' ? EMAIL_FROM_EMAIL : 'noreply@localhost';
+        $fromName = defined('EMAIL_FROM_NAME') && EMAIL_FROM_NAME !== '' ? EMAIL_FROM_NAME : 'CommunaLink Barangay System';
+
+        $subject = 'Your Verification Code - CommunaLink';
+        $body = self::getOTPEmailTemplate($toName, $otpCode);
+
+        $headers = "From: {$fromName} <{$fromEmail}>\r\n";
+        $headers .= "Reply-To: {$fromEmail}\r\n";
+        $headers .= "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+
+        return @mail($toEmail, $subject, $body, $headers);
+    }
+
+    /**
+     * Native PHP mail() fallback for password reset when PHPMailer is unavailable.
+     */
+    private static function sendPasswordResetViaNativeMail(string $toEmail, string $toName, string $resetLink): bool {
+        $fromEmail = defined('EMAIL_FROM_EMAIL') && EMAIL_FROM_EMAIL !== '' ? EMAIL_FROM_EMAIL : 'noreply@localhost';
+        $fromName = defined('EMAIL_FROM_NAME') && EMAIL_FROM_NAME !== '' ? EMAIL_FROM_NAME : 'CommunaLink Barangay System';
+
+        $subject = 'Password Reset - CommunaLink';
+        $body = self::getPasswordResetEmailTemplate($toName, $resetLink);
+
+        $headers = "From: {$fromName} <{$fromEmail}>\r\n";
+        $headers .= "Reply-To: {$fromEmail}\r\n";
+        $headers .= "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+
+        return @mail($toEmail, $subject, $body, $headers);
     }
 
     /**

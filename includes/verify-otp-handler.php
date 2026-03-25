@@ -39,7 +39,7 @@ $result = OTPEmailService::verifyOTP($pdo, $email, $otpCode);
 if ($result === 'max_attempts') {
     // Delete the OTP record and force re-registration
     $pdo->prepare("DELETE FROM email_verification_otps WHERE email = ?")->execute([$email]);
-    unset($_SESSION['otp_email'], $_SESSION['otp_fullname']);
+    unset($_SESSION['otp_email'], $_SESSION['otp_fullname'], $_SESSION['otp_dev_code']);
     $_SESSION['error_message'] = "Too many failed attempts. Please register again.";
     header("Location: ../register.php");
     exit;

@@ -221,7 +221,7 @@ window.initGoogleMap = async function() {
                 (error) => {
                     let msg = "The Geolocation service failed.";
                     if (error.code === 1) msg = "Please allow location permissions.";
-                    alert("Error: " + msg);
+                    residentShowToast("Error: " + msg, 'error');
                     locateBtn.innerHTML = '<i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>';
                     setTimeout(() => {
                         locateBtn.innerHTML = '<i class="fas fa-crosshairs" style="color: #666;"></i>';
@@ -230,7 +230,7 @@ window.initGoogleMap = async function() {
                 { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
             );
         } else {
-            alert("Error: Your browser doesn't support geolocation.");
+            residentShowToast("Error: Your browser doesn't support geolocation.", 'error');
         }
     });
 };

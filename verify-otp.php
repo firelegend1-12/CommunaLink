@@ -208,6 +208,16 @@ $masked_email = substr($email, 0, 3) . '***' . substr($email, strpos($email, '@'
                     <?php unset($_SESSION['otp_success']); ?>
                 <?php endif; ?>
 
+                <?php
+                $app_env = strtolower((string) env('APP_ENV', 'production'));
+                if ($app_env !== 'production' && isset($_SESSION['otp_dev_code'])):
+                ?>
+                    <div class="alert alert-success" style="margin-top:-.5rem;background:rgba(99,102,241,.18);border-color:rgba(129,140,248,.45);color:#c7d2fe;">
+                        <i class="fas fa-flask"></i>
+                        <span>Development OTP: <strong><?= htmlspecialchars((string) $_SESSION['otp_dev_code']) ?></strong></span>
+                    </div>
+                <?php endif; ?>
+
                 <form action="includes/verify-otp-handler.php" method="POST" id="otpForm">
                     <div class="otp-inputs" id="otpInputs">
                         <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="one-time-code" required>

@@ -58,9 +58,16 @@ try {
     $sent = OTPEmailService::sendOTP($email, $fullname, $otpCode);
 
     if ($sent) {
+        unset($_SESSION['otp_dev_code']);
         $_SESSION['otp_success'] = "A new verification code has been sent to your email.";
     } else {
-        $_SESSION['otp_error'] = "Failed to send email. Please try again later.";
+        $app_env = strtolower((string) env('APP_ENV', 'production'));
+        if ($app_env !== 'production') {
+            $_SESSION['otp_dev_code'] = $otpCode;
+            $_SESSION['otp_success'] = 'Email delivery is unavailable. A temporary development OTP code has been generated.';
+        } else {
+            $_SESSION['otp_error'] = "Failed to send email. Please try again later.";
+        }
     }
 
 } catch (PDOException $e) {

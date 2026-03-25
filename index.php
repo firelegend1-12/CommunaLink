@@ -216,7 +216,6 @@ $page_title = "Sign In - CommuniLink";
                 
                 <!-- Right Column - Image/Info -->
                 <div class="auth-image-container">
-                    <img src="assets/sk.svg" alt="SK Logo">
                     <p>
                         In today's rapidly evolving communities, efficient and secure identification systems are essential for streamlined governance and effective service delivery.
                     </p>

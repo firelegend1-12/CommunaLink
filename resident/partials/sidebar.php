@@ -5,20 +5,21 @@ if (session_status() === PHP_SESSION_NONE) {
 // Get current script name to determine active page
 $current_page = basename($_SERVER['PHP_SELF']);
 $user_fullname = $_SESSION['fullname'] ?? 'Resident';
+$display_name = ucfirst(trim((string) $user_fullname));
 
 ?>
 <aside class="sidebar">
     <div class="sidebar-header">
         <img src="../assets/images/barangay-logo.png" alt="Barangay Logo" style="height: 45px; width: 45px; border-radius: 50%; margin-right: 15px; object-fit: cover; background: #5c67e2; display: block;">
         <div class="sidebar-title">
-            <span class="main-title">Barangay Masigasig</span>
+            <span class="main-title">Barangay Pakiad</span>
             <span class="sub-title">Resident Portal</span>
         </div>
     </div>
     <div class="sidebar-profile">
         <i class="fas fa-user-circle profile-icon"></i>
         <div class="profile-info">
-            <span class="profile-name"><?= htmlspecialchars($user_fullname) ?></span>
+            <span class="profile-name"><?= htmlspecialchars($display_name) ?></span>
             <span class="profile-role">Resident</span>
         </div>
     </div>

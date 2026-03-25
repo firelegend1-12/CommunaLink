@@ -211,10 +211,45 @@ window.initMap = async function() {
 };
 
 function cancelReport(id) {
-    if(confirm("Are you sure you want to cancel and delete this incident report? This action cannot be undone.")) {
-        // Implement soft delete or status change via fetch to API
-        alert("Cancellation functionality will be implemented soon!");
-    }
+    residentPrompt('Please provide a reason for cancellation:', function(reason) {
+        if (reason === null) {
+            return;
+        }
+
+        residentConfirm('Are you sure you want to cancel and delete this incident report? This action cannot be undone.', function() {
+            fetch('partials/cancel-incident-report.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: 'id=' + encodeURIComponent(String(id)) + '&reason=' + encodeURIComponent(reason)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = 'my-reports.php?cancelled=1';
+                } else {
+                    window.location.href = 'my-reports.php?cancel_error=1';
+                }
+            })
+            .catch(() => {
+                window.location.href = 'my-reports.php?cancel_error=1';
+            });
+        }, {
+            title: 'Cancel Incident Report',
+            confirmText: 'Cancel Report',
+            cancelText: 'Keep Report',
+            danger: true
+        });
+    }, {
+        title: 'Incident Cancellation Reason',
+        placeholder: 'Enter cancellation reason',
+        confirmText: 'Continue',
+        cancelText: 'Back',
+        required: true,
+        requiredMessage: 'Cancellation reason is required.'
+    });
 }
 </script>
 
