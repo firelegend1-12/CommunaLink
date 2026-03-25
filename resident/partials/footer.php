@@ -63,13 +63,15 @@
         window.residentConfirm = function(message, onConfirm, options) {
             var opts = options || {};
             var overlay = byId('residentConfirmOverlay');
+            var title = byId('residentConfirmTitle');
             var msg = byId('residentConfirmMessage');
             var ok = byId('residentConfirmOk');
             var cancel = byId('residentConfirmCancel');
-            if (!overlay || !msg || !ok || !cancel) {
+            if (!overlay || !title || !msg || !ok || !cancel) {
                 return;
             }
 
+            title.textContent = opts.title || 'Confirm Action';
             msg.textContent = String(message || 'Are you sure?');
             ok.textContent = opts.confirmText || 'Confirm';
             cancel.textContent = opts.cancelText || 'Cancel';
@@ -110,14 +112,16 @@
         window.residentPrompt = function(message, onSubmit, options) {
             var opts = options || {};
             var overlay = byId('residentPromptOverlay');
+            var title = byId('residentPromptTitle');
             var msg = byId('residentPromptMessage');
             var input = byId('residentPromptInput');
             var ok = byId('residentPromptOk');
             var cancel = byId('residentPromptCancel');
-            if (!overlay || !msg || !input || !ok || !cancel) {
+            if (!overlay || !title || !msg || !input || !ok || !cancel) {
                 return;
             }
 
+            title.textContent = opts.title || 'Input Required';
             msg.textContent = String(message || 'Enter value');
             input.value = opts.defaultValue || '';
             input.placeholder = opts.placeholder || '';

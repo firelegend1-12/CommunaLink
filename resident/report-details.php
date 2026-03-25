@@ -237,12 +237,16 @@ function cancelReport(id) {
                 window.location.href = 'my-reports.php?cancel_error=1';
             });
         }, {
+            title: 'Cancel Incident Report',
             confirmText: 'Cancel Report',
+            cancelText: 'Keep Report',
             danger: true
         });
     }, {
+        title: 'Incident Cancellation Reason',
         placeholder: 'Enter cancellation reason',
         confirmText: 'Continue',
+        cancelText: 'Back',
         required: true,
         requiredMessage: 'Cancellation reason is required.'
     });

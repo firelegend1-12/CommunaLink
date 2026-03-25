@@ -124,8 +124,15 @@ try {
     $emailSent = OTPEmailService::sendOTP($email, $fullname, $otpCode);
 
     if (!$emailSent) {
-        $_SESSION['error_message'] = "Failed to send verification email. Please check your email address or try again later.";
-        redirect_to('../register.php');
+        $app_env = strtolower((string) env('APP_ENV', 'production'));
+        if ($app_env !== 'production') {
+            // Dev-safe fallback: continue to OTP page and show temporary code.
+            $_SESSION['otp_success'] = 'Email delivery is unavailable. Using temporary development OTP code.';
+            $_SESSION['otp_dev_code'] = $otpCode;
+        } else {
+            $_SESSION['error_message'] = "Failed to send verification email. Please check your email address or try again later.";
+            redirect_to('../register.php');
+        }
     }
 
     // Store email in session for the verification page
