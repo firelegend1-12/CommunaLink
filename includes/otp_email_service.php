@@ -14,6 +14,49 @@ use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
 
 class OTPEmailService {
+
+    /**
+     * Returns true when SMTP credentials are present and not obvious placeholders.
+     */
+    private static function hasValidSmtpCredentials(string $username, string $password): bool {
+        $username = trim($username);
+        $password = trim($password);
+
+        if ($username === '' || $password === '') {
+            return false;
+        }
+
+        $invalidUsernames = ['your-email@gmail.com', 'example@gmail.com', 'your-email@example.com'];
+        $invalidPasswords = ['your-app-password-here', 'your-16-character-app-password', 'changeme'];
+
+        return !in_array(strtolower($username), $invalidUsernames, true)
+            && !in_array(strtolower($password), $invalidPasswords, true);
+    }
+
+    /**
+     * Build PHPMailer encryption mode from EMAIL_SMTP_SECURE.
+     */
+    private static function getSmtpEncryptionMode() {
+        $secure = strtolower(trim((string) (defined('EMAIL_SMTP_SECURE') ? EMAIL_SMTP_SECURE : 'ssl')));
+
+        if ($secure === 'tls' || $secure === 'starttls') {
+            return PHPMailer::ENCRYPTION_STARTTLS;
+        }
+
+        if ($secure === '' || $secure === 'none' || $secure === 'off' || $secure === 'false' || $secure === '0') {
+            return false;
+        }
+
+        return PHPMailer::ENCRYPTION_SMTPS;
+    }
+
+    /**
+     * Whether native mail() fallback is allowed for current environment.
+     */
+    private static function allowNativeFallback(): bool {
+        $appEnv = strtolower(trim((string) env('APP_ENV', 'production')));
+        return $appEnv !== 'production';
+    }
     
     /**
      * Generate a 6-digit OTP code
@@ -27,7 +70,12 @@ class OTPEmailService {
      */
     public static function sendOTP(string $toEmail, string $toName, string $otpCode): bool {
         if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
-            error_log('OTP Email: PHPMailer not available, using native mail() fallback.');
+            if (!self::allowNativeFallback()) {
+                error_log('OTP Email: PHPMailer is unavailable in production. Install Composer dependencies.');
+                return false;
+            }
+
+            error_log('OTP Email: PHPMailer not available, using native mail() fallback in non-production.');
             return self::sendOTPViaNativeMail($toEmail, $toName, $otpCode);
         }
 
@@ -40,10 +88,11 @@ class OTPEmailService {
             $mail->SMTPAuth   = true;
             $mail->Username   = defined('EMAIL_SMTP_USERNAME') ? EMAIL_SMTP_USERNAME : '';
             $mail->Password   = defined('EMAIL_SMTP_PASSWORD') ? EMAIL_SMTP_PASSWORD : '';
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+            $mail->SMTPSecure = self::getSmtpEncryptionMode();
             $mail->Port       = defined('EMAIL_SMTP_PORT') ? EMAIL_SMTP_PORT : 465;
+            $mail->Timeout    = 20;
 
-            if (empty($mail->Username) || empty($mail->Password)) {
+            if (!self::hasValidSmtpCredentials($mail->Username, $mail->Password)) {
                 error_log("OTP Email: Gmail SMTP credentials not configured.");
                 return false;
             }
@@ -149,7 +198,12 @@ class OTPEmailService {
      */
     public static function sendPasswordResetEmail(string $toEmail, string $toName, string $resetLink): bool {
         if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
-            error_log('Password Reset Email: PHPMailer not available, using native mail() fallback.');
+            if (!self::allowNativeFallback()) {
+                error_log('Password Reset Email: PHPMailer is unavailable in production. Install Composer dependencies.');
+                return false;
+            }
+
+            error_log('Password Reset Email: PHPMailer not available, using native mail() fallback in non-production.');
             return self::sendPasswordResetViaNativeMail($toEmail, $toName, $resetLink);
         }
 
@@ -161,10 +215,11 @@ class OTPEmailService {
             $mail->SMTPAuth   = true;
             $mail->Username   = defined('EMAIL_SMTP_USERNAME') ? EMAIL_SMTP_USERNAME : '';
             $mail->Password   = defined('EMAIL_SMTP_PASSWORD') ? EMAIL_SMTP_PASSWORD : '';
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+            $mail->SMTPSecure = self::getSmtpEncryptionMode();
             $mail->Port       = defined('EMAIL_SMTP_PORT') ? EMAIL_SMTP_PORT : 465;
+            $mail->Timeout    = 20;
 
-            if (empty($mail->Username) || empty($mail->Password)) {
+            if (!self::hasValidSmtpCredentials($mail->Username, $mail->Password)) {
                 error_log("Password Reset Email: Gmail SMTP credentials not configured.");
                 return false;
             }
