@@ -96,12 +96,19 @@ if ($cached_data) {
         $active_incidents = $pdo->query("SELECT COUNT(*) FROM incidents WHERE status IN ('Pending', 'In Progress')")->fetchColumn();
         // Upcoming Events
         $upcoming_events = $pdo->query("SELECT COUNT(*) FROM events WHERE event_date >= CURDATE()") ? $pdo->query("SELECT COUNT(*) FROM events WHERE event_date >= CURDATE()")->fetchColumn() : 0;
+        
+        // Permit Expiry Stats
+        $expiring_soon = $pdo->query("SELECT COUNT(*) FROM businesses WHERE DATEDIFF(permit_expiration_date, CURDATE()) BETWEEN 0 AND 30 AND status IN ('Active', 'Pending')")->fetchColumn();
+        $expired_permits = $pdo->query("SELECT COUNT(*) FROM businesses WHERE permit_expiration_date < CURDATE() AND status IN ('Active', 'Pending')")->fetchColumn();
+        $next_expiry_stmt = $pdo->query("SELECT permit_expiration_date FROM businesses WHERE permit_expiration_date >= CURDATE() AND status IN ('Active', 'Pending') ORDER BY permit_expiration_date ASC LIMIT 1");
+        $next_expiry = $next_expiry_stmt ? $next_expiry_stmt->fetchColumn() : null;
 
         $stats_to_cache = compact(
             'latest_transactions', 'population_stats', 'age_group_data',
             'age_labels', 'age_counts', 'resident_months', 'resident_counts',
             'business_months', 'business_counts', 'business_count',
-            'pending_requests', 'active_incidents', 'upcoming_events'
+            'pending_requests', 'active_incidents', 'upcoming_events',
+            'expiring_soon', 'expired_permits', 'next_expiry'
         );
         cache_set($cache_key, $stats_to_cache, 900, 'file'); // 15 mins cache
         
@@ -115,6 +122,9 @@ if ($cached_data) {
         $pending_requests = 0;
         $active_incidents = 0;
         $upcoming_events = 0;
+        $expiring_soon = 0;
+        $expired_permits = 0;
+        $next_expiry = null;
         // error_log("Dashboard DB Error: " . $e->getMessage());
     }
 }
@@ -325,6 +335,24 @@ $today_quote = $quotes[array_rand($quotes)];
                             </div>
                         </div>
                     </div>
+                    <!-- Permit Expiry Card -->
+                    <div class="bg-white rounded-2xl shadow-lg p-6 transition hover:shadow-xl border-l-4 <?php echo ($expired_permits > 0) ? 'border-red-500' : 'border-orange-500'; ?>">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-gray-500 text-base font-semibold">Permit Status</h3>
+                            <button id="check-expiry-btn" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded-md text-xs transition" title="Run expiry check now">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-12 w-12 rounded-full <?php echo ($expired_permits > 0) ? 'bg-red-100' : 'bg-orange-100'; ?> flex items-center justify-center border <?php echo ($expired_permits > 0) ? 'border-red-200' : 'border-orange-200'; ?>">
+                                <i class="fas fa-certificate <?php echo ($expired_permits > 0) ? 'text-red-600' : 'text-orange-600'; ?> text-2xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h2 class="text-3xl font-bold <?php echo ($expired_permits > 0) ? 'text-red-700' : 'text-orange-700'; ?>" id="expiring-soon-count"><?php echo $expiring_soon + $expired_permits; ?></h2>
+                                <p class="text-xs text-gray-500"><?php echo ($expired_permits > 0) ? "⚠️ $expired_permits Expired!" : 'Expiring Soon'; ?></p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Main Content Grid -->
@@ -435,7 +463,11 @@ $today_quote = $quotes[array_rand($quotes)];
                                     <i class="fas fa-exclamation-triangle text-red-600 text-sm mr-2"></i>
                                     <span class="text-xs font-medium text-red-700">Report Incident</span>
                                 </a>
-                                <a href="pages/events.php" class="flex items-center p-2 bg-indigo-50 hover:bg-indigo-100 rounded transition group col-span-2">
+                                <a href="pages/monitoring-of-request.php?tab=business" class="flex items-center p-2 bg-yellow-50 hover:bg-yellow-100 rounded transition group">
+                                    <i class="fas fa-certificate text-yellow-600 text-sm mr-2"></i>
+                                    <span class="text-xs font-medium text-yellow-700">Permits</span>
+                                </a>
+                                <a href="pages/events.php" class="flex items-center p-2 bg-indigo-50 hover:bg-indigo-100 rounded transition group">
                                     <i class="fas fa-calendar-plus text-indigo-600 text-sm mr-2"></i>
                                     <span class="text-xs font-medium text-indigo-700">Create Event</span>
                                 </a>
@@ -517,6 +549,60 @@ $today_quote = $quotes[array_rand($quotes)];
         businessMonths: <?= $business_months ?: '[]' ?>,
         businessCounts: <?= $business_counts ?: '[]' ?>
     };
+    </script>
+    <script>
+    // Permit Expiry Checker
+    async function checkExpiringPermits() {
+        try {
+            const response = await fetch('../api/check-expiring-permits.php');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                // Update card with results
+                const expiringCount = (data.checks.expiring_30_days?.count || 0) + 
+                                    (data.checks.expiring_7_days?.count || 0) + 
+                                    (data.checks.expiring_1_day?.count || 0) +
+                                    (data.checks.marked_expired?.count || 0);
+                                    
+                document.getElementById('expiring-soon-count').textContent = expiringCount;
+                
+                // Show notification badge if there are expiry issues
+                if (data.checks.marked_expired?.count > 0 || data.checks.expiring_1_day?.count > 0) {
+                    const card = document.querySelector('[id="expiring-soon-count"]').closest('div').closest('div').closest('div');
+                    if (!card.classList.contains('border-red-500')) {
+                        card.classList.remove('border-orange-500', 'bg-white');
+                        card.classList.add('border-red-500', 'bg-red-50');
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error checking expiring permits:', error);
+        }
+    }
+    
+    // Run permit check on page load and add button listener
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auto-check on load
+        checkExpiringPermits();
+        
+        // Add click handler to manual check button
+        const checkBtn = document.getElementById('check-expiry-btn');
+        if (checkBtn) {
+            checkBtn.addEventListener('click', function() {
+                const icon = checkBtn.querySelector('i');
+                icon.classList.add('animate-spin');
+                
+                checkExpiringPermits().then(() => {
+                    icon.classList.remove('animate-spin');
+                }).catch(() => {
+                    icon.classList.remove('animate-spin');
+                });
+            });
+        }
+        
+        // Auto-check every hour
+        setInterval(checkExpiringPermits, 3600000);
+    });
     </script>
     <script>
     setInterval(() => {
