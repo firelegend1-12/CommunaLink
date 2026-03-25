@@ -291,14 +291,14 @@ document.getElementById('business-form').addEventListener('submit', function(e) 
         if(data.success) {
             window.location.href = 'my-requests.php?success=1';
         } else {
-            alert("Error: " + data.error);
+            residentShowToast("Error: " + data.error, 'error');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Application';
         }
     })
     .catch(err => {
         console.error(err);
-        alert("A network error occurred.");
+        residentShowToast('A network error occurred.', 'error');
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Application';
     });

@@ -186,37 +186,40 @@ require_once 'partials/header.php';
 
 <script>
 function cancelBusinessApplication(transactionId) {
-    const reason = prompt('Please provide a reason for cancellation (required):');
-    if (reason === null) return;
-
-    const trimmedReason = reason.trim();
-    if (!trimmedReason) {
-        alert('Cancellation reason is required.');
-        return;
-    }
-
-    if (!confirm('Are you sure you want to cancel this application?')) {
-        return;
-    }
-
-    fetch('partials/cancel-business-application.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: 'id=' + encodeURIComponent(String(transactionId)) + '&reason=' + encodeURIComponent(trimmedReason)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            window.location.href = 'my-requests.php?cancelled=1';
-        } else {
-            alert(data.error || 'Failed to cancel application.');
+    residentPrompt('Please provide a reason for cancellation:', function(reason) {
+        if (reason === null) {
+            return;
         }
-    })
-    .catch(() => {
-        alert('Failed to cancel application. Please try again.');
+
+        residentConfirm('Are you sure you want to cancel this application?', function() {
+            fetch('partials/cancel-business-application.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: 'id=' + encodeURIComponent(String(transactionId)) + '&reason=' + encodeURIComponent(reason)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = 'my-requests.php?cancelled=1';
+                } else {
+                    window.location.href = 'my-requests.php?cancel_error=1';
+                }
+            })
+            .catch(() => {
+                window.location.href = 'my-requests.php?cancel_error=1';
+            });
+        }, {
+            confirmText: 'Cancel Application',
+            danger: true
+        });
+    }, {
+        placeholder: 'Enter cancellation reason',
+        confirmText: 'Continue',
+        required: true,
+        requiredMessage: 'Cancellation reason is required.'
     });
 }
 </script>

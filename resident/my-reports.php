@@ -33,40 +33,6 @@ if ($resident_user_id) {
 require_once 'partials/header.php';
 ?>
 <style>
-    .toast-banner {
-        position: fixed;
-        top: 1rem;
-        right: 1rem;
-        z-index: 9999;
-        min-width: 280px;
-        max-width: 420px;
-        padding: 12px 14px;
-        border-radius: 10px;
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
-        border: 1px solid transparent;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-weight: 600;
-        opacity: 1;
-        transform: translateY(0);
-        transition: opacity .25s ease, transform .25s ease;
-    }
-    .toast-success {
-        background: #ecfdf3;
-        color: #065f46;
-        border-color: #a7f3d0;
-    }
-    .toast-error {
-        background: #fef2f2;
-        color: #991b1b;
-        border-color: #fecaca;
-    }
-    .toast-hide {
-        opacity: 0;
-        transform: translateY(-8px);
-        pointer-events: none;
-    }
     .table-container {
         padding: 30px;
         background-color: transparent;
@@ -111,12 +77,12 @@ require_once 'partials/header.php';
     }
 </style>
 <?php if ($show_cancel_success): ?>
-<div id="toast-banner" class="toast-banner toast-success" role="status" aria-live="polite">
+<div id="toast-banner" class="ui-toast success" role="status" aria-live="polite">
     <i class="fas fa-check-circle" aria-hidden="true"></i>
     <span>Report cancelled successfully.</span>
 </div>
 <?php elseif ($show_cancel_error): ?>
-<div id="toast-banner" class="toast-banner toast-error" role="alert" aria-live="assertive">
+<div id="toast-banner" class="ui-toast error" role="alert" aria-live="assertive">
     <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
     <span>Failed to cancel report. Please try again.</span>
 </div>
@@ -136,7 +102,11 @@ require_once 'partials/header.php';
 document.addEventListener('DOMContentLoaded', function() {
     const toast = document.getElementById('toast-banner');
     if (toast) {
-        setTimeout(() => toast.classList.add('toast-hide'), 2600);
+        const container = document.getElementById('residentToastContainer');
+        if (container) {
+            container.appendChild(toast);
+        }
+        setTimeout(() => toast.classList.add('hide'), 2600);
         setTimeout(() => {
             if (toast && toast.parentNode) {
                 toast.parentNode.removeChild(toast);
