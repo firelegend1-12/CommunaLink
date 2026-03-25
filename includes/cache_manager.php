@@ -275,9 +275,12 @@ class APCuBackend {
     }
     
     public function invalidatePattern($pattern) {
-        $iterator = new APCuIterator($pattern);
-        foreach ($iterator as $item) {
-            apcu_delete($item['key']);
+        if (class_exists('APCuIterator')) {
+            $class = 'APCuIterator';
+            $iterator = new $class($pattern);
+            foreach ($iterator as $item) {
+                apcu_delete($item['key']);
+            }
         }
         return true;
     }
