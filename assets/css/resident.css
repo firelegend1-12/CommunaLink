@@ -210,7 +210,7 @@ body {
 /* === Quick Actions === */
 .quick-actions {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
     gap: 30px;
     margin-bottom: 30px;
 }
@@ -816,13 +816,22 @@ body {
     /* Remove left margin — content fills full width */
     .main-content {
         margin-left: 0 !important;
+        display: block !important;
+        overflow: visible !important;
+    }
+    
+    .page-container {
+        display: block !important;
+        min-height: auto !important;
+        overflow: visible !important;
     }
 
-    /* Show and activate overlay */
+    /* Keep overlay hidden until sidebar is opened */
     #sidebar-overlay {
-        display: block;
+        display: none;
     }
     body.sidebar-open #sidebar-overlay {
+        display: block;
         opacity: 1;
         pointer-events: all;
     }
@@ -1020,13 +1029,14 @@ button,
 @media (max-width: 767px) {
     /* Main body adjust for bottom nav */
     body {
-        padding-bottom: 70px;
-        /* Custom iOS pull to refresh container behavior */
-        overscroll-behavior-y: none; 
+        padding-bottom: 0;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
     }
     
     .page-main {
-        overscroll-behavior-y: contain; /* enable pull-to-refresh on main container */
+        overflow: visible !important;
+        padding-bottom: 90px !important; /* space for fixed bottom nav */
     }
 
     /* Bottom Navigation Bar Container */
@@ -1118,14 +1128,14 @@ button,
 }
 @media (max-width: 767px) {
     .page-main {
-        -webkit-overflow-scrolling: touch;
+        overflow: visible !important;
     }
 }
 
 /* --- Responsive Card Grid Refinement (Phase 3 & 4) --- */
 .responsive-card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(350px, 100%), 1fr));
     gap: 24px;
 }
 
@@ -1147,10 +1157,10 @@ button,
 
 @media (max-width: 767px) {
     .responsive-card-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
+        grid-template-columns: 1fr !important;
         gap: 12px !important;
     }
-    
+
     .standard-card {
         padding: 12px !important;
     }
@@ -1161,7 +1171,7 @@ button,
         font-size: 0.95rem !important;
         line-height: 1.2;
     }
-    
+
     .standard-card p {
         font-size: 0.8rem !important;
         -webkit-line-clamp: 2;
@@ -1169,5 +1179,301 @@ button,
         display: -webkit-box;
         -webkit-box-orient: vertical;
         overflow: hidden;
+    }
+}
+
+@media (min-width: 480px) and (max-width: 767px) {
+    .responsive-card-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* ===================================================
+   COMPREHENSIVE RESPONSIVE ENHANCEMENTS
+   =================================================== */
+
+/* --- Notification Dropdown: Mobile Full Width --- */
+@media (max-width: 767px) {
+    #notif-dropdown {
+        position: fixed !important;
+        left: 8px !important;
+        right: 8px !important;
+        top: 60px !important;
+        width: auto !important;
+        max-height: 70vh;
+        overflow-y: auto;
+        border-radius: 12px !important;
+    }
+}
+
+/* --- Services Page Responsive --- */
+@media (max-width: 767px) {
+    .services-banner {
+        padding: 28px 16px !important;
+    }
+    .services-banner h1 {
+        font-size: 1.5rem !important;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .services-banner h1 i {
+        font-size: 1.6rem !important;
+        margin-right: 0 !important;
+    }
+    .services-banner p {
+        font-size: 0.95rem !important;
+    }
+    .services-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    .service-card {
+        padding: 20px !important;
+    }
+    .document-services {
+        padding: 16px !important;
+    }
+    .document-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    .document-card {
+        padding: 18px !important;
+    }
+    .document-header h2 {
+        font-size: 1.3rem !important;
+    }
+}
+
+@media (min-width: 480px) and (max-width: 767px) {
+    .services-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .document-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* --- Events Page Responsive --- */
+@media (max-width: 767px) {
+    .events-container {
+        padding: 8px !important;
+    }
+    .event-section {
+        border-radius: 10px !important;
+    }
+    .section-header {
+        padding: 16px !important;
+    }
+    .section-header h2 {
+        font-size: 1.2rem !important;
+    }
+    .section-content {
+        padding: 16px !important;
+    }
+    .event-card {
+        padding: 16px !important;
+    }
+    .event-title {
+        font-size: 1.1rem !important;
+    }
+    .event-meta {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+    .info-box {
+        padding: 16px !important;
+    }
+}
+
+/* --- Emergency Contacts Responsive --- */
+@media (max-width: 767px) {
+    .contact-container {
+        gap: 20px !important;
+    }
+    .contact-section {
+        padding: 18px !important;
+        border-radius: 12px !important;
+    }
+    .section-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    .info-card {
+        padding: 14px !important;
+    }
+    .info-content h3 {
+        font-size: 1rem !important;
+    }
+    .info-content p {
+        font-size: 1rem !important;
+    }
+}
+
+/* --- Chat Page Responsive --- */
+@media (max-width: 767px) {
+    .chat-window {
+        height: calc(100vh - 140px - 70px) !important; /* account for header + bottom nav */
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+    .chat-header {
+        padding: 14px 16px !important;
+    }
+    .chat-header h2 {
+        font-size: 1.2rem !important;
+    }
+    .messages-area {
+        padding: 12px !important;
+    }
+    .message-input-area {
+        padding: 12px !important;
+    }
+    .message-bubble {
+        max-width: 85% !important;
+    }
+    .message-input-form input {
+        padding: 10px 14px !important;
+    }
+}
+
+/* --- Account Page Responsive --- */
+@media (max-width: 767px) {
+    .account-container {
+        gap: 16px !important;
+    }
+    .profile-sidebar {
+        padding: 20px !important;
+    }
+    .profile-picture-container {
+        width: 120px !important;
+        height: 120px !important;
+    }
+    .form-content {
+        padding: 16px !important;
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100% !important;
+    }
+}
+
+/* --- Report Incident Responsive --- */
+@media (max-width: 767px) {
+    .report-incident-container {
+        gap: 16px !important;
+    }
+    #map {
+        min-height: 300px !important;
+        height: 300px !important;
+    }
+    .report-form-container h2 {
+        font-size: 1.3rem !important;
+    }
+}
+
+/* --- Announcements / Community Board Responsive --- */
+@media (max-width: 767px) {
+    .announcements-container {
+        padding: 0 !important;
+    }
+    .page-header {
+        margin-bottom: 16px !important;
+        padding-bottom: 10px !important;
+    }
+    .page-header h1 {
+        font-size: 1.5rem !important;
+    }
+    .page-header p {
+        font-size: 0.9rem !important;
+    }
+    .announcement-card {
+        margin-bottom: 16px !important;
+        border-radius: 10px !important;
+    }
+    .announcement-card:hover {
+        transform: none !important; /* disable hover lift on mobile — causes jank */
+    }
+    .announcement-image,
+    .announcement-card .relative.h-64 {
+        height: 180px !important;
+    }
+    .announcement-content,
+    .announcement-card .p-8 {
+        padding: 16px !important;
+    }
+    .announcement-title {
+        font-size: 1.2rem !important;
+    }
+    .announcement-body {
+        font-size: 0.95rem !important;
+    }
+    .reaction-btn {
+        padding: 6px 12px !important;
+        font-size: 0.8rem !important;
+    }
+}
+
+/* --- My Reports Page Responsive --- */
+@media (max-width: 767px) {
+    .table-container {
+        padding: 8px !important;
+        margin: 8px auto !important;
+    }
+    .table-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+    }
+    .table-header .submit-btn {
+        width: 100% !important;
+        text-align: center !important;
+    }
+}
+
+/* --- General Overflow Prevention --- */
+@media (max-width: 767px) {
+    body {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    .page-container, .main-content, .page-main {
+        overflow: visible !important;
+    }
+    
+    img, video, iframe {
+        max-width: 100%;
+        height: auto;
+    }
+    
+    /* Ensure grids don't overflow on very small screens */
+    .quick-actions,
+    .services-grid,
+    .document-grid,
+    .section-grid {
+        overflow: hidden;
+    }
+}
+
+/* === Very Small Screens (< 400px) === */
+@media (max-width: 400px) {
+    .quick-actions {
+        grid-template-columns: 1fr !important;
+    }
+    .action-card {
+        text-align: left !important;
+    }
+    .action-card p {
+        display: block !important;
+        font-size: 0.8rem !important;
+    }
+
+    .welcome-text h1 {
+        font-size: 1.4rem !important;
+    }
+    .welcome-text p {
+        font-size: 0.9rem !important;
     }
 }

@@ -155,6 +155,45 @@ try {
     font-size: 0.75rem;
     opacity: 0.8;
 }
+
+@media (max-width: 767px) {
+    .announcements-container {
+        padding: 0;
+    }
+    .page-header h1 {
+        font-size: 1.4rem;
+    }
+    .page-header p {
+        font-size: 0.9rem;
+    }
+    .announcement-card {
+        border-radius: 12px !important;
+        margin-bottom: 16px;
+    }
+    .announcement-card:hover {
+        transform: none;
+    }
+    .announcement-card .relative.h-64 {
+        height: 180px;
+    }
+    .announcement-card .p-8 {
+        padding: 16px;
+    }
+    .announcement-image {
+        height: 180px;
+    }
+    .announcement-content {
+        padding: 16px;
+    }
+    .announcement-title {
+        font-size: 1.15rem;
+    }
+    .reaction-btn {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+        gap: 6px;
+    }
+}
 </style>
 
 <div class="announcements-container">

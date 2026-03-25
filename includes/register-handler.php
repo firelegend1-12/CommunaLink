@@ -1,10 +1,12 @@
 <?php
 /**
  * Registration Form Handler
+ * Now sends OTP for email verification before creating the account
  */
 
 require_once '../config/init.php'; // Use init to include db and functions
 require_once 'functions.php';
+require_once 'otp_email_service.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -78,8 +80,6 @@ if ($age < 18) {
 }
 
 try {
-    $pdo->beginTransaction();
-
     // Check if email already exists in users table
     $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
     $stmt->execute([$email]);
@@ -88,40 +88,55 @@ try {
         redirect_to('../register.php');
     }
 
-    // Hash the password
-    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-    
-    // Insert into users table with 'resident' role
-    $sql_user = "INSERT INTO users (username, fullname, email, password, role) VALUES (?, ?, ?, ?, 'resident')";
-    $stmt_user = $pdo->prepare($sql_user);
-    $stmt_user->execute([$email, $fullname, $email, $hashed_password]);
-    $user_id = $pdo->lastInsertId();
+    // Cleanup expired OTPs
+    OTPEmailService::cleanupExpired($pdo);
 
-    // Insert into residents table with all collected information
-    $sql_resident = "INSERT INTO residents (
-        user_id, first_name, middle_initial, last_name, gender, date_of_birth, 
-        place_of_birth, age, religion, citizenship, email, contact_no, 
-        address, civil_status, voter_status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    
-    $stmt_resident = $pdo->prepare($sql_resident);
-    $stmt_resident->execute([
-        $user_id, $first_name, $middle_initial, $last_name, $gender, $date_of_birth,
-        $place_of_birth, $age, $religion, $citizenship, $email, $contact_no,
-        $address, $civil_status, $voter_status
-    ]);
+    // Generate OTP
+    $otpCode = OTPEmailService::generateOTP();
 
-    $pdo->commit();
-    
-    // Log the successful registration
-    log_activity_db($pdo, $user_id, 'user_registration', 'New user registration completed', $_SERVER['REMOTE_ADDR']);
-    
-    $_SESSION['success_message'] = "Registration successful! You can now sign in with your email and password.";
-    redirect_to('../index.php');
+    // Store registration data securely (hash password before storing)
+    $registrationData = [
+        'fullname'       => $fullname,
+        'email'          => $email,
+        'password'       => password_hash($password, PASSWORD_DEFAULT),
+        'first_name'     => $first_name,
+        'middle_initial' => $middle_initial,
+        'last_name'      => $last_name,
+        'gender'         => $gender,
+        'date_of_birth'  => $date_of_birth,
+        'place_of_birth' => $place_of_birth,
+        'age'            => $age,
+        'religion'       => $religion,
+        'citizenship'    => $citizenship,
+        'civil_status'   => $civil_status,
+        'voter_status'   => $voter_status,
+        'contact_no'     => $contact_no,
+        'address'        => $address,
+    ];
+
+    // Store OTP in database
+    if (!OTPEmailService::storeOTP($pdo, $email, $otpCode, $registrationData)) {
+        $_SESSION['error_message'] = "Failed to process verification. Please try again.";
+        redirect_to('../register.php');
+    }
+
+    // Send OTP email
+    $emailSent = OTPEmailService::sendOTP($email, $fullname, $otpCode);
+
+    if (!$emailSent) {
+        $_SESSION['error_message'] = "Failed to send verification email. Please check your email address or try again later.";
+        redirect_to('../register.php');
+    }
+
+    // Store email in session for the verification page
+    $_SESSION['otp_email'] = $email;
+    $_SESSION['otp_fullname'] = $fullname;
+
+    // Redirect to OTP verification page
+    redirect_to('../verify-otp.php');
 
 } catch (PDOException $e) {
-    $pdo->rollBack();
-    error_log("Registration failed: " . $e->getMessage());
-    $_SESSION['error_message'] = "Registration failed due to a database error. Please try again.";
+    error_log("Registration OTP failed: " . $e->getMessage());
+    $_SESSION['error_message'] = "Registration failed due to a server error. Please try again.";
     redirect_to('../register.php');
 } 

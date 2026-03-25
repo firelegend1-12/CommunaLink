@@ -19,7 +19,11 @@ $username_err = $password_err = $login_err = "";
 
 // Check if user is already logged in
 if (is_logged_in()) {
-    redirect_to('admin/index.php');
+    if (isset($_SESSION['role']) && $_SESSION['role'] === 'resident') {
+        redirect_to('resident/dashboard.php');
+    } else {
+        redirect_to('admin/index.php');
+    }
 }
 
 // Process form data when form is submitted

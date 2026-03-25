@@ -116,6 +116,30 @@ require_once 'partials/header.php';
         border-radius: 20px 20px 20px 5px;
         align-self: flex-start;
     }
+    
+    @media (max-width: 767px) {
+        .chat-window {
+            height: calc(100vh - 140px - 70px); /* header + bottom nav */
+            border-radius: 0;
+            box-shadow: none;
+        }
+        .chat-header {
+            padding: 14px 16px;
+        }
+        .chat-header h2 {
+            font-size: 1.2rem;
+        }
+        .messages-area {
+            padding: 12px;
+        }
+        .message-input-area {
+            padding: 10px 12px;
+        }
+        .message-bubble {
+            max-width: 85%;
+            padding: 10px 14px;
+        }
+    }
 </style>
 <div class="chat-window">
     <div class="chat-header">

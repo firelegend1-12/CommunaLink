@@ -67,7 +67,7 @@ require_once 'partials/header.php';
     
     .services-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(350px, 100%), 1fr));
         gap: 25px;
         margin-bottom: 60px;
     }
@@ -197,7 +197,7 @@ require_once 'partials/header.php';
     
     .document-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
         gap: 20px;
     }
     
@@ -305,6 +305,28 @@ require_once 'partials/header.php';
     
     .action-button:hover {
         background-color: #2563eb;
+    }
+    
+    @media (max-width: 767px) {
+        .services-banner h1 {
+            font-size: 1.5rem;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .services-banner h1 i {
+            margin-right: 0;
+        }
+        .services-banner {
+            padding: 30px 16px;
+        }
+        .service-card:hover,
+        .document-card:hover {
+            transform: none;
+        }
+        .action-button {
+            display: block;
+            text-align: center;
+        }
     }
 </style>
 

@@ -108,6 +108,15 @@ try {
                     </div>
                 <?php unset($_SESSION['event_success_message']); endif; ?>
 
+                <?php if (isset($_SESSION['error_message'])): ?>
+                    <div id="events-error-alert" class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-4 mb-6 rounded-r-xl shadow-sm" role="alert">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-circle mr-3 text-rose-500"></i>
+                            <p class="font-bold text-sm"><?php echo htmlspecialchars($_SESSION['error_message']); ?></p>
+                        </div>
+                    </div>
+                <?php unset($_SESSION['error_message']); endif; ?>
+
                 <!-- Stats Summary -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between group hover:border-indigo-200 transition">
@@ -199,16 +208,16 @@ try {
                                                 <div class="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5">Admin Profile</div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-right">
-                                                <div class="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition duration-300">
-                                                    <button @click="openEditModal({
-                                                        id: <?= $event['id'] ?>, 
-                                                        title: '<?= addslashes(htmlspecialchars($event['title'])) ?>', 
-                                                        type: '<?= $event['type'] ?>', 
-                                                        event_date: '<?= $event['event_date'] ?>', 
-                                                        event_time: '<?= $event['event_time'] ?>', 
-                                                        location: '<?= addslashes(htmlspecialchars($event['location'])) ?>', 
-                                                        description: `<?= addslashes(htmlspecialchars($event['description'])) ?>`
-                                                    })" class="text-indigo-600 hover:bg-indigo-50 p-2 rounded-xl transition shadow-sm border border-transparent hover:border-indigo-100">
+                                                <div class="flex items-center justify-end space-x-2 sm:opacity-0 sm:group-hover:opacity-100 transition duration-300">
+                                                    <button @click="openEditModal(<?= htmlspecialchars(json_encode([
+                                                        'id' => $event['id'],
+                                                        'title' => $event['title'],
+                                                        'type' => $event['type'],
+                                                        'event_date' => $event['event_date'],
+                                                        'event_time' => $event['event_time'],
+                                                        'location' => $event['location'],
+                                                        'description' => $event['description']
+                                                    ], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP), ENT_QUOTES, 'UTF-8') ?>)" class="text-indigo-600 hover:bg-indigo-50 p-2 rounded-xl transition shadow-sm border border-transparent hover:border-indigo-100">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
                                                     
@@ -225,8 +234,6 @@ try {
                     </div>
                 </div>
             </main>
-        </div>
-    </div>
 
     <!-- Modals -->
     <!-- Add/Edit Modal -->
@@ -316,15 +323,20 @@ try {
         </div>
     </div>
 
+        </div>
+    </div>
+
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const alert = document.getElementById('events-success-alert');
-        if (alert) {
-            setTimeout(() => {
-                alert.classList.add('opacity-0', 'transition-all', 'duration-1000', '-translate-y-2');
-                setTimeout(() => alert.remove(), 1000);
-            }, 4000);
-        }
+        ['events-success-alert', 'events-error-alert'].forEach(function(id) {
+            const alert = document.getElementById(id);
+            if (alert) {
+                setTimeout(() => {
+                    alert.classList.add('opacity-0', 'transition-all', 'duration-1000', '-translate-y-2');
+                    setTimeout(() => alert.remove(), 1000);
+                }, 4000);
+            }
+        });
     });
     </script>
 </body>

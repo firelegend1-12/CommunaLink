@@ -173,12 +173,13 @@ try {
     .form-group input,
     .form-group select,
     .form-group textarea {
-        width: 80%;
+        width: 100%;
         padding: 10px 14px;
         border: 1px solid #d1d5db;
         border-radius: 8px;
         font-size: 0.95rem;
         transition: all 0.2s;
+        box-sizing: border-box;
     }
     
     .form-group input:hover,
@@ -268,7 +269,13 @@ try {
     <aside class="profile-sidebar">
         <form id="profile-pic-form" action="partials/account-handler.php" method="POST" enctype="multipart/form-data">
             <div class="profile-picture-container">
-                <img src="<?= !empty($resident['profile_image_path']) ? '../admin/' . htmlspecialchars($resident['profile_image_path']) : 'https://via.placeholder.com/150' ?>" alt="Profile Picture" class="profile-picture" id="profile-pic-preview">
+                <?php
+                    $defaultAvatar = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%235c67e2'/%3E%3Ccircle cx='100' cy='75' r='40' fill='%23fff' opacity='0.9'/%3E%3Cellipse cx='100' cy='170' rx='60' ry='50' fill='%23fff' opacity='0.9'/%3E%3C/svg%3E";
+                    $profileSrc = !empty($resident['profile_image_path']) 
+                        ? '../admin/' . htmlspecialchars($resident['profile_image_path']) 
+                        : $defaultAvatar;
+                ?>
+                <img src="<?= $profileSrc ?>" alt="Profile Picture" class="profile-picture" id="profile-pic-preview">
                 <label for="profile_image_input" class="upload-overlay">
                     <i class="fas fa-camera"></i>
                 </label>

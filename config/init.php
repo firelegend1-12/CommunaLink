@@ -39,7 +39,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once 'database.php'; // This file should instantiate $pdo
+require_once __DIR__ . '/database.php'; // This file should instantiate $pdo
 require_once __DIR__ . '/../includes/csrf.php'; // CSRF protection
 require_once __DIR__ . '/../includes/password_security.php'; // Password security
 require_once __DIR__ . '/../includes/rate_limiter.php'; // Rate limiting
@@ -249,7 +249,19 @@ try {
             FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
-
+        // Email verification OTPs table
+        "CREATE TABLE IF NOT EXISTS `email_verification_otps` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `email` VARCHAR(100) NOT NULL,
+            `otp_code` VARCHAR(255) NOT NULL,
+            `registration_data` TEXT NOT NULL,
+            `attempts` INT(3) NOT NULL DEFAULT 0,
+            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            `expires_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            INDEX `idx_otp_email` (`email`),
+            INDEX `idx_otp_expires` (`expires_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
         // Add activity_logs table
         "CREATE TABLE IF NOT EXISTS `activity_logs` (
@@ -685,6 +697,21 @@ try {
         UNIQUE KEY `uniq_archive_batch_id` (`batch_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
+    // Enhanced Monitoring of Request: Add Payment Columns (must run BEFORE indexes that reference these columns)
+    $pdo->exec("ALTER TABLE `document_requests` 
+                ADD COLUMN IF NOT EXISTS `or_number` VARCHAR(100) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `payment_status` ENUM('Unpaid', 'Paid') DEFAULT 'Unpaid',
+                ADD COLUMN IF NOT EXISTS `payment_date` DATETIME DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `cash_received` DECIMAL(10,2) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `change_amount` DECIMAL(10,2) DEFAULT NULL");
+
+    $pdo->exec("ALTER TABLE `business_transactions` 
+                ADD COLUMN IF NOT EXISTS `or_number` VARCHAR(100) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `payment_status` ENUM('Unpaid', 'Paid') DEFAULT 'Unpaid',
+                ADD COLUMN IF NOT EXISTS `payment_date` DATETIME DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `cash_received` DECIMAL(10,2) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `change_amount` DECIMAL(10,2) DEFAULT NULL");
+
     // --- Performance Optimizations (Indexes) ---
     $performance_indexes = [
         ['table' => 'incidents', 'name' => 'idx_incidents_reported_at', 'columns' => 'reported_at'],
@@ -725,21 +752,6 @@ try {
         }
     }
 
-    // Enhanced Monitoring of Request: Add Payment Columns
-    $pdo->exec("ALTER TABLE `document_requests` 
-                ADD COLUMN IF NOT EXISTS `or_number` VARCHAR(100) DEFAULT NULL,
-                ADD COLUMN IF NOT EXISTS `payment_status` ENUM('Unpaid', 'Paid') DEFAULT 'Unpaid',
-                ADD COLUMN IF NOT EXISTS `payment_date` DATETIME DEFAULT NULL,
-                ADD COLUMN IF NOT EXISTS `cash_received` DECIMAL(10,2) DEFAULT NULL,
-                ADD COLUMN IF NOT EXISTS `change_amount` DECIMAL(10,2) DEFAULT NULL");
-
-    $pdo->exec("ALTER TABLE `business_transactions` 
-                ADD COLUMN IF NOT EXISTS `or_number` VARCHAR(100) DEFAULT NULL,
-                ADD COLUMN IF NOT EXISTS `payment_status` ENUM('Unpaid', 'Paid') DEFAULT 'Unpaid',
-                ADD COLUMN IF NOT EXISTS `payment_date` DATETIME DEFAULT NULL,
-                ADD COLUMN IF NOT EXISTS `cash_received` DECIMAL(10,2) DEFAULT NULL,
-                ADD COLUMN IF NOT EXISTS `change_amount` DECIMAL(10,2) DEFAULT NULL");
-
     // Notifications Table Migration
     $pdo->exec("ALTER TABLE `notifications` 
                 ADD COLUMN IF NOT EXISTS `user_id` INT(11) DEFAULT NULL AFTER `id`,
@@ -747,20 +759,30 @@ try {
                 ADD COLUMN IF NOT EXISTS `type` VARCHAR(50) DEFAULT 'general' AFTER `message`,
                 ADD COLUMN IF NOT EXISTS `link` VARCHAR(255) DEFAULT NULL AFTER `type` ");
 
+    // Add email_verified column to users table
+    $pdo->exec("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `email_verified` TINYINT(1) NOT NULL DEFAULT 0 AFTER `role`");
+
+    // Add status column to users table (for active/inactive/suspended accounts)
+    $pdo->exec("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `status` VARCHAR(20) NOT NULL DEFAULT 'active' AFTER `email_verified`");
+
+    // Add password reset columns to users table
+    $pdo->exec("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `reset_token` VARCHAR(255) DEFAULT NULL AFTER `status`");
+    $pdo->exec("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `reset_token_expires` DATETIME DEFAULT NULL AFTER `reset_token`");
+
     // Sync resident_id to user_id for old records if user_id is null
-    $pdo->exec("UPDATE `notifications` n 
-                JOIN `residents` r ON n.resident_id = r.id 
-                SET n.user_id = r.user_id 
-                WHERE n.user_id IS NULL AND n.resident_id IS NOT NULL");
+    // Only run if the legacy resident_id column exists
+    $colCheck = $pdo->query("SHOW COLUMNS FROM `notifications` LIKE 'resident_id'");
+    if ($colCheck && $colCheck->rowCount() > 0) {
+        $pdo->exec("UPDATE `notifications` n 
+                    JOIN `residents` r ON n.resident_id = r.id 
+                    SET n.user_id = r.user_id 
+                    WHERE n.user_id IS NULL AND n.resident_id IS NOT NULL");
+    }
 
 } catch (PDOException $e) {
-    $_SESSION['error_message'] = "Database connection failed: " . $e->getMessage();
-    // If we are in a page inside 'pages' folder, the path to index should be relative
-    // This is a simple check, might need to be more robust
-    if (strpos($_SERVER['REQUEST_URI'], '/pages/') !== false) {
-        header("Location: ../index.php");
-    } else {
-        header("Location: index.php");
-    }
-    exit;
+    // Log the schema error but do NOT redirect — redirecting causes infinite loops
+    // since every page includes init.php
+    error_log("CommunaLink init.php schema error: " . $e->getMessage());
+    // Store error for display but continue execution
+    $_SESSION['db_init_error'] = $e->getMessage();
 } 

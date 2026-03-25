@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../config/init.php';
+require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
 if (!is_admin_or_official()) {

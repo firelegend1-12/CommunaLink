@@ -52,7 +52,7 @@ require_once 'partials/header.php';
     }
     .section-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
         gap: 20px;
     }
     .info-card {
@@ -158,6 +158,27 @@ require_once 'partials/header.php';
     }
     .back-button i {
         margin-right: 8px;
+    }
+    
+    @media (max-width: 767px) {
+        .contact-container {
+            gap: 20px;
+        }
+        .contact-section {
+            padding: 16px;
+        }
+        .section-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        .info-card {
+            padding: 14px;
+        }
+        .notice-section {
+            padding: 16px;
+            flex-direction: column;
+            gap: 10px;
+        }
     }
 </style>
 

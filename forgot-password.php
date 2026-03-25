@@ -8,8 +8,8 @@
 require_once 'includes/functions.php';
 require_once 'config/database.php';
 require_once 'config/init.php';
-require_once 'config/email_config.php'; // Load email configuration
 require_once 'includes/auth.php';
+require_once 'includes/otp_email_service.php';
 
 // Apply security headers for login page
 apply_page_security_headers('login');
@@ -65,69 +65,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $basePath = rtrim(dirname($_SERVER['REQUEST_URI']), '/\\');
                     $reset_link = $scheme . $_SERVER['HTTP_HOST'] . $basePath . "/reset-password.php?token=" . $reset_token;
 
-                    // Try to send email
+                    // Try to send email using PHPMailer Gmail SMTP
                     $email_sent = false;
                     $user_name = $user['fullname'] ?? $user['username'];
-                    $email_error = '';
                     
-                    // Try Mailgun first (if configured)
-                    if (defined('MAILGUN_API_KEY') && !empty(MAILGUN_API_KEY) && defined('MAILGUN_DOMAIN') && !empty(MAILGUN_DOMAIN)) {
-                        try {
-                            require_once 'includes/mailgun_sender.php';
-                            $mailgun = new MailgunSender();
-                            $email_sent = $mailgun->sendPasswordResetEmail($email, $user_name, $reset_link);
-                            if (!$email_sent) {
-                                $email_error = 'mailgun_send_failed';
-                            }
-                        } catch (Exception $e) {
-                            $email_error = 'mailgun_exception';
-                            error_log('Mailgun email error occurred during password reset flow.');
-                        }
-                    }
-                    
-                    // If Mailgun failed or not configured, try Gmail SMTP
-                    // Try the fixed version first (works better on Windows)
-                    if (!$email_sent) {
-                        try {
-                            if (file_exists('includes/gmail_smtp_sender_fixed.php')) {
-                                require_once 'includes/gmail_smtp_sender_fixed.php';
-                                $gmail = new GmailSMTPSenderFixed();
-                            } else {
-                                require_once 'includes/gmail_smtp_sender.php';
-                                $gmail = new GmailSMTPSender();
-                            }
-                            $email_sent = $gmail->sendPasswordResetEmail($email, $user_name, $reset_link);
-                            if (!$email_sent) {
-                                // Check if credentials are configured
-                                $has_username = defined('EMAIL_SMTP_USERNAME') && !empty(EMAIL_SMTP_USERNAME);
-                                $has_password = defined('EMAIL_SMTP_PASSWORD') && !empty(EMAIL_SMTP_PASSWORD);
-                                $has_from_email = defined('EMAIL_FROM_EMAIL') && !empty(EMAIL_FROM_EMAIL);
-                                if (!$has_username || !$has_password || !$has_from_email) {
-                                    $email_error = trim($email_error . ' smtp_not_configured');
-                                } else {
-                                    $email_error = trim($email_error . ' smtp_send_failed');
-                                }
-                            }
-                        } catch (Exception $e) {
-                            $email_error = trim($email_error . ' smtp_exception');
-                            error_log('Gmail SMTP email error occurred during password reset flow.');
-                        }
-                    }
-                    
-                    // Final fallback: Try PHP's mail() function (works if sendmail is configured)
-                    if (!$email_sent) {
-                        try {
-                            require_once 'includes/simple_smtp_sender.php';
-                            $simple = new SimpleSMTP();
-                            $email_sent = $simple->sendPasswordResetEmail($email, $user_name, $reset_link);
-                        } catch (Exception $e) {
-                            $email_error = trim($email_error . ' simple_mail_exception');
-                            error_log('Simple mail fallback error occurred during password reset flow.');
-                        }
+                    try {
+                        $email_sent = OTPEmailService::sendPasswordResetEmail($email, $user_name, $reset_link);
+                    } catch (Exception $e) {
+                        error_log('Password reset email exception for user ID: ' . (int) $user['id']);
                     }
 
                     if (!$email_sent) {
-                        error_log('Password reset email delivery failed for user ID: ' . (int) $user['id'] . '. Failure codes: ' . trim($email_error));
+                        error_log('Password reset email delivery failed for user ID: ' . (int) $user['id']);
                     }
 
                     // Always return a generic response to avoid account and delivery-state disclosure.

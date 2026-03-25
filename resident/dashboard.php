@@ -150,7 +150,7 @@ require_once 'partials/header.php';
     0%   { transform: translate3d(0, 0, 0); }
     100% { transform: translate3d(-50%, 0, 0); }
 }
-.quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; margin-bottom: 30px; }
+.quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 30px; margin-bottom: 30px; }
 .action-card { display: block; background-color: var(--card-bg); border-radius: 12px; padding: 30px; box-shadow: 0 4px 12px var(--shadow-color); transition: transform 0.2s ease, box-shadow 0.2s ease; text-decoration: none; color: var(--text-light); position: relative; overflow: hidden; }
 .action-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px var(--shadow-color); }
 .action-card i { font-size: 2.5rem; margin-bottom: 16px; position: relative; z-index: 1; }

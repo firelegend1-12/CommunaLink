@@ -145,6 +145,35 @@ try {
     margin-bottom: 0;
 }
 
+@media (max-width: 767px) {
+    .events-container {
+        padding: 8px;
+    }
+    .section-header h2 {
+        font-size: 1.2rem;
+    }
+    .section-content {
+        padding: 16px;
+    }
+    .event-card {
+        padding: 14px;
+    }
+    .event-title {
+        font-size: 1.05rem;
+    }
+    .event-meta {
+        flex-direction: column;
+        gap: 6px;
+        font-size: 0.85rem;
+    }
+    .event-description {
+        font-size: 0.9rem;
+    }
+    .info-box {
+        padding: 14px;
+    }
+}
+
 </style>
 
 <div class="events-container">
