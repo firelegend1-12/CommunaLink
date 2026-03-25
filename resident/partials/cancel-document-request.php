@@ -19,15 +19,23 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $request_id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
 $reason = sanitize_input(trim($_POST['reason'] ?? 'No reason provided'));
 $resident_id = $_SESSION['resident_id'] ?? 0;
+$user_id = (int) ($_SESSION['user_id'] ?? 0);
 
-if ($request_id <= 0 || $resident_id <= 0) {
+if ($resident_id <= 0 && $user_id > 0) {
+    $resident_id = (int) (get_resident_id($pdo, $user_id) ?? 0);
+    if ($resident_id > 0) {
+        $_SESSION['resident_id'] = $resident_id;
+    }
+}
+
+if ($request_id <= 0 || $user_id <= 0) {
     echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
     exit;
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT id, status, document_type FROM document_requests WHERE id = ? AND resident_id = ? LIMIT 1");
-    $stmt->execute([$request_id, $resident_id]);
+    $stmt = $pdo->prepare("SELECT id, status, document_type FROM document_requests WHERE id = ? AND (requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?)) LIMIT 1");
+    $stmt->execute([$request_id, $user_id, $resident_id]);
     $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$request) {

@@ -211,10 +211,38 @@ window.initMap = async function() {
 };
 
 function cancelReport(id) {
-    if(confirm("Are you sure you want to cancel and delete this incident report? This action cannot be undone.")) {
-        // Implement soft delete or status change via fetch to API
-        alert("Cancellation functionality will be implemented soon!");
+    const reason = prompt('Please provide a reason for cancellation (required):');
+    if (reason === null) return;
+
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+        alert('Cancellation reason is required.');
+        return;
     }
+
+    if (!confirm('Are you sure you want to cancel and delete this incident report? This action cannot be undone.')) {
+        return;
+    }
+
+    fetch('partials/cancel-incident-report.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: 'id=' + encodeURIComponent(String(id)) + '&reason=' + encodeURIComponent(trimmedReason)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = 'my-reports.php?cancelled=1';
+        } else {
+            alert(data.error || 'Failed to cancel report.');
+        }
+    })
+    .catch(() => {
+        alert('Failed to cancel report. Please try again.');
+    });
 }
 </script>
 
