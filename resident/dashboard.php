@@ -3,12 +3,11 @@ session_start();
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
 
-// This function will be defined in auth.php or a new resident-auth.php
-// For now, let's assume a function that requires a specific role
-function require_role($role) {
-    if (!is_logged_in() || $_SESSION['role'] !== $role) {
-        // Redirect to login or an unauthorized page
-        redirect_to('../index.php');
+if (!function_exists('require_role')) {
+    function require_role($role) {
+        if (!is_logged_in() || $_SESSION['role'] !== $role) {
+            redirect_to('../index.php');
+        }
     }
 }
 

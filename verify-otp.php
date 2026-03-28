@@ -219,6 +219,7 @@ $masked_email = substr($email, 0, 3) . '***' . substr($email, strpos($email, '@'
                 <?php endif; ?>
 
                 <form action="includes/verify-otp-handler.php" method="POST" id="otpForm">
+                    <?php echo csrf_field(); ?>
                     <div class="otp-inputs" id="otpInputs">
                         <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="one-time-code" required>
                         <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
@@ -236,6 +237,7 @@ $masked_email = substr($email, 0, 3) . '***' . substr($email, strpos($email, '@'
                 <div class="resend-section">
                     <p>Didn't receive the code?</p>
                     <form action="includes/resend-otp-handler.php" method="POST" style="display:inline;">
+                        <?php echo csrf_field(); ?>
                         <button type="submit" class="resend-btn" id="resendBtn" disabled>
                             Resend Code <span id="timerText" class="timer"></span>
                         </button>

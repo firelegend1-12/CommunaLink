@@ -17,6 +17,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+if (!csrf_validate()) {
+    $_SESSION['otp_error'] = 'Invalid security token. Please refresh and try again.';
+    header('Location: ../verify-otp.php');
+    exit;
+}
+
 if (!isset($_SESSION['otp_email'])) {
     $_SESSION['error_message'] = "Session expired. Please register again.";
     header("Location: ../register.php");

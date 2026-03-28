@@ -38,6 +38,13 @@ require_once 'partials/header.php';
 ?>
 
 <div class="max-w-4xl mx-auto px-4 py-8">
+    <nav aria-label="Breadcrumb" class="mb-3 text-sm text-gray-500 flex items-center gap-2">
+        <a href="dashboard.php" class="hover:text-blue-700">Dashboard</a>
+        <span>/</span>
+        <a href="barangay-services.php" class="hover:text-blue-700">Services</a>
+        <span>/</span>
+        <span class="text-gray-700 font-semibold">Barangay Clearance</span>
+    </nav>
     <div class="mb-6 flex items-center justify-between">
         <a href="barangay-services.php" class="text-blue-600 hover:text-blue-800 flex items-center gap-2 font-medium transition">
             <i class="fas fa-arrow-left"></i> Back to Services
@@ -53,6 +60,7 @@ require_once 'partials/header.php';
 
         <div class="p-8">
             <form action="partials/submit-clearance.php" method="POST" id="clearance-form" class="space-y-8">
+                <?php echo csrf_field(); ?>
                 <!-- Hidden Resident ID to mirror admin handler -->
                 <input type="hidden" name="resident_id" value="<?= $resident['id'] ?>">
 

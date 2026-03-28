@@ -2,9 +2,15 @@
 session_start();
 require_once '../../config/database.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/csrf.php';
+require_once '../../includes/storage_manager.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect_to('../account.php');
+}
+
+if (!csrf_validate()) {
+    redirect_to('../account.php?error=invalid_token');
 }
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'resident') {
@@ -16,29 +22,28 @@ $user_id = $_SESSION['user_id'];
 // Handle Profile Picture Update
 if (isset($_POST['update_profile_pic']) && isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] === UPLOAD_ERR_OK) {
     $file = $_FILES['profile_image'];
-    $upload_dir = '../../admin/images/resident-profiles/';
     $file_extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-    $new_filename = uniqid() . '.' . $file_extension;
-    $upload_file = $upload_dir . $new_filename;
 
     // Validate file type and size
     $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
     if (in_array(strtolower($file_extension), $allowed_types) && $file['size'] < 5000000) { // 5MB limit
-        if (move_uploaded_file($file['tmp_name'], $upload_file)) {
+        $storage_result = StorageManager::saveUploadedFile([
+            'tmp_name' => $file['tmp_name'],
+            'extension' => strtolower($file_extension),
+        ], 'admin/images/resident-profiles', 'resident_profile_');
+
+        if ($storage_result['success']) {
             // Get old image path to delete it
             $stmt_old = $pdo->prepare("SELECT profile_image_path FROM residents WHERE user_id = ?");
             $stmt_old->execute([$user_id]);
             $old_image = $stmt_old->fetchColumn();
-            if ($old_image && file_exists($upload_dir . $old_image)) {
-                 // The path in DB is relative to admin folder, not this script's location
-                $old_image_path_in_db = str_replace('images/resident-profiles/', '', $old_image);
-                if ($old_image && file_exists($upload_dir . $old_image_path_in_db)) {
-                    unlink($upload_dir . $old_image_path_in_db);
-                }
+            if (!empty($old_image)) {
+                StorageManager::deleteStoredPath((string) $old_image);
             }
 
             // Update database with new image path
-            $db_path = 'images/resident-profiles/' . $new_filename;
+            $stored_path = (string) ($storage_result['path'] ?? '');
+            $db_path = str_replace('admin/', '', $stored_path);
             $stmt = $pdo->prepare("UPDATE residents SET profile_image_path = ? WHERE user_id = ?");
             $stmt->execute([$db_path, $user_id]);
             redirect_to('../account.php?success=pic_updated');

@@ -47,6 +47,7 @@ require_once 'partials/header.php';
 
         <div class="p-8 md:p-12">
             <form action="partials/submit-residency.php" method="POST" id="residency-form" class="space-y-8">
+                <?php echo csrf_field(); ?>
                 <input type="hidden" name="resident_id" value="<?= $resident['id'] ?>">
 
                 <!-- Applicant Details -->

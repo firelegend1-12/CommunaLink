@@ -16,6 +16,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+if (!csrf_validate()) {
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'error' => 'Invalid security token. Please refresh and try again.']);
+    exit;
+}
+
 // Emulate the exact structure used by admin's new-business-permit-handler.php
 $data = [];
 foreach ($_POST as $key => $value) {
@@ -36,15 +42,21 @@ $data['amount_paid'] = null;
 $pdo->beginTransaction();
 
 try {
-    $resident_id = filter_input(INPUT_POST, 'resident_id', FILTER_VALIDATE_INT);
-    if (empty($resident_id)) {
-        throw new Exception("Resident ID is missing.");
+    $posted_resident_id = filter_input(INPUT_POST, 'resident_id', FILTER_VALIDATE_INT);
+
+    $resident_lookup_stmt = $pdo->prepare("SELECT id FROM residents WHERE user_id = ? LIMIT 1");
+    $resident_lookup_stmt->execute([$_SESSION['user_id']]);
+    $resolved_resident_id = (int) ($resident_lookup_stmt->fetchColumn() ?: 0);
+
+    if ($resolved_resident_id <= 0) {
+        throw new Exception("Resident profile not found for the logged-in user.");
     }
-    
-    // Validate if the resident ID matches logged in user
-    if ($resident_id != $_SESSION['resident_id']) {
+
+    if (!empty($posted_resident_id) && (int) $posted_resident_id !== $resolved_resident_id) {
         throw new Exception("Unauthorized submission profile mismatch.");
     }
+
+    $resident_id = $resolved_resident_id;
 
     $sql = "INSERT INTO business_permits (
         date_of_application, business_account_no, official_receipt_no, or_date, amount_paid,

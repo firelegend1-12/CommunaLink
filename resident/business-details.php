@@ -18,6 +18,7 @@ if (!$trans_id) {
 }
 
 require_once '../config/database.php';
+$cancel_csrf_token = csrf_token();
 
 // Fetch business transaction
 $stmt = $pdo->prepare("SELECT * FROM business_transactions WHERE id = ? AND resident_id = ?");
@@ -192,13 +193,14 @@ function cancelBusinessApplication(transactionId) {
         }
 
         residentConfirm('Are you sure you want to cancel this application?', function() {
+            const csrfToken = '<?php echo htmlspecialchars($cancel_csrf_token, ENT_QUOTES); ?>';
             fetch('partials/cancel-business-application.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: 'id=' + encodeURIComponent(String(transactionId)) + '&reason=' + encodeURIComponent(reason)
+                body: 'id=' + encodeURIComponent(String(transactionId)) + '&reason=' + encodeURIComponent(reason) + '&csrf_token=' + encodeURIComponent(csrfToken)
             })
             .then(response => response.json())
             .then(data => {
