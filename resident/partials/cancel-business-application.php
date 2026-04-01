@@ -16,6 +16,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+if (!csrf_validate()) {
+    echo json_encode(['success' => false, 'error' => 'Invalid security token']);
+    exit;
+}
+
 $transaction_id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
 $reason = sanitize_input(trim($_POST['reason'] ?? 'No reason provided'));
 $resident_id = $_SESSION['resident_id'] ?? 0;

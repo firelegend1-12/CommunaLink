@@ -75,6 +75,7 @@ if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {
                                 <i class="fas fa-envelope input-icon"></i>
                                 <input id="email" name="email" type="email" autocomplete="email" required placeholder="example@gmail.com">
                             </div>
+                            <small style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem; display: block;">✓ Must be a valid email address</small>
                         </div>
                         
                         <div class="form-group">
@@ -83,6 +84,11 @@ if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {
                                 <i class="fas fa-lock input-icon"></i>
                                 <input id="password" name="password" type="password" required placeholder="Minimum 8 characters">
                             </div>
+                            <small style="font-size: 0.875rem; margin-top: 0.25rem; display: block;">
+                                <div id="req-length" style="color: #ef4444;">✓ Minimum 8 characters</div>
+                                <div id="req-number" style="color: #ef4444;">✓ At least one number (0-9)</div>
+                                <div id="req-special" style="color: #ef4444;">✓ At least one special character (!@#$%^&*)</div>
+                            </small>
                         </div>
                         
                             <div class="form-group">
@@ -255,5 +261,40 @@ if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {
     </div>
 
     <script src="assets/js/register.min.js?v=<?= filemtime('assets/js/register.min.js') ?>" defer></script>
+    
+    <script>
+        // Password requirements validation
+        const passwordField = document.getElementById('password');
+        const reqLength = document.getElementById('req-length');
+        const reqNumber = document.getElementById('req-number');
+        const reqSpecial = document.getElementById('req-special');
+
+        if (passwordField) {
+            passwordField.addEventListener('input', function() {
+                const password = this.value;
+
+                // Check minimum 8 characters
+                if (password.length >= 8) {
+                    reqLength.style.color = '#22c55e';
+                } else {
+                    reqLength.style.color = '#ef4444';
+                }
+
+                // Check for at least one number
+                if (/[0-9]/.test(password)) {
+                    reqNumber.style.color = '#22c55e';
+                } else {
+                    reqNumber.style.color = '#ef4444';
+                }
+
+                // Check for at least one special character
+                if (/[!@#$%^&*()_+\-=\[\]{};:'"",.<>?\/\\|`~]/.test(password)) {
+                    reqSpecial.style.color = '#22c55e';
+                } else {
+                    reqSpecial.style.color = '#ef4444';
+                }
+            });
+        }
+    </script>
 </body>
-</html> 
+</html>

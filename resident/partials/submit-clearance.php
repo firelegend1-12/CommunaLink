@@ -16,6 +16,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+if (!csrf_validate()) {
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'error' => 'Invalid security token. Please refresh and try again.']);
+    exit;
+}
+
 try {
     $resident_id = filter_input(INPUT_POST, 'resident_id', FILTER_VALIDATE_INT);
     $purpose = sanitize_input($_POST['purpose'] ?? '');

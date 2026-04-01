@@ -17,6 +17,13 @@ $admin_cap = get_admin_user_cap();
 $admin_count_stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'");
 $admin_count = (int) $admin_count_stmt->fetchColumn();
 
+$form_data = $_SESSION['form_data'] ?? [];
+$old_fullname = htmlspecialchars((string)($form_data['fullname'] ?? ''), ENT_QUOTES, 'UTF-8');
+$old_email = htmlspecialchars((string)($form_data['email'] ?? ''), ENT_QUOTES, 'UTF-8');
+$old_role = (string)($form_data['role'] ?? '');
+$old_official_position = (string)($form_data['official_position'] ?? '');
+unset($_SESSION['form_data']);
+
 $page_title = "Add New User";
 ?>
 <!DOCTYPE html>
@@ -47,7 +54,7 @@ $page_title = "Add New User";
 </head>
 <body class="bg-[#F8FAFC] min-h-screen text-[#1E293B]">
     <div class="flex h-screen overflow-hidden" x-data="{ 
-        role: '', 
+        role: <?php echo htmlspecialchars(json_encode($old_role), ENT_QUOTES, 'UTF-8'); ?>,
         password: '',
         strength: 0,
         validatePassword(pw) {
@@ -82,11 +89,11 @@ $page_title = "Add New User";
             
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-12">
-                <div class="max-w-xl mx-auto">
+                <div class="max-w-3xl mx-auto">
                     <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 mb-6 rounded-r-xl shadow-sm" role="status">
                         <div class="flex items-center">
                             <i class="fas fa-user-shield mr-3"></i>
-                            <p class="font-bold text-xs uppercase tracking-widest">Admin Slots Used: <?php echo $admin_count; ?> / <?php echo $admin_cap; ?></p>
+                            <p class="font-semibold text-sm">Admin slots used: <?php echo $admin_count; ?> / <?php echo $admin_cap; ?></p>
                         </div>
                     </div>
 
@@ -94,7 +101,7 @@ $page_title = "Add New User";
                         <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-5 mb-8 rounded-r-2xl shadow-sm animate-pulse">
                             <div class="flex items-center">
                                 <i class="fas fa-exclamation-triangle mr-3"></i>
-                                <p class="font-bold text-xs uppercase tracking-widest"><?php echo htmlspecialchars($_SESSION['error_message']); ?></p>
+                                <p class="font-semibold text-sm"><?php echo htmlspecialchars($_SESSION['error_message']); ?></p>
                             </div>
                         </div>
                     <?php unset($_SESSION['error_message']); endif; ?>
@@ -104,8 +111,8 @@ $page_title = "Add New User";
                             <div class="h-14 w-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-2xl shadow-lg shadow-indigo-600/30 mb-6 drop-shadow-md">
                                 <i class="fas fa-user-plus"></i>
                             </div>
-                            <h2 class="text-2xl font-black text-slate-900 uppercase tracking-tighter">Registration Form</h2>
-                            <p class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Enroll new members to the system</p>
+                            <h2 class="text-2xl font-extrabold text-slate-900">Registration Form</h2>
+                            <p class="text-sm font-medium text-slate-500 mt-1">Enroll new members to the system</p>
                         </div>
                         
                         <form action="../partials/add-user-handler.php" method="POST" class="p-8 space-y-8">
@@ -114,21 +121,23 @@ $page_title = "Add New User";
                             <!-- Basic Info Section -->
                             <div class="space-y-6">
                                 <div>
-                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Full Legal Name</label>
+                                     <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Full legal name</label>
                                     <input type="text" name="fullname" required 
+                                         value="<?php echo $old_fullname; ?>"
                                            class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm" 
                                            placeholder="e.g. John Doe">
                                 </div>
                                 
                                 <div>
-                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Email Address (Login Username)</label>
+                                     <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Email address (login username)</label>
                                     <input type="email" name="email" required 
+                                         value="<?php echo $old_email; ?>"
                                            class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm" 
                                            placeholder="user@example.com">
                                 </div>
                                 
                                 <div class="relative">
-                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Secure Password</label>
+                                     <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Secure password</label>
                                     <input type="password" name="password" required x-model="password" @input="validatePassword($event.target.value)"
                                            class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm" 
                                            placeholder="Min. 8 characters">
@@ -154,36 +163,46 @@ $page_title = "Add New User";
                             <!-- Access Section -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="md:col-span-2">
-                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">System Role</label>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">System role</label>
                                     <div class="flex gap-3">
                                         <label class="flex-1 cursor-pointer">
                                             <input type="radio" name="role" value="official" x-model="role" class="sr-only peer">
                                             <div class="p-4 border-2 border-slate-100 rounded-2xl text-center transition hover:bg-emerald-50 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 group">
                                                 <i class="fas fa-award text-slate-400 group-hover:text-emerald-600 mb-2"></i>
-                                                <div class="text-[10px] font-black text-slate-900 uppercase">Official</div>
+                                                <div class="text-xs font-bold text-slate-900">Official</div>
                                             </div>
                                         </label>
                                         <label class="flex-1 cursor-pointer">
                                             <input type="radio" name="role" value="admin" x-model="role" class="sr-only peer">
                                             <div class="p-4 border-2 border-slate-100 rounded-2xl text-center transition hover:bg-rose-50 peer-checked:border-rose-600 peer-checked:bg-rose-50 group">
                                                 <i class="fas fa-shield-alt text-slate-400 group-hover:text-rose-600 mb-2"></i>
-                                                <div class="text-[10px] font-black text-slate-900 uppercase">Admin</div>
+                                                <div class="text-xs font-bold text-slate-900">Admin</div>
                                             </div>
                                         </label>
                                     </div>
                                 </div>
                                 
                                 <div x-show="role === 'official'" x-cloak x-transition class="md:col-span-2">
-                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Official Position</label>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Official position</label>
                                     <select name="official_position" :required="role === 'official'" 
                                             class="form-input w-full bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-sm font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 transition shadow-sm appearance-none">
                                         <option value="">Select official position...</option>
-                                        <option value="barangay-captain">Barangay Captain</option>
-                                        <option value="kagawad">Kagawad</option>
-                                        <option value="barangay-secretary">Barangay Secretary</option>
-                                        <option value="barangay-treasurer">Barangay Treasurer</option>
-                                        <option value="barangay-tanod">Barangay Tanod</option>
+                                        <option value="barangay-captain" <?php echo $old_official_position === 'barangay-captain' ? 'selected' : ''; ?>>Barangay Captain</option>
+                                        <option value="kagawad" <?php echo $old_official_position === 'kagawad' ? 'selected' : ''; ?>>Kagawad</option>
+                                        <option value="barangay-secretary" <?php echo $old_official_position === 'barangay-secretary' ? 'selected' : ''; ?>>Barangay Secretary</option>
+                                        <option value="barangay-treasurer" <?php echo $old_official_position === 'barangay-treasurer' ? 'selected' : ''; ?>>Barangay Treasurer</option>
+                                        <option value="barangay-tanod" <?php echo $old_official_position === 'barangay-tanod' ? 'selected' : ''; ?>>Barangay Tanod</option>
                                     </select>
+                                </div>
+
+                                <div x-show="role === 'admin'" x-cloak x-transition class="md:col-span-2">
+                                    <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Confirm with your admin password</label>
+                                    <input type="password" name="admin_confirmation_password" :required="role === 'admin'" autocomplete="current-password"
+                                           class="form-input w-full bg-rose-50 border border-rose-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-rose-500 transition shadow-sm"
+                                           placeholder="Enter your current admin password">
+                                    <p class="text-xs font-semibold text-rose-600 mt-2 ml-1">
+                                        Privileged action: creating an admin account requires re-authentication.
+                                    </p>
                                 </div>
                             </div>
                             

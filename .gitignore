@@ -5,6 +5,7 @@
 
 # Deployment config with secrets
 app.yaml
+app.yml
 !app.yaml.example
 
 # Logs

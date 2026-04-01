@@ -709,6 +709,49 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
     </div>
 
     <script>
+        function adminShowToast(message, type = 'info') {
+            const existing = document.getElementById('admin-toast-container');
+            const container = existing || (() => {
+                const el = document.createElement('div');
+                el.id = 'admin-toast-container';
+                el.style.position = 'fixed';
+                el.style.top = '16px';
+                el.style.right = '16px';
+                el.style.zIndex = '9999';
+                el.style.display = 'flex';
+                el.style.flexDirection = 'column';
+                el.style.gap = '10px';
+                document.body.appendChild(el);
+                return el;
+            })();
+
+            const toast = document.createElement('div');
+            const palette = {
+                success: { bg: '#ecfdf3', border: '#16a34a', text: '#166534' },
+                error: { bg: '#fef2f2', border: '#dc2626', text: '#991b1b' },
+                info: { bg: '#eff6ff', border: '#2563eb', text: '#1d4ed8' }
+            };
+            const colors = palette[type] || palette.info;
+            toast.style.background = colors.bg;
+            toast.style.borderLeft = `4px solid ${colors.border}`;
+            toast.style.color = colors.text;
+            toast.style.padding = '10px 12px';
+            toast.style.borderRadius = '8px';
+            toast.style.boxShadow = '0 8px 20px rgba(15, 23, 42, 0.12)';
+            toast.style.minWidth = '240px';
+            toast.style.maxWidth = '360px';
+            toast.style.fontSize = '13px';
+            toast.style.fontWeight = '600';
+            toast.textContent = message;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.transition = 'opacity 0.25s ease';
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 260);
+            }, 3200);
+        }
+
         function pageData() {
             return {
                 reports: [],
@@ -813,12 +856,12 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                         if (result.success) {
                             this.viewData = result.data;
                         } else {
-                            alert(result.error);
+                            adminShowToast(result.error || 'Failed to load details.', 'error');
                             this.showView = false;
                         }
                     } catch (error) {
                         console.error('Error:', error);
-                        alert("Failed to load details.");
+                        adminShowToast('Failed to load details.', 'error');
                         this.showView = false;
                     } finally {
                         this.loadingView = false;
@@ -848,12 +891,13 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                             if (result.stats) {
                                 this.stats = result.stats;
                             }
+                            adminShowToast('Status updated successfully.', 'success');
                         } else {
-                            alert(result.error || 'Failed to update status');
+                            adminShowToast(result.error || 'Failed to update status', 'error');
                         }
                     } catch (error) {
                         console.error('Error saving status:', error);
-                        alert('An error occurred.');
+                        adminShowToast('An error occurred while updating status.', 'error');
                     } finally {
                         this.isSavingStatus = false;
                     }
@@ -876,12 +920,13 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                             this.remarksChanged = false;
                             // Optionally refresh reports to sync the data
                             this.fetchReports(true);
+                            adminShowToast('Remarks saved successfully.', 'success');
                         } else {
-                            alert(result.error || 'Failed to save remarks');
+                            adminShowToast(result.error || 'Failed to save remarks', 'error');
                         }
                     } catch (error) {
                         console.error('Error saving remarks:', error);
-                        alert('An error occurred while saving.');
+                        adminShowToast('An error occurred while saving remarks.', 'error');
                     } finally {
                         this.isSavingRemarks = false;
                     }

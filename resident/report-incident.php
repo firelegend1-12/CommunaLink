@@ -98,8 +98,12 @@ function initLazyMap() {
 
     // Inject Google Maps script dynamically
     const script = document.createElement('script');
-    const apiKey = "<?php echo function_exists('env') ? env('GOOGLE_MAPS_API_KEY', 'AIzaSyDSePOKkt_W5bY7YsYaEJrMoSRWxTMGnuI') : 'AIzaSyDSePOKkt_W5bY7YsYaEJrMoSRWxTMGnuI'; ?>";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&callback=initGoogleMap`;
+    const apiKey = "<?php echo htmlspecialchars((string)(function_exists('maps_api_key') ? maps_api_key('') : ''), ENT_QUOTES, 'UTF-8'); ?>";
+    if (!apiKey) {
+        mapDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #b91c1c;">Google Maps API key is missing. Please contact the administrator.</div>';
+        return;
+    }
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&callback=initGoogleMap`;
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);
@@ -274,7 +278,8 @@ function initForm() {
         
         fetch('../api/incidents.php', {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'same-origin'
         })
         .then(response => response.json())
         .then(data => {

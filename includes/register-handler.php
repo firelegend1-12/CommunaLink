@@ -57,6 +57,18 @@ if (strlen($password) < 8) {
     redirect_to('../register.php');
 }
 
+// Check for at least one number
+if (!preg_match('/[0-9]/', $password)) {
+    $_SESSION['error_message'] = "Password must contain at least one number (0-9).";
+    redirect_to('../register.php');
+}
+
+// Check for at least one special character
+if (!preg_match('/[!@#$%^&*()_+\-=\[\]{};:\'",.<>?\/\\|`~]/', $password)) {
+    $_SESSION['error_message'] = "Password must contain at least one special character (!@#$%^&*).";
+    redirect_to('../register.php');
+}
+
 if ($password !== $confirm_password) {
     $_SESSION['error_message'] = "Passwords do not match.";
     redirect_to('../register.php');

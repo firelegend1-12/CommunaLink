@@ -404,8 +404,7 @@ WHERE NOT EXISTS (
     WHERE a.title = e.title 
     AND a.created_at = e.created_at 
     AND a.is_event = 1
-)
-ON DUPLICATE KEY UPDATE `id`=`id`;
+);
 
 -- ============================================================
 -- MIGRATION: Setup Legacy Mark Notifications Read Endpoint

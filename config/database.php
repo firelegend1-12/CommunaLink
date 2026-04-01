@@ -9,21 +9,45 @@ require_once __DIR__ . '/env_loader.php';
 
 // Database credentials from environment variables with fallback defaults
 $servername = env('DB_HOST', 'localhost');
+$dbPort = (int) env('DB_PORT', 3306);
+$dbSocket = trim((string) env('DB_SOCKET', ''));
 $username = env('DB_USER', 'root');
 $password = env('DB_PASS', '');
 $dbname = env('DB_NAME', 'barangay_reports');
 $charset = env('DB_CHARSET', 'utf8mb4');
+$autoCreateDatabase = strtolower((string) env('AUTO_CREATE_DATABASE', 'true')) === 'true';
+$appEnv = strtolower(trim((string) env('APP_ENV', 'production')));
+$appDebug = strtolower(trim((string) env('APP_DEBUG', 'false'))) === 'true';
+
+// Safety override: never auto-create DB in production-like environments.
+if (in_array($appEnv, ['production', 'prod', 'staging'], true)) {
+    $autoCreateDatabase = false;
+}
 
 try {
-    // First, connect to MySQL server without specifying a database
-    $temp_pdo = new PDO("mysql:host=$servername", $username, $password);
-    $temp_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // App Engine/Cloud Run Cloud SQL Unix socket support.
+    $dsn_parts = ["dbname=$dbname", "charset=$charset"];
+    if ($dbSocket !== '') {
+        $dsn_parts[] = "unix_socket=$dbSocket";
+    } else {
+        $dsn_parts[] = "host=$servername";
+        if ($dbPort > 0) {
+            $dsn_parts[] = "port=$dbPort";
+        }
+    }
 
-    // Check if the database exists and create it if it doesn't
-    $temp_pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname` CHARACTER SET $charset COLLATE utf8mb4_unicode_ci;");
+    if ($autoCreateDatabase && $dbSocket === '') {
+        // DB creation is convenient in local/dev but should usually be disabled in managed production DBs.
+        $bootstrapDsn = "mysql:host=$servername";
+        if ($dbPort > 0) {
+            $bootstrapDsn .= ";port=$dbPort";
+        }
+        $temp_pdo = new PDO($bootstrapDsn, $username, $password);
+        $temp_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $temp_pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname` CHARACTER SET $charset COLLATE utf8mb4_unicode_ci;");
+    }
 
-    // Now, establish the persistent connection to the specific database
-    $dsn = "mysql:host=$servername;dbname=$dbname;charset=$charset";
+    $dsn = 'mysql:' . implode(';', $dsn_parts);
     $options = [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -37,7 +61,7 @@ try {
     error_log("Database Connection Error: " . $e->getMessage());
     
     // Show generic error message to user
-    if (env('APP_DEBUG', false) === true) {
+    if ($appDebug) {
         die("Database Connection Error: " . $e->getMessage());
     } else {
         die("Database connection failed. Please contact the administrator.");

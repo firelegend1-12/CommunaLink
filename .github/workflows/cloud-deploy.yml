@@ -1,0 +1,259 @@
+name: cloud-deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: communalink
+  RUN_DB_MIGRATIONS: 'false'
+  DB_HOST_STAGING: ''
+  DB_PORT_STAGING: ''
+  DB_NAME_STAGING: ''
+  DB_USER_STAGING: ''
+  DB_PASS_STAGING: ''
+  DB_SOCKET_STAGING: ''
+  SECRET_DB_PASS_STAGING: DB_PASS_STAGING
+  SECRET_DB_PASS_PRODUCTION: DB_PASS_PROD
+  SECRET_GOOGLE_MAPS_API_KEY_STAGING: GOOGLE_MAPS_API_KEY
+  SECRET_GOOGLE_MAPS_API_KEY_PRODUCTION: GOOGLE_MAPS_API_KEY
+  SECRET_EMAIL_SMTP_PASSWORD_STAGING: EMAIL_SMTP_PASSWORD
+  SECRET_EMAIL_SMTP_PASSWORD_PRODUCTION: EMAIL_SMTP_PASSWORD
+  SECRET_PERMIT_CHECK_SCHEDULER_TOKEN_STAGING: PERMIT_CHECK_SCHEDULER_TOKEN
+  SECRET_PERMIT_CHECK_SCHEDULER_TOKEN_PRODUCTION: PERMIT_CHECK_SCHEDULER_TOKEN
+  SECRET_SESSION_CLEANUP_SCHEDULER_TOKEN_STAGING: SESSION_CLEANUP_SCHEDULER_TOKEN
+  SECRET_SESSION_CLEANUP_SCHEDULER_TOKEN_PRODUCTION: SESSION_CLEANUP_SCHEDULER_TOKEN
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: zricethezav/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    runs-on: ubuntu-latest
+    needs: secret-scan
+    outputs:
+      image_uri: ${{ steps.build_image.outputs.image_uri }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Validate required deployment env vars
+        run: |
+          test -n "$GCP_REGION"
+          test -n "$GCP_PROJECT_ID"
+          test -n "$ARTIFACT_REPOSITORY"
+
+      - name: Authenticate to Google Cloud
+        run: |
+          echo "$GCP_SA_KEY_JSON" > "$RUNNER_TEMP/gcp-key.json"
+          gcloud auth activate-service-account --key-file="$RUNNER_TEMP/gcp-key.json"
+          gcloud config set project "$GCP_PROJECT_ID"
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "$GCP_REGION-docker.pkg.dev" --quiet
+
+      - name: Build Docker image
+        id: build_image
+        run: |
+          IMAGE_URI="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY/$IMAGE_NAME:${{ github.sha }}"
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+          docker build -t "$IMAGE_URI" .
+
+      - name: Push Docker image
+        run: docker push "$IMAGE_URI"
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      IMAGE_URI: ${{ needs.build.outputs.image_uri }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start container
+        run: |
+          docker pull "$IMAGE_URI"
+          docker run -d --name app -p 8080:8080 "$IMAGE_URI"
+
+      - name: Wait for app startup
+        run: sleep 12
+
+      - name: Health check
+        run: curl -fsS http://127.0.0.1:8080/api/health.php
+
+      - name: Readiness check
+        run: curl -fsS http://127.0.0.1:8080/api/ready.php
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [smoke-test, build]
+    if: github.ref == 'refs/heads/main'
+    env:
+      IMAGE_URI: ${{ needs.build.outputs.image_uri }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Policy check - required staging deployment vars
+        run: |
+          test -n "$GCP_REGION"
+          test -n "$GCP_PROJECT_ID"
+          test -n "$GCP_SA_KEY_JSON"
+          test -n "$CLOUD_RUN_SERVICE_STAGING"
+          test -n "$STAGING_STORAGE_BUCKET"
+
+      - name: Policy check - required staging secret mappings
+        run: |
+          test -n "$SECRET_DB_PASS_STAGING"
+          test -n "$SECRET_GOOGLE_MAPS_API_KEY_STAGING"
+          test -n "$SECRET_EMAIL_SMTP_PASSWORD_STAGING"
+          test -n "$SECRET_PERMIT_CHECK_SCHEDULER_TOKEN_STAGING"
+          test -n "$SECRET_SESSION_CLEANUP_SCHEDULER_TOKEN_STAGING"
+
+      - name: Policy check - optional migration inputs when enabled
+        if: env.RUN_DB_MIGRATIONS == 'true'
+        run: |
+          test -n "$DB_NAME_STAGING"
+          test -n "$DB_USER_STAGING"
+          if [ -z "$DB_SOCKET_STAGING" ]; then
+            test -n "$DB_HOST_STAGING"
+            test -n "$DB_PORT_STAGING"
+          fi
+
+      - name: Authenticate to Google Cloud
+        run: |
+          echo "$GCP_SA_KEY_JSON" > "$RUNNER_TEMP/gcp-key.json"
+          gcloud auth activate-service-account --key-file="$RUNNER_TEMP/gcp-key.json"
+          gcloud config set project "$GCP_PROJECT_ID"
+
+      - name: Deploy to Cloud Run (staging)
+        run: |
+          test -n "$CLOUD_RUN_SERVICE_STAGING"
+          test -n "$STAGING_STORAGE_BUCKET"
+          gcloud run deploy "$CLOUD_RUN_SERVICE_STAGING" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --image "$IMAGE_URI" \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars "APP_ENV=staging,APP_DEBUG=false,AUTO_CREATE_DATABASE=false,AUTO_DB_SCHEMA_SYNC=false,USE_CLOUD_STORAGE=true,STORAGE_BUCKET=$STAGING_STORAGE_BUCKET" \
+            --set-secrets "DB_PASS=${SECRET_DB_PASS_STAGING}:latest,GOOGLE_MAPS_API_KEY=${SECRET_GOOGLE_MAPS_API_KEY_STAGING}:latest,EMAIL_SMTP_PASSWORD=${SECRET_EMAIL_SMTP_PASSWORD_STAGING}:latest,PERMIT_CHECK_SCHEDULER_TOKEN=${SECRET_PERMIT_CHECK_SCHEDULER_TOKEN_STAGING}:latest,SESSION_CLEANUP_SCHEDULER_TOKEN=${SECRET_SESSION_CLEANUP_SCHEDULER_TOKEN_STAGING}:latest"
+
+      - name: Resolve staging service URL
+        run: |
+          STAGING_URL=$(gcloud run services describe "$CLOUD_RUN_SERVICE_STAGING" --region "$GCP_REGION" --format='value(status.url)')
+          test -n "$STAGING_URL"
+          echo "STAGING_URL=$STAGING_URL" >> $GITHUB_ENV
+
+      - name: Post-deploy smoke test (staging)
+        run: |
+          curl -fsS "$STAGING_URL/api/health.php"
+          curl -fsS "$STAGING_URL/api/ready.php"
+
+      - name: Setup PHP for optional migration step
+        if: env.RUN_DB_MIGRATIONS == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Run DB migrations (optional)
+        if: env.RUN_DB_MIGRATIONS == 'true'
+        env:
+          APP_ENV: staging
+          APP_DEBUG: false
+          AUTO_CREATE_DATABASE: false
+          AUTO_DB_SCHEMA_SYNC: false
+          DB_HOST: ${{ env.DB_HOST_STAGING }}
+          DB_PORT: ${{ env.DB_PORT_STAGING }}
+          DB_NAME: ${{ env.DB_NAME_STAGING }}
+          DB_USER: ${{ env.DB_USER_STAGING }}
+          DB_PASS: ${{ env.DB_PASS_STAGING }}
+          DB_SOCKET: ${{ env.DB_SOCKET_STAGING }}
+        run: php scripts/migrate.php --path=migrations
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, build]
+    if: github.ref == 'refs/heads/main'
+    env:
+      IMAGE_URI: ${{ needs.build.outputs.image_uri }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Policy check - required production deployment vars
+        run: |
+          test -n "$GCP_REGION"
+          test -n "$GCP_PROJECT_ID"
+          test -n "$GCP_SA_KEY_JSON"
+          test -n "$CLOUD_RUN_SERVICE_PRODUCTION"
+          test -n "$PRODUCTION_STORAGE_BUCKET"
+
+      - name: Policy check - required production secret mappings
+        run: |
+          test -n "$SECRET_DB_PASS_PRODUCTION"
+          test -n "$SECRET_GOOGLE_MAPS_API_KEY_PRODUCTION"
+          test -n "$SECRET_EMAIL_SMTP_PASSWORD_PRODUCTION"
+          test -n "$SECRET_PERMIT_CHECK_SCHEDULER_TOKEN_PRODUCTION"
+          test -n "$SECRET_SESSION_CLEANUP_SCHEDULER_TOKEN_PRODUCTION"
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Authenticate to Google Cloud
+        run: |
+          echo "$GCP_SA_KEY_JSON" > "$RUNNER_TEMP/gcp-key.json"
+          gcloud auth activate-service-account --key-file="$RUNNER_TEMP/gcp-key.json"
+          gcloud config set project "$GCP_PROJECT_ID"
+
+      - name: Deploy to Cloud Run (production)
+        run: |
+          test -n "$CLOUD_RUN_SERVICE_PRODUCTION"
+          test -n "$PRODUCTION_STORAGE_BUCKET"
+          gcloud run deploy "$CLOUD_RUN_SERVICE_PRODUCTION" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --image "$IMAGE_URI" \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars "APP_ENV=production,APP_DEBUG=false,AUTO_CREATE_DATABASE=false,AUTO_DB_SCHEMA_SYNC=false,USE_CLOUD_STORAGE=true,STORAGE_BUCKET=$PRODUCTION_STORAGE_BUCKET" \
+            --set-secrets "DB_PASS=${SECRET_DB_PASS_PRODUCTION}:latest,GOOGLE_MAPS_API_KEY=${SECRET_GOOGLE_MAPS_API_KEY_PRODUCTION}:latest,EMAIL_SMTP_PASSWORD=${SECRET_EMAIL_SMTP_PASSWORD_PRODUCTION}:latest,PERMIT_CHECK_SCHEDULER_TOKEN=${SECRET_PERMIT_CHECK_SCHEDULER_TOKEN_PRODUCTION}:latest,SESSION_CLEANUP_SCHEDULER_TOKEN=${SECRET_SESSION_CLEANUP_SCHEDULER_TOKEN_PRODUCTION}:latest"
+
+      - name: Resolve production service URL
+        run: |
+          PRODUCTION_URL=$(gcloud run services describe "$CLOUD_RUN_SERVICE_PRODUCTION" --region "$GCP_REGION" --format='value(status.url)')
+          test -n "$PRODUCTION_URL"
+          echo "PRODUCTION_URL=$PRODUCTION_URL" >> $GITHUB_ENV
+
+      - name: Post-deploy smoke test (production)
+        run: |
+          curl -fsS "$PRODUCTION_URL/api/health.php"
+          curl -fsS "$PRODUCTION_URL/api/ready.php"
