@@ -450,9 +450,23 @@ function authenticate_user($username, $password, $pdo) {
         // Sanitize username just in case
         $username = sanitize_input($username);
 
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
-        $stmt->execute([$username]);
+        // Accept both username OR email for login
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? OR email = ? LIMIT 1");
+        $stmt->execute([$username, $username]);
         $user = $stmt->fetch();
+
+        if ($user) {
+            $status = strtolower(trim((string) ($user['status'] ?? 'active')));
+            if ($status !== 'active') {
+                $_SESSION['login_error_message'] = 'Account is pending activation or inactive. Please complete your invitation link or contact an administrator.';
+                return false;
+            }
+
+            if (isset($user['password_change_required']) && (int) $user['password_change_required'] === 1) {
+                $_SESSION['login_error_message'] = 'Password setup is required before sign-in. Please use your activation/reset link.';
+                return false;
+            }
+        }
 
         if ($user && password_verify($password, $user['password'])) {
             // Update last_login timestamp

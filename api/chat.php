@@ -34,15 +34,32 @@ RateLimiter::recordAttempt('chat_api', RateLimiter::getClientIP());
 $user_id = $_SESSION['user_id'];
 $role    = $_SESSION['role'];
 
-// Dynamically resolve the admin's user ID — never hardcode it
-function getAdminId($pdo) {
-    static $admin_id = null;
-    if ($admin_id === null) {
-        $stmt = $pdo->query("SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
-        $admin = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
-        $admin_id = $admin ? (int)$admin['id'] : 1;
+function getAdminIds($pdo) {
+    static $admin_ids = null;
+
+    if ($admin_ids === null) {
+        $stmt = $pdo->query("SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC");
+        $rows = $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
+        $admin_ids = array_values(array_filter(array_map('intval', (array) $rows), function ($id) {
+            return $id > 0;
+        }));
     }
-    return $admin_id;
+
+    return $admin_ids;
+}
+
+function getPrimaryAdminId($pdo) {
+    $admin_ids = getAdminIds($pdo);
+    return !empty($admin_ids) ? (int) $admin_ids[0] : 1;
+}
+
+function getAdminIdsForInClause($pdo) {
+    $admin_ids = getAdminIds($pdo);
+    return !empty($admin_ids) ? $admin_ids : [0];
+}
+
+function buildInPlaceholders(array $values) {
+    return implode(', ', array_fill(0, count($values), '?'));
 }
 
 $response = ['error' => 'Invalid request.'];
@@ -58,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $message_text = trim(htmlspecialchars($_POST['message']));
 
         if ($role === 'resident') {
-            $receiver_id = getAdminId($pdo);
+            $receiver_id = getPrimaryAdminId($pdo);
         } else {
             $receiver_id = intval($_POST['receiver_id'] ?? 0);
         }
@@ -79,6 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     } elseif ($_POST['action'] === 'mark_as_read' && isset($_POST['sender_id'])) {
         // Mark all messages from a specific resident as read
         $sender_id = intval($_POST['sender_id']);
+        $admin_ids = getAdminIdsForInClause($pdo);
+        $admin_placeholders = buildInPlaceholders($admin_ids);
 
         if ($role !== 'admin') {
             http_response_code(403);
@@ -91,10 +110,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt = $pdo->prepare(
                 "UPDATE chat_messages SET is_read = 1
                  WHERE sender_id = ?
-                   AND receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                   AND receiver_id IN ({$admin_placeholders})
                    AND is_read = 0"
             );
-            $stmt->execute([$sender_id]);
+            $stmt->execute(array_merge([$sender_id], $admin_ids));
             $response = ['success' => true, 'marked' => $stmt->rowCount()];
         } catch (PDOException $e) {
             error_log('chat mark_as_read database error: ' . $e->getMessage());
@@ -105,6 +124,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 } elseif ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action'])) {
     if ($_GET['action'] === 'get_messages' && isset($_GET['partner_id'])) {
         $partner_id = intval($_GET['partner_id']);
+        $admin_ids = getAdminIdsForInClause($pdo);
+        $admin_placeholders = buildInPlaceholders($admin_ids);
         try {
             if ($role === 'resident') {
                 // Mark admin -> resident messages as read when resident opens thread.
@@ -112,10 +133,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     "UPDATE chat_messages
                      SET is_read = 1
                      WHERE receiver_id = ?
-                       AND sender_id IN (SELECT id FROM users WHERE role = 'admin')
+                       AND sender_id IN ({$admin_placeholders})
                        AND is_read = 0"
                 );
-                $mark_stmt->execute([$user_id]);
+                $mark_stmt->execute(array_merge([$user_id], $admin_ids));
 
                 // Resident sees full shared admin-history thread.
                 $stmt = $pdo->prepare(
@@ -124,24 +145,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                      LEFT JOIN users sender ON sender.id = cm.sender_id
                      WHERE (
                             cm.sender_id = ?
-                        AND cm.receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                        AND cm.receiver_id IN ({$admin_placeholders})
                      ) OR (
                             cm.receiver_id = ?
-                        AND cm.sender_id IN (SELECT id FROM users WHERE role = 'admin')
+                        AND cm.sender_id IN ({$admin_placeholders})
                      )
                      ORDER BY cm.sent_at ASC"
                 );
-                $stmt->execute([$user_id, $user_id]);
+                $stmt->execute(array_merge([$user_id], $admin_ids, [$user_id], $admin_ids));
             } else {
                 // Mark resident -> admin messages as read when admin opens thread.
                 $mark_stmt = $pdo->prepare(
                     "UPDATE chat_messages
                      SET is_read = 1
                      WHERE sender_id = ?
-                       AND receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                       AND receiver_id IN ({$admin_placeholders})
                        AND is_read = 0"
                 );
-                $mark_stmt->execute([$partner_id]);
+                $mark_stmt->execute(array_merge([$partner_id], $admin_ids));
 
                 // Admin sees shared admin-history thread for the resident.
                 $stmt = $pdo->prepare(
@@ -149,15 +170,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                      FROM chat_messages cm
                      LEFT JOIN users sender ON sender.id = cm.sender_id
                      WHERE (
-                            cm.sender_id IN (SELECT id FROM users WHERE role = 'admin')
+                            cm.sender_id IN ({$admin_placeholders})
                         AND cm.receiver_id = ?
                      ) OR (
-                            cm.receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                            cm.receiver_id IN ({$admin_placeholders})
                         AND cm.sender_id = ?
                      )
                      ORDER BY cm.sent_at ASC"
                 );
-                $stmt->execute([$partner_id, $partner_id]);
+                $stmt->execute(array_merge($admin_ids, [$partner_id], $admin_ids, [$partner_id]));
             }
             $messages  = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $response  = ['success' => true, 'messages' => $messages];
@@ -168,6 +189,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     } elseif ($_GET['action'] === 'get_conversations' && $role === 'admin') {
         try {
+            $admin_ids = getAdminIdsForInClause($pdo);
+            $admin_placeholders = buildInPlaceholders($admin_ids);
+
             $sql = "
             SELECT u.id AS user_id, u.fullname, m.message, m.sent_at, COALESCE(unread.unread_count, 0) AS unread_count
             FROM users u
@@ -176,15 +200,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 FROM (
                     SELECT
                         CASE
-                            WHEN sender_id IN (SELECT id FROM users WHERE role = 'admin') THEN receiver_id
+                            WHEN sender_id IN ({$admin_placeholders}) THEN receiver_id
                             ELSE sender_id
                         END AS resident_id,
                         MAX(id) AS latest_message_id
                     FROM chat_messages
-                    WHERE sender_id IN (SELECT id FROM users WHERE role = 'admin')
-                       OR receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                    WHERE sender_id IN ({$admin_placeholders})
+                       OR receiver_id IN ({$admin_placeholders})
                     GROUP BY CASE
-                        WHEN sender_id IN (SELECT id FROM users WHERE role = 'admin') THEN receiver_id
+                        WHEN sender_id IN ({$admin_placeholders}) THEN receiver_id
                         ELSE sender_id
                     END
                 ) latest
@@ -193,7 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         LEFT JOIN (
                                 SELECT sender_id AS resident_id, COUNT(*) AS unread_count
                                 FROM chat_messages
-                                WHERE receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                                WHERE receiver_id IN ({$admin_placeholders})
                                     AND is_read = 0
                                 GROUP BY sender_id
                         ) unread ON unread.resident_id = u.id
@@ -201,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ORDER BY (m.sent_at IS NULL) ASC, m.sent_at DESC, u.fullname ASC
             ";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute();
+            $stmt->execute(array_merge($admin_ids, $admin_ids, $admin_ids, $admin_ids, $admin_ids));
             $conversations = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $response = ['success' => true, 'conversations' => $conversations];
         } catch (PDOException $e) {
@@ -210,13 +234,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
     } elseif ($_GET['action'] === 'get_unread_count' && $role === 'admin') {
         try {
+            $admin_ids = getAdminIdsForInClause($pdo);
+            $admin_placeholders = buildInPlaceholders($admin_ids);
+
             // Count all unread messages directed at any admin user (shared inbox semantics)
             $stmt = $pdo->prepare(
                 "SELECT COUNT(*) FROM chat_messages
-                 WHERE receiver_id IN (SELECT id FROM users WHERE role = 'admin')
+                 WHERE receiver_id IN ({$admin_placeholders})
                    AND is_read = 0"
             );
-            $stmt->execute();
+            $stmt->execute($admin_ids);
             $count = (int)$stmt->fetchColumn();
             $response = ['success' => true, 'unread' => $count];
         } catch (PDOException $e) {

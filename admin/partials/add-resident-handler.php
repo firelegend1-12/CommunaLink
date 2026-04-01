@@ -7,6 +7,7 @@
 // Include authentication and database
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/storage_manager.php';
 
 // Check if user is logged in
 require_login();
@@ -23,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Function to handle file uploads
-function handle_upload($file_input_name, $upload_dir) {
+function handle_upload($file_input_name, $relative_dir, $prefix) {
     if (isset($_FILES[$file_input_name]) && $_FILES[$file_input_name]['error'] == UPLOAD_ERR_OK) {
         $file_validation = validate_input($_FILES[$file_input_name], 'file', [
             'max_size' => 5 * 1024 * 1024,
@@ -35,36 +36,23 @@ function handle_upload($file_input_name, $upload_dir) {
         }
 
         $validated_file = $file_validation['sanitized'];
-        $new_filename = uniqid('', true) . '.' . $validated_file['extension'];
-        $dest_path = $upload_dir . $new_filename;
-
-        if (move_uploaded_file($validated_file['tmp_name'], $dest_path)) {
-            return ['filename' => $new_filename];
-        } else {
-            return ['error' => 'Failed to move uploaded file.'];
+        $storage_result = StorageManager::saveUploadedFile($validated_file, $relative_dir, $prefix);
+        if (!$storage_result['success']) {
+            return ['error' => (string) ($storage_result['error'] ?? 'Failed to store uploaded file.')];
         }
+
+        return ['path' => (string) ($storage_result['path'] ?? '')];
     }
-    return ['filename' => null];
+    return ['path' => null];
 }
 
 // Define upload directories
-$relative_profile_dir = 'images/resident-profiles/';
-$relative_signature_dir = 'images/signatures/';
-
-$profile_upload_dir = dirname(__DIR__) . '/' . $relative_profile_dir;
-$signature_upload_dir = dirname(__DIR__) . '/' . $relative_signature_dir;
-
-// Create directories if they don't exist
-if (!file_exists($profile_upload_dir)) {
-    mkdir($profile_upload_dir, 0755, true);
-}
-if (!file_exists($signature_upload_dir)) {
-    mkdir($signature_upload_dir, 0755, true);
-}
+$profile_storage_dir = 'admin/images/resident-profiles';
+$signature_storage_dir = 'admin/images/signatures';
 
 // Handle file uploads
-$profile_image_upload = handle_upload('profile_image', $profile_upload_dir);
-$signature_upload = handle_upload('signature', $signature_upload_dir);
+$profile_image_upload = handle_upload('profile_image', $profile_storage_dir, 'resident_profile_');
+$signature_upload = handle_upload('signature', $signature_storage_dir, 'resident_signature_');
 
 if (isset($profile_image_upload['error']) || isset($signature_upload['error'])) {
     // Handle upload errors
@@ -75,13 +63,13 @@ if (isset($profile_image_upload['error']) || isset($signature_upload['error'])) 
 
 // Construct relative paths for database
 $profile_image_path = null;
-if (isset($profile_image_upload['filename'])) {
-    $profile_image_path = $relative_profile_dir . $profile_image_upload['filename'];
+if (!empty($profile_image_upload['path'])) {
+    $profile_image_path = str_replace('admin/', '', $profile_image_upload['path']);
 }
 
 $signature_path = null;
-if (isset($signature_upload['filename'])) {
-    $signature_path = $relative_signature_dir . $signature_upload['filename'];
+if (!empty($signature_upload['path'])) {
+    $signature_path = str_replace('admin/', '', $signature_upload['path']);
 }
 
 // Sanitize and validate form inputs

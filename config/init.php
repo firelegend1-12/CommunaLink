@@ -61,9 +61,93 @@ require_once __DIR__ . '/../includes/cache_manager.php'; // Caching system
 require_once __DIR__ . '/../includes/query_optimizer.php'; // Query optimization
 
 
+function fail_fast_startup_contract_error(array $errors) {
+    $message = 'Startup configuration contract validation failed: ' . implode(' | ', $errors);
+    error_log($message);
+
+    if (PHP_SAPI === 'cli') {
+        fwrite(STDERR, $message . PHP_EOL);
+        exit(1);
+    }
+
+    http_response_code(500);
+    exit('Application configuration error. Check server logs.');
+}
+
+function validate_startup_config_contract() {
+    $app_env = strtolower(trim((string) env('APP_ENV', 'production')));
+    $is_production_like = in_array($app_env, ['production', 'prod', 'staging'], true);
+    if (!$is_production_like) {
+        return;
+    }
+
+    $errors = [];
+
+    if (trim((string) env('DB_NAME', '')) === '') {
+        $errors[] = 'DB_NAME is required in production-like environments';
+    }
+
+    if (trim((string) env('DB_USER', '')) === '') {
+        $errors[] = 'DB_USER is required in production-like environments';
+    }
+
+    $dbSocket = trim((string) env('DB_SOCKET', ''));
+    $dbHost = trim((string) env('DB_HOST', ''));
+    $dbPort = trim((string) env('DB_PORT', ''));
+
+    if ($dbSocket === '') {
+        if ($dbHost === '') {
+            $errors[] = 'DB_HOST is required when DB_SOCKET is not configured';
+        }
+        if ($dbPort === '' || !ctype_digit($dbPort)) {
+            $errors[] = 'DB_PORT must be a numeric value when DB_SOCKET is not configured';
+        }
+    }
+
+    $useCloudStorage = strtolower(trim((string) env('USE_CLOUD_STORAGE', 'false')));
+    if (in_array($useCloudStorage, ['1', 'true', 'yes', 'on'], true) && trim((string) env('STORAGE_BUCKET', '')) === '') {
+        $errors[] = 'STORAGE_BUCKET is required when USE_CLOUD_STORAGE=true';
+    }
+
+    $permitToken = trim((string) env('PERMIT_CHECK_SCHEDULER_TOKEN', ''));
+    $sessionCleanupToken = trim((string) env('SESSION_CLEANUP_SCHEDULER_TOKEN', ''));
+    if ($permitToken === '') {
+        $errors[] = 'PERMIT_CHECK_SCHEDULER_TOKEN is required in production-like environments';
+    }
+    if ($sessionCleanupToken === '') {
+        $errors[] = 'SESSION_CLEANUP_SCHEDULER_TOKEN is required in production-like environments';
+    }
+
+    if (!empty($errors)) {
+        fail_fast_startup_contract_error($errors);
+    }
+}
+
+
 date_default_timezone_set('Asia/Manila');
 
+validate_startup_config_contract();
+
 try {
+    $app_env = strtolower(trim((string) env('APP_ENV', 'production')));
+    $is_production_like = in_array($app_env, ['production', 'prod', 'staging'], true);
+
+    if ($is_production_like) {
+        // Never expose debug output in production-like environments.
+        ini_set('display_errors', '0');
+        ini_set('log_errors', '1');
+    }
+
+    $auto_db_schema_sync = strtolower((string) env('AUTO_DB_SCHEMA_SYNC', 'true')) === 'true';
+    if ($is_production_like && $auto_db_schema_sync) {
+        error_log('AUTO_DB_SCHEMA_SYNC was enabled in a production-like environment; forcing disabled mode.');
+        $auto_db_schema_sync = false;
+    }
+
+    if (!$auto_db_schema_sync) {
+        return;
+    }
+
     // Table creation queries
     $queries = [
         "CREATE TABLE IF NOT EXISTS `users` (
@@ -779,6 +863,11 @@ try {
     // Add password reset columns to users table
     $pdo->exec("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `reset_token` VARCHAR(255) DEFAULT NULL AFTER `status`");
     $pdo->exec("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `reset_token_expires` DATETIME DEFAULT NULL AFTER `reset_token`");
+
+    // Account lifecycle hardening columns
+    $pdo->exec("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `password_change_required` TINYINT(1) NOT NULL DEFAULT 0 AFTER `reset_token_expires`");
+    $pdo->exec("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `invitation_sent_at` DATETIME DEFAULT NULL AFTER `password_change_required`");
+    $pdo->exec("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `invitation_expires_at` DATETIME DEFAULT NULL AFTER `invitation_sent_at`");
 
     // Sync resident_id to user_id for old records if user_id is null
     // Only run if the legacy resident_id column exists

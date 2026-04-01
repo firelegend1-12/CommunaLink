@@ -105,6 +105,49 @@ $chat_csrf_token = csrf_token();
         </div>
     </div>
     <script>
+    function adminShowToast(message, type = 'info') {
+        const existing = document.getElementById('admin-toast-container');
+        const container = existing || (() => {
+            const el = document.createElement('div');
+            el.id = 'admin-toast-container';
+            el.style.position = 'fixed';
+            el.style.top = '16px';
+            el.style.right = '16px';
+            el.style.zIndex = '9999';
+            el.style.display = 'flex';
+            el.style.flexDirection = 'column';
+            el.style.gap = '10px';
+            document.body.appendChild(el);
+            return el;
+        })();
+
+        const toast = document.createElement('div');
+        const palette = {
+            success: { bg: '#ecfdf3', border: '#16a34a', text: '#166534' },
+            error: { bg: '#fef2f2', border: '#dc2626', text: '#991b1b' },
+            info: { bg: '#eff6ff', border: '#2563eb', text: '#1d4ed8' }
+        };
+        const colors = palette[type] || palette.info;
+        toast.style.background = colors.bg;
+        toast.style.borderLeft = `4px solid ${colors.border}`;
+        toast.style.color = colors.text;
+        toast.style.padding = '10px 12px';
+        toast.style.borderRadius = '8px';
+        toast.style.boxShadow = '0 8px 20px rgba(15, 23, 42, 0.12)';
+        toast.style.minWidth = '240px';
+        toast.style.maxWidth = '360px';
+        toast.style.fontSize = '13px';
+        toast.style.fontWeight = '600';
+        toast.textContent = message;
+
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.transition = 'opacity 0.25s ease';
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 260);
+        }, 3200);
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const CHAT_CSRF_TOKEN = <?php echo json_encode($chat_csrf_token); ?>;
         const conversationList = document.getElementById('conversation-list');
@@ -113,6 +156,7 @@ $chat_csrf_token = csrf_token();
         const messagesArea = document.getElementById('messages-area');
         const chatForm = document.getElementById('chat-form');
         const messageInput = document.getElementById('message-input');
+        const sendButton = chatForm.querySelector('button[type="submit"]');
         const partnerNameEl = document.getElementById('chat-partner-name');
         const partnerAvatarEl = document.getElementById('chat-partner-avatar');
         const searchInput = document.querySelector('input[placeholder="Search residents..."]');
@@ -247,7 +291,7 @@ $chat_csrf_token = csrf_token();
 
         function startConversationPolling() {
             if (conversationPollingInterval) clearInterval(conversationPollingInterval);
-            conversationPollingInterval = setInterval(fetchConversations, 8000);
+            conversationPollingInterval = setInterval(fetchConversations, 15000);
         }
 
         function stopConversationPolling() {
@@ -256,7 +300,7 @@ $chat_csrf_token = csrf_token();
 
         function startMessagePolling(partnerId) {
             if (messagePollingInterval) clearInterval(messagePollingInterval);
-            messagePollingInterval = setInterval(() => fetchMessages(partnerId), 3000);
+            messagePollingInterval = setInterval(() => fetchMessages(partnerId), 5000);
         }
 
         function stopMessagePolling() {
@@ -301,6 +345,8 @@ $chat_csrf_token = csrf_token();
             renderMessage(tempMsg);
             messagesArea.scrollTop = messagesArea.scrollHeight;
             messageInput.value = '';
+            sendButton.disabled = true;
+            sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
             const formData = new FormData();
             formData.append('action', 'send_message');
@@ -319,13 +365,14 @@ $chat_csrf_token = csrf_token();
                     console.log('Message sent successfully!');
                     // Message sent successfully - refresh messages to get the real message from database
                     setTimeout(() => fetchMessages(activePartnerId), 100);
+                    adminShowToast('Message sent.', 'success');
                 } else {
                     console.error('Failed to send message:', data.error);
                     // Remove the optimistic message and show error
                     if (messagesArea.lastChild) {
                         messagesArea.removeChild(messagesArea.lastChild);
                     }
-                    alert('Failed to send message: ' + (data.error || 'Unknown error'));
+                    adminShowToast('Failed to send message: ' + (data.error || 'Unknown error'), 'error');
                 }
             } catch (error) {
                 console.error('Error sending message:', error);
@@ -333,7 +380,10 @@ $chat_csrf_token = csrf_token();
                 if (messagesArea.lastChild) {
                     messagesArea.removeChild(messagesArea.lastChild);
                 }
-                alert('Error sending message. Please try again.');
+                adminShowToast('Error sending message. Please try again.', 'error');
+            } finally {
+                sendButton.disabled = false;
+                sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
             }
         });
 

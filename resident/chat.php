@@ -3,9 +3,11 @@ session_start();
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
 
-function require_role($role) {
-    if (!is_logged_in() || $_SESSION['role'] !== $role) {
-        redirect_to('../index.php');
+if (!function_exists('require_role')) {
+    function require_role($role) {
+        if (!is_logged_in() || $_SESSION['role'] !== $role) {
+            redirect_to('../index.php');
+        }
     }
 }
 
@@ -239,8 +241,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initial fetch
     fetchMessages();
 
-    // Poll for new messages every 4 seconds to reduce API load.
-    setInterval(fetchMessages, 4000);
+    // Poll for new messages at a gentler cadence to cut API and battery usage.
+    setInterval(fetchMessages, 10000);
 });
 </script>
 <?php require_once 'partials/footer.php'; ?> 

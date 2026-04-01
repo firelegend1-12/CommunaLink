@@ -18,6 +18,7 @@ if (!$req_id) {
 }
 
 require_once '../config/database.php';
+$cancel_csrf_token = csrf_token();
 
 $resident_id = $_SESSION['resident_id'] ?? 0;
 if (!$resident_id && isset($_SESSION['user_id'])) {
@@ -238,13 +239,14 @@ function cancelDocumentRequest(requestId) {
         }
 
         residentConfirm('Are you sure you want to cancel this request?', function() {
+            const csrfToken = '<?php echo htmlspecialchars($cancel_csrf_token, ENT_QUOTES); ?>';
             fetch('partials/cancel-document-request.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: 'id=' + encodeURIComponent(String(requestId)) + '&reason=' + encodeURIComponent(reason)
+                body: 'id=' + encodeURIComponent(String(requestId)) + '&reason=' + encodeURIComponent(reason) + '&csrf_token=' + encodeURIComponent(csrfToken)
             })
             .then(response => response.json())
             .then(data => {

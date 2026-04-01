@@ -7,6 +7,7 @@ require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/csrf.php';
+require_once '../../includes/storage_manager.php';
 
 // Check for admin/official authorization
 if (!is_admin_or_official()) {
@@ -58,19 +59,21 @@ function upload_post_image($file) {
         throw new RuntimeException('Invalid file type. Only JPG, PNG, and GIF are allowed.');
     }
 
-    $upload_dir = '../images/announcements/';
-    if (!is_dir($upload_dir) && !mkdir($upload_dir, 0755, true)) {
-        throw new RuntimeException('Failed to prepare upload directory.');
+    $storage_result = StorageManager::saveUploadedFile([
+        'tmp_name' => $file['tmp_name'],
+        'extension' => $allowed_mimes[$mime],
+    ], 'admin/images/announcements', 'post_');
+
+    if (!$storage_result['success']) {
+        throw new RuntimeException((string) ($storage_result['error'] ?? 'Failed to upload the image.'));
     }
 
-    $filename = bin2hex(random_bytes(16)) . '.' . $allowed_mimes[$mime];
-    $destination = $upload_dir . $filename;
-
-    if (!move_uploaded_file($file['tmp_name'], $destination)) {
-        throw new RuntimeException('Failed to upload the image.');
+    $stored_path = (string) ($storage_result['path'] ?? '');
+    if (strpos($stored_path, 'admin/') === 0) {
+        return substr($stored_path, 6);
     }
 
-    return 'images/announcements/' . $filename;
+    return $stored_path;
 }
 
 // --- Handle Add Post (Announcement or Event) ---
@@ -221,8 +224,7 @@ if (isset($_POST['delete_post'])) {
         $post = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($post && $post['image_path']) {
-            $file = '../' . $post['image_path'];
-            if (file_exists($file)) unlink($file);
+            StorageManager::deleteStoredPath((string) $post['image_path']);
         }
 
         $delete_stmt = $pdo->prepare("DELETE FROM announcements WHERE id = ?");

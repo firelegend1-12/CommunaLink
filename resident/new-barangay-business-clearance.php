@@ -47,6 +47,7 @@ require_once 'partials/header.php';
 
         <div class="p-8 md:p-12">
             <form action="partials/submit-business-permit.php" method="POST" id="business-form" class="space-y-10">
+                <?php echo csrf_field(); ?>
                 <input type="hidden" name="resident_id" value="<?= $resident['id'] ?>">
 
                 <!-- Applicant Information -->

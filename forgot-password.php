@@ -46,19 +46,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if (empty($email_err)) {
             try {
                 // Check if email exists in users table
-                $stmt = $pdo->prepare("SELECT id, username, fullname FROM users WHERE email = ? AND status = 'active'");
+                $stmt = $pdo->prepare("SELECT id, username, fullname, reset_token, reset_token_expires FROM users WHERE email = ?");
                 $stmt->execute([$email]);
                 $user = $stmt->fetch();
                 
                 if ($user) {
-                    // Generate reset token
-                    $reset_token = bin2hex(random_bytes(32));
-                    $reset_token_hash = hash('sha256', $reset_token);
-                    $reset_expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
-                    
-                    // Store reset token hash in database
-                    $stmt = $pdo->prepare("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?");
-                    $stmt->execute([$reset_token_hash, $reset_expires, $user['id']]);
+                    $existing_token = trim((string) ($user['reset_token'] ?? ''));
+                    $existing_expires = trim((string) ($user['reset_token_expires'] ?? ''));
+
+                    // Reuse an existing unexpired token to avoid invalidating links when users request twice.
+                    $can_reuse = false;
+                    if ($existing_token !== '' && $existing_expires !== '') {
+                        $expiry_ts = strtotime($existing_expires);
+                        $can_reuse = ($expiry_ts !== false && $expiry_ts > time());
+                    }
+
+                    if ($can_reuse) {
+                        $reset_token = $existing_token;
+                    } else {
+                        // Generate reset token
+                        $reset_token = bin2hex(random_bytes(32));
+                        $reset_expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+                        // Store reset token as-is to match the exact emailed link token.
+                        // reset-password.php keeps backward compatibility with legacy hashed tokens.
+                        $stmt = $pdo->prepare("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?");
+                        $stmt->execute([$reset_token, $reset_expires, $user['id']]);
+                    }
                     
                     // Create reset link
                     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
@@ -175,7 +189,6 @@ $page_title = "Forgot Password - CommuniLink";
                 
                 <!-- Right Column - Image/Info -->
                 <div class="auth-image-container">
-                    <img src="assets/sk.svg" alt="SK Logo">
                     <p>
                         Secure password recovery ensures your account remains protected while providing easy access when you need it most.
                     </p>

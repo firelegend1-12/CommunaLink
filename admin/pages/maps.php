@@ -260,10 +260,16 @@ $title = "Maps";
     }
     </script>
     <?php
-    $apiKey = function_exists('env') ? env('GOOGLE_MAPS_API_KEY', 'AIzaSyDSePOKkt_W5bY7YsYaEJrMoSRWxTMGnuI') : 'AIzaSyDSePOKkt_W5bY7YsYaEJrMoSRWxTMGnuI';
+    $apiKey = function_exists('maps_api_key') ? (string) maps_api_key('') : '';
     ?>
     <!-- Marker Clusterer CDN -->
     <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=<?php echo $apiKey; ?>&callback=initMap" async defer></script>
+    <?php if ($apiKey !== ''): ?>
+    <script src="https://maps.googleapis.com/maps/api/js?key=<?php echo urlencode($apiKey); ?>&callback=initMap" async defer></script>
+    <?php else: ?>
+    <script>
+        console.error('Google Maps API key is missing. Set GOOGLE_MAPS_API_KEY in environment configuration.');
+    </script>
+    <?php endif; ?>
 </body>
 </html> 

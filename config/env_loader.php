@@ -41,12 +41,10 @@ if (!function_exists('load_env')) {
                     $value = substr($value, 1, -1);
                 }
                 
-                // Set environment variable if not already set
-                if (!getenv($key)) {
-                    putenv("$key=$value");
-                    $_ENV[$key] = $value;
-                    $_SERVER[$key] = $value;
-                }
+                // .env should be the source of truth for this app runtime.
+                putenv("$key=$value");
+                $_ENV[$key] = $value;
+                $_SERVER[$key] = $value;
             }
         }
     }
@@ -66,6 +64,35 @@ if (!function_exists('load_env')) {
         }
         
         return $value;
+    }
+
+    /**
+     * Resolve the first non-empty environment variable in order.
+     *
+     * @param array $keys Environment variable keys ordered by priority
+     * @param mixed $default Fallback value when none are set
+     * @return mixed
+     */
+    function env_first(array $keys, $default = null) {
+        foreach ($keys as $key) {
+            $value = env($key, null);
+            if ($value !== null && $value !== '') {
+                return $value;
+            }
+        }
+
+        return $default;
+    }
+
+    /**
+     * Canonical resolver for Google Maps API key.
+     * Prefers GOOGLE_MAPS_API_KEY and supports MAPS_API_KEY for backward compatibility.
+     *
+     * @param mixed $default
+     * @return mixed
+     */
+    function maps_api_key($default = '') {
+        return env_first(['GOOGLE_MAPS_API_KEY', 'MAPS_API_KEY'], $default);
     }
 }
 

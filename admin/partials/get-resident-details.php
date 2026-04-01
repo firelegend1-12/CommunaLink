@@ -60,13 +60,16 @@ try {
     $incidents = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // 4. Summary Stats
-    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM document_requests WHERE resident_id = ?");
-    $stmt->execute([$id]);
-    $total_requests = $stmt->fetchColumn();
-
-    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM incidents WHERE resident_user_id = ?");
-    $stmt->execute([$resident['user_id']]);
-    $total_incidents = $stmt->fetchColumn();
+    $stats_stmt = $pdo->prepare("SELECT
+        (SELECT COUNT(*) FROM document_requests WHERE resident_id = :resident_id) AS total_requests,
+        (SELECT COUNT(*) FROM incidents WHERE resident_user_id = :resident_user_id) AS total_incidents");
+    $stats_stmt->execute([
+        ':resident_id' => $id,
+        ':resident_user_id' => $resident['user_id']
+    ]);
+    $stats = $stats_stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $total_requests = (int)($stats['total_requests'] ?? 0);
+    $total_incidents = (int)($stats['total_incidents'] ?? 0);
 
     echo json_encode([
         'success' => true,

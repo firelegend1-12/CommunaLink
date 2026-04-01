@@ -2,6 +2,7 @@
 require_once '../config/init.php';
 require_once '../includes/auth.php';
 require_once '../includes/csrf.php';
+require_once '../includes/storage_manager.php';
 
 // Apply security headers for API endpoints
 apply_page_security_headers('api');
@@ -54,7 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $location = 'Coordinates: ' . number_format($latitude, 6) . ', ' . number_format($longitude, 6);
         
         $media_path = null;
-        $upload_dir = '../admin/images/incidents/';
         
         if (isset($_FILES['media']) && $_FILES['media']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['media'];
@@ -72,17 +72,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             
             $validated_file = $file_validation['sanitized'];
             
-            if (!file_exists($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
-            }
-            
-            $unique_filename = uniqid('incident_', true) . '.' . $validated_file['extension'];
-            $target_path = $upload_dir . $unique_filename;
-            
-            if (move_uploaded_file($validated_file['tmp_name'], $target_path)) {
-                $media_path = 'admin/images/incidents/' . $unique_filename; // Store relative path from project root
+            $storage_result = StorageManager::saveUploadedFile($validated_file, 'admin/images/incidents', 'incident_');
+            if ($storage_result['success']) {
+                $media_path = (string) $storage_result['path'];
             } else {
-                $response = ['error' => 'Failed to move uploaded file.'];
+                $response = ['error' => (string) ($storage_result['error'] ?? 'Failed to store uploaded file.')];
                 echo json_encode($response);
                 exit;
             }

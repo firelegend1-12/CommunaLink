@@ -220,6 +220,13 @@ $page_title = "Edit Resident - CommuniLink";
             
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
+                <nav aria-label="Breadcrumb" class="mb-4 text-sm text-gray-500 flex items-center gap-2">
+                    <a href="../index.php" class="hover:text-blue-700">Dashboard</a>
+                    <span>/</span>
+                    <a href="residents.php" class="hover:text-blue-700">Residents</a>
+                    <span>/</span>
+                    <span class="text-gray-700 font-semibold">Edit Resident</span>
+                </nav>
                 <?php if ($error_message): ?>
                     <?php echo display_error($error_message); ?>
                 <?php endif; ?>

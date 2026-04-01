@@ -24,16 +24,17 @@ $token_valid = false;
 $token_error = "";
 $success_message = "";
 
-// Get token from URL
-$token = isset($_GET['token']) ? trim($_GET['token']) : '';
+// Get token from URL and normalize it for email-client-safe validation.
+$raw_token = isset($_GET['token']) ? trim((string) $_GET['token']) : '';
+$token = strtolower((string) preg_replace('/[^a-f0-9]/i', '', $raw_token));
 
-if (empty($token)) {
-    $token_error = "Invalid reset link. Please request a new password reset.";
+if (empty($token) || strlen($token) !== 64) {
+    $token_error = "Invalid reset link. Please request a new password reset, then use the latest reset email link.";
 } else {
     try {
         // Check if token exists and is valid. Support legacy plaintext tokens during transition.
         $token_hash = hash('sha256', $token);
-        $stmt = $pdo->prepare("SELECT id, username, email, reset_token FROM users WHERE (reset_token = ? OR reset_token = ?) AND reset_token_expires > NOW() AND status = 'active'");
+        $stmt = $pdo->prepare("SELECT id, username, email, reset_token FROM users WHERE (reset_token = ? OR reset_token = ?) AND reset_token_expires > NOW()");
         $stmt->execute([$token_hash, $token]);
         $user = $stmt->fetch();
         
@@ -45,10 +46,10 @@ if (empty($token)) {
             if ($is_hashed_match || $is_legacy_match) {
                 $token_valid = true;
             } else {
-                $token_error = "Reset link has expired or is invalid. Please request a new password reset.";
+                $token_error = "Reset link has expired or is invalid. Please request a new password reset, then use the latest reset email link.";
             }
         } else {
-            $token_error = "Reset link has expired or is invalid. Please request a new password reset.";
+            $token_error = "Reset link has expired or is invalid. Please request a new password reset, then use the latest reset email link.";
         }
     } catch (PDOException $e) {
         error_log("Token validation error: " . $e->getMessage());
@@ -64,11 +65,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $token_valid) {
         $password_err = "Invalid security token. Please refresh the page and try again.";
     } else {
         
-        // Validate password
+        // Validate password (must match Create Account requirements)
         if (empty(trim($_POST["password"]))) {
             $password_err = "Please enter a password.";
-        } elseif (strlen(trim($_POST["password"])) < 6) {
-            $password_err = "Password must have at least 6 characters.";
+        } elseif (strlen(trim($_POST["password"])) < 8) {
+            $password_err = "Password must be at least 8 characters long.";
+        } elseif (!preg_match('/[0-9]/', trim($_POST["password"]))) {
+            $password_err = "Password must contain at least one number (0-9).";
+        } elseif (!preg_match('/[!@#$%^&*()_+\-=\[\]{};:\'",.<>?\/\\|`~]/', trim($_POST["password"]))) {
+            $password_err = "Password must contain at least one special character (!@#$%^&*).";
         } else {
             $password = trim($_POST["password"]);
         }
@@ -89,9 +94,41 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $token_valid) {
                 // Hash the new password
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
                 
-                // Update password and clear reset token
-                $stmt = $pdo->prepare("UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ? AND reset_token_expires > NOW()");
-                $stmt->execute([$hashed_password, (int) $user['id']]);
+                $set_clauses = [
+                    "password = ?",
+                    "reset_token = NULL",
+                    "reset_token_expires = NULL"
+                ];
+                $params = [$hashed_password];
+
+                $status_col = $pdo->query("SHOW COLUMNS FROM `users` LIKE 'status'");
+                if ($status_col && $status_col->fetch()) {
+                    $set_clauses[] = "status = 'active'";
+                }
+
+                $verified_col = $pdo->query("SHOW COLUMNS FROM `users` LIKE 'email_verified'");
+                if ($verified_col && $verified_col->fetch()) {
+                    $set_clauses[] = "email_verified = 1";
+                }
+
+                $pw_required_col = $pdo->query("SHOW COLUMNS FROM `users` LIKE 'password_change_required'");
+                if ($pw_required_col && $pw_required_col->fetch()) {
+                    $set_clauses[] = "password_change_required = 0";
+                }
+
+                $invitation_sent_col = $pdo->query("SHOW COLUMNS FROM `users` LIKE 'invitation_sent_at'");
+                if ($invitation_sent_col && $invitation_sent_col->fetch()) {
+                    $set_clauses[] = "invitation_sent_at = NULL";
+                }
+
+                $invitation_expires_col = $pdo->query("SHOW COLUMNS FROM `users` LIKE 'invitation_expires_at'");
+                if ($invitation_expires_col && $invitation_expires_col->fetch()) {
+                    $set_clauses[] = "invitation_expires_at = NULL";
+                }
+
+                $params[] = (int) $user['id'];
+                $stmt = $pdo->prepare("UPDATE users SET " . implode(', ', $set_clauses) . " WHERE id = ? AND reset_token_expires > NOW()");
+                $stmt->execute($params);
                 
                 if ($stmt->rowCount() > 0) {
                     $success_message = "Password updated successfully! You can now sign in with your new password.";
@@ -183,18 +220,22 @@ $page_title = "Reset Password - CommuniLink";
                                 <label for="password">New Password</label>
                                 <div class="input-wrapper">
                                     <i class="fas fa-lock input-icon"></i>
-                                    <input id="password" name="password" type="password" autocomplete="new-password" required placeholder="Enter new password" minlength="6">
+                                    <input id="password" name="password" type="password" autocomplete="new-password" required placeholder="Enter new password" minlength="8">
                                 </div>
-                                <small class="form-help">Password must be at least 6 characters long</small>
+                                <small class="form-help" style="display: block; margin-top: 0.75rem;">
+                                    <div id="req-length" style="color: #ef4444;">✓ Password must be at least 8 characters</div>
+                                    <div id="req-number" style="color: #ef4444;">✓ Include at least one number (0-9)</div>
+                                    <div id="req-special" style="color: #ef4444;">✓ Include at least one special character (!@#$%^&*)</div>
+                                </small>
                             </div>
                             
                             <div class="form-group">
                                 <label for="confirm_password">Confirm New Password</label>
                                 <div class="input-wrapper">
                                     <i class="fas fa-lock input-icon"></i>
-                                    <input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" required placeholder="Confirm new password" minlength="6">
+                                    <input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" required placeholder="Confirm new password" minlength="8">
                                 </div>
-                                <small class="form-help">Both passwords must match</small>
+                                <small id="req-match" class="form-help" style="color: #ef4444; display: block; margin-top: 0.75rem;">✓ Both Passwords Matched!</small>
                             </div>
                             
                             <button type="submit" class="submit-btn" id="submit-btn">
@@ -205,33 +246,6 @@ $page_title = "Reset Password - CommuniLink";
                             </button>
                         </form>
                         
-                        <script>
-                        document.getElementById('reset-form').addEventListener('submit', function(e) {
-                            const password = document.getElementById('password').value;
-                            const confirmPassword = document.getElementById('confirm_password').value;
-                            const submitBtn = document.getElementById('submit-btn');
-                            const btnText = submitBtn.querySelector('.btn-text');
-                            const btnLoading = submitBtn.querySelector('.btn-loading');
-                            
-                            // Basic client-side validation
-                            if (password !== confirmPassword) {
-                                e.preventDefault();
-                                alert('Passwords do not match!');
-                                return;
-                            }
-                            
-                            if (password.length < 6) {
-                                e.preventDefault();
-                                alert('Password must be at least 6 characters long!');
-                                return;
-                            }
-                            
-                            // Show loading state
-                            btnText.style.display = 'none';
-                            btnLoading.style.display = 'inline-block';
-                            submitBtn.disabled = true;
-                        });
-                        </script>
                     <?php endif; ?>
 
                     <div class="form-links">
@@ -243,7 +257,6 @@ $page_title = "Reset Password - CommuniLink";
                 
                 <!-- Right Column - Image/Info -->
                 <div class="auth-image-container">
-                    <img src="assets/sk.svg" alt="SK Logo">
                     <p>
                         Choose a strong password to keep your account secure and protect your personal information.
                     </p>
@@ -251,6 +264,7 @@ $page_title = "Reset Password - CommuniLink";
             </div>
         </main>
     </div>
+    <script src="assets/js/reset-password.js?v=<?= filemtime('assets/js/reset-password.js') ?>" defer></script>
 </body>
 </html>
 

@@ -218,6 +218,6 @@ function escapeHTML(str) {
 // Initial fetch
 fetchUpdates();
 // Polling
-setInterval(fetchUpdates, 5000);
+setInterval(fetchUpdates, 15000);
 </script>
 <?php require_once 'partials/footer.php'; ?> 

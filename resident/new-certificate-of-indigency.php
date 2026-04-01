@@ -48,6 +48,7 @@ require_once 'partials/header.php';
 
         <div class="p-8 md:p-12">
             <form action="partials/submit-indigency.php" method="POST" id="indigency-form">
+                <?php echo csrf_field(); ?>
                 <input type="hidden" name="resident_id" value="<?= $resident['id'] ?>">
                 <input type="hidden" name="recipient_name" value="<?= $full_name ?>">
                 <input type="hidden" name="civil_status" value="<?= $civil_status ?>">

@@ -88,6 +88,18 @@ try {
     #profile_image_input {
         display: none;
     }
+
+    .upload-status {
+        margin-top: 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #4a54b5;
+        display: none;
+    }
+
+    .upload-status.visible {
+        display: block;
+    }
     
     .form-container {
         background-color: white;
@@ -268,6 +280,7 @@ try {
 <div class="account-container">
     <aside class="profile-sidebar">
         <form id="profile-pic-form" action="partials/account-handler.php" method="POST" enctype="multipart/form-data">
+            <?php echo csrf_field(); ?>
             <div class="profile-picture-container">
                 <?php
                     $defaultAvatar = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%235c67e2'/%3E%3Ccircle cx='100' cy='75' r='40' fill='%23fff' opacity='0.9'/%3E%3Cellipse cx='100' cy='170' rx='60' ry='50' fill='%23fff' opacity='0.9'/%3E%3C/svg%3E";
@@ -283,6 +296,7 @@ try {
             </div>
             <h2 class="text-xl font-bold mb-2"><?= htmlspecialchars($resident['first_name'] ?? '') . ' ' . htmlspecialchars($resident['last_name'] ?? '') ?></h2>
             <p class="text-gray-500 mb-2"><?= htmlspecialchars($resident['email'] ?? '') ?></p>
+            <p id="upload-status" class="upload-status" aria-live="polite"></p>
             <input type="hidden" name="update_profile_pic" value="1">
         </form>
     </aside>
@@ -293,6 +307,7 @@ try {
         </div>
         
         <form action="partials/account-handler.php" method="POST">
+            <?php echo csrf_field(); ?>
             <div class="form-content">
                 <div class="form-section">
                     <div class="form-section-title">Basic Information</div>
@@ -390,6 +405,10 @@ try {
             </div>
         </form>
     </div>
+        <a href="../includes/logout.php" class="nav-link">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Logout</span>
+        </a>
 </div>
 
 <script>
@@ -397,20 +416,44 @@ document.addEventListener('DOMContentLoaded', function () {
     const profileImageInput = document.getElementById('profile_image_input');
     const profilePicForm = document.getElementById('profile-pic-form');
     const profilePicPreview = document.getElementById('profile-pic-preview');
+    const uploadStatus = document.getElementById('upload-status');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const picUpdated = urlParams.get('success') === 'pic_updated';
+    const picError = urlParams.get('error');
+
+    if (picUpdated) {
+        uploadStatus.textContent = 'Profile photo updated successfully.';
+        uploadStatus.classList.add('visible');
+        uploadStatus.style.color = '#15803d';
+    } else if (picError) {
+        const errorMap = {
+            upload_failed: 'Upload failed. Please try again.',
+            invalid_file: 'Invalid file. Use JPG, PNG, or GIF under 5MB.'
+        };
+        uploadStatus.textContent = errorMap[picError] || 'Unable to update profile photo.';
+        uploadStatus.classList.add('visible');
+        uploadStatus.style.color = '#b91c1c';
+    }
 
     profileImageInput.addEventListener('change', function() {
         if (this.files && this.files[0]) {
-            // Preview the image before submitting
+            // Preview the image before submitting.
             const reader = new FileReader();
             reader.onload = function(e) {
                 profilePicPreview.src = e.target.result;
             }
             reader.readAsDataURL(this.files[0]);
-            
-            // Submit the form automatically when a file is chosen
+
+            // Show explicit upload feedback before auto-submit.
+            uploadStatus.textContent = 'Uploading profile photo...';
+            uploadStatus.classList.add('visible');
+            uploadStatus.style.color = '#4a54b5';
+            profileImageInput.disabled = true;
+
             setTimeout(() => {
                 profilePicForm.submit();
-            }, 500);
+            }, 300);
         }
     });
 

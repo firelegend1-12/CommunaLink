@@ -11,9 +11,11 @@ require_once 'partials/admin_auth.php';
 require_once '../includes/functions.php';
 require_once '../includes/auth.php';
 require_once '../includes/cache_manager.php';
+require_once '../includes/csrf.php';
 
 // Page title
 $page_title = "Dashboard - CommuniLink";
+$permit_check_csrf_token = csrf_token();
 
 // Initialize cache manager (Using file driver for Free Tier compatibility)
 init_cache_manager(['cache_dir' => '../cache/']);
@@ -84,22 +86,26 @@ if ($cached_data) {
         $business_months = json_encode(array_keys($business_counts_map));
         $business_counts = json_encode(array_values($business_counts_map));
 
-        // Fetch quick stats for dashboard cards
-        // Total Businesses
-        $business_count = $pdo->query("SELECT COUNT(*) FROM businesses")->fetchColumn();
-        // Pending Requests (documents)
-        $pending_doc_requests = $pdo->query("SELECT COUNT(*) FROM document_requests WHERE status = 'Pending'")->fetchColumn();
-        // Pending Requests (business transactions)
-        $pending_biz_requests = $pdo->query("SELECT COUNT(*) FROM business_transactions WHERE status = 'Pending'")->fetchColumn();
+        // Fetch quick stats for dashboard cards in one query
+        $stats_stmt = $pdo->query("SELECT
+            (SELECT COUNT(*) FROM businesses) AS business_count,
+            (SELECT COUNT(*) FROM document_requests WHERE status = 'Pending') AS pending_doc_requests,
+            (SELECT COUNT(*) FROM business_transactions WHERE status = 'Pending') AS pending_biz_requests,
+            (SELECT COUNT(*) FROM incidents WHERE status IN ('Pending', 'In Progress')) AS active_incidents,
+            (SELECT COUNT(*) FROM events WHERE event_date >= CURDATE()) AS upcoming_events,
+            (SELECT COUNT(*) FROM businesses WHERE DATEDIFF(permit_expiration_date, CURDATE()) BETWEEN 0 AND 30 AND status IN ('Active', 'Pending')) AS expiring_soon,
+            (SELECT COUNT(*) FROM businesses WHERE permit_expiration_date < CURDATE() AND status IN ('Active', 'Pending')) AS expired_permits");
+        $dashboard_stats = $stats_stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $business_count = (int)($dashboard_stats['business_count'] ?? 0);
+        $pending_doc_requests = (int)($dashboard_stats['pending_doc_requests'] ?? 0);
+        $pending_biz_requests = (int)($dashboard_stats['pending_biz_requests'] ?? 0);
         $pending_requests = $pending_doc_requests + $pending_biz_requests;
-        // Active Incidents
-        $active_incidents = $pdo->query("SELECT COUNT(*) FROM incidents WHERE status IN ('Pending', 'In Progress')")->fetchColumn();
-        // Upcoming Events
-        $upcoming_events = $pdo->query("SELECT COUNT(*) FROM events WHERE event_date >= CURDATE()") ? $pdo->query("SELECT COUNT(*) FROM events WHERE event_date >= CURDATE()")->fetchColumn() : 0;
-        
-        // Permit Expiry Stats
-        $expiring_soon = $pdo->query("SELECT COUNT(*) FROM businesses WHERE DATEDIFF(permit_expiration_date, CURDATE()) BETWEEN 0 AND 30 AND status IN ('Active', 'Pending')")->fetchColumn();
-        $expired_permits = $pdo->query("SELECT COUNT(*) FROM businesses WHERE permit_expiration_date < CURDATE() AND status IN ('Active', 'Pending')")->fetchColumn();
+        $active_incidents = (int)($dashboard_stats['active_incidents'] ?? 0);
+        $upcoming_events = (int)($dashboard_stats['upcoming_events'] ?? 0);
+        $expiring_soon = (int)($dashboard_stats['expiring_soon'] ?? 0);
+        $expired_permits = (int)($dashboard_stats['expired_permits'] ?? 0);
+
         $next_expiry_stmt = $pdo->query("SELECT permit_expiration_date FROM businesses WHERE permit_expiration_date >= CURDATE() AND status IN ('Active', 'Pending') ORDER BY permit_expiration_date ASC LIMIT 1");
         $next_expiry = $next_expiry_stmt ? $next_expiry_stmt->fetchColumn() : null;
 
@@ -202,6 +208,50 @@ $today_quote = $quotes[array_rand($quotes)];
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <link rel="stylesheet" href="../assets/css/admin-dashboard.min.css?v=<?= filemtime('../assets/css/admin-dashboard.min.css') ?>">
+    <script>
+        function adminShowToast(message, type = 'info') {
+            const existing = document.getElementById('admin-toast-container');
+            const container = existing || (() => {
+                const el = document.createElement('div');
+                el.id = 'admin-toast-container';
+                el.style.position = 'fixed';
+                el.style.top = '16px';
+                el.style.right = '16px';
+                el.style.zIndex = '9999';
+                el.style.display = 'flex';
+                el.style.flexDirection = 'column';
+                el.style.gap = '10px';
+                document.addEventListener('DOMContentLoaded', () => document.body.appendChild(el), { once: true });
+                return el;
+            })();
+
+            const toast = document.createElement('div');
+            const palette = {
+                success: { bg: '#ecfdf3', border: '#16a34a', text: '#166534' },
+                error: { bg: '#fef2f2', border: '#dc2626', text: '#991b1b' },
+                info: { bg: '#eff6ff', border: '#2563eb', text: '#1d4ed8' }
+            };
+            const colors = palette[type] || palette.info;
+            toast.style.background = colors.bg;
+            toast.style.borderLeft = `4px solid ${colors.border}`;
+            toast.style.color = colors.text;
+            toast.style.padding = '10px 12px';
+            toast.style.borderRadius = '8px';
+            toast.style.boxShadow = '0 8px 20px rgba(15, 23, 42, 0.12)';
+            toast.style.minWidth = '240px';
+            toast.style.maxWidth = '360px';
+            toast.style.fontSize = '13px';
+            toast.style.fontWeight = '600';
+            toast.textContent = message;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.transition = 'opacity 0.25s ease';
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 260);
+            }, 3200);
+        }
+    </script>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="flex h-screen overflow-hidden">
@@ -216,7 +266,7 @@ $today_quote = $quotes[array_rand($quotes)];
                     <div class="flex items-center justify-between h-16">
                         <div class="flex items-center">
                             <h1 class="text-3xl font-bold text-gray-800 mr-10">Dashboard</h1>
-                            <form onsubmit="alert('Global Search feature coming soon!'); return false;" class="hidden md:flex relative">
+                            <form onsubmit="if (typeof adminShowToast === 'function') { adminShowToast('Global Search feature coming soon!', 'info'); } return false;" class="hidden md:flex relative">
                                 <input type="text" name="q" placeholder="Search Resident or Transaction ID..." class="bg-gray-100 text-sm rounded-full pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white w-80 lg:w-[400px] transition-all border border-transparent focus:border-blue-300">
                                 <i class="fas fa-search absolute left-4 top-2.5 text-gray-400"></i>
                             </form>
@@ -549,12 +599,22 @@ $today_quote = $quotes[array_rand($quotes)];
         businessMonths: <?= $business_months ?: '[]' ?>,
         businessCounts: <?= $business_counts ?: '[]' ?>
     };
+    window.permitCheckCsrfToken = <?= json_encode($permit_check_csrf_token) ?>;
     </script>
     <script>
     // Permit Expiry Checker
     async function checkExpiringPermits() {
         try {
-            const response = await fetch('../api/check-expiring-permits.php');
+            const formData = new FormData();
+            formData.append('csrf_token', window.permitCheckCsrfToken || '');
+
+            const response = await fetch('../api/check-expiring-permits.php', {
+                method: 'POST',
+                body: formData
+            });
+            if (!response.ok) {
+                throw new Error(`Permit check failed with status ${response.status}`);
+            }
             const data = await response.json();
             
             if (data.status === 'success') {

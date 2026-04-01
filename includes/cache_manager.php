@@ -150,8 +150,15 @@ class CacheManager {
      */
     private static function selectBackend($backend) {
         if ($backend === 'auto') {
-            // Use APCu for short-term data, file for long-term
-            return 'apcu';
+            // Prefer APCu when available; otherwise fall back to file cache.
+            if (isset(self::$backends['apcu'])) {
+                return 'apcu';
+            }
+            return 'file';
+        }
+
+        if (!isset(self::$backends[$backend])) {
+            return isset(self::$backends['file']) ? 'file' : 'session';
         }
         
         return $backend;

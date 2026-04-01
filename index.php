@@ -77,7 +77,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             // Password is not valid, display generic error
             if (empty($login_err)) {
-                $login_err = "Invalid username or password.";
+                $auth_specific_error = $_SESSION['login_error_message'] ?? '';
+                if (!empty($auth_specific_error)) {
+                    $login_err = $auth_specific_error;
+                    unset($_SESSION['login_error_message']);
+                } else {
+                    $login_err = "Invalid username or password.";
+                }
             }
             
             // Record failed login attempt
