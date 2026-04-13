@@ -56,6 +56,23 @@ try {
     
     $pdo = new PDO($dsn, $username, $password, $options);
 
+    // Keep DB session time aligned with PH operations for NOW()/CURDATE()/CURRENT_TIMESTAMP behaviors.
+    $dbTimeZone = trim((string) env('DB_TIMEZONE', '+08:00'));
+    if ($dbTimeZone === '') {
+        $dbTimeZone = '+08:00';
+    }
+
+    try {
+        $pdo->exec('SET time_zone = ' . $pdo->quote($dbTimeZone));
+    } catch (Throwable $tzError) {
+        // Fallback to a known-safe PH offset when custom timezone value is unavailable.
+        try {
+            $pdo->exec("SET time_zone = '+08:00'");
+        } catch (Throwable $fallbackTzError) {
+            error_log('Unable to set DB session timezone: ' . $fallbackTzError->getMessage());
+        }
+    }
+
 } catch (PDOException $e) {
     // Log error securely without exposing details
     error_log("Database Connection Error: " . $e->getMessage());

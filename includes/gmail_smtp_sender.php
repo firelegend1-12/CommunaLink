@@ -22,7 +22,7 @@ class GmailSMTPSender {
         $this->username = defined('EMAIL_SMTP_USERNAME') ? trim((string) EMAIL_SMTP_USERNAME) : '';
         $this->password = defined('EMAIL_SMTP_PASSWORD') ? trim((string) EMAIL_SMTP_PASSWORD) : '';
         $this->from_email = defined('EMAIL_FROM_EMAIL') ? trim((string) EMAIL_FROM_EMAIL) : '';
-        $this->from_name = defined('EMAIL_FROM_NAME') ? EMAIL_FROM_NAME : 'CommuniLink Barangay System';
+        $this->from_name = defined('EMAIL_FROM_NAME') ? EMAIL_FROM_NAME : 'CommunaLink Barangay System';
 
         $this->is_configured = ($this->username !== '' && $this->password !== '' && $this->from_email !== '');
     }
@@ -38,7 +38,7 @@ class GmailSMTPSender {
 
         try {
             // Create email content
-            $subject = 'Password Reset - CommuniLink';
+            $subject = 'Password Reset - CommunaLink';
             $message = $this->getPasswordResetEmailTemplate($user_name, $reset_link);
             
             // Send via Gmail SMTP
@@ -198,7 +198,7 @@ class GmailSMTPSender {
         <head>
             <meta charset='UTF-8'>
             <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-            <title>Password Reset - CommuniLink</title>
+            <title>Password Reset - CommunaLink</title>
             <style>
                 body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
                 .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
@@ -224,7 +224,7 @@ class GmailSMTPSender {
                     <div class='email-body'>
                         <h2 style='color: #4F46E5; margin-top: 0;'>Hello {$user_name},</h2>
                         
-                        <p>You have requested to reset your password for your <strong>CommuniLink</strong> account.</p>
+                        <p>You have requested to reset your password for your <strong>CommunaLink</strong> account.</p>
                         
                         <p>Click the button below to reset your password:</p>
                         
@@ -244,13 +244,13 @@ class GmailSMTPSender {
                         <p>If the button above doesn't work, copy and paste this link into your browser:</p>
                         <div class='link-box'>{$reset_link}</div>
                         
-                        <p style='margin-top: 30px;'>Best regards,<br><strong>CommuniLink Team</strong></p>
+                        <p style='margin-top: 30px;'>Best regards,<br><strong>CommunaLink Team</strong></p>
                     </div>
                 </div>
                 
                 <div class='footer'>
                     <p>This is an automated message. Please do not reply to this email.</p>
-                    <p>CommuniLink Barangay System - Your Partner in Progress</p>
+                    <p>CommunaLink Barangay System - Your Partner in Progress</p>
                 </div>
             </div>
         </body>

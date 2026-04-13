@@ -260,7 +260,8 @@ function can_override_decisions($user_role) {
 function can_handle_emergencies($user_role) {
     return in_array($user_role, ['admin', 'barangay-captain']);
 }
-?>
+
+
 
 
 

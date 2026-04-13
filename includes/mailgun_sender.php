@@ -19,7 +19,7 @@ class MailgunSender {
         $this->api_key = defined('MAILGUN_API_KEY') ? MAILGUN_API_KEY : '';
         $this->domain = defined('MAILGUN_DOMAIN') ? MAILGUN_DOMAIN : '';
         $this->from_email = defined('MAILGUN_FROM_EMAIL') ? MAILGUN_FROM_EMAIL : 'noreply@yourbarangay.com';
-        $this->from_name = defined('MAILGUN_FROM_NAME') ? MAILGUN_FROM_NAME : 'CommuniLink Barangay System';
+        $this->from_name = defined('MAILGUN_FROM_NAME') ? MAILGUN_FROM_NAME : 'CommunaLink Barangay System';
     }
     
     /**
@@ -34,7 +34,7 @@ class MailgunSender {
             }
             
             // Create email content
-            $subject = 'Password Reset - CommuniLink';
+            $subject = 'Password Reset - CommunaLink';
             $message = $this->getPasswordResetEmailTemplate($user_name, $reset_link);
             
             // Send via Mailgun API
@@ -109,7 +109,7 @@ class MailgunSender {
         <head>
             <meta charset='UTF-8'>
             <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-            <title>Password Reset - CommuniLink</title>
+            <title>Password Reset - CommunaLink</title>
             <style>
                 body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
                 .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
@@ -135,7 +135,7 @@ class MailgunSender {
                     <div class='email-body'>
                         <h2 style='color: #4F46E5; margin-top: 0;'>Hello {$user_name},</h2>
                         
-                        <p>You have requested to reset your password for your <strong>CommuniLink</strong> account.</p>
+                        <p>You have requested to reset your password for your <strong>CommunaLink</strong> account.</p>
                         
                         <p>Click the button below to reset your password:</p>
                         
@@ -155,13 +155,13 @@ class MailgunSender {
                         <p>If the button above doesn't work, copy and paste this link into your browser:</p>
                         <div class='link-box'>{$reset_link}</div>
                         
-                        <p style='margin-top: 30px;'>Best regards,<br><strong>CommuniLink Team</strong></p>
+                        <p style='margin-top: 30px;'>Best regards,<br><strong>CommunaLink Team</strong></p>
                     </div>
                 </div>
                 
                 <div class='footer'>
                     <p>This is an automated message. Please do not reply to this email.</p>
-                    <p>CommuniLink Barangay System - Your Partner in Progress</p>
+                    <p>CommunaLink Barangay System - Your Partner in Progress</p>
                 </div>
             </div>
         </body>

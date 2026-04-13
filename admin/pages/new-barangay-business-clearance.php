@@ -8,7 +8,7 @@ require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_login();
 
-$page_title = "New Business Permit - CommuniLink";
+$page_title = "New Business Permit - CommunaLink";
 
 // Check for successful submission and fetch data for printing
 $permit_data = null;

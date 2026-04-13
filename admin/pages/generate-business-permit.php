@@ -10,7 +10,7 @@ require_once '../../includes/functions.php';
 
 require_login();
 
-$page_title = "Generate Business Permit - CommuniLink";
+$page_title = "Generate Business Permit - CommunaLink";
 
 // Get transaction ID from URL
 $transaction_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;

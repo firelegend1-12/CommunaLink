@@ -26,6 +26,16 @@ function validate_post_status($status) {
     return in_array($status, $allowed, true) ? $status : 'active';
 }
 
+function parse_hidden_boolean($value) {
+    $normalized = strtolower(trim((string) $value));
+    return in_array($normalized, ['1', 'true', 'on', 'yes'], true);
+}
+
+function nullable_input($value) {
+    $normalized = sanitize_input((string) $value);
+    return $normalized === '' ? null : $normalized;
+}
+
 /**
  * Handles image uploads for posts
  */
@@ -100,11 +110,17 @@ if (isset($_POST['add_post'])) {
     $expiry_date = !empty($_POST['expiry_date']) ? $_POST['expiry_date'] . ' 23:59:59' : null;
     
     // Event specific fields
-    $is_event = isset($_POST['is_event']) ? 1 : 0;
-    $event_date = $is_event ? sanitize_input($_POST['event_date']) : null;
-    $event_time = $is_event ? sanitize_input($_POST['event_time']) : null;
-    $event_location = $is_event ? sanitize_input($_POST['event_location']) : null;
-    $event_type = $is_event ? sanitize_input($_POST['event_type']) : null;
+    $is_event = parse_hidden_boolean($_POST['is_event'] ?? '0') ? 1 : 0;
+    $event_date = $is_event ? nullable_input($_POST['event_date'] ?? '') : null;
+    $event_time = $is_event ? nullable_input($_POST['event_time'] ?? '') : null;
+    $event_location = $is_event ? nullable_input($_POST['event_location'] ?? '') : null;
+    $event_type = $is_event ? nullable_input($_POST['event_type'] ?? '') : null;
+
+    if ($is_event && empty($event_date)) {
+        $_SESSION['error_message'] = "Event date is required when posting an event.";
+        header('Location: ../pages/announcements.php');
+        exit;
+    }
 
     if (empty($title) || empty($content)) {
         $_SESSION['error_message'] = "Title and content are required.";
@@ -161,11 +177,17 @@ if (isset($_POST['update_post'])) {
     $expiry_date = !empty($_POST['expiry_date']) ? $_POST['expiry_date'] . ' 23:59:59' : null;
     
     // Event specific fields
-    $is_event = isset($_POST['is_event']) ? 1 : 0;
-    $event_date = $is_event ? sanitize_input($_POST['event_date']) : null;
-    $event_time = $is_event ? sanitize_input($_POST['event_time']) : null;
-    $event_location = $is_event ? sanitize_input($_POST['event_location']) : null;
-    $event_type = $is_event ? sanitize_input($_POST['event_type']) : null;
+    $is_event = parse_hidden_boolean($_POST['is_event'] ?? '0') ? 1 : 0;
+    $event_date = $is_event ? nullable_input($_POST['event_date'] ?? '') : null;
+    $event_time = $is_event ? nullable_input($_POST['event_time'] ?? '') : null;
+    $event_location = $is_event ? nullable_input($_POST['event_location'] ?? '') : null;
+    $event_type = $is_event ? nullable_input($_POST['event_type'] ?? '') : null;
+
+    if ($is_event && empty($event_date)) {
+        $_SESSION['error_message'] = "Event date is required when updating an event.";
+        header('Location: ../pages/announcements.php');
+        exit;
+    }
 
     if (!$post_id || empty($title) || empty($content)) {
         $_SESSION['error_message'] = "Post ID, title and content are required.";

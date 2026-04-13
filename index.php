@@ -4,6 +4,79 @@
  * Main entry point for the Barangay Reports Admin System
  */
 
+// App Engine standard may route all requests through index.php.
+// Dispatch known PHP paths to their actual script files when present.
+$request_path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$relative_path = ltrim((string) $request_path, '/');
+
+// Normalize duplicated front-controller paths like /index.php/index.php.
+if (stripos($relative_path, 'index.php/') === 0) {
+    $normalized_tail = ltrim(substr($relative_path, strlen('index.php/')), '/');
+    $canonical_path = ($normalized_tail === '' || $normalized_tail === 'index.php')
+        ? '/index.php'
+        : '/' . $normalized_tail;
+
+    header('Location: ' . $canonical_path, true, 302);
+    exit;
+}
+if ($relative_path === 'index.php') {
+    $relative_path = '';
+}
+
+if ($relative_path !== '' && $relative_path !== 'index.php') {
+    $normalized_relative = str_replace('/', DIRECTORY_SEPARATOR, $relative_path);
+    $normalized_relative_lower = strtolower($normalized_relative);
+    $project_root = realpath(__DIR__);
+    $target_path = realpath(__DIR__ . DIRECTORY_SEPARATOR . $normalized_relative);
+
+    $allowed_internal_scripts = [
+        strtolower('includes' . DIRECTORY_SEPARATOR . 'logout.php'),
+        strtolower('includes' . DIRECTORY_SEPARATOR . 'register-handler.php'),
+        strtolower('includes' . DIRECTORY_SEPARATOR . 'verify-otp-handler.php'),
+        strtolower('includes' . DIRECTORY_SEPARATOR . 'resend-otp-handler.php'),
+    ];
+    $is_allowed_internal_script = in_array($normalized_relative_lower, $allowed_internal_scripts, true);
+
+    $blocked_prefixes = [
+        'includes' . DIRECTORY_SEPARATOR,
+        'config' . DIRECTORY_SEPARATOR,
+        'vendor' . DIRECTORY_SEPARATOR,
+        'scripts' . DIRECTORY_SEPARATOR,
+        'migrations' . DIRECTORY_SEPARATOR,
+        'logs' . DIRECTORY_SEPARATOR,
+        'tmp' . DIRECTORY_SEPARATOR,
+        'cache' . DIRECTORY_SEPARATOR,
+    ];
+
+    $is_blocked = false;
+    foreach ($blocked_prefixes as $prefix) {
+        if (!$is_allowed_internal_script && stripos($normalized_relative, $prefix) === 0) {
+            $is_blocked = true;
+            break;
+        }
+    }
+
+    if (!$is_blocked && $project_root && $target_path && is_file($target_path)) {
+        $is_inside_root = (strpos($target_path, $project_root . DIRECTORY_SEPARATOR) === 0);
+        $is_php_file = (strtolower((string) pathinfo($target_path, PATHINFO_EXTENSION)) === 'php');
+
+        if ($is_inside_root && $is_php_file) {
+            $target_dir = dirname($target_path);
+            if (is_dir($target_dir)) {
+                @chdir($target_dir);
+            }
+            require $target_path;
+            exit;
+        }
+    }
+
+    if (strtolower((string) pathinfo($relative_path, PATHINFO_EXTENSION)) === 'php') {
+        http_response_code(404);
+        echo '404 Not Found';
+        exit;
+    }
+}
+
 // Include required files
 require_once 'includes/functions.php';
 require_once 'config/database.php';
@@ -33,9 +106,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (!CSRFProtection::validateFromPost()) {
         $login_err = "Invalid security token. Please refresh the page and try again.";
     } else {
+        $rate_limit_identifier = get_login_rate_limit_identifier($_POST['username'] ?? null);
         
         // Check rate limiting before processing login
-        $rate_limit_status = check_login_rate_limit();
+        $rate_limit_status = check_login_rate_limit($rate_limit_identifier);
         if (!$rate_limit_status['allowed']) {
             $login_err = $rate_limit_status['message'];
         } else {
@@ -87,12 +161,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
             
             // Record failed login attempt
-            record_login_attempt();
+            record_login_attempt($rate_limit_identifier);
         }
         
         // Record successful login attempt (resets rate limiting)
         if (empty($username_err) && empty($password_err) && $user) {
-            reset_login_rate_limit();
+            reset_login_rate_limit($rate_limit_identifier);
         }
     }
     } // Close rate limiting check else block
@@ -100,7 +174,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 
 // Page title
-$page_title = "Sign In - CommuniLink";
+$page_title = "Sign In - Communalink";
 ?>
 
 <!DOCTYPE html>
@@ -110,7 +184,7 @@ $page_title = "Sign In - CommuniLink";
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/auth.css">
     <link rel="icon" href="assets/svg/logos.jpg" type="image/jpeg">
@@ -121,7 +195,7 @@ $page_title = "Sign In - CommuniLink";
         <!-- Header -->
         <header class="auth-header">
             <div class="auth-header-left">
-                <img src="assets/svg/logos.jpg" alt="CommuniLink Logo" style="height: 50px; width: auto;">
+                <img src="assets/svg/logos.jpg" alt="CommunaLink Logo" style="height: 50px; width: auto;">
             </div>
         </header>
 
@@ -156,7 +230,8 @@ $page_title = "Sign In - CommuniLink";
                     }
                     
                     // Display rate limit information
-                    $rate_limit_info = get_login_rate_limit_info();
+                    $display_rate_limit_identifier = get_login_rate_limit_identifier($_POST['username'] ?? null);
+                    $rate_limit_info = get_login_rate_limit_info($display_rate_limit_identifier);
                     if ($rate_limit_info['enabled']) {
                         $is_locked = !empty($rate_limit_info['is_locked']);
                         $remaining = (int)$rate_limit_info['remaining_attempts'];
@@ -178,7 +253,7 @@ $page_title = "Sign In - CommuniLink";
                     }
                     ?>
 
-                    <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST">
+                    <form action="/index.php" method="POST">
                         <?php echo CSRFProtection::getTokenField(); ?>
                         <div class="form-group">
                             <label for="username">Email Address</label>
@@ -212,11 +287,11 @@ $page_title = "Sign In - CommuniLink";
                     </form>
 
                     <div class="form-links">
-                        <a href="forgot-password.php" class="forgot-password-link">Forgot Password?</a>
+                        <a href="/forgot-password.php" class="forgot-password-link">Forgot Password?</a>
                     </div>
 
                     <p style="text-align: center; margin-top: 2rem; color: var(--text-secondary);">
-                        Don't have an account? <a href="register.php" class="link">Create Account</a>
+                        Don't have an account? <a href="/register.php" class="link">Create Account</a>
                     </p>
                 </div>
                 

@@ -83,7 +83,7 @@ $smtp_username = env('EMAIL_SMTP_USERNAME', '');
 $smtp_password = env('EMAIL_SMTP_PASSWORD', '');
 $smtp_secure = env('EMAIL_SMTP_SECURE', 'ssl');
 $from_email = env('EMAIL_FROM_EMAIL', '');
-$from_name = env('EMAIL_FROM_NAME', 'CommuniLink Barangay System');
+$from_name = env('EMAIL_FROM_NAME', 'CommunaLink Barangay System');
 
 echo "<tr><td>EMAIL_SMTP_HOST</td><td>" . htmlspecialchars($smtp_host) . "</td><td>" . ($smtp_host ? '✅' : '⚠️') . "</td></tr>";
 echo "<tr><td>EMAIL_SMTP_PORT</td><td>" . htmlspecialchars($smtp_port) . "</td><td>" . ($smtp_port ? '✅' : '⚠️') . "</td></tr>";

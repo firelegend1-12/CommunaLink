@@ -7,7 +7,7 @@ require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_login();
 
-$page_title = "About Us - CommuniLink";
+$page_title = "About Us - CommunaLink";
 
 ?>
 <!DOCTYPE html>

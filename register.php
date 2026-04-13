@@ -10,7 +10,7 @@ apply_page_security_headers('public');
 
 // If user is already logged in, redirect to dashboard
 if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {
-    header("location: admin/index.php");
+    header("location: /admin/index.php");
     exit;
 }
 ?>
@@ -19,9 +19,9 @@ if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign Up - CommuniLink</title>
+    <title>Sign Up - Communalink</title>
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/auth.css">
     <link rel="icon" href="assets/svg/logos.jpg" type="image/jpeg">
@@ -32,7 +32,7 @@ if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {
         <!-- Header -->
         <header class="auth-header">
             <div class="auth-header-left">
-                <img src="assets/svg/logos.jpg" alt="CommuniLink Logo" style="height: 50px; width: auto;">
+                <img src="assets/svg/logos.jpg" alt="CommunaLink Logo" style="height: 50px; width: auto;">
             </div>
         </header>
 
@@ -54,7 +54,7 @@ if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {
                     }
                     ?>
 
-                    <form action="includes/register-handler.php" method="POST" id="registrationForm">
+                    <form action="/includes/register-handler.php" method="POST" id="registrationForm">
 
                         
                         <!-- Step 1: Account Information -->

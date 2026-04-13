@@ -19,15 +19,10 @@ $authorized_roles = ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary
 
 // Check if user has an authorized role
 if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], $authorized_roles)) {
-    // Determine the path back to the root or specialized dashboards
-    // We detect if we are in /admin/ or /admin/pages/
-    $current_dir = basename(dirname($_SERVER['PHP_SELF']));
-    $redirect_prefix = ($current_dir === 'pages') ? '../../' : '../';
-
     if (isset($_SESSION['role']) && $_SESSION['role'] === 'resident') {
-        header('Location: ' . $redirect_prefix . 'resident/dashboard.php');
+        header('Location: /resident/dashboard.php');
     } else {
-        header('Location: ' . $redirect_prefix . 'index.php');
+        header('Location: /index.php');
     }
     exit;
 }

@@ -5,6 +5,7 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/storage_manager.php';
 
 header('Content-Type: application/json');
 
@@ -36,6 +37,9 @@ try {
         echo json_encode(['success' => false, 'error' => 'Incident report not found']);
         exit;
     }
+
+    $imagePath = (string)($incident['image_path'] ?? '');
+    $incident['image_url'] = $imagePath !== '' ? StorageManager::resolvePublicUrl($imagePath) : '';
 
     echo json_encode([
         'success' => true,

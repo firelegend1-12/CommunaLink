@@ -1,6 +1,6 @@
 # Notification System Audit & Recommendations
 
-Based on a thorough analysis of the existing codebase related to the CommuniLink Notification System, here is a breakdown of the current implementation, inefficiencies, bugs, and recommendations for improvement.
+Based on a thorough analysis of the existing codebase related to the CommunaLink Notification System, here is a breakdown of the current implementation, inefficiencies, bugs, and recommendations for improvement.
 
 ## 1. Current Implementation vs. Documentation
 

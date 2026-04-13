@@ -53,7 +53,7 @@ EMAIL_SMTP_USERNAME=shaunrosario023@gmail.com
 EMAIL_SMTP_PASSWORD=ptvg nwbe worp iidc
 EMAIL_SMTP_SECURE=ssl
 EMAIL_FROM_EMAIL=shaunrosario023@gmail.com
-EMAIL_FROM_NAME=CommuniLink Barangay System
+EMAIL_FROM_NAME=CommunaLink Barangay System
 ```
 
 **Or use Mailgun (Recommended for production):**
@@ -61,7 +61,7 @@ EMAIL_FROM_NAME=CommuniLink Barangay System
 MAILGUN_API_KEY=your-api-key
 MAILGUN_DOMAIN=mg.yourdomain.com
 MAILGUN_FROM_EMAIL=your-email@example.com
-MAILGUN_FROM_NAME=CommuniLink Barangay System
+MAILGUN_FROM_NAME=CommunaLink Barangay System
 ```
 
 ### Step 3: Test the Application

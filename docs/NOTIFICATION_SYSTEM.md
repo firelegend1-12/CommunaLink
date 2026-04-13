@@ -2,7 +2,7 @@
 
 ## Overview
 
-The CommuniLink Notification System provides comprehensive notification capabilities including email, in-app, SMS, and push notifications. It's designed to be scalable, configurable, and easy to integrate with existing system events.
+The CommunaLink Notification System provides comprehensive notification capabilities including email, in-app, SMS, and push notifications. It's designed to be scalable, configurable, and easy to integrate with existing system events.
 
 ## Features
 
@@ -194,7 +194,7 @@ function updateUser($user_id, $changes) {
         'password' => 'your-app-password',
         'encryption' => 'tls',
         'from_email' => 'noreply@communalink.com',
-        'from_name' => 'CommuniLink System'
+        'from_name' => 'CommunaLink System'
     ]
 ]
 ```
@@ -403,7 +403,7 @@ For technical support or questions about the notification system:
 
 **Last Updated:** December 2024  
 **Version:** 1.0.0  
-**System:** CommuniLink Barangay Management System
+**System:** CommunaLink Barangay Management System
 
 
 

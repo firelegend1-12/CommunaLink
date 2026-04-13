@@ -11,7 +11,7 @@ require_once '../../includes/auth.php';
 require_login();
 
 // Page title
-$page_title = "New Business Application - CommuniLink";
+$page_title = "New Business Application - CommunaLink";
 
 try {
     // Fetch residents to populate the owner dropdown

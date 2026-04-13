@@ -198,19 +198,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             LEFT JOIN (
                 SELECT latest.resident_id, cm.message, cm.sent_at
                 FROM (
-                    SELECT
-                        CASE
-                            WHEN sender_id IN ({$admin_placeholders}) THEN receiver_id
-                            ELSE sender_id
-                        END AS resident_id,
-                        MAX(id) AS latest_message_id
-                    FROM chat_messages
-                    WHERE sender_id IN ({$admin_placeholders})
-                       OR receiver_id IN ({$admin_placeholders})
-                    GROUP BY CASE
-                        WHEN sender_id IN ({$admin_placeholders}) THEN receiver_id
-                        ELSE sender_id
-                    END
+                    SELECT thread.resident_id, MAX(thread.id) AS latest_message_id
+                    FROM (
+                        SELECT
+                            id,
+                            CASE
+                                WHEN sender_id IN ({$admin_placeholders}) THEN receiver_id
+                                ELSE sender_id
+                            END AS resident_id
+                        FROM chat_messages
+                        WHERE sender_id IN ({$admin_placeholders})
+                           OR receiver_id IN ({$admin_placeholders})
+                    ) thread
+                    GROUP BY thread.resident_id
                 ) latest
                 INNER JOIN chat_messages cm ON cm.id = latest.latest_message_id
             ) m ON u.id = m.resident_id
@@ -225,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ORDER BY (m.sent_at IS NULL) ASC, m.sent_at DESC, u.fullname ASC
             ";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute(array_merge($admin_ids, $admin_ids, $admin_ids, $admin_ids, $admin_ids));
+            $stmt->execute(array_merge($admin_ids, $admin_ids, $admin_ids, $admin_ids));
             $conversations = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $response = ['success' => true, 'conversations' => $conversations];
         } catch (PDOException $e) {

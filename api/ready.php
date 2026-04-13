@@ -45,15 +45,21 @@ function ready_cache_check(): array
     }
 
     $cacheDir = realpath(__DIR__ . '/../cache') ?: (__DIR__ . '/../cache');
+    if (is_dir($cacheDir) && is_writable($cacheDir)) {
+        return ['ok' => true, 'message' => 'file'];
+    }
+
+    // App Engine standard keeps source directories read-only; /tmp is the writable fallback.
+    $tmpDir = rtrim((string) sys_get_temp_dir(), DIRECTORY_SEPARATOR);
+    if ($tmpDir !== '' && is_dir($tmpDir) && is_writable($tmpDir)) {
+        return ['ok' => true, 'message' => 'tmp'];
+    }
+
     if (!is_dir($cacheDir)) {
         return ['ok' => false, 'message' => 'cache_dir_missing'];
     }
 
-    if (!is_writable($cacheDir)) {
-        return ['ok' => false, 'message' => 'cache_dir_not_writable'];
-    }
-
-    return ['ok' => true, 'message' => 'file'];
+    return ['ok' => false, 'message' => 'cache_dir_not_writable'];
 }
 
 $db = ready_db_check();

@@ -173,7 +173,7 @@ if (!$resident && $resident_id) {
 }
 
 // Page title
-$page_title = "Edit Resident - CommuniLink";
+$page_title = "Edit Resident - CommunaLink";
 ?>
 
 <!DOCTYPE html>

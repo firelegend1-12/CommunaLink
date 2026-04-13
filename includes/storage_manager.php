@@ -5,6 +5,8 @@
  */
 class StorageManager
 {
+    private static $composerAutoloadChecked = false;
+
     public static function saveUploadedFile(array $validatedFile, string $relativeDir, string $prefix = 'upload_'): array
     {
         $extension = strtolower((string)($validatedFile['extension'] ?? 'bin'));
@@ -17,8 +19,9 @@ class StorageManager
         $filename = uniqid($prefix, true) . '.' . $extension;
         $relativeDir = trim(str_replace('\\', '/', $relativeDir), '/');
         $objectPath = $relativeDir . '/' . $filename;
+        $preferCloudStorage = self::shouldUseCloudStorage();
 
-        if (self::shouldUseCloudStorage()) {
+        if ($preferCloudStorage) {
             $cloudResult = self::saveToCloudStorage($tmpName, $objectPath);
             if ($cloudResult['success']) {
                 return $cloudResult;
@@ -27,13 +30,35 @@ class StorageManager
             error_log('Cloud storage write failed, falling back to local storage: ' . ($cloudResult['error'] ?? 'unknown'));
         }
 
-        return self::saveToLocalStorage($tmpName, $relativeDir, $filename);
+        $localResult = self::saveToLocalStorage($tmpName, $relativeDir, $filename);
+        if ($localResult['success']) {
+            return $localResult;
+        }
+
+        // If local write fails (common on read-only runtimes), try cloud as a recovery path.
+        if (!$preferCloudStorage && self::hasStorageBucket()) {
+            $cloudFallback = self::saveToCloudStorage($tmpName, $objectPath);
+            if ($cloudFallback['success']) {
+                return $cloudFallback;
+            }
+
+            $localError = (string)($localResult['error'] ?? 'Local storage failed.');
+            $cloudError = (string)($cloudFallback['error'] ?? 'Cloud fallback failed.');
+            return ['success' => false, 'error' => $localError . ' Cloud fallback: ' . $cloudError];
+        }
+
+        return $localResult;
     }
 
     private static function shouldUseCloudStorage(): bool
     {
         $flag = strtolower(trim((string)env('USE_CLOUD_STORAGE', 'false')));
-        return in_array($flag, ['1', 'true', 'yes', 'on'], true);
+        if (in_array($flag, ['1', 'true', 'yes', 'on'], true)) {
+            return true;
+        }
+
+        // App Engine standard runtime has a read-only source filesystem.
+        return self::isAppEngineRuntime() && self::hasStorageBucket();
     }
 
     private static function saveToCloudStorage(string $tmpName, string $objectPath): array
@@ -43,6 +68,8 @@ class StorageManager
             return ['success' => false, 'error' => 'STORAGE_BUCKET is not configured.'];
         }
 
+        self::ensureComposerAutoload();
+
         if (!class_exists('Google\\Cloud\\Storage\\StorageClient')) {
             return ['success' => false, 'error' => 'google/cloud-storage dependency is not installed.'];
         }
@@ -50,7 +77,17 @@ class StorageManager
         try {
             $storage = new Google\Cloud\Storage\StorageClient();
             $bucket = $storage->bucket($bucketName);
-            $bucket->upload(fopen($tmpName, 'r'), ['name' => $objectPath]);
+
+            $stream = fopen($tmpName, 'rb');
+            if ($stream === false) {
+                return ['success' => false, 'error' => 'Unable to read uploaded file stream.'];
+            }
+
+            try {
+                $bucket->upload($stream, ['name' => $objectPath]);
+            } finally {
+                fclose($stream);
+            }
 
             return [
                 'success' => true,
@@ -72,6 +109,10 @@ class StorageManager
         $targetDir = $baseDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativeDir);
         if (!is_dir($targetDir) && !mkdir($targetDir, 0755, true)) {
             return ['success' => false, 'error' => 'Failed to create upload directory.'];
+        }
+
+        if (!is_writable($targetDir)) {
+            return ['success' => false, 'error' => 'Upload directory is not writable.'];
         }
 
         $targetPath = $targetDir . DIRECTORY_SEPARATOR . $filename;
@@ -100,20 +141,65 @@ class StorageManager
         return self::deleteFromLocalStorage($storedPath);
     }
 
+    public static function resolvePublicUrl(string $storedPath, int $ttlSeconds = 1800): string
+    {
+        $storedPath = trim($storedPath);
+        if ($storedPath === '') {
+            return '';
+        }
+
+        if (preg_match('#^https?://#i', $storedPath) === 1) {
+            return $storedPath;
+        }
+
+        if (strpos($storedPath, 'gs://') === 0) {
+            $parsed = self::parseGsPath($storedPath);
+            if ($parsed === null) {
+                return '';
+            }
+
+            [$bucketName, $objectName] = $parsed;
+
+            self::ensureComposerAutoload();
+            if (class_exists('Google\\Cloud\\Storage\\StorageClient')) {
+                try {
+                    $storage = new Google\Cloud\Storage\StorageClient();
+                    $bucket = $storage->bucket($bucketName);
+                    $object = $bucket->object($objectName);
+
+                    if ($object->exists()) {
+                        $safeTtl = max(60, $ttlSeconds);
+                        return (string) $object->signedUrl(
+                            new DateTimeImmutable('+' . $safeTtl . ' seconds'),
+                            ['version' => 'v4']
+                        );
+                    }
+                } catch (Throwable $e) {
+                    error_log('Failed to generate signed URL for cloud object: ' . $e->getMessage());
+                }
+            }
+
+            $encodedObject = implode('/', array_map('rawurlencode', explode('/', $objectName)));
+            return 'https://storage.googleapis.com/' . rawurlencode($bucketName) . '/' . $encodedObject;
+        }
+
+        return '/' . ltrim(str_replace('\\', '/', $storedPath), '/');
+    }
+
     private static function deleteFromCloudStorage(string $gsPath): bool
     {
+        self::ensureComposerAutoload();
+
         if (!class_exists('Google\\Cloud\\Storage\\StorageClient')) {
             return false;
         }
 
-        $withoutScheme = substr($gsPath, 5);
-        $parts = explode('/', $withoutScheme, 2);
-        if (count($parts) < 2) {
+        $parsed = self::parseGsPath($gsPath);
+        if ($parsed === null) {
             return false;
         }
 
-        $bucketName = $parts[0];
-        $objectName = $parts[1];
+        [$bucketName, $objectName] = $parsed;
 
         try {
             $storage = new Google\Cloud\Storage\StorageClient();
@@ -149,5 +235,44 @@ class StorageManager
         }
 
         return false;
+    }
+
+    private static function hasStorageBucket(): bool
+    {
+        return trim((string)env('STORAGE_BUCKET', '')) !== '';
+    }
+
+    private static function isAppEngineRuntime(): bool
+    {
+        $gaeEnv = strtolower((string) getenv('GAE_ENV'));
+        return strpos($gaeEnv, 'standard') !== false;
+    }
+
+    private static function ensureComposerAutoload(): void
+    {
+        if (self::$composerAutoloadChecked) {
+            return;
+        }
+
+        self::$composerAutoloadChecked = true;
+        $autoloadPath = __DIR__ . '/../vendor/autoload.php';
+        if (file_exists($autoloadPath)) {
+            require_once $autoloadPath;
+        }
+    }
+
+    private static function parseGsPath(string $gsPath): ?array
+    {
+        if (strpos($gsPath, 'gs://') !== 0) {
+            return null;
+        }
+
+        $withoutScheme = substr($gsPath, 5);
+        $parts = explode('/', $withoutScheme, 2);
+        if (count($parts) < 2 || trim($parts[0]) === '' || trim($parts[1]) === '') {
+            return null;
+        }
+
+        return [$parts[0], $parts[1]];
     }
 }

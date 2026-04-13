@@ -23,8 +23,8 @@ $masked_email = substr($email, 0, 3) . '***' . substr($email, strpos($email, '@'
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Email - CommuniLink</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Verify Email - Communalink</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/auth.css">
     <link rel="icon" href="assets/svg/logos.jpg" type="image/jpeg">
     <style>
@@ -177,7 +177,7 @@ $masked_email = substr($email, 0, 3) . '***' . substr($email, strpos($email, '@'
     <div class="auth-container">
         <header class="auth-header">
             <div class="auth-header-left">
-                <img src="assets/svg/logos.jpg" alt="CommuniLink Logo" style="height: 50px; width: auto;">
+                <img src="assets/svg/logos.jpg" alt="CommunaLink Logo" style="height: 50px; width: auto;">
             </div>
         </header>
 
@@ -218,7 +218,7 @@ $masked_email = substr($email, 0, 3) . '***' . substr($email, strpos($email, '@'
                     </div>
                 <?php endif; ?>
 
-                <form action="includes/verify-otp-handler.php" method="POST" id="otpForm">
+                <form action="/includes/verify-otp-handler.php" method="POST" id="otpForm">
                     <?php echo csrf_field(); ?>
                     <div class="otp-inputs" id="otpInputs">
                         <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="one-time-code" required>
@@ -236,7 +236,7 @@ $masked_email = substr($email, 0, 3) . '***' . substr($email, strpos($email, '@'
 
                 <div class="resend-section">
                     <p>Didn't receive the code?</p>
-                    <form action="includes/resend-otp-handler.php" method="POST" style="display:inline;">
+                    <form action="/includes/resend-otp-handler.php" method="POST" style="display:inline;">
                         <?php echo csrf_field(); ?>
                         <button type="submit" class="resend-btn" id="resendBtn" disabled>
                             Resend Code <span id="timerText" class="timer"></span>

@@ -3,7 +3,7 @@ env: standard
 instance_class: F1
 
 automatic_scaling:
-  max_instances: 2
+  max_instances: 1
   min_instances: 0
 
 env_variables:
@@ -20,9 +20,19 @@ env_variables:
 
   # Storage and API Config
   STORAGE_BUCKET: "YOUR_STORAGE_BUCKET"
+  USE_CLOUD_STORAGE: "false"
   GOOGLE_MAPS_API_KEY: "YOUR_MAPS_API_KEY"
   PERMIT_CHECK_SCHEDULER_TOKEN: "YOUR_STRONG_RANDOM_TOKEN"
   SESSION_CLEANUP_SCHEDULER_TOKEN: "YOUR_STRONG_RANDOM_TOKEN"
+
+  # Email Config
+  EMAIL_SMTP_HOST: "smtp.gmail.com"
+  EMAIL_SMTP_PORT: "465"
+  EMAIL_SMTP_USERNAME: "YOUR_EMAIL_USERNAME"
+  EMAIL_SMTP_PASSWORD: "YOUR_EMAIL_APP_PASSWORD"
+  EMAIL_SMTP_SECURE: "ssl"
+  EMAIL_FROM_EMAIL: "YOUR_FROM_EMAIL"
+  EMAIL_FROM_NAME: "CommunaLink Barangay System"
 
   # App Environment
   APP_ENV: "production"

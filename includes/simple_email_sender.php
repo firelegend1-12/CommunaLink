@@ -8,13 +8,13 @@ function sendSimplePasswordResetEmail($user_email, $user_name, $reset_link) {
     // Simple approach: Use a free email service or direct SMTP
     // For now, let's use a simple method that will work
     
-    $subject = 'Password Reset - CommuniLink';
+    $subject = 'Password Reset - CommunaLink';
     
     // Create a simple but professional email
     $message = "
     <html>
     <head>
-        <title>Password Reset - CommuniLink</title>
+        <title>Password Reset - CommunaLink</title>
     </head>
     <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto;'>
         <div style='background: #4F46E5; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;'>
@@ -24,7 +24,7 @@ function sendSimplePasswordResetEmail($user_email, $user_name, $reset_link) {
         <div style='background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;'>
             <h2 style='color: #4F46E5;'>Hello {$user_name},</h2>
             
-            <p>You have requested to reset your password for your <strong>CommuniLink</strong> account.</p>
+            <p>You have requested to reset your password for your <strong>CommunaLink</strong> account.</p>
             
             <p>Click the button below to reset your password:</p>
             
@@ -44,7 +44,7 @@ function sendSimplePasswordResetEmail($user_email, $user_name, $reset_link) {
             <p>If the button above doesn't work, copy and paste this link into your browser:</p>
             <p style='word-break: break-all; background: #f1f1f1; padding: 15px; border-radius: 4px; font-family: monospace;'>{$reset_link}</p>
             
-            <p>Best regards,<br><strong>CommuniLink Team</strong></p>
+            <p>Best regards,<br><strong>CommunaLink Team</strong></p>
         </div>
         
         <div style='text-align: center; margin-top: 20px; color: #666; font-size: 14px;'>

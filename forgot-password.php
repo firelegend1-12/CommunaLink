@@ -115,7 +115,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 
 // Page title
-$page_title = "Forgot Password - CommuniLink";
+$page_title = "Forgot Password - CommunaLink";
 ?>
 
 <!DOCTYPE html>
@@ -125,7 +125,7 @@ $page_title = "Forgot Password - CommuniLink";
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/auth.css">
     <link rel="icon" href="assets/svg/logos.jpg" type="image/jpeg">
@@ -135,7 +135,7 @@ $page_title = "Forgot Password - CommuniLink";
         <!-- Header -->
         <header class="auth-header">
             <div class="auth-header-left">
-                <img src="assets/svg/logos.jpg" alt="CommuniLink Logo" style="height: 50px; width: auto;">
+                <img src="assets/svg/logos.jpg" alt="CommunaLink Logo" style="height: 50px; width: auto;">
             </div>
         </header>
 

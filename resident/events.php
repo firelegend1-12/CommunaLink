@@ -4,13 +4,55 @@ $page_title = "Events";
 require_once 'partials/header.php';
 
 try {
-    // Fetch Upcoming Events
-    $stmt_upcoming = $pdo->prepare("SELECT * FROM events WHERE type = 'Upcoming Event' AND event_date >= CURDATE() ORDER BY event_date ASC, event_time ASC");
+        // Fetch Upcoming Events from both legacy events and unified announcements/events posts.
+        $stmt_upcoming = $pdo->prepare(
+                "SELECT combined.title, combined.description, combined.event_date, combined.event_time, combined.location
+                 FROM (
+                         SELECT e.title, e.description, e.event_date, e.event_time, e.location, e.created_at
+                         FROM events e
+                         WHERE e.type = 'Upcoming Event'
+                             AND e.event_date >= CURDATE()
+
+                         UNION ALL
+
+                         SELECT a.title, a.content AS description, a.event_date, a.event_time, a.event_location AS location, a.created_at
+                         FROM announcements a
+                         WHERE a.is_event = 1
+                             AND a.status = 'active'
+                             AND (a.publish_date IS NULL OR a.publish_date <= NOW())
+                             AND (a.expiry_date IS NULL OR a.expiry_date >= NOW())
+                             AND COALESCE(NULLIF(a.event_type, ''), 'Upcoming Event') <> 'Regular Activity'
+                             AND a.event_date >= CURDATE()
+                 ) combined
+                 ORDER BY combined.event_date ASC,
+                                    COALESCE(combined.event_time, '00:00:00') ASC,
+                                    combined.created_at DESC"
+        );
     $stmt_upcoming->execute();
     $upcoming_events = $stmt_upcoming->fetchAll(PDO::FETCH_ASSOC);
 
-    // Fetch Regular Activities
-    $stmt_regular = $pdo->prepare("SELECT * FROM events WHERE type = 'Regular Activity' ORDER BY created_at DESC");
+        // Fetch Regular Activities from both sources.
+        $stmt_regular = $pdo->prepare(
+                "SELECT combined.title, combined.description, combined.event_date, combined.event_time, combined.location
+                 FROM (
+                         SELECT e.title, e.description, e.event_date, e.event_time, e.location, e.created_at
+                         FROM events e
+                         WHERE e.type = 'Regular Activity'
+
+                         UNION ALL
+
+                         SELECT a.title, a.content AS description, a.event_date, a.event_time, a.event_location AS location, a.created_at
+                         FROM announcements a
+                         WHERE a.is_event = 1
+                             AND a.status = 'active'
+                             AND (a.publish_date IS NULL OR a.publish_date <= NOW())
+                             AND (a.expiry_date IS NULL OR a.expiry_date >= NOW())
+                             AND COALESCE(NULLIF(a.event_type, ''), 'Upcoming Event') = 'Regular Activity'
+                 ) combined
+                 ORDER BY COALESCE(combined.event_date, '1900-01-01') DESC,
+                                    COALESCE(combined.event_time, '00:00:00') DESC,
+                                    combined.created_at DESC"
+        );
     $stmt_regular->execute();
     $regular_activities = $stmt_regular->fetchAll(PDO::FETCH_ASSOC);
 
@@ -197,10 +239,14 @@ try {
                         <h3 class="event-title"><?= htmlspecialchars($event['title']) ?></h3>
                         <div class="event-meta">
                             <span><i class="fas fa-calendar-alt"></i> <?= date('F j, Y', strtotime($event['event_date'])) ?></span>
-                            <span><i class="fas fa-clock"></i> <?= date('g:i A', strtotime($event['event_time'])) ?></span>
-                            <span><i class="fas fa-map-marker-alt"></i> <?= htmlspecialchars($event['location']) ?></span>
+                            <?php if (!empty($event['event_time'])): ?>
+                                <span><i class="fas fa-clock"></i> <?= date('g:i A', strtotime($event['event_time'])) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($event['location'])): ?>
+                                <span><i class="fas fa-map-marker-alt"></i> <?= htmlspecialchars($event['location']) ?></span>
+                            <?php endif; ?>
                         </div>
-                        <p class="event-description"><?= nl2br(htmlspecialchars($event['description'])) ?></p>
+                        <p class="event-description"><?= nl2br(htmlspecialchars((string) ($event['description'] ?? ''))) ?></p>
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
@@ -235,7 +281,7 @@ try {
                                 <span><i class="fas fa-map-marker-alt"></i> <?= htmlspecialchars($event['location']) ?></span>
                            <?php endif; ?>
                         </div>
-                        <p class="event-description"><?= nl2br(htmlspecialchars($event['description'])) ?></p>
+                        <p class="event-description"><?= nl2br(htmlspecialchars((string) ($event['description'] ?? ''))) ?></p>
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>

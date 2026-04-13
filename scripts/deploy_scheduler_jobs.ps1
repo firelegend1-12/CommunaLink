@@ -33,7 +33,11 @@ Write-Host "Configuring gcloud project $ProjectId in region $Region"
 gcloud config set project $ProjectId | Out-Null
 
 Write-Host "Upserting Cloud Scheduler job: $PermitJobName"
-gcloud scheduler jobs delete $PermitJobName --location=$Region --quiet 2>$null
+try {
+  & gcloud scheduler jobs delete $PermitJobName --location=$Region --quiet *> $null
+}
+catch {
+}
 
 gcloud scheduler jobs create http $PermitJobName `
   --location=$Region `
@@ -44,7 +48,11 @@ gcloud scheduler jobs create http $PermitJobName `
   --headers="X-Cloud-Scheduler-Token=$PermitSchedulerToken"
 
 Write-Host "Upserting Cloud Scheduler job: $SessionCleanupJobName"
-gcloud scheduler jobs delete $SessionCleanupJobName --location=$Region --quiet 2>$null
+try {
+  & gcloud scheduler jobs delete $SessionCleanupJobName --location=$Region --quiet *> $null
+}
+catch {
+}
 
 gcloud scheduler jobs create http $SessionCleanupJobName `
   --location=$Region `

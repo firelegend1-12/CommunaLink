@@ -99,3 +99,27 @@ if (!function_exists('load_env')) {
 // Auto-load .env file when this file is included
 load_env();
 
+if (!function_exists('apply_app_timezone')) {
+    /**
+     * Apply application timezone globally.
+     * Defaults to Asia/Manila to keep display and app-level timestamps aligned for PH users.
+     *
+     * @return string Active timezone
+     */
+    function apply_app_timezone() {
+        $configured = (string) env('APP_TIMEZONE', 'Asia/Manila');
+        $configured = trim($configured) !== '' ? trim($configured) : 'Asia/Manila';
+
+        try {
+            $tz = new DateTimeZone($configured);
+            date_default_timezone_set($tz->getName());
+            return $tz->getName();
+        } catch (Throwable $e) {
+            date_default_timezone_set('Asia/Manila');
+            return 'Asia/Manila';
+        }
+    }
+}
+
+apply_app_timezone();
+

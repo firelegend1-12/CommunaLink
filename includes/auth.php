@@ -270,6 +270,27 @@ function kick_duplicate_sessions_for_user($pdo, $user, $current_session_id) {
     return $kicked;
 }
 
+function release_active_sessions_for_user_role($pdo, $user_id, $role, $reason = 'self_replaced_login') {
+    $user_id = (int) $user_id;
+    $role = trim((string) $role);
+
+    if ($user_id <= 0 || $role === '') {
+        return 0;
+    }
+
+    $stmt = $pdo->prepare("UPDATE active_user_sessions
+                          SET is_active = 0,
+                              ended_at = NOW(),
+                              ended_reason = ?
+                          WHERE user_id = ?
+                            AND role = ?
+                            AND is_active = 1
+                            AND expires_at > NOW()");
+    $stmt->execute([$reason, $user_id, $role]);
+
+    return (int) $stmt->rowCount();
+}
+
 function register_active_session_with_caps($pdo, $user, $session_id, $session_lifetime_seconds) {
     $role = $user['role'] ?? 'resident';
     $is_tracked_role = is_session_policy_tracked_role($role);
@@ -301,9 +322,18 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
             $active_count = $count_stmt->rowCount();
 
             if ($active_count >= $cap) {
-                $pdo->rollBack();
-                log_concurrency_denial($pdo, $user, 'admin', $cap, $active_count);
-                return ['allowed' => false, 'message' => "Admin concurrent login limit reached ({$cap}). Please wait for a slot to free up."];
+                // Self-heal: if this same admin has stale active sessions, release them and retry admission.
+                $released = release_active_sessions_for_user_role($pdo, $user['id'] ?? 0, 'admin');
+                if ($released > 0) {
+                    $count_stmt->execute();
+                    $active_count = $count_stmt->rowCount();
+                }
+
+                if ($active_count >= $cap) {
+                    $pdo->rollBack();
+                    log_concurrency_denial($pdo, $user, 'admin', $cap, $active_count);
+                    return ['allowed' => false, 'message' => "Admin concurrent login limit reached ({$cap}). Please wait for a slot to free up."];
+                }
             }
         } elseif ($concurrency_caps_enabled) {
             $cap = get_official_max_concurrent();
@@ -317,9 +347,18 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
             $active_count = $count_stmt->rowCount();
 
             if ($active_count >= $cap) {
-                $pdo->rollBack();
-                log_concurrency_denial($pdo, $user, 'official', $cap, $active_count);
-                return ['allowed' => false, 'message' => "Official concurrent login limit reached ({$cap}). Please wait for a slot to free up."];
+                // Self-heal for official roles too: release same-user same-role stale sessions first.
+                $released = release_active_sessions_for_user_role($pdo, $user['id'] ?? 0, $role);
+                if ($released > 0) {
+                    $count_stmt->execute();
+                    $active_count = $count_stmt->rowCount();
+                }
+
+                if ($active_count >= $cap) {
+                    $pdo->rollBack();
+                    log_concurrency_denial($pdo, $user, 'official', $cap, $active_count);
+                    return ['allowed' => false, 'message' => "Official concurrent login limit reached ({$cap}). Please wait for a slot to free up."];
+                }
             }
         }
 

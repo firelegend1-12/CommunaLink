@@ -56,12 +56,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         
         $media_path = null;
         
-        if (isset($_FILES['media']) && $_FILES['media']['error'] === UPLOAD_ERR_OK) {
+        if (isset($_FILES['media']) && is_array($_FILES['media']) && (int)($_FILES['media']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
             $file = $_FILES['media'];
             
             // Enhanced file validation using InputValidator
             $file_validation = validate_input($file, 'file', [
-                'allowed_types' => ['image/jpeg', 'image/png', 'image/gif', 'video/mp4', 'video/quicktime']
+                'allowed_types' => [
+                    'image/jpeg',
+                    'image/png',
+                    'image/gif',
+                    'image/webp',
+                    'image/heic',
+                    'image/heif',
+                    'video/mp4',
+                    'video/quicktime',
+                    'video/webm',
+                    'video/3gpp'
+                ]
             ]);
             
             if (!$file_validation['valid']) {
@@ -72,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             
             $validated_file = $file_validation['sanitized'];
             
-            $storage_result = StorageManager::saveUploadedFile($validated_file, 'admin/images/incidents', 'incident_');
+            $storage_result = StorageManager::saveUploadedFile($validated_file, 'uploads/incidents', 'incident_');
             if ($storage_result['success']) {
                 $media_path = (string) $storage_result['path'];
             } else {

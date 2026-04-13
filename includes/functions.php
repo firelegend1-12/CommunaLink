@@ -44,7 +44,56 @@ function is_alphanumeric($string) {
  * @return void
  */
 function redirect_to($url) {
-    header("Location: $url");
+    $url = trim((string) $url);
+    if ($url === '') {
+        $url = '/';
+    }
+
+    // Allow explicit absolute URLs/schemes to pass through unchanged.
+    if (preg_match('/^[a-z][a-z0-9+\-.]*:/i', $url) || strpos($url, '//') === 0) {
+        header("Location: $url");
+        exit;
+    }
+
+    $parts = parse_url($url);
+    if ($parts === false) {
+        $parts = ['path' => $url];
+    }
+
+    $path = $parts['path'] ?? '';
+    $query = isset($parts['query']) && $parts['query'] !== '' ? '?' . $parts['query'] : '';
+    $fragment = isset($parts['fragment']) && $parts['fragment'] !== '' ? '#' . $parts['fragment'] : '';
+
+    if ($path === '') {
+        $path = '/';
+    }
+
+    if (strpos($path, '/') !== 0) {
+        $request_path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+        $base_dir = preg_replace('#/[^/]*$#', '/', $request_path);
+        $path = $base_dir . $path;
+    }
+
+    // Normalize repeated slashes and dot segments.
+    $path = preg_replace('#/+#', '/', str_replace('\\', '/', $path));
+    $segments = explode('/', $path);
+    $normalized = [];
+
+    foreach ($segments as $segment) {
+        if ($segment === '' || $segment === '.') {
+            continue;
+        }
+        if ($segment === '..') {
+            if (!empty($normalized)) {
+                array_pop($normalized);
+            }
+            continue;
+        }
+        $normalized[] = $segment;
+    }
+
+    $resolved_path = '/' . implode('/', $normalized);
+    header("Location: " . $resolved_path . $query . $fragment);
     exit;
 }
 

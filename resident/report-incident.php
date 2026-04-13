@@ -55,10 +55,10 @@ require_once 'partials/header.php';
             <div class="form-group">
                 <label for="media">Attach Media (Photo/Video)</label>
                 <div class="file-upload-wrapper">
-                    <input type="file" id="media" name="media" accept="image/*,video/mp4,video/quicktime">
+                    <input type="file" id="media" name="media" accept="image/*,image/heic,image/heif,video/mp4,video/quicktime,video/webm,video/3gpp">
                     <div class="file-upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
                     <div class="file-upload-text">Click to upload or drag and drop</div>
-                    <div class="file-upload-hint">Max file size: 10MB. Allowed types: JPG, PNG, MP4.</div>
+                    <div class="file-upload-hint">Max file size: 10MB. Allowed types: JPG, PNG, WEBP, HEIC, MP4, MOV, WEBM, 3GP.</div>
                 </div>
                 <div id="file-name" class="mt-2"></div>
             </div>

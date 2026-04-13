@@ -71,7 +71,7 @@ if (!class_exists('NotificationSystem')) {
                 $email_body = '<p>Dear ' . htmlspecialchars($recipient_name !== '' ? $recipient_name : 'Resident', ENT_QUOTES, 'UTF-8') . ',</p>'
                     . '<p>' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p>'
                     . '<p>Please visit the barangay office for renewal requirements.</p>'
-                    . '<p>Thank you.<br>CommuniLink Barangay Office</p>';
+                    . '<p>Thank you.<br>CommunaLink Barangay Office</p>';
 
                 $email_sent = self::send_email_with_fallback($recipient_email, $recipient_name, $title, $email_body);
             }
@@ -184,7 +184,7 @@ if (!class_exists('NotificationSystem')) {
             }
 
             $from_email = defined('MAILGUN_FROM_EMAIL') ? MAILGUN_FROM_EMAIL : 'noreply@communalink.local';
-            $from_name = defined('MAILGUN_FROM_NAME') ? MAILGUN_FROM_NAME : 'CommuniLink';
+            $from_name = defined('MAILGUN_FROM_NAME') ? MAILGUN_FROM_NAME : 'CommunaLink';
 
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, 'https://api.mailgun.net/v3/' . MAILGUN_DOMAIN . '/messages');
@@ -225,7 +225,7 @@ if (!class_exists('NotificationSystem')) {
             }
 
             $from_email = defined('SENDGRID_FROM_EMAIL') ? SENDGRID_FROM_EMAIL : 'noreply@communalink.local';
-            $from_name = defined('SENDGRID_FROM_NAME') ? SENDGRID_FROM_NAME : 'CommuniLink';
+            $from_name = defined('SENDGRID_FROM_NAME') ? SENDGRID_FROM_NAME : 'CommunaLink';
 
             $payload = [
                 'personalizations' => [[
@@ -277,7 +277,7 @@ if (!class_exists('NotificationSystem')) {
         private static function send_native_email($to, $subject, $html_message) {
             $headers = "MIME-Version: 1.0\r\n";
             $headers .= "Content-type:text/html;charset=UTF-8\r\n";
-            $headers .= "From: CommuniLink <noreply@communalink.local>\r\n";
+            $headers .= "From: CommunaLink <noreply@communalink.local>\r\n";
 
             return (bool) @mail($to, $subject, $html_message, $headers);
         }

@@ -2,18 +2,20 @@
   "name": "CommunaLink Resident Portal",
   "short_name": "CommunaLink",
   "description": "Resident Portal for reporting incidents and requesting documents in your Barangay.",
-  "start_url": "/CommunaLink/resident/dashboard.php",
+  "id": "/resident/",
+  "start_url": "/resident/dashboard.php",
+  "scope": "/resident/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4a90e2",
   "icons": [
     {
-      "src": "../assets/images/barangay-logo.png",
+      "src": "/assets/images/barangay-logo.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "../assets/images/barangay-logo.png",
+      "src": "/assets/images/barangay-logo.png",
       "sizes": "512x512",
       "type": "image/png"
     }

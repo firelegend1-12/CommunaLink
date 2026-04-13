@@ -40,7 +40,7 @@ Mailgun offers 5,000 emails/month FREE forever.
 MAILGUN_API_KEY=your-api-key-here
 MAILGUN_DOMAIN=mg.yourdomain.com
 MAILGUN_FROM_EMAIL=your-email@example.com
-MAILGUN_FROM_NAME=CommuniLink Barangay System
+MAILGUN_FROM_NAME=CommunaLink Barangay System
 ```
 
 ## Email Configuration - Gmail SMTP (Alternative)
@@ -58,7 +58,7 @@ EMAIL_SMTP_USERNAME=your-email@gmail.com
 EMAIL_SMTP_PASSWORD=your-16-character-app-password
 EMAIL_SMTP_SECURE=ssl
 EMAIL_FROM_EMAIL=your-email@gmail.com
-EMAIL_FROM_NAME=CommuniLink Barangay System
+EMAIL_FROM_NAME=CommunaLink Barangay System
 ```
 
 ## Application Configuration

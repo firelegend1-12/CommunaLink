@@ -8,7 +8,7 @@ require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 require_login();
 
-$page_title = "New Certificate of Residency - CommuniLink";
+$page_title = "New Certificate of Residency - CommunaLink";
 
 // Fetch residents for the dropdown
 try {

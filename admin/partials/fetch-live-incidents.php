@@ -1,6 +1,7 @@
 <?php
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/storage_manager.php';
 header('Content-Type: application/json');
 
 $request_start = microtime(true);
@@ -24,6 +25,12 @@ if (!is_admin_or_official()) {
 // Fetch Incidents (alias media_path as image_path for frontend compatibility)
 $stmt = $pdo->query('SELECT i.*, i.media_path AS image_path, u.fullname AS resident_name FROM incidents i LEFT JOIN users u ON i.resident_user_id = u.id ORDER BY i.reported_at DESC');
 $incidents = $stmt->fetchAll();
+
+foreach ($incidents as &$incident) {
+    $imagePath = (string)($incident['image_path'] ?? '');
+    $incident['image_url'] = $imagePath !== '' ? StorageManager::resolvePublicUrl($imagePath) : '';
+}
+unset($incident);
 
 // Fetch Latest Stats for UI Sync in one DB roundtrip
 $stats_stmt = $pdo->query("SELECT

@@ -232,6 +232,148 @@ class RateLimiter {
     private static function getRateLimitKey($action, $identifier) {
         return "rate_limit:{$action}:" . md5($identifier);
     }
+
+    /**
+     * Determine whether APCu is usable in the current runtime.
+     *
+     * @return bool
+     */
+    private static function canUseApcu() {
+        static $usable = null;
+
+        if ($usable !== null) {
+            return $usable;
+        }
+
+        $usable = function_exists('apcu_fetch') && function_exists('apcu_store') && function_exists('apcu_delete');
+        if (!$usable) {
+            return false;
+        }
+
+        if (function_exists('apcu_enabled')) {
+            $usable = (bool) apcu_enabled();
+            return $usable;
+        }
+
+        // Probe write/read support because function existence alone is not enough.
+        $probeKey = 'rate_limit_probe_' . md5(uniqid((string) mt_rand(), true));
+        $stored = @apcu_store($probeKey, 1, 5);
+        if ($stored) {
+            @apcu_delete($probeKey);
+            $usable = true;
+        } else {
+            $usable = false;
+        }
+
+        return $usable;
+    }
+
+    /**
+     * Ensure session storage is available.
+     *
+     * @return bool
+     */
+    private static function ensureSessionAvailable() {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            return true;
+        }
+
+        if (headers_sent()) {
+            return false;
+        }
+
+        @session_start();
+        return session_status() === PHP_SESSION_ACTIVE;
+    }
+
+    /**
+     * Resolve file-based storage directory for rate limit state.
+     *
+     * @return string
+     */
+    private static function getFileStorageDir() {
+        $configured = '';
+        if (function_exists('env')) {
+            $configured = trim((string) env('RATE_LIMIT_STORAGE_DIR', ''));
+        }
+
+        if ($configured === '') {
+            $configured = rtrim((string) sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'communalink_rate_limits';
+        }
+
+        if (!is_dir($configured)) {
+            @mkdir($configured, 0755, true);
+        }
+
+        return $configured;
+    }
+
+    /**
+     * Build file path for a rate limit key.
+     *
+     * @param string $key
+     * @return string
+     */
+    private static function getFilePathForKey($key) {
+        return self::getFileStorageDir() . DIRECTORY_SEPARATOR . md5($key) . '.json';
+    }
+
+    /**
+     * Read attempts from file storage.
+     *
+     * @param string $key
+     * @return array|null
+     */
+    private static function getAttemptsFromFile($key) {
+        $filePath = self::getFilePathForKey($key);
+        if (!is_file($filePath)) {
+            return null;
+        }
+
+        $raw = @file_get_contents($filePath);
+        if ($raw === false || trim($raw) === '') {
+            return null;
+        }
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * Persist attempts to file storage.
+     *
+     * @param string $key
+     * @param array $attempts
+     * @return bool
+     */
+    private static function storeAttemptsToFile($key, $attempts) {
+        $filePath = self::getFilePathForKey($key);
+        $payload = json_encode($attempts);
+        if ($payload === false) {
+            return false;
+        }
+
+        return @file_put_contents($filePath, $payload, LOCK_EX) !== false;
+    }
+
+    /**
+     * Remove attempts from file storage.
+     *
+     * @param string $key
+     * @return bool
+     */
+    private static function clearAttemptsFromFile($key) {
+        $filePath = self::getFilePathForKey($key);
+        if (!is_file($filePath)) {
+            return false;
+        }
+
+        return @unlink($filePath);
+    }
     
     /**
      * Get attempts from storage
@@ -240,17 +382,26 @@ class RateLimiter {
      * @return array Attempts data
      */
     private static function getAttempts($key) {
-        if (function_exists('apcu_fetch')) {
-            // Use APCu if available (faster)
-            $data = apcu_fetch($key);
-            return $data ?: [];
-        } else {
-            // Fallback to session-based storage
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
+        if (self::canUseApcu()) {
+            // Use APCu if available and operational (faster).
+            $success = false;
+            $data = apcu_fetch($key, $success);
+            if ($success && is_array($data)) {
+                return $data;
             }
+        }
+
+        // Durable fallback across requests without relying solely on session state.
+        $fileData = self::getAttemptsFromFile($key);
+        if (is_array($fileData)) {
+            return $fileData;
+        }
+
+        if (self::ensureSessionAvailable()) {
             return $_SESSION[$key] ?? [];
         }
+
+        return [];
     }
     
     /**
@@ -261,19 +412,23 @@ class RateLimiter {
      * @return bool Success status
      */
     private static function storeAttempts($key, $attempts) {
-        if (function_exists('apcu_store')) {
-            // Use APCu if available
-            return apcu_store($key, $attempts, 3600); // 1 hour TTL
-        } else {
-            // Fallback to session-based storage
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
-            }
-            $_SESSION[$key] = $attempts;
-            return true;
+        $stored = false;
+
+        if (self::canUseApcu()) {
+            // Use APCu if available.
+            $stored = @apcu_store($key, $attempts, 3600) || $stored;
         }
+
+        $stored = self::storeAttemptsToFile($key, $attempts) || $stored;
+
+        if (self::ensureSessionAvailable()) {
+            $_SESSION[$key] = $attempts;
+            $stored = true;
+        }
+
+        return $stored;
     }
-    
+
     /**
      * Clear attempts from storage
      * 
@@ -281,15 +436,22 @@ class RateLimiter {
      * @return bool Success status
      */
     private static function clearAttempts($key) {
-        if (function_exists('apcu_delete')) {
-            return apcu_delete($key);
-        } else {
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
-            }
-            unset($_SESSION[$key]);
-            return true;
+        $cleared = false;
+
+        if (self::canUseApcu()) {
+            $cleared = @apcu_delete($key) || $cleared;
         }
+
+        $cleared = self::clearAttemptsFromFile($key) || $cleared;
+
+        if (self::ensureSessionAvailable()) {
+            if (isset($_SESSION[$key])) {
+                unset($_SESSION[$key]);
+            }
+            $cleared = true;
+        }
+
+        return $cleared;
     }
     
     /**
@@ -362,7 +524,7 @@ class RateLimiter {
     public static function cleanup() {
         $cleaned = 0;
         
-        if (function_exists('apcu_cache_info')) {
+        if (self::canUseApcu() && function_exists('apcu_cache_info')) {
             // Clean up APCu cache entries
             $info = apcu_cache_info();
             foreach ($info['cache_list'] as $entry) {
@@ -371,6 +533,22 @@ class RateLimiter {
                     if (time() - $entry['mtime'] > 86400) {
                         apcu_delete($entry['info']);
                         $cleaned++;
+                    }
+                }
+            }
+        }
+
+        // Clean up file-based fallback entries older than 24 hours.
+        $storageDir = self::getFileStorageDir();
+        if (is_dir($storageDir)) {
+            $files = @glob($storageDir . DIRECTORY_SEPARATOR . '*.json');
+            if (is_array($files)) {
+                foreach ($files as $filePath) {
+                    $mtime = @filemtime($filePath);
+                    if ($mtime !== false && (time() - $mtime > 86400)) {
+                        if (@unlink($filePath)) {
+                            $cleaned++;
+                        }
                     }
                 }
             }
@@ -385,11 +563,29 @@ class RateLimiter {
  */
 
 /**
+ * Build a stable login rate-limit identifier.
+ *
+ * Uses a hashed username when available to stay consistent even if IP headers
+ * vary across requests. Falls back to client IP for anonymous attempts.
+ *
+ * @param string|null $username Username/email submitted during login
+ * @return string
+ */
+function get_login_rate_limit_identifier($username = null) {
+    $normalized = strtolower(trim((string) $username));
+    if ($normalized !== '') {
+        return 'user:' . hash('sha256', $normalized);
+    }
+
+    return 'ip:' . RateLimiter::getClientIP();
+}
+
+/**
  * Check login rate limit (shorthand)
  */
 function check_login_rate_limit($identifier = null) {
     if ($identifier === null) {
-        $identifier = RateLimiter::getClientIP();
+        $identifier = get_login_rate_limit_identifier();
     }
     return RateLimiter::checkRateLimit('login', $identifier);
 }
@@ -399,7 +595,7 @@ function check_login_rate_limit($identifier = null) {
  */
 function record_login_attempt($identifier = null, $success = false) {
     if ($identifier === null) {
-        $identifier = RateLimiter::getClientIP();
+        $identifier = get_login_rate_limit_identifier();
     }
     return RateLimiter::recordAttempt('login', $identifier, $success);
 }
@@ -409,7 +605,7 @@ function record_login_attempt($identifier = null, $success = false) {
  */
 function reset_login_rate_limit($identifier = null) {
     if ($identifier === null) {
-        $identifier = RateLimiter::getClientIP();
+        $identifier = get_login_rate_limit_identifier();
     }
     return RateLimiter::resetRateLimit('login', $identifier);
 }
@@ -427,7 +623,7 @@ function is_login_allowed($identifier = null) {
  */
 function get_login_rate_limit_info($identifier = null) {
     if ($identifier === null) {
-        $identifier = RateLimiter::getClientIP();
+        $identifier = get_login_rate_limit_identifier();
     }
     return RateLimiter::getRateLimitInfo('login', $identifier);
 }

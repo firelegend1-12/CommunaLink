@@ -10,7 +10,7 @@ require_once '../../includes/auth.php';
 require_login();
 $monitoring_csrf_token = csrf_token();
 
-$page_title = "Monitoring of Request - CommuniLink";
+$page_title = "Monitoring of Request - CommunaLink";
 
 try {
     // Fetch residents for the dropdown

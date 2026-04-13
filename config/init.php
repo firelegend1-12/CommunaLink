@@ -124,7 +124,11 @@ function validate_startup_config_contract() {
 }
 
 
-date_default_timezone_set('Asia/Manila');
+if (function_exists('apply_app_timezone')) {
+    apply_app_timezone();
+} else {
+    date_default_timezone_set('Asia/Manila');
+}
 
 validate_startup_config_contract();
 

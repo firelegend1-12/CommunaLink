@@ -12,6 +12,18 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+function users_table_has_column(PDO $pdo, string $column_name): bool {
+    $stmt = $pdo->prepare(
+        "SELECT COUNT(*)
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'users'
+           AND COLUMN_NAME = ?"
+    );
+    $stmt->execute([$column_name]);
+    return ((int) $stmt->fetchColumn()) > 0;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: ../register.php");
     exit;
@@ -74,10 +86,37 @@ try {
         exit;
     }
 
-    // Insert into users table (password already hashed in registration data)
-    $sql_user = "INSERT INTO users (username, fullname, email, password, role, email_verified) VALUES (?, ?, ?, ?, 'resident', 1)";
+    // Guard against duplicate resident records that may already have this email.
+    $residentEmailStmt = $pdo->prepare("SELECT id, user_id FROM residents WHERE email = ? LIMIT 1");
+    $residentEmailStmt->execute([$data['email']]);
+    $existingResident = $residentEmailStmt->fetch(PDO::FETCH_ASSOC);
+    if ($existingResident) {
+        $pdo->rollBack();
+        unset($_SESSION['otp_email'], $_SESSION['otp_fullname']);
+        $_SESSION['error_message'] = "This email is already linked to a resident record. Please contact barangay staff for account linking.";
+        header("Location: ../register.php");
+        exit;
+    }
+
+    // Insert into users table (password is already hashed in registration data).
+    // Some deployed schemas do not yet have email_verified/status columns.
+    $userInsertColumns = ['username', 'fullname', 'email', 'password', 'role'];
+    $userInsertValues = [$data['email'], $data['fullname'], $data['email'], $data['password'], 'resident'];
+
+    if (users_table_has_column($pdo, 'email_verified')) {
+        $userInsertColumns[] = 'email_verified';
+        $userInsertValues[] = 1;
+    }
+
+    if (users_table_has_column($pdo, 'status')) {
+        $userInsertColumns[] = 'status';
+        $userInsertValues[] = 'active';
+    }
+
+    $userPlaceholders = implode(', ', array_fill(0, count($userInsertColumns), '?'));
+    $sql_user = "INSERT INTO users (" . implode(', ', $userInsertColumns) . ") VALUES (" . $userPlaceholders . ")";
     $stmt_user = $pdo->prepare($sql_user);
-    $stmt_user->execute([$data['email'], $data['fullname'], $data['email'], $data['password']]);
+    $stmt_user->execute($userInsertValues);
     $user_id = $pdo->lastInsertId();
 
     // Insert into residents table

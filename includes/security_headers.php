@@ -17,8 +17,8 @@ class SecurityHeaders {
         'content_security_policy' => [
             'default-src' => ["'self'"],
             'script-src' => ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
-            'style-src' => ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
-            'font-src' => ["'self'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
+            'style-src' => ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com'],
+            'font-src' => ["'self'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com', 'data:'],
             'img-src' => ["'self'", 'data:', 'https:'],
             'connect-src' => ["'self'"],
             'frame-src' => ["'none'"],
@@ -311,8 +311,8 @@ class SecurityHeaders {
         $login_csp = [
             'default-src' => ["'self'"],
             'script-src' => ["'self'"],
-            'style-src' => ["'self'", "'unsafe-inline'"],
-            'font-src' => ["'self'"],
+            'style-src' => ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com'],
+            'font-src' => ["'self'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com', 'data:'],
             'img-src' => ["'self'", 'data:'],
             'connect-src' => ["'self'"],
             'frame-src' => ["'none'"],
@@ -364,8 +364,8 @@ class SecurityHeaders {
         $public_csp = [
             'default-src' => ["'self'"],
             'script-src' => ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
-            'style-src' => ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
-            'font-src' => ["'self'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
+            'style-src' => ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com'],
+            'font-src' => ["'self'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com', 'data:'],
             'img-src' => ["'self'", 'data:', 'https:'],
             'connect-src' => ["'self'"],
             'frame-src' => ["'self'"],

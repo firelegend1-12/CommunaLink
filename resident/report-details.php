@@ -2,6 +2,7 @@
 session_start();
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
+require_once '../includes/storage_manager.php';
 require_once '../config/env_loader.php';
 
 if (!function_exists('require_role')) {
@@ -79,18 +80,21 @@ require_once 'partials/header.php';
                         <h3 class="text-lg font-bold text-gray-800 mt-8 mb-4 border-b pb-2"><i class="fas fa-paperclip text-blue-500 mr-2"></i>Attachments</h3>
                         <div class="bg-gray-50 p-2 rounded-xl border border-gray-100 inline-block">
                             <?php 
-                            $ext = strtolower(pathinfo($report['media_path'], PATHINFO_EXTENSION));
-                            if(in_array($ext, ['jpg', 'jpeg', 'png', 'gif'])): ?>
-                                <a href="../<?= htmlspecialchars($report['media_path']) ?>" target="_blank">
-                                    <img src="../<?= htmlspecialchars($report['media_path']) ?>" alt="Evidence" class="max-w-full h-auto max-h-64 object-cover rounded-lg shadow-sm hover:opacity-90 transition">
+                            $media_path = (string) $report['media_path'];
+                            $media_url = StorageManager::resolvePublicUrl($media_path);
+                            $ext_source = parse_url($media_path, PHP_URL_PATH) ?: $media_path;
+                            $ext = strtolower(pathinfo($ext_source, PATHINFO_EXTENSION));
+                            if(in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'])): ?>
+                                <a href="<?= htmlspecialchars($media_url, ENT_QUOTES, 'UTF-8') ?>" target="_blank">
+                                    <img src="<?= htmlspecialchars($media_url, ENT_QUOTES, 'UTF-8') ?>" alt="Evidence" class="max-w-full h-auto max-h-64 object-cover rounded-lg shadow-sm hover:opacity-90 transition">
                                 </a>
-                            <?php elseif(in_array($ext, ['mp4', 'mov', 'avi'])): ?>
+                            <?php elseif(in_array($ext, ['mp4', 'mov', 'avi', 'webm', '3gp'])): ?>
                                 <video controls class="max-w-full h-auto max-h-64 rounded-lg shadow-sm">
-                                    <source src="../<?= htmlspecialchars($report['media_path']) ?>" type="video/<?= $ext === 'mov' ? 'quicktime' : $ext ?>">
+                                    <source src="<?= htmlspecialchars($media_url, ENT_QUOTES, 'UTF-8') ?>" type="video/<?= $ext === 'mov' ? 'quicktime' : $ext ?>">
                                     Your browser does not support the video tag.
                                 </video>
                             <?php else: ?>
-                                <a href="../<?= htmlspecialchars($report['media_path']) ?>" target="_blank" class="text-blue-600 hover:underline flex items-center gap-2 p-2">
+                                <a href="<?= htmlspecialchars($media_url, ENT_QUOTES, 'UTF-8') ?>" target="_blank" class="text-blue-600 hover:underline flex items-center gap-2 p-2">
                                     <i class="fas fa-file-download text-xl"></i> View Attached File
                                 </a>
                             <?php endif; ?>

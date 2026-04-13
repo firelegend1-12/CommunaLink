@@ -14,7 +14,7 @@ require_once '../includes/cache_manager.php';
 require_once '../includes/csrf.php';
 
 // Page title
-$page_title = "Dashboard - CommuniLink";
+$page_title = "Dashboard - CommunaLink";
 $permit_check_csrf_token = csrf_token();
 
 // Initialize cache manager (Using file driver for Free Tier compatibility)

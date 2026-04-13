@@ -11,7 +11,7 @@ require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 
 // Page title
-$page_title = "Residents - CommuniLink";
+$page_title = "Residents - CommunaLink";
 
 try {
     // Handle search

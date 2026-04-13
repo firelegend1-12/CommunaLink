@@ -62,12 +62,12 @@ if ($user_id) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="../assets/css/resident.css">
     <!-- PWA Setup -->
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="/resident/manifest.json">
     <meta name="theme-color" content="#5c67e2">
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
+                navigator.serviceWorker.register('/resident/sw.js', { scope: '/resident/' })
                     .then(reg => console.log('Service Worker registered successfully!', reg))
                     .catch(err => console.log('Service Worker registration failed: ', err));
             });

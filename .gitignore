@@ -43,3 +43,19 @@ vendor/
 # Node modules (if using npm)
 node_modules/
 
+.gcloudignore
+app.yaml.example
+app.yml
+ENV_SETUP.md
+PROJECT_FULL_FEATURE_SUMMARY.txt
+scripts/deploy_app_engine_free_tier.ps1
+scripts/deploy_scheduler_jobs.ps1
+tmp/active_admin_sessions_after_unlock.csv
+tmp/admin_login_check_after_reset.csv
+tmp/migrate_to_communalink_web.ps1
+tmp/reset_admin_password.sql
+tmp/unlock_admin_sessions.sql
+MIGRATION_GUIDE.md
+forgot-password.php
+ENV_SETUP.md
+

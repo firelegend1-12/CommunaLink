@@ -12,7 +12,7 @@ require_once '../../includes/auth.php';
 require_login();
 
 // Page title
-$page_title = "Add Resident - CommuniLink";
+$page_title = "Add Resident - CommunaLink";
 
 ?>
 <!DOCTYPE html>
