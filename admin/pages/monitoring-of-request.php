@@ -543,20 +543,6 @@ foreach ($requests as $summary_req) {
                                 </div>
                                 <?php endif; ?>
                                 
-                                <!-- Status Legend -->
-                                <div class="mt-6 p-6 bg-blue-50 rounded-xl border border-blue-100 mb-2">
-                                    <p class="text-sm font-bold text-blue-900 mb-4 flex items-center">
-                                        <i class="fas fa-info-circle mr-2 text-blue-600 text-lg"></i>Status Guide
-                                    </p>
-                                    <div class="grid grid-cols-2 md:grid-cols-3 gap-y-5 gap-x-8 text-sm">
-                                        <div class="flex items-center"><span class="status-badge bg-yellow-100 text-yellow-800 inline-block w-24 text-center mr-3">Pending</span> <span class="text-gray-600 font-medium">Awaiting action</span></div>
-                                        <div class="flex items-center"><span class="status-badge bg-blue-100 text-blue-800 inline-block w-24 text-center mr-3">Processing</span> <span class="text-gray-600 font-medium">Being worked on</span></div>
-                                        <div class="flex items-center"><span class="status-badge bg-blue-100 text-blue-800 inline-block w-24 text-center mr-3">Ready</span> <span class="text-gray-600 font-medium">For pickup</span></div>
-                                        <div class="flex items-center"><span class="status-badge bg-green-100 text-green-800 inline-block w-24 text-center mr-3">Completed</span> <span class="text-gray-600 font-medium">Done</span></div>
-                                        <div class="flex items-center"><span class="status-badge bg-red-100 text-red-800 inline-block w-24 text-center mr-3">Rejected</span> <span class="text-gray-600 font-medium">Denied</span></div>
-                                        <div class="flex items-center"><span class="status-badge bg-gray-100 text-gray-800 inline-block w-24 text-center mr-3">Cancelled</span> <span class="text-gray-600 font-medium">Withdrawn</span></div>
-                                    </div>
-                                </div>
                             </div>
                             
                             <div class="p-6">
@@ -708,73 +694,6 @@ foreach ($requests as $summary_req) {
                                                                     </button>
                                                                 <?php endif; ?>
                                                                 
-                                                                <!-- Actions Menu -->
-                                                                <div class="relative inline-block text-left" x-data="{ 
-                                                                    open: false, 
-                                                                    top: 0, 
-                                                                    left: 0,
-                                                                    menuWidth: 192,
-                                                                    estimateMenuHeight: 260,
-                                                                    updateMenuPosition() {
-                                                                        const rect = this.$refs.dropdownBtn.getBoundingClientRect();
-                                                                        const viewportW = window.innerWidth;
-                                                                        const viewportH = window.innerHeight;
-                                                                        const gap = 6;
-
-                                                                        let nextLeft = rect.left;
-                                                                        let nextTop = rect.bottom + gap;
-
-                                                                        // Keep menu inside viewport horizontally.
-                                                                        if (nextLeft + this.menuWidth > viewportW - 8) {
-                                                                            nextLeft = Math.max(8, viewportW - this.menuWidth - 8);
-                                                                        }
-
-                                                                        // Flip upward if there is not enough room below.
-                                                                        if (nextTop + this.estimateMenuHeight > viewportH - 8) {
-                                                                            nextTop = Math.max(8, rect.top - this.estimateMenuHeight - gap);
-                                                                        }
-
-                                                                        this.left = Math.round(nextLeft);
-                                                                        this.top = Math.round(nextTop);
-                                                                    }
-                                                                }" @resize.window="if (open) updateMenuPosition()" @scroll.window="if (open) updateMenuPosition()">
-                                                                    <button type="button" x-ref="dropdownBtn" @click="
-                                                                        open = !open;
-                                                                        if (open) {
-                                                                            updateMenuPosition();
-                                                                        }
-                                                                    " class="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-200 focus:outline-none" aria-haspopup="true" aria-expanded="false">
-                                                                        <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                                                                            <circle cx="4" cy="10" r="1.5"/>
-                                                                            <circle cx="10" cy="10" r="1.5"/>
-                                                                            <circle cx="16" cy="10" r="1.5"/>
-                                                                        </svg>
-                                                                    </button>
-                                                                    <template x-teleport="body">
-                                                                        <div x-show="open" @click.away="open = false" x-cloak
-                                                                             class="fixed z-50 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5"
-                                                                             :style="'top: ' + top + 'px; left: ' + left + 'px;'">
-                                                                            <div class="py-1">
-                                                                                <!-- Unified status options -->
-                                                                                <?php 
-                                                                                $opt_statuses = ["Pending", "Processing", "Ready for Pickup", "Completed", "Rejected"];
-                                                                                foreach ($opt_statuses as $opt):
-                                                                                    if ($status !== $opt): ?>
-                                                                                        <button type="button" onclick="changeRequestStatus('<?php echo $req['id']; ?>', '<?php echo $req['request_type']; ?>', '<?php echo $opt; ?>')" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 <?php echo $opt === 'Rejected' ? 'text-red-600' : ($opt === 'Completed' ? 'text-green-700' : 'text-gray-700'); ?>">Set as <?php echo $opt; ?></button>
-                                                                                    <?php endif;
-                                                                                endforeach; ?>
-                                                                                
-                                                                                <?php if ($status === 'Pending'): ?>
-                                                                                    <div class="border-t border-gray-100 my-1"></div>
-                                                                                    <button type="button" onclick="cancelRequest('<?php echo $req['id']; ?>', '<?php echo $req['request_type']; ?>')" class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">Cancel Request</button>
-                                                                                <?php endif; ?>
-                                                                                <!-- Delete option -->
-                                                                                <div class="border-t border-gray-100 my-1"></div>
-                                                                                <button type="button" onclick="deleteRequest('<?php echo $req['id']; ?>', '<?php echo $req['request_type']; ?>')" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Delete Request</button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </template>
-                                                                </div>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -937,14 +856,14 @@ foreach ($requests as $summary_req) {
                            </template>
                            
                            <!-- Quick Actions Section -->
-                           <div class="border-t border-gray-200 pt-4">
+                                    <div x-show="selectedReq.status !== 'Cancelled'" class="border-t border-gray-200 pt-4">
                               <h3 class="text-xs font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center">
                                  <i class="fas fa-bolt mr-2"></i>QUICK ACTIONS
                               </h3>
                               <div class="space-y-2">
-                                 <!-- Start Processing (if Pending) -->
-                                 <button x-show="selectedReq.status === 'Pending'" @click="changeRequestStatus(selectedReq.id, selectedReq.type, 'Processing'); viewPanelOpen = false;" class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg shadow hover:bg-blue-700 transition font-bold uppercase tracking-widest text-xs">
-                                    <i class="fas fa-play mr-2"></i>Start Processing
+                                            <!-- Cancel Request (if Pending) -->
+                                            <button x-show="selectedReq.status === 'Pending'" @click="cancelRequest(selectedReq.id, selectedReq.type); viewPanelOpen = false;" class="w-full bg-red-600 text-white px-4 py-3 rounded-lg shadow hover:bg-red-700 transition font-bold uppercase tracking-widest text-xs">
+                                                <i class="fas fa-ban mr-2"></i>Cancel Request
                                  </button>
 
                                             <!-- Cash Payment Action (required before print) -->
