@@ -270,7 +270,7 @@ foreach ($requests as $summary_req) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
@@ -702,12 +702,7 @@ foreach ($requests as $summary_req) {
                                                                     <i class="fas fa-eye text-sm"></i>
                                                                 </button>
 
-                                                                <!-- Quick Action Button: Mark as Processing -->
-                                                                <?php if ($status === 'Pending'): ?>
-                                                                    <button type="button" onclick="changeRequestStatus('<?php echo $req['id']; ?>', '<?php echo $req['request_type']; ?>', 'Processing')" class="inline-flex items-center justify-center w-8 h-8 rounded text-blue-600 hover:bg-blue-50 focus:outline-none" title="Start Processing">
-                                                                        <i class="fas fa-play text-xs"></i>
-                                                                    </button>
-                                                                <?php elseif ($status === 'Processing'): ?>
+                                                                <?php if ($status === 'Processing'): ?>
                                                                     <button type="button" onclick="changeRequestStatus('<?php echo $req['id']; ?>', '<?php echo $req['request_type']; ?>', 'Ready for Pickup')" class="inline-flex items-center justify-center w-8 h-8 rounded text-green-600 hover:bg-green-50 focus:outline-none" title="Mark Ready">
                                                                         <i class="fas fa-check text-xs"></i>
                                                                     </button>

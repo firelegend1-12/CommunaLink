@@ -55,6 +55,7 @@ if ($hour >= 12 && $hour < 18) {
         <!-- JavaScript for dropdown functionality -->
         <!-- External Sidebar Assets -->
         <?php $asset_path = ($current_dir === 'pages') ? '../../assets' : '../assets'; ?>
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
         <link rel="stylesheet" href="<?php echo $asset_path; ?>/css/admin-sidebar.min.css?v=<?= filemtime(__DIR__ . '/../../assets/css/admin-sidebar.min.css') ?>">
         <script>
             window.sidebarConfig = {
@@ -66,39 +67,39 @@ if ($hour >= 12 && $hour < 18) {
         <script src="<?php echo $asset_path; ?>/js/admin-sidebar.min.js?v=<?= filemtime(__DIR__ . '/../../assets/js/admin-sidebar.min.js') ?>" defer></script>
 
         <!-- Navigation Links -->
-        <div class="flex-grow px-4 py-2 mt-4">
+        <div class="flex-1 overflow-y-auto px-4 py-2 mt-4">
             <nav class="space-y-1">
                 <!-- Dashboard Link -->
-                <a href="<?php echo ($current_dir === 'pages') ? '../index.php' : 'index.php'; ?>" class="<?php echo $current_page === 'dashboard' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                    <i class="fas fa-tachometer-alt mr-3 text-lg <?php echo $current_page === 'dashboard' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
+                <a href="<?php echo ($current_dir === 'pages') ? '../index.php' : 'index.php'; ?>" class="<?php echo $current_page === 'dashboard' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
+                    <i class="fas fa-tachometer-alt mr-3 text-lg flex-shrink-0 <?php echo $current_page === 'dashboard' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                     Dashboard
                 </a>
                 
                 <!-- Residents Link -->
-                <a href="<?php echo ($current_dir === 'admin') ? 'pages/residents.php' : 'residents.php'; ?>" class="<?php echo $current_page === 'residents.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                    <i class="fas fa-users mr-3 text-lg <?php echo $current_page === 'residents.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
+                <a href="<?php echo ($current_dir === 'admin') ? 'pages/residents.php' : 'residents.php'; ?>" class="<?php echo $current_page === 'residents.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
+                    <i class="fas fa-users mr-3 text-lg flex-shrink-0 <?php echo $current_page === 'residents.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                     Residents
                 </a>
                 
                 <!-- Report Dropdown -->
                 <div id="report-dropdown" class="dropdown-container">
-                    <button onclick="toggleDropdown('report-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                        <i class="fas fa-flag mr-3 text-lg <?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
+                    <button onclick="toggleDropdown('report-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
+                        <i class="fas fa-flag mr-3 text-lg flex-shrink-0 <?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                         Report
                         <span id="report-unread-dot" class="chat-unread-dot"></span>
-                        <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200" id="report-chevron"></i>
+                        <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200<?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? ' rotate-180' : ''; ?>" id="report-chevron"></i>
                     </button>
                     <div id="report-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? 'block' : 'none'; ?>">
                         <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/incident-reports.php' : 'incident-reports.php'; ?>" class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'incident-reports.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-bullhorn mr-2 text-gray-400"></i>
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/incident-reports.php' : 'incident-reports.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'incident-reports.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                                <i class="fas fa-bullhorn mr-2 text-gray-400 flex-shrink-0"></i>
                                 Incident Reports
                                 <span id="incident-reports-badge" class="chat-unread-badge"></span>
                             </a>
                         </div>
                         <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/maps.php' : 'maps.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'maps.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-map-marked-alt mr-2 text-gray-400"></i>
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/maps.php' : 'maps.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'maps.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                                <i class="fas fa-map-marked-alt mr-2 text-gray-400 flex-shrink-0"></i>
                                 Maps
                             </a>
                         </div>
@@ -106,46 +107,46 @@ if ($hour >= 12 && $hour < 18) {
                 </div>
 
                 <!-- Community Board Link -->
-                <a href="<?php echo ($current_dir === 'admin') ? 'pages/announcements.php' : 'announcements.php'; ?>" class="<?php echo $current_page === 'announcements.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                    <i class="fas fa-clipboard-list mr-3 text-lg <?php echo $current_page === 'announcements.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
+                <a href="<?php echo ($current_dir === 'admin') ? 'pages/announcements.php' : 'announcements.php'; ?>" class="<?php echo $current_page === 'announcements.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
+                    <i class="fas fa-clipboard-list mr-3 text-lg flex-shrink-0 <?php echo $current_page === 'announcements.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                     Community Board
                 </a>
                 
                 <!-- Monitoring of Request Link -->
-                <a href="<?php echo ($current_dir === 'admin') ? 'pages/monitoring-of-request.php' : 'monitoring-of-request.php'; ?>" class="<?php echo $current_page === 'monitoring-of-request.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                    <i class="fas fa-desktop mr-3 text-lg <?php echo $current_page === 'monitoring-of-request.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
+                <a href="<?php echo ($current_dir === 'admin') ? 'pages/monitoring-of-request.php' : 'monitoring-of-request.php'; ?>" class="<?php echo $current_page === 'monitoring-of-request.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
+                    <i class="fas fa-desktop mr-3 text-lg flex-shrink-0 <?php echo $current_page === 'monitoring-of-request.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                     Monitoring of Request
                 </a>
                 
                 <!-- Document Requests Link -->
                 <div id="document-dropdown" class="dropdown-container">
-                    <button onclick="toggleDropdown('document-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                        <i class="fas fa-file-alt mr-3 text-lg <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
+                    <button onclick="toggleDropdown('document-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
+                        <i class="fas fa-file-alt mr-3 text-lg flex-shrink-0 <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                         Document Requests
-                        <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200" id="document-chevron"></i>
+                        <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200<?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php']) ? ' rotate-180' : ''; ?>" id="document-chevron"></i>
                     </button>
                     <div id="document-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php']) ? 'block' : 'none'; ?>">
                         <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-barangay-clearance.php' : 'new-barangay-clearance.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'new-barangay-clearance.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-file mr-2 text-gray-400"></i>
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-barangay-clearance.php' : 'new-barangay-clearance.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'new-barangay-clearance.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                                <i class="fas fa-file mr-2 text-gray-400 flex-shrink-0"></i>
                                 New Barangay Clearance
                             </a>
                         </div>
                         <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-certificate-of-indigency.php' : 'new-certificate-of-indigency.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'new-certificate-of-indigency.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-file-medical mr-2 text-gray-400"></i>
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-certificate-of-indigency.php' : 'new-certificate-of-indigency.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'new-certificate-of-indigency.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                                <i class="fas fa-file-medical mr-2 text-gray-400 flex-shrink-0"></i>
                                 New Cert. of Indigency
                             </a>
                         </div>
                         <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-certificate-of-residency.php' : 'new-certificate-of-residency.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'new-certificate-of-residency.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-file-signature mr-2 text-gray-400"></i>
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-certificate-of-residency.php' : 'new-certificate-of-residency.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'new-certificate-of-residency.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                                <i class="fas fa-file-signature mr-2 text-gray-400 flex-shrink-0"></i>
                                 New Cert. of Residency
                             </a>
                         </div>
                         <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-barangay-business-clearance.php' : 'new-barangay-business-clearance.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'new-barangay-business-clearance.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-file-invoice-dollar mr-2 text-gray-400"></i>
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-barangay-business-clearance.php' : 'new-barangay-business-clearance.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'new-barangay-business-clearance.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                                <i class="fas fa-file-invoice-dollar mr-2 text-gray-400 flex-shrink-0"></i>
                                 New Barangay Business Clearance
                             </a>
                         </div>
@@ -155,29 +156,29 @@ if ($hour >= 12 && $hour < 18) {
                 <!-- Admin Dropdown -->
                 <?php if (isset($_SESSION['role']) && in_array($_SESSION['role'], ['admin'])): ?>
                 <div id="admin-dropdown" class="dropdown-container">
-                    <button id="admin-dropdown-btn" onclick="toggleDropdown('admin-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                        <i class="fas fa-cog mr-3 text-lg <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
+                    <button id="admin-dropdown-btn" onclick="toggleDropdown('admin-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
+                        <i class="fas fa-cog mr-3 text-lg flex-shrink-0 <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                         Admin
                         <span id="admin-unread-dot" class="chat-unread-dot"></span>
-                        <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200" id="admin-chevron"></i>
+                        <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200<?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? ' rotate-180' : ''; ?>" id="admin-chevron"></i>
                     </button>
                     <div id="admin-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'block' : 'none'; ?>">
                         <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/user-management.php' : 'user-management.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'user-management.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-users-cog mr-2 text-gray-400"></i>
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/user-management.php' : 'user-management.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'user-management.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                                <i class="fas fa-users-cog mr-2 text-gray-400 flex-shrink-0"></i>
                                 User Management
                             </a>
                         </div>
                         <div>
-                            <a id="chat-nav-link" href="<?php echo ($current_dir === 'admin') ? 'pages/chat.php' : 'chat.php'; ?>" class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'chat.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-comments mr-2 text-gray-400"></i>
+                            <a id="chat-nav-link" href="<?php echo ($current_dir === 'admin') ? 'pages/chat.php' : 'chat.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'chat.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                                <i class="fas fa-comments mr-2 text-gray-400 flex-shrink-0"></i>
                                 Chat
                                 <span id="chat-unread-badge" class="chat-unread-badge"></span>
                             </a>
                         </div>
                         <div>
-                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/logs.php' : 'logs.php'; ?>" class="block px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white <?php echo $current_page === 'logs.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-clipboard-list mr-2 text-gray-400"></i>
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/logs.php' : 'logs.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'logs.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                                <i class="fas fa-clipboard-list mr-2 text-gray-400 flex-shrink-0"></i>
                                 Logs
                             </a>
                         </div>
@@ -189,16 +190,16 @@ if ($hour >= 12 && $hour < 18) {
         
         <!-- Footer Links -->
         <div class="p-4 border-t border-gray-700 space-y-1">
-             <a href="<?php echo ($current_dir === 'admin') ? 'pages/account.php' : 'account.php'; ?>" class="text-gray-300 hover:bg-gray-700 hover:text-white group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                <i class="fas fa-user-circle mr-3 text-lg text-gray-400"></i>
+             <a href="<?php echo ($current_dir === 'admin') ? 'pages/account.php' : 'account.php'; ?>" class="text-gray-300 hover:bg-gray-700 hover:text-white group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
+                <i class="fas fa-user-circle mr-3 text-lg text-gray-400 flex-shrink-0"></i>
                 Account
             </a>
-            <a href="<?php echo ($current_dir === 'admin') ? 'pages/about-us.php' : 'about-us.php'; ?>" class="text-gray-300 hover:bg-gray-700 hover:text-white group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                <i class="fas fa-info-circle mr-3 text-lg text-gray-400"></i>
+            <a href="<?php echo ($current_dir === 'admin') ? 'pages/about-us.php' : 'about-us.php'; ?>" class="text-gray-300 hover:bg-gray-700 hover:text-white group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
+                <i class="fas fa-info-circle mr-3 text-lg text-gray-400 flex-shrink-0"></i>
                 About Us
             </a>
-            <a href="<?php echo ($current_dir === 'pages') ? '../../includes/logout.php' : '../includes/logout.php'; ?>" class="text-gray-300 hover:bg-gray-700 hover:text-white group flex items-center px-3 py-3 text-sm font-medium rounded-md">
-                <i class="fas fa-sign-out-alt mr-3 text-lg text-gray-400"></i>
+            <a href="<?php echo ($current_dir === 'pages') ? '../../includes/logout.php' : '../includes/logout.php'; ?>" class="text-gray-300 hover:bg-gray-700 hover:text-white group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
+                <i class="fas fa-sign-out-alt mr-3 text-lg text-gray-400 flex-shrink-0"></i>
                 <span>Logout</span>
             </a>
         </div>

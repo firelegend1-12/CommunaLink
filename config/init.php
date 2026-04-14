@@ -4,6 +4,8 @@
  * Establishes a PDO connection and creates necessary tables if they don't exist.
  */
 
+require_once __DIR__ . '/../includes/functions.php';
+
 function configure_session_cookie_security() {
     if (session_status() !== PHP_SESSION_NONE) {
         return;

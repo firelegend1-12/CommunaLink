@@ -4,17 +4,25 @@
  * Main entry point for the Barangay Reports Admin System
  */
 
+require_once 'includes/functions.php';
+
 // App Engine standard may route all requests through index.php.
 // Dispatch known PHP paths to their actual script files when present.
 $request_path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$base_path = app_base_path();
+if ($base_path !== '' && ($request_path === $base_path || $request_path === $base_path . '/')) {
+    $request_path = '/';
+} elseif ($base_path !== '' && stripos($request_path, $base_path . '/') === 0) {
+    $request_path = substr($request_path, strlen($base_path));
+}
 $relative_path = ltrim((string) $request_path, '/');
 
 // Normalize duplicated front-controller paths like /index.php/index.php.
 if (stripos($relative_path, 'index.php/') === 0) {
     $normalized_tail = ltrim(substr($relative_path, strlen('index.php/')), '/');
     $canonical_path = ($normalized_tail === '' || $normalized_tail === 'index.php')
-        ? '/index.php'
-        : '/' . $normalized_tail;
+        ? app_url('/index.php')
+        : app_url('/' . $normalized_tail);
 
     header('Location: ' . $canonical_path, true, 302);
     exit;
@@ -187,7 +195,7 @@ $page_title = "Sign In - Communalink";
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/auth.css">
-    <link rel="icon" href="assets/svg/logos.jpg" type="image/jpeg">
+    <link rel="icon" href="assets/images/barangay-logo.png" type="image/png">
     <script src="assets/js/login.js" defer></script>
 </head>
 <body>
@@ -195,7 +203,7 @@ $page_title = "Sign In - Communalink";
         <!-- Header -->
         <header class="auth-header">
             <div class="auth-header-left">
-                <img src="assets/svg/logos.jpg" alt="CommunaLink Logo" style="height: 50px; width: auto;">
+                <img src="assets/images/barangay-logo.png" alt="Barangay Logo" style="height: 72px; width: auto;">
             </div>
         </header>
 
@@ -253,7 +261,7 @@ $page_title = "Sign In - Communalink";
                     }
                     ?>
 
-                    <form action="/index.php" method="POST">
+                    <form action="<?= htmlspecialchars(app_url('/index.php')) ?>" method="POST">
                         <?php echo CSRFProtection::getTokenField(); ?>
                         <div class="form-group">
                             <label for="username">Email Address</label>
@@ -287,11 +295,11 @@ $page_title = "Sign In - Communalink";
                     </form>
 
                     <div class="form-links">
-                        <a href="/forgot-password.php" class="forgot-password-link">Forgot Password?</a>
+                        <a href="<?= htmlspecialchars(app_url('/forgot-password.php')) ?>" class="forgot-password-link">Forgot Password?</a>
                     </div>
 
                     <p style="text-align: center; margin-top: 2rem; color: var(--text-secondary);">
-                        Don't have an account? <a href="/register.php" class="link">Create Account</a>
+                        Don't have an account? <a href="<?= htmlspecialchars(app_url('/register.php')) ?>" class="link">Create Account</a>
                     </p>
                 </div>
                 

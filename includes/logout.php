@@ -11,4 +11,4 @@ require_once 'auth.php';
 logout();
 
 // Redirect to login page
-redirect_to('/index.php?logout=success'); 
+redirect_to(app_url('/index.php?logout=success')); 

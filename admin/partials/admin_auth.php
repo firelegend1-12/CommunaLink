@@ -20,9 +20,9 @@ $authorized_roles = ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary
 // Check if user has an authorized role
 if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], $authorized_roles)) {
     if (isset($_SESSION['role']) && $_SESSION['role'] === 'resident') {
-        header('Location: /resident/dashboard.php');
+        header('Location: ' . app_url('/resident/dashboard.php'));
     } else {
-        header('Location: /index.php');
+        header('Location: ' . app_url('/index.php'));
     }
     exit;
 }

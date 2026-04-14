@@ -72,7 +72,7 @@ try {
         }
     </style>
 </head>
-<body class="bg-[#F8FAFC] min-h-screen text-[#1E293B]">
+<body class="bg-gray-100 min-h-screen text-[#1E293B]">
     <div class="flex h-screen overflow-hidden" x-data="{ 
         showAddModal: false, 
         showEditModal: false, 

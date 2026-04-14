@@ -98,6 +98,83 @@ function redirect_to($url) {
 }
 
 /**
+ * Get the application's base path for the current deployment.
+ * Returns an empty string when the app is hosted at the web root.
+ *
+ * @return string
+ */
+function app_base_path() {
+    static $base_path = null;
+
+    if ($base_path !== null) {
+        return $base_path;
+    }
+
+    $project_root = realpath(__DIR__ . '/..');
+    $document_root = realpath((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
+
+    if ($project_root && $document_root) {
+        $project_root_norm = str_replace('\\', '/', $project_root);
+        $document_root_norm = rtrim(str_replace('\\', '/', $document_root), '/');
+
+        if (stripos($project_root_norm, $document_root_norm) === 0) {
+            $derived = substr($project_root_norm, strlen($document_root_norm));
+            $derived = $derived === false ? '' : $derived;
+            $derived = '/' . ltrim((string) $derived, '/');
+            $base_path = rtrim($derived, '/');
+
+            if ($base_path === '/' || $base_path === '.') {
+                $base_path = '';
+            }
+
+            return $base_path;
+        }
+    }
+
+    // Fallback for unusual server setups.
+    $script_name = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? ''));
+    $base_path = rtrim(str_replace('\\', '/', dirname($script_name)), '/');
+    if ($base_path === '/' || $base_path === '.') {
+        $base_path = '';
+    }
+
+    return $base_path;
+}
+
+/**
+ * Build an application-relative URL that works at the web root or in a subfolder.
+ *
+ * @param string $path Path within the application
+ * @return string
+ */
+function app_url($path = '') {
+    $path = trim((string) $path);
+
+    if ($path === '') {
+        return app_base_path() !== '' ? app_base_path() : '/';
+    }
+
+    if (preg_match('/^[a-z][a-z0-9+\-.]*:/i', $path) || strpos($path, '//') === 0) {
+        return $path;
+    }
+
+    $parts = parse_url($path);
+    if ($parts === false) {
+        $parts = ['path' => $path];
+    }
+
+    $normalized_path = ltrim((string) ($parts['path'] ?? ''), '/');
+    $query = isset($parts['query']) && $parts['query'] !== '' ? '?' . $parts['query'] : '';
+    $fragment = isset($parts['fragment']) && $parts['fragment'] !== '' ? '#' . $parts['fragment'] : '';
+
+    $base_path = app_base_path();
+    $full_path = ($base_path !== '' ? $base_path : '') . '/' . $normalized_path;
+    $full_path = preg_replace('#/+#', '/', $full_path);
+
+    return $full_path . $query . $fragment;
+}
+
+/**
  * Get the configured maximum number of admin users.
  * Defaults to 5 and is bounded to a sensible range.
  *

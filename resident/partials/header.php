@@ -62,7 +62,7 @@ if ($user_id) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="../assets/css/resident.css">
     <!-- PWA Setup -->
-    <link rel="manifest" href="/resident/manifest.json">
+    <link rel="manifest" href="<?= htmlspecialchars(app_url('/resident/manifest.json')) ?>">
     <meta name="theme-color" content="#5c67e2">
     <script>
         if ('serviceWorker' in navigator) {
