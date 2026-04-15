@@ -188,6 +188,11 @@ if (strlen($address) < 5) {
     redirect_to('../pages/add-resident.php');
 }
 
+if (!preg_match('/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9\s\-\.,\'#/()]+$/', $place_of_birth)) {
+    $_SESSION['error_message'] = 'Place of Birth must include both letters and numbers.';
+    redirect_to('../pages/add-resident.php');
+}
+
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_of_birth)) {
     $_SESSION['error_message'] = 'Please enter a valid date of birth.';
     redirect_to('../pages/add-resident.php');

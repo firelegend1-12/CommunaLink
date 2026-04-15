@@ -17,6 +17,96 @@ $page_title = "Add Resident - CommunaLink";
 $form_data = $_SESSION['form_data'] ?? [];
 unset($_SESSION['form_data']);
 
+$religion_options = [
+    'Roman Catholic',
+    'Christian',
+    'Protestant',
+    'Iglesia ni Cristo',
+    'Islam',
+    'Buddhism',
+    'Hinduism',
+    'Judaism',
+    'Seventh-day Adventist',
+    'Jehovah\'s Witness',
+    'Church of Christ',
+    'Born Again',
+    'Mormon',
+    'LDS',
+    'Sikhism',
+    'Taoism',
+    'Baha\'i',
+    'Atheist',
+    'Agnostic',
+    'Other'
+];
+
+$citizenship_options = [
+    'Filipino',
+    'American',
+    'Australian',
+    'British',
+    'Canadian',
+    'Chinese',
+    'Japanese',
+    'Korean',
+    'Indian',
+    'Indonesian',
+    'Malaysian',
+    'Singaporean',
+    'Thai',
+    'Vietnamese',
+    'Mongolian',
+    'Pakistani',
+    'Bangladeshi',
+    'Nepalese',
+    'Sri Lankan',
+    'Saudi Arabian',
+    'Emirati',
+    'Qatari',
+    'Kuwaiti',
+    'Omani',
+    'Bahraini',
+    'Turkish',
+    'Russian',
+    'Ukrainian',
+    'French',
+    'German',
+    'Spanish',
+    'Italian',
+    'Portuguese',
+    'Dutch',
+    'Belgian',
+    'Swiss',
+    'Swedish',
+    'Norwegian',
+    'Finnish',
+    'Danish',
+    'Polish',
+    'Czech',
+    'Slovak',
+    'Hungarian',
+    'Romanian',
+    'Bulgarian',
+    'Greek',
+    'Irish',
+    'Scottish',
+    'New Zealander',
+    'Mexican',
+    'Brazilian',
+    'Argentine',
+    'Chilean',
+    'Colombian',
+    'Peruvian',
+    'Venezuelan',
+    'South African',
+    'Egyptian',
+    'Nigerian',
+    'Kenyan',
+    'Moroccan',
+    'Ethiopian',
+    'Other'
+];
+
 function old_value(array $data, string $key): string {
     return htmlspecialchars((string)($data[$key] ?? ''), ENT_QUOTES, 'UTF-8');
 }
@@ -133,7 +223,7 @@ function old_value(array $data, string $key): string {
                                 </div>
                                 <div>
                                     <label for="place_of_birth" class="block text-sm font-medium text-gray-700">Place of Birth</label>
-                                    <input type="text" name="place_of_birth" id="place_of_birth" required minlength="2" maxlength="255" value="<?php echo old_value($form_data, 'place_of_birth'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="City / Municipality">
+                                    <input type="text" name="place_of_birth" id="place_of_birth" required minlength="3" maxlength="255" pattern="^(?=.*[A-Za-z])(?=.*[0-9])[A-Za-z0-9\s\-\.,'#/()]+$" title="Place of Birth must include both letters and numbers." value="<?php echo old_value($form_data, 'place_of_birth'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g. Pakiad 1, Oton">
                                 </div>
                                 <div>
                                     <label for="age" class="block text-sm font-medium text-gray-700">Age</label>
@@ -141,11 +231,25 @@ function old_value(array $data, string $key): string {
                                 </div>
                                 <div>
                                     <label for="religion" class="block text-sm font-medium text-gray-700">Religion</label>
-                                    <input type="text" name="religion" id="religion" required minlength="2" maxlength="100" value="<?php echo old_value($form_data, 'religion'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Enter religion">
+                                    <select name="religion" id="religion" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                        <option value="" <?php echo empty($form_data['religion']) ? 'selected' : ''; ?>>Select religion</option>
+                                        <?php foreach ($religion_options as $religion_option): ?>
+                                            <option value="<?php echo htmlspecialchars($religion_option, ENT_QUOTES, 'UTF-8'); ?>" <?php echo (($form_data['religion'] ?? '') === $religion_option) ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($religion_option, ENT_QUOTES, 'UTF-8'); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
                                 </div>
                                 <div>
                                     <label for="citizenship" class="block text-sm font-medium text-gray-700">Citizenship</label>
-                                    <input type="text" name="citizenship" id="citizenship" required minlength="2" maxlength="100" value="<?php echo old_value($form_data, 'citizenship'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Filipino">
+                                    <select name="citizenship" id="citizenship" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                        <option value="" <?php echo empty($form_data['citizenship']) ? 'selected' : ''; ?>>Select citizenship</option>
+                                        <?php foreach ($citizenship_options as $citizenship_option): ?>
+                                            <option value="<?php echo htmlspecialchars($citizenship_option, ENT_QUOTES, 'UTF-8'); ?>" <?php echo (($form_data['citizenship'] ?? '') === $citizenship_option) ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($citizenship_option, ENT_QUOTES, 'UTF-8'); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
                                 </div>
                                 <div>
                                     <label for="civil_status" class="block text-sm font-medium text-gray-700">Civil Status</label>
@@ -242,6 +346,45 @@ function old_value(array $data, string $key): string {
         const dateOfBirthField = document.getElementById('date_of_birth');
         const ageField = document.getElementById('age');
         const contactField = document.getElementById('contact_no');
+        const placeOfBirthField = document.getElementById('place_of_birth');
+        let suppressBeforeUnload = false;
+
+        function hasResidentFormInput() {
+            const fields = form.querySelectorAll('input, select, textarea');
+
+            for (const field of fields) {
+                const tag = field.tagName.toLowerCase();
+                const type = (field.type || '').toLowerCase();
+
+                if (type === 'hidden' || type === 'submit' || type === 'button') {
+                    continue;
+                }
+
+                if (field.id === 'id_number') {
+                    continue;
+                }
+
+                if (tag === 'select') {
+                    if (field.value && field.value.trim() !== '') {
+                        return true;
+                    }
+                    continue;
+                }
+
+                if (type === 'file') {
+                    if (field.files && field.files.length > 0) {
+                        return true;
+                    }
+                    continue;
+                }
+
+                if (String(field.value || '').trim() !== '') {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         function updatePasswordRequirements() {
             const password = passwordField.value;
@@ -289,20 +432,45 @@ function old_value(array $data, string $key): string {
             contactField.setCustomValidity(validPhone ? '' : 'Enter a valid Philippine mobile number (e.g. 09123456789).');
         }
 
+        function validatePlaceOfBirth() {
+            if (!placeOfBirthField.value) {
+                placeOfBirthField.setCustomValidity('Place of Birth is required.');
+                return;
+            }
+
+            const validPlace = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9\s\-\.,'#/()]+$/.test(placeOfBirthField.value);
+            placeOfBirthField.setCustomValidity(validPlace ? '' : 'Place of Birth must include both letters and numbers.');
+        }
+
         passwordField.addEventListener('input', updatePasswordRequirements);
         dateOfBirthField.addEventListener('change', calculateAge);
         dateOfBirthField.addEventListener('input', calculateAge);
         contactField.addEventListener('input', validateContact);
+        placeOfBirthField.addEventListener('input', validatePlaceOfBirth);
 
         form.addEventListener('submit', function (event) {
             calculateAge();
             updatePasswordRequirements();
             validateContact();
+            validatePlaceOfBirth();
 
             if (!form.checkValidity()) {
                 event.preventDefault();
                 form.reportValidity();
                 return;
+            }
+
+            suppressBeforeUnload = true;
+        });
+
+        window.addEventListener('beforeunload', function (event) {
+            if (suppressBeforeUnload) {
+                return;
+            }
+
+            if (hasResidentFormInput()) {
+                event.preventDefault();
+                event.returnValue = '';
             }
         });
 
