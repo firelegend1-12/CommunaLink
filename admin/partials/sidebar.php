@@ -67,7 +67,7 @@ if ($hour >= 12 && $hour < 18) {
         <script src="<?php echo $asset_path; ?>/js/admin-sidebar.min.js?v=<?= filemtime(__DIR__ . '/../../assets/js/admin-sidebar.min.js') ?>" defer></script>
 
         <!-- Navigation Links -->
-        <div class="flex-1 overflow-y-auto px-4 py-2 mt-4">
+        <div class="flex-1 overflow-y-auto px-4 py-2 mt-4 sidebar-scroll">
             <nav class="space-y-1">
                 <!-- Dashboard Link -->
                 <a href="<?php echo ($current_dir === 'pages') ? '../index.php' : 'index.php'; ?>" class="<?php echo $current_page === 'dashboard' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">

@@ -73,6 +73,7 @@ $title = "Maps";
                         <div class="legend">
                             <div class="flex items-center gap-2 mb-1"><span class="inline-block w-4 h-4 rounded-full bg-blue-600"></span> Incident Report</div>
                             <div class="flex items-center gap-2"><img src="http://maps.google.com/mapfiles/ms/icons/red-dot.png" class="w-4 h-6" alt="Barangay Center" style="object-fit:contain;"> Barangay Center</div>
+                            <div class="flex items-center gap-2 mt-1"><span class="inline-block w-4 h-2 rounded-sm" style="background: linear-gradient(90deg, #ef4444 0%, #ffffff 100%);"></span> Barangay Pakiad Perimeter</div>
                         </div>
                     </div>
                 </div>
@@ -85,8 +86,41 @@ $title = "Maps";
     let lastOpenIncidentId = null;
     let lastIncidentDataHash = '';
     let infoWindow;
+    let perimeterPolygon = null;
+    let perimeterOutline = null;
+    let perimeterBounds = null;
 
     let clusterer = null;
+
+
+
+    function drawBarangayPerimeter() {
+        perimeterBounds = new google.maps.LatLngBounds();
+        BARANGAY_PAKIAD_PERIMETER.forEach(point => perimeterBounds.extend(point));
+
+        perimeterPolygon = new google.maps.Polygon({
+            paths: BARANGAY_PAKIAD_PERIMETER,
+
+            strokeColor: '#ef4444',
+            strokeOpacity: 0.9,
+            strokeWeight: 2,
+            fillColor: '#f97316',
+            fillOpacity: 0.08,
+            clickable: false,
+            map: map
+        });
+
+        // Add a highlighted perimeter line over the polygon edge for better visibility on satellite tiles.
+        perimeterOutline = new google.maps.Polyline({
+            path: BARANGAY_PAKIAD_PERIMETER.concat([BARANGAY_PAKIAD_PERIMETER[0]]),
+            geodesic: true,
+            strokeColor: '#ffffff',
+            strokeOpacity: 0.9,
+            strokeWeight: 1.2,
+            clickable: false,
+            map: map
+        });
+    }
 
     function initMap() {
         const center = { lat: 10.710827350642523, lng: 122.51720118954563 };
@@ -102,6 +136,11 @@ $title = "Maps";
             map: map,
             title: 'Barangay Center'
         });
+
+        drawBarangayPerimeter();
+        if (perimeterBounds) {
+            map.fitBounds(perimeterBounds);
+        }
 
         infoWindow = new google.maps.InfoWindow();
 
@@ -240,8 +279,12 @@ $title = "Maps";
     document.getElementById('date-from').onchange = () => filterReports(document.getElementById('filter-range').value);
     document.getElementById('date-to').onchange = () => filterReports(document.getElementById('filter-range').value);
     document.getElementById('center-barangay').onclick = () => {
-        map.setCenter({ lat: 10.710827350642523, lng: 122.51720118954563 });
-        map.setZoom(17);
+        if (perimeterBounds) {
+            map.fitBounds(perimeterBounds);
+        } else {
+            map.setCenter({ lat: 10.710827350642523, lng: 122.51720118954563 });
+            map.setZoom(15);
+        }
     };
 
     function fetchAndUpdateReports() {

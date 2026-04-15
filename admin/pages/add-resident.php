@@ -14,6 +14,13 @@ require_login();
 // Page title
 $page_title = "Add Resident - CommunaLink";
 
+$form_data = $_SESSION['form_data'] ?? [];
+unset($_SESSION['form_data']);
+
+function old_value(array $data, string $key): string {
+    return htmlspecialchars((string)($data[$key] ?? ''), ENT_QUOTES, 'UTF-8');
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -94,58 +101,60 @@ $page_title = "Add Resident - CommunaLink";
                 <?php endif; ?>
                 
                 <div class="bg-white rounded-lg shadow p-6">
-                    <form action="../partials/add-resident-handler.php" method="POST" enctype="multipart/form-data" class="space-y-6">
+                    <form action="../partials/add-resident-handler.php" method="POST" enctype="multipart/form-data" class="space-y-6" id="residentForm">
                         <!-- Personal Information Section -->
                         <div>
                             <h3 class="text-lg font-medium text-gray-900 border-b pb-2 mb-4">Personal Information</h3>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
                                     <label for="first_name" class="block text-sm font-medium text-gray-700">First Name</label>
-                                    <input type="text" name="first_name" id="first_name" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <input type="text" name="first_name" id="first_name" required autocomplete="given-name" pattern="[A-Za-z\s'\-\.]+" minlength="2" maxlength="100" value="<?php echo old_value($form_data, 'first_name'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Enter first name">
                                 </div>
                                 <div>
                                     <label for="middle_initial" class="block text-sm font-medium text-gray-700">Middle Initial</label>
-                                    <input type="text" name="middle_initial" id="middle_initial" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <input type="text" name="middle_initial" id="middle_initial" required autocomplete="additional-name" pattern="[A-Za-z\.\- ]+" minlength="1" maxlength="5" value="<?php echo old_value($form_data, 'middle_initial'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="M.I.">
                                 </div>
                                 <div>
                                     <label for="last_name" class="block text-sm font-medium text-gray-700">Last Name</label>
-                                    <input type="text" name="last_name" id="last_name" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <input type="text" name="last_name" id="last_name" required autocomplete="family-name" pattern="[A-Za-z\s'\-\.]+" minlength="2" maxlength="100" value="<?php echo old_value($form_data, 'last_name'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Enter last name">
                                 </div>
                                 <div>
                                     <label for="gender" class="block text-sm font-medium text-gray-700">Gender</label>
                                     <select name="gender" id="gender" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
-                                        <option value="Male">Male</option>
-                                        <option value="Female">Female</option>
-                                        <option value="Other">Other</option>
+                                        <option value="" <?php echo empty($form_data['gender']) ? 'selected' : ''; ?>>Select gender</option>
+                                        <option value="Male" <?php echo (($form_data['gender'] ?? '') === 'Male') ? 'selected' : ''; ?>>Male</option>
+                                        <option value="Female" <?php echo (($form_data['gender'] ?? '') === 'Female') ? 'selected' : ''; ?>>Female</option>
+                                        <option value="Other" <?php echo (($form_data['gender'] ?? '') === 'Other') ? 'selected' : ''; ?>>Other</option>
                                     </select>
                                 </div>
                                 <div>
                                     <label for="date_of_birth" class="block text-sm font-medium text-gray-700">Date of Birth</label>
-                                    <input type="date" name="date_of_birth" id="date_of_birth" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <input type="date" name="date_of_birth" id="date_of_birth" required max="<?php echo date('Y-m-d'); ?>" value="<?php echo old_value($form_data, 'date_of_birth'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                                 </div>
                                 <div>
                                     <label for="place_of_birth" class="block text-sm font-medium text-gray-700">Place of Birth</label>
-                                    <input type="text" name="place_of_birth" id="place_of_birth" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <input type="text" name="place_of_birth" id="place_of_birth" required minlength="2" maxlength="255" value="<?php echo old_value($form_data, 'place_of_birth'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="City / Municipality">
                                 </div>
                                 <div>
                                     <label for="age" class="block text-sm font-medium text-gray-700">Age</label>
-                                    <input type="number" name="age" id="age" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <input type="number" name="age" id="age" readonly required min="1" max="120" value="<?php echo old_value($form_data, 'age'); ?>" class="mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Auto-calculated from DOB">
                                 </div>
                                 <div>
                                     <label for="religion" class="block text-sm font-medium text-gray-700">Religion</label>
-                                    <input type="text" name="religion" id="religion" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <input type="text" name="religion" id="religion" required minlength="2" maxlength="100" value="<?php echo old_value($form_data, 'religion'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Enter religion">
                                 </div>
                                 <div>
                                     <label for="citizenship" class="block text-sm font-medium text-gray-700">Citizenship</label>
-                                    <input type="text" name="citizenship" id="citizenship" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <input type="text" name="citizenship" id="citizenship" required minlength="2" maxlength="100" value="<?php echo old_value($form_data, 'citizenship'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Filipino">
                                 </div>
                                 <div>
                                     <label for="civil_status" class="block text-sm font-medium text-gray-700">Civil Status</label>
                                     <select name="civil_status" id="civil_status" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
-                                        <option value="Single">Single</option>
-                                        <option value="Married">Married</option>
-                                        <option value="Widowed">Widowed</option>
-                                        <option value="Separated">Separated</option>
+                                        <option value="" <?php echo empty($form_data['civil_status']) ? 'selected' : ''; ?>>Select civil status</option>
+                                        <option value="Single" <?php echo (($form_data['civil_status'] ?? '') === 'Single') ? 'selected' : ''; ?>>Single</option>
+                                        <option value="Married" <?php echo (($form_data['civil_status'] ?? '') === 'Married') ? 'selected' : ''; ?>>Married</option>
+                                        <option value="Widowed" <?php echo (($form_data['civil_status'] ?? '') === 'Widowed') ? 'selected' : ''; ?>>Widowed</option>
+                                        <option value="Separated" <?php echo (($form_data['civil_status'] ?? '') === 'Separated') ? 'selected' : ''; ?>>Separated</option>
                                     </select>
                                 </div>
                             </div>
@@ -157,15 +166,24 @@ $page_title = "Add Resident - CommunaLink";
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
-                                    <input type="email" name="email" id="email" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <input type="email" name="email" id="email" required autocomplete="email" value="<?php echo old_value($form_data, 'email'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="example@gmail.com">
+                                    <div class="mt-2">
+                                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                                        <input type="password" name="password" id="password" required minlength="8" autocomplete="new-password" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Minimum 8 characters">
+                                        <div class="mt-2 text-xs space-y-1">
+                                            <div id="req-length" class="text-red-500">✓ Password must be at least 8 characters</div>
+                                            <div id="req-number" class="text-red-500">✓ Password must contain at least one number (0-9)</div>
+                                            <div id="req-special" class="text-red-500">✓ Password must contain at least one special character (!@#$%^&*)</div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div>
                                     <label for="contact_no" class="block text-sm font-medium text-gray-700">Contact Number</label>
-                                    <input type="text" name="contact_no" id="contact_no" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <input type="tel" name="contact_no" id="contact_no" required inputmode="tel" autocomplete="tel" pattern="^(\\+?63|0)9\\d{9}$" minlength="11" maxlength="13" value="<?php echo old_value($form_data, 'contact_no'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="09123456789">
                                 </div>
                                 <div class="md:col-span-2">
                                     <label for="address" class="block text-sm font-medium text-gray-700">Address</label>
-                                    <textarea name="address" id="address" rows="3" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></textarea>
+                                    <textarea name="address" id="address" rows="3" required minlength="5" maxlength="500" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Complete address"><?php echo old_value($form_data, 'address'); ?></textarea>
                                 </div>
                             </div>
                         </div>
@@ -188,8 +206,9 @@ $page_title = "Add Resident - CommunaLink";
                                 <div>
                                     <label for="voter_status" class="block text-sm font-medium text-gray-700">Voter Status</label>
                                     <select name="voter_status" id="voter_status" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
+                                        <option value="" <?php echo empty($form_data['voter_status']) ? 'selected' : ''; ?>>Select voter status</option>
+                                        <option value="Yes" <?php echo (($form_data['voter_status'] ?? '') === 'Yes') ? 'selected' : ''; ?>>Yes</option>
+                                        <option value="No" <?php echo (($form_data['voter_status'] ?? '') === 'No') ? 'selected' : ''; ?>>No</option>
                                     </select>
                                 </div>
                                 <div>
@@ -213,5 +232,84 @@ $page_title = "Add Resident - CommunaLink";
             </main>
         </div>
     </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('residentForm');
+        const passwordField = document.getElementById('password');
+        const reqLength = document.getElementById('req-length');
+        const reqNumber = document.getElementById('req-number');
+        const reqSpecial = document.getElementById('req-special');
+        const dateOfBirthField = document.getElementById('date_of_birth');
+        const ageField = document.getElementById('age');
+        const contactField = document.getElementById('contact_no');
+
+        function updatePasswordRequirements() {
+            const password = passwordField.value;
+
+            reqLength.style.color = password.length >= 8 ? '#22c55e' : '#ef4444';
+            reqNumber.style.color = /[0-9]/.test(password) ? '#22c55e' : '#ef4444';
+            reqSpecial.style.color = /[!@#$%^&*()_+\-=[\]{};:'",.<>?/\\|`~]/.test(password) ? '#22c55e' : '#ef4444';
+
+            if (password.length < 8) {
+                passwordField.setCustomValidity('Password must be at least 8 characters long.');
+            } else if (!/[0-9]/.test(password)) {
+                passwordField.setCustomValidity('Password must contain at least one number (0-9).');
+            } else if (!/[!@#$%^&*()_+\-=[\]{};:'",.<>?/\\|`~]/.test(password)) {
+                passwordField.setCustomValidity('Password must contain at least one special character (!@#$%^&*).');
+            } else {
+                passwordField.setCustomValidity('');
+            }
+        }
+
+        function calculateAge() {
+            if (!dateOfBirthField.value) {
+                ageField.value = '';
+                return;
+            }
+
+            const birthDate = new Date(dateOfBirthField.value);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+
+            ageField.value = age > 0 ? age : '';
+        }
+
+        function validateContact() {
+            if (!contactField.value) {
+                contactField.setCustomValidity('Contact number is required.');
+                return;
+            }
+
+            const validPhone = /^(\+?63|0)9\d{9}$/.test(contactField.value);
+            contactField.setCustomValidity(validPhone ? '' : 'Enter a valid Philippine mobile number (e.g. 09123456789).');
+        }
+
+        passwordField.addEventListener('input', updatePasswordRequirements);
+        dateOfBirthField.addEventListener('change', calculateAge);
+        dateOfBirthField.addEventListener('input', calculateAge);
+        contactField.addEventListener('input', validateContact);
+
+        form.addEventListener('submit', function (event) {
+            calculateAge();
+            updatePasswordRequirements();
+            validateContact();
+
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                form.reportValidity();
+                return;
+            }
+        });
+
+        calculateAge();
+        updatePasswordRequirements();
+        validateContact();
+    });
+    </script>
 </body>
-</html> 
+</html>
