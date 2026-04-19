@@ -57,7 +57,7 @@ $year_issued = date('Y');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($page_title) ?></title>
+    <title>Barangay Pakiad</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {

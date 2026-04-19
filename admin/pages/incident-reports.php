@@ -61,7 +61,7 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?> - CommunaLink</title>
+    <title>Barangay Pakiad</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
