@@ -285,6 +285,25 @@ foreach ($requests as $summary_req) {
             this.selectedReq = req; 
             this.viewPanelOpen = true; 
         },
+        formatDetailLabel(key) {
+            if (!key) return 'N/A';
+            return String(key).replace(/_/g, ' ');
+        },
+        formatDetailValue(value) {
+            if (value === null || value === undefined || value === '') return 'N/A';
+
+            if (Array.isArray(value)) {
+                return value.map((item) => this.formatDetailValue(item)).join(', ');
+            }
+
+            if (typeof value === 'object') {
+                return Object.entries(value)
+                    .map(([k, v]) => `${this.formatDetailLabel(k)}: ${this.formatDetailValue(v)}`)
+                    .join(', ');
+            }
+
+            return String(value);
+        },
         async submitCashPayment() {
             if (!this.selectedReq) return;
 
@@ -857,8 +876,8 @@ foreach ($requests as $summary_req) {
                                                 <div class="space-y-3">
                                                 <template x-for="(value, key) in selectedReq.details" :key="key">
                                        <div>
-                                          <p class="text-xs font-semibold text-gray-600 uppercase" x-text="key.replace(/_/g, ' ')"></p>
-                                          <p class="mt-1 text-sm font-medium text-gray-900" x-text="value"></p>
+                                                        <p class="text-xs font-semibold text-gray-600 uppercase" x-text="formatDetailLabel(key)"></p>
+                                                        <p class="mt-1 text-sm font-medium text-gray-900" x-text="formatDetailValue(value)"></p>
                                        </div>
                                     </template>
                                                 </div>
