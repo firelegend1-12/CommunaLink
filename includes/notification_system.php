@@ -117,6 +117,53 @@ if (!class_exists('NotificationSystem')) {
         }
 
         /**
+         * Notify resident that an incident report status changed.
+         *
+         * @param PDO $pdo
+         * @param int $recipient_user_id
+         * @param string $incident_type
+         * @param string $status
+         * @param string $reason
+         * @param string $link
+         * @return bool
+         */
+        public static function notify_incident_status($pdo, $recipient_user_id, $incident_type, $status, $reason = '', $link = '/resident/my-reports.php') {
+            $recipient_user_id = (int) $recipient_user_id;
+            if ($recipient_user_id <= 0) {
+                return false;
+            }
+
+            $incident_type = trim((string) $incident_type);
+            $status = trim((string) $status);
+            $reason = trim((string) $reason);
+            $link = trim((string) $link);
+            if ($link === '') {
+                $link = '/resident/my-reports.php';
+            }
+            if (function_exists('app_url')) {
+                $base_path = function_exists('app_base_path') ? app_base_path() : '';
+                $starts_with_base = $base_path !== '' && strpos($link, $base_path . '/') === 0;
+                if (!$starts_with_base) {
+                    $link = app_url($link);
+                }
+            }
+
+            $title = 'Incident Update: ' . $incident_type;
+            $message = 'Your incident report for ' . $incident_type . ' has been updated to: ' . $status . '. ';
+
+            if ($status === 'Rejected') {
+                if ($reason !== '') {
+                    $message .= 'Reason: ' . $reason . '. ';
+                }
+                $message .= 'Please review the details or contact the barangay office for clarification.';
+            } elseif ($status === 'Resolved') {
+                $message .= 'Your report has been marked as resolved. Thank you for your patience.';
+            }
+
+            return create_notification($pdo, $recipient_user_id, $title, $message, 'incident_status', $link);
+        }
+
+        /**
          * Notify user about payment status updates.
          *
          * @param PDO $pdo

@@ -182,6 +182,7 @@ CREATE TABLE IF NOT EXISTS `incidents` (
     `status` ENUM('Pending', 'In Progress', 'Resolved', 'Rejected') NOT NULL DEFAULT 'Pending',
     `reported_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `admin_remarks` TEXT DEFAULT NULL,
+    `rejection_reason` TEXT DEFAULT NULL,
     PRIMARY KEY (`id`),
     FOREIGN KEY (`resident_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
     INDEX `idx_incidents_reported_at` (`reported_at`),

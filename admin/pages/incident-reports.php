@@ -244,8 +244,7 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                             <!-- Status Filter -->
                             <div class="flex flex-wrap bg-slate-200/50 p-1 rounded-xl border border-slate-200 gap-1">
                                 <button @click="statusFilter = 'All'" :class="statusFilter === 'All' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">ALL</button>
-                                <button @click="statusFilter = 'Pending'" :class="statusFilter === 'Pending' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">PENDING</button>
-                                <button @click="statusFilter = 'In Progress'" :class="statusFilter === 'In Progress' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">IN PROGRESS</button>
+                                <button @click="statusFilter = 'Pending'" :class="statusFilter === 'Pending' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'" class="px-4 py-2 rounded-lg text-sm font-bold transition">PENDING</button>
                                 <button @click="statusFilter = 'Resolved'" :class="statusFilter === 'Resolved' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">RESOLVED</button>
                                 <button @click="statusFilter = 'Rejected'" :class="statusFilter === 'Rejected' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">REJECTED</button>
                             </div>
@@ -266,8 +265,8 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                     <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Reporter</th>
                                     <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Location</th>
                                      <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Date Reported</th>
-                                    <th class="px-6 py-4 text-right text-xs font-black text-slate-500 uppercase tracking-widest">Status</th>
-                                    <th class="px-6 py-4 text-right text-xs font-black text-slate-500 uppercase tracking-widest">Action</th>
+                                    <th class="px-6 py-4 text-center text-xs font-black text-slate-500 uppercase tracking-widest">Status</th>
+                                    <th class="px-6 py-4 text-center text-xs font-black text-slate-500 uppercase tracking-widest">Action</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-50">
@@ -332,36 +331,20 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                             <div class="text-sm text-slate-700 font-medium" x-text="formatDate(report.reported_at)"></div>
                                             <div class="text-[10px] text-slate-400 uppercase tracking-tighter" x-text="formatTime(report.reported_at)"></div>
                                         </td>
-                                        <td @click="openQuickView(report.id)" class="px-6 py-4 whitespace-nowrap text-left">
+                                        <td @click="openQuickView(report.id)" class="px-6 py-4 whitespace-nowrap text-center">
                                         <span :class="{
-                                            'px-3 py-1 text-[10px] font-black uppercase rounded-full shadow-sm transition-all duration-300': true,
+                                            'inline-flex items-center justify-center px-3 py-1 text-[10px] font-black uppercase rounded-full shadow-sm transition-all duration-300': true,
                                             'bg-rose-100 text-rose-700 border border-rose-200': report.status === 'Pending',
                                             'bg-indigo-100 text-indigo-700 border border-indigo-200': report.status === 'Under Review' || report.status === 'In Progress',
                                             'bg-emerald-100 text-emerald-700 border border-emerald-200': report.status === 'Resolved',
                                             'bg-slate-100 text-slate-700 border border-slate-200': report.status === 'Rejected'
                                         }" x-text="report.status"></span>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right">
-                                        <div class="flex items-center justify-end space-x-2">
+                                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                                        <div class="flex items-center justify-center space-x-2">
                                             <button @click.stop="openQuickView(report.id)" class="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg transition" title="Quick View">
                                                 <i class="fas fa-eye"></i>
                                             </button>
-                                            <div x-data="{ openMenu: false }" class="relative" @click.stop>
-                                                <button @click="openMenu = !openMenu" class="text-slate-400 hover:text-slate-600 p-2 transition">
-                                                    <i class="fas fa-ellipsis-v"></i>
-                                                </button>
-                                                <div x-show="openMenu" @click.away="openMenu = false" x-cloak
-                                                     class="absolute right-0 mt-2 w-48 rounded-xl shadow-xl bg-white ring-1 ring-black ring-opacity-5 z-20 overflow-hidden divide-y divide-slate-50">
-                                                    <a :href="'update-incident.php?id=' + report.id" class="flex items-center px-4 py-3 text-sm text-slate-700 hover:bg-indigo-50">
-                                                        <i class="fas fa-edit mr-3 text-indigo-500 w-4"></i> Update Status
-                                                    </a>
-                                                    <template x-if="report.latitude">
-                                                        <a :href="'https://www.google.com/maps?q=' + report.latitude + ',' + report.longitude" target="_blank" class="flex items-center px-4 py-3 text-sm text-slate-700 hover:bg-indigo-50">
-                                                            <i class="fas fa-map-marked-alt mr-3 text-emerald-500 w-4"></i> View on Map
-                                                        </a>
-                                                    </template>
-                                                </div>
-                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -517,12 +500,11 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                                 <div class="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-100 self-stretch sm:self-auto">
                                                     <select 
                                                         x-model="viewData.status" 
-                                                        @change="saveStatus"
-                                                        :disabled="isSavingStatus"
+                                                        @change="handleStatusChange"
+                                                        :disabled="isSavingStatus || viewData.status === 'Resolved' || viewData.status === 'Rejected'"
                                                         class="bg-transparent border-none text-[9px] font-black uppercase tracking-wider focus:ring-0 cursor-pointer disabled:opacity-50 h-8"
                                                     >
                                                         <option value="Pending">Pending</option>
-                                                        <option value="In Progress">In Progress</option>
                                                         <option value="Resolved">Resolved</option>
                                                         <option value="Rejected">Rejected</option>
                                                     </select>
@@ -652,10 +634,18 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                                                          <div :class="{
                                                              'absolute -left-[20px] h-3 w-3 rounded-full border-2 border-white shadow-sm': true,
                                                              'bg-emerald-500': viewData.status === 'Resolved',
-                                                             'bg-slate-300': viewData.status !== 'Resolved'
+                                                             'bg-rose-500': viewData.status === 'Rejected',
+                                                             'bg-slate-300': viewData.status !== 'Resolved' && viewData.status !== 'Rejected'
                                                          }"></div>
-                                                         <p :class="viewData.status === 'Resolved' ? 'text-[9px] font-black text-emerald-600 uppercase tracking-widest' : 'text-[9px] font-black text-slate-400 uppercase tracking-widest'">Resolution</p>
-                                                         <p class="text-xs font-bold" :class="viewData.status === 'Resolved' ? 'text-slate-800' : 'text-slate-400'" x-text="viewData.status === 'Resolved' ? 'Resolved' : 'In Progress'"></p>
+                                                         <p :class="{
+                                                             'text-[9px] font-black text-emerald-600 uppercase tracking-widest': viewData.status === 'Resolved',
+                                                             'text-[9px] font-black text-rose-600 uppercase tracking-widest': viewData.status === 'Rejected',
+                                                             'text-[9px] font-black text-slate-400 uppercase tracking-widest': viewData.status !== 'Resolved' && viewData.status !== 'Rejected'
+                                                         }">Resolution</p>
+                                                         <p class="text-xs font-bold" :class="{
+                                                             'text-slate-800': viewData.status === 'Resolved' || viewData.status === 'Rejected',
+                                                             'text-slate-400': viewData.status !== 'Resolved' && viewData.status !== 'Rejected'
+                                                         }" x-text="viewData.status === 'Resolved' ? 'Resolved' : (viewData.status === 'Rejected' ? 'Rejected' : 'In Progress')"></p>
                                                      </div>
                                                  </div>
                                              </div>
@@ -691,16 +681,51 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                         </div>
 
                         <!-- Footer: flex-shrink-0 keeps it fixed at bottom -->
-                        <div class="flex-shrink-0 border-t border-slate-100 px-6 py-6 sm:px-8 bg-slate-50/50 flex justify-between gap-4">
-                             <template x-if="viewData">
-                                <a :href="'update-incident.php?id=' + viewData.id" class="flex-1 bg-white hover:bg-slate-50 text-slate-700 px-4 py-4 rounded-2xl text-sm font-bold border border-slate-200 text-center transition shadow-sm border-b-4 active:border-b-0 active:translate-y-1">
-                                    <i class="fas fa-edit mr-2 text-indigo-500"></i> Update Report
-                                </a>
-                             </template>
-                            <button @click="showView = false" class="flex-1 bg-slate-900 hover:bg-slate-800 text-white px-4 py-4 rounded-2xl text-sm font-bold text-center transition shadow-lg border-b-4 border-slate-700 active:border-b-0 active:translate-y-1 uppercase tracking-widest">
+                        <div class="flex-shrink-0 border-t border-slate-100 px-6 py-6 sm:px-8 bg-slate-50/50 flex justify-end gap-4">
+                            <button @click="showView = false" class="bg-slate-900 hover:bg-slate-800 text-white px-6 py-4 rounded-2xl text-sm font-bold text-center transition shadow-lg border-b-4 border-slate-700 active:border-b-0 active:translate-y-1 uppercase tracking-widest">
                                 CLOSE
                             </button>
                         </div>
+
+                        <!-- Rejection Reason Modal -->
+                        <template x-if="showRejectionModal">
+                            <div class="fixed inset-0 z-50 flex items-center justify-center" x-data="{ localReason: rejectionReason }" @click.self="showRejectionModal = false; viewData.status = previousStatus">
+                                <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="showRejectionModal = false; viewData.status = previousStatus"></div>
+                                <div class="relative bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 z-60" @click.stop>
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
+                                            <i class="fas fa-exclamation text-xl text-amber-600"></i>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-slate-900">Input Required</h3>
+                                    </div>
+                                    <p class="text-sm text-slate-600 mb-4">Provide a cancellation reason:</p>
+                                    <textarea 
+                                        x-model.debounce.120ms="localReason" 
+                                        placeholder="Enter reason..."
+                                        spellcheck="false"
+                                        autocapitalize="off"
+                                        autocorrect="off"
+                                        class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm resize-none min-h-[120px]"
+                                    ></textarea>
+                                    <div class="flex gap-3 mt-6">
+                                        <button 
+                                            @click="showRejectionModal = false; viewData.status = previousStatus" 
+                                            class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2.5 rounded-lg font-bold transition"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button 
+                                            @click="submitRejection(localReason)" 
+                                            :disabled="!localReason.trim() || isSavingStatus"
+                                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-4 py-2.5 rounded-lg font-bold transition"
+                                        >
+                                            <template x-if="!isSavingStatus"><span>Submit</span></template>
+                                            <template x-if="isSavingStatus"><span><i class="fas fa-spinner fa-spin mr-2"></i>Saving...</span></template>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -768,6 +793,9 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                 isSavingStatus: false,
                 dateFrom: '',
                 dateTo: '',
+                showRejectionModal: false,
+                rejectionReason: '',
+                previousStatus: '',
 
                 // Initialize stats from PHP
                 stats: {
@@ -865,6 +893,64 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                         this.showView = false;
                     } finally {
                         this.loadingView = false;
+                    }
+                },
+
+                handleStatusChange() {
+                    if (!this.viewData) return;
+                    
+                    // If changing to Rejected, show modal for reason
+                    if (this.viewData.status === 'Rejected') {
+                        this.previousStatus = this.reports.find(r => r.id === this.viewData.id)?.status || 'Pending';
+                        this.rejectionReason = '';
+                        this.showRejectionModal = true;
+                        return;
+                    }
+                    
+                    // Otherwise save status normally
+                    this.saveStatus();
+                },
+
+                async submitRejection(reasonInput = '') {
+                    const reason = String(reasonInput || '').trim();
+                    if (!reason) {
+                        adminShowToast('Please provide a rejection reason.', 'error');
+                        return;
+                    }
+
+                    this.rejectionReason = reason;
+                    this.isSavingStatus = true;
+                    try {
+                        const formData = new FormData();
+                        formData.append('id', this.viewData.id);
+                        formData.append('status', this.viewData.status);
+                        formData.append('rejection_reason', reason);
+
+                        const response = await fetch('../partials/update-incident-status-ajax.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            this.showRejectionModal = false;
+                            const report = this.reports.find(r => r.id === this.viewData.id);
+                            if (report) report.status = this.viewData.status;
+                            
+                            if (result.stats) {
+                                this.stats = result.stats;
+                            }
+                            adminShowToast('Report rejected successfully.', 'success');
+                        } else {
+                            adminShowToast(result.error || 'Failed to reject report', 'error');
+                            this.viewData.status = this.previousStatus;
+                        }
+                    } catch (error) {
+                        console.error('Error rejecting report:', error);
+                        adminShowToast('An error occurred while rejecting report.', 'error');
+                        this.viewData.status = this.previousStatus;
+                    } finally {
+                        this.isSavingStatus = false;
                     }
                 },
 

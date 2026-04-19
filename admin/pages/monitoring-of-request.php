@@ -95,13 +95,13 @@ try {
     
     // Base UNION query (without filters)
     $union_query = "(
-        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status 
+        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason 
         FROM document_requests dr 
         LEFT JOIN residents r ON dr.resident_id = r.id
     ) UNION ALL (
         SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
         JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
-        bt.or_number, bt.payment_status 
+        bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason 
         FROM business_transactions bt 
         LEFT JOIN residents r ON bt.resident_id = r.id
     )";
@@ -109,7 +109,7 @@ try {
     // Apply type filter by modifying the union query
     if ($type_filter === 'document') {
         $union_query = "(
-            SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status 
+            SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason 
             FROM document_requests dr 
             LEFT JOIN residents r ON dr.resident_id = r.id
         )";
@@ -117,7 +117,7 @@ try {
         $union_query = "(
             SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
             JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
-            bt.or_number, bt.payment_status 
+            bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason 
             FROM business_transactions bt 
             LEFT JOIN residents r ON bt.resident_id = r.id
         )";
@@ -639,6 +639,29 @@ foreach ($requests as $summary_req) {
                                                     } else {
                                                         $amount_due = (float)($document_types[$raw_doc_type] ?? 50.00);
                                                     }
+
+                                                    $cancellation_reason = trim((string)($req['cancellation_reason'] ?? ''));
+                                                    if ($cancellation_reason !== '') {
+                                                        $cancellation_reason = preg_replace('/^Cancelled\s+by\s+(admin|resident)\s*:\s*/i', '', $cancellation_reason);
+                                                    }
+
+                                                    $quick_view_payload = [
+                                                        'id' => (string) $req['id'],
+                                                        'type' => (string) $req['request_type'],
+                                                        'name' => (string) $name,
+                                                        'docType' => (string) $doc_type,
+                                                        'date' => (string) $date,
+                                                        'status' => (string) $status_text,
+                                                        'statusBg' => (string) $status_bg,
+                                                        'orNumber' => (string) ($req['or_number'] ?? ''),
+                                                        'paymentStatus' => (string) ($req['payment_status'] ?? 'Unpaid'),
+                                                        'amountDue' => number_format($amount_due, 2, '.', ''),
+                                                        'cashInput' => '',
+                                                        'changeValue' => null,
+                                                        'isPaying' => false,
+                                                        'cancellationReason' => $cancellation_reason,
+                                                        'details' => $req['details'] ? json_decode($req['details'], true) : null,
+                                                    ];
                                                 ?>
                                                     <tr id="request-row-<?php echo $req['request_type']; ?>-<?php echo $req['id']; ?>" class="request-row hover:bg-gray-50">
                                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -669,22 +692,7 @@ foreach ($requests as $summary_req) {
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium relative" data-request-id="<?php echo $req['id']; ?>" data-request-type="<?php echo $req['request_type']; ?>" data-document-type="<?php echo htmlspecialchars($req['document_type']); ?>">
                                                             <div class="flex items-center space-x-1">
                                                                 <!-- Quick View Button -->
-                                                                <button type="button" @click="openView({
-                                                                    id: '<?php echo $req['id']; ?>',
-                                                                    type: '<?php echo $req['request_type']; ?>',
-                                                                    name: '<?php echo addslashes($name); ?>',
-                                                                    docType: '<?php echo addslashes($doc_type); ?>',
-                                                                    date: '<?php echo addslashes($date); ?>',
-                                                                    status: '<?php echo addslashes($status_text); ?>',
-                                                                    statusBg: '<?php echo addslashes($status_bg); ?>',
-                                                                    orNumber: '<?php echo addslashes($req['or_number'] ?? ''); ?>',
-                                                                    paymentStatus: '<?php echo addslashes($req['payment_status'] ?? 'Unpaid'); ?>',
-                                                                    amountDue: '<?php echo number_format($amount_due, 2, '.', ''); ?>',
-                                                                    cashInput: '',
-                                                                    changeValue: null,
-                                                                    isPaying: false,
-                                                                    details: <?php echo $req['details'] ? htmlspecialchars(json_encode(json_decode($req['details'], true)), ENT_QUOTES, 'UTF-8') : 'null'; ?>
-                                                                })" class="inline-flex items-center justify-center w-8 h-8 rounded text-blue-600 hover:bg-blue-50 focus:outline-none" title="Quick View">
+                                                                <button type="button" @click="openView(<?php echo htmlspecialchars(json_encode($quick_view_payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8'); ?>)" class="inline-flex items-center justify-center w-8 h-8 rounded text-blue-600 hover:bg-blue-50 focus:outline-none" title="Quick View">
                                                                     <i class="fas fa-eye text-sm"></i>
                                                                 </button>
 
@@ -838,19 +846,30 @@ foreach ($requests as $summary_req) {
                               </div>
                            </div>
 
-                           <!-- Application Details Section (for business/complex requests) -->
-                           <template x-if="selectedReq.details && Object.keys(selectedReq.details).length > 0">
+                                    <!-- Application Details Section (for business/complex requests) -->
+                                    <template x-if="(selectedReq.details && Object.keys(selectedReq.details).length > 0) || selectedReq.cancellationReason">
                               <div class="bg-gray-50 rounded-lg p-4">
                                  <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center">
                                     <i class="fas fa-info-circle mr-2"></i>APPLICATION DETAILS
                                  </h3>
                                  <div class="space-y-3">
-                                    <template x-for="(value, key) in selectedReq.details" :key="key">
+                                                <template x-if="selectedReq.details && Object.keys(selectedReq.details).length > 0">
+                                                <div class="space-y-3">
+                                                <template x-for="(value, key) in selectedReq.details" :key="key">
                                        <div>
                                           <p class="text-xs font-semibold text-gray-600 uppercase" x-text="key.replace(/_/g, ' ')"></p>
                                           <p class="mt-1 text-sm font-medium text-gray-900" x-text="value"></p>
                                        </div>
                                     </template>
+                                                </div>
+                                                </template>
+
+                                                <template x-if="selectedReq.status === 'Cancelled'">
+                                                    <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-3">
+                                                        <p class="text-xs font-semibold text-rose-700 uppercase">Cancellation Reason</p>
+                                                        <p class="mt-1 text-sm font-medium text-rose-900" x-text="selectedReq.cancellationReason || 'No cancellation reason recorded.'"></p>
+                                                    </div>
+                                                </template>
                                  </div>
                               </div>
                            </template>

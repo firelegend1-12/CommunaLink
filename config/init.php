@@ -860,6 +860,9 @@ try {
                 ADD COLUMN IF NOT EXISTS `type` VARCHAR(50) DEFAULT 'general' AFTER `message`,
                 ADD COLUMN IF NOT EXISTS `link` VARCHAR(255) DEFAULT NULL AFTER `type` ");
 
+    // Incident report schema migration
+    $pdo->exec("ALTER TABLE `incidents` ADD COLUMN IF NOT EXISTS `rejection_reason` TEXT DEFAULT NULL AFTER `admin_remarks`");
+
     // Add email_verified column to users table
     $pdo->exec("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `email_verified` TINYINT(1) NOT NULL DEFAULT 0 AFTER `role`");
 

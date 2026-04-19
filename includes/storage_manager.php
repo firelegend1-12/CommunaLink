@@ -183,7 +183,13 @@ class StorageManager
             return 'https://storage.googleapis.com/' . rawurlencode($bucketName) . '/' . $encodedObject;
         }
 
-        return '/' . ltrim(str_replace('\\', '/', $storedPath), '/');
+        $normalizedPath = '/' . ltrim(str_replace('\\', '/', $storedPath), '/');
+
+        if (function_exists('app_url')) {
+            return app_url($normalizedPath);
+        }
+
+        return $normalizedPath;
     }
 
     private static function deleteFromCloudStorage(string $gsPath): bool

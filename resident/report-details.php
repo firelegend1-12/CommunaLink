@@ -35,6 +35,7 @@ $cancel_csrf_token = csrf_token();
 
 $status = $report['status'] ?? 'Pending';
 $statusClass = strtolower(str_replace(' ', '-', $status));
+$statusNormalized = strtolower(trim((string) $status));
 $reported_date = date('F j, Y, g:i a', strtotime($report['reported_at']));
 
 require_once 'partials/header.php';
@@ -125,13 +126,31 @@ require_once 'partials/header.php';
             
             <div class="mt-10 bg-blue-50/50 border border-blue-100 rounded-xl p-6">
                 <h3 class="text-lg font-bold text-gray-800 mb-2"><i class="fas fa-clipboard-check text-blue-600 mr-2"></i>Official Remarks / Resolution</h3>
-                <p class="text-gray-600 italic">
-                    <?php if(empty($report['admin_remarks'])): ?>
+                <?php
+                    $officialRemarks = trim((string) ($report['admin_remarks'] ?? ''));
+                    $decisionReason = trim((string) ($report['rejection_reason'] ?? ''));
+                    $isRejectedOrCancelled = in_array($statusNormalized, ['rejected', 'cancelled', 'canceled'], true);
+                ?>
+
+                <p class="text-gray-600 italic mb-3">
+                    <?php if($officialRemarks === ''): ?>
                         No official remarks added yet. The barangay administration will update this report once action is taken.
                     <?php else: ?>
-                        <?= htmlspecialchars($report['admin_remarks']) ?>
+                        <?= htmlspecialchars($officialRemarks) ?>
                     <?php endif; ?>
                 </p>
+
+                <?php if($decisionReason !== ''): ?>
+                    <div class="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
+                        <p class="text-xs font-bold uppercase tracking-wide text-rose-700 mb-1">Rejection / Cancellation Reason</p>
+                        <p class="text-sm text-rose-900 leading-relaxed"><?= htmlspecialchars($decisionReason) ?></p>
+                    </div>
+                <?php elseif($isRejectedOrCancelled): ?>
+                    <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                        <p class="text-xs font-bold uppercase tracking-wide text-amber-700 mb-1">Rejection / Cancellation Reason</p>
+                        <p class="text-sm text-amber-900 leading-relaxed">No rejection or cancellation reason was recorded for this report.</p>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
