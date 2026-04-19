@@ -182,7 +182,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 
 // Page title
-$page_title = "Sign In - Communalink";
+$page_title = "Sign In - Barangay Pakiad";
 ?>
 
 <!DOCTYPE html>

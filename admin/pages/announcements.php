@@ -225,7 +225,15 @@ try {
                     </div>
 
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-slate-100">
+                        <table class="min-w-full table-fixed divide-y divide-slate-100">
+                            <colgroup>
+                                <col class="w-[30%]">
+                                <col class="w-[14%]">
+                                <col class="w-[14%]">
+                                <col class="w-[14%]">
+                                <col class="w-[14%]">
+                                <col class="w-[14%]">
+                            </colgroup>
                             <thead>
                                 <tr class="bg-slate-50/30">
                                     <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Post Info</th>
@@ -233,7 +241,7 @@ try {
                                     <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Priority</th>
                                     <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Engagement</th>
                                     <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Created By</th>
-                                    <th class="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
+                                    <th class="px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-50">
@@ -343,8 +351,8 @@ try {
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-right">
-                                                <div class="flex items-center justify-end space-x-2">
+                                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                                <div class="flex items-center justify-center space-x-2">
                                                     <button @click='showEditModal = true; editingPost = <?= $edit_payload_json ?>; isEvent = editingPost.is_event; isScheduled = editingPost.is_scheduled' class="text-indigo-600 hover:bg-indigo-100 p-2 rounded-xl transition shadow-sm group/btn" title="Edit Post">
                                                         <i class="fas fa-pen-nib"></i>
                                                     </button>
