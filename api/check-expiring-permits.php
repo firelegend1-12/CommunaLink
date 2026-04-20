@@ -14,6 +14,7 @@ require_once '../config/database.php';
 define('AUTH_LIGHTWEIGHT_BOOTSTRAP', true);
 require_once '../includes/auth.php';
 require_once '../includes/csrf.php';
+require_once '../includes/permission_checker.php';
 
 $request_start = microtime(true);
 
@@ -34,16 +35,67 @@ function request_header(string $name): string
     return trim((string)($_SERVER[$key] ?? ''));
 }
 
-function is_scheduler_authorized(): bool
+function scheduler_token_candidates(array $envKeys): array
 {
-    $expectedToken = trim((string)env('PERMIT_CHECK_SCHEDULER_TOKEN', ''));
-    $providedToken = request_header('X-Cloud-Scheduler-Token');
-
-    if ($expectedToken === '' || $providedToken === '') {
-        return false;
+    $tokens = [];
+    foreach ($envKeys as $envKey) {
+        $value = trim((string)env($envKey, ''));
+        if ($value !== '') {
+            $tokens[$envKey] = $value;
+        }
     }
 
-    return hash_equals($expectedToken, $providedToken);
+    return $tokens;
+}
+
+function is_scheduler_authorized(): array
+{
+    $providedToken = request_header('X-Cloud-Scheduler-Token');
+    $providedScope = strtolower(request_header('X-Scheduler-Scope'));
+    $expectedScope = 'permit_check';
+
+    if ($providedToken === '') {
+        return ['authorized' => false, 'reason' => 'missing_token'];
+    }
+
+    if ($providedScope !== '' && $providedScope !== $expectedScope) {
+        return ['authorized' => false, 'reason' => 'invalid_scope'];
+    }
+
+    $tokenMap = scheduler_token_candidates([
+        'PERMIT_CHECK_SCHEDULER_TOKEN_CURRENT',
+        'PERMIT_CHECK_SCHEDULER_TOKEN_NEXT',
+        'PERMIT_CHECK_SCHEDULER_TOKEN',
+    ]);
+
+    foreach ($tokenMap as $source => $expectedToken) {
+        if (hash_equals($expectedToken, $providedToken)) {
+            return [
+                'authorized' => true,
+                'source' => $source,
+                'scope' => ($providedScope === '' ? 'unspecified' : $providedScope),
+            ];
+        }
+    }
+
+    return ['authorized' => false, 'reason' => 'token_mismatch'];
+}
+
+function permit_check_json_error(int $statusCode, string $error, ?string $requiredPermission = null): void
+{
+    http_response_code($statusCode);
+
+    $payload = [
+        'success' => false,
+        'error' => $error,
+    ];
+
+    if ($requiredPermission !== null && $requiredPermission !== '') {
+        $payload['required_permission'] = $requiredPermission;
+    }
+
+    echo json_encode($payload);
+    exit;
 }
 
 function insert_admin_notification_batch(PDO $pdo, string $title, string $message, string $type, string $link, int $dedupeWindowMinutes = 15): int
@@ -78,18 +130,30 @@ function insert_admin_notification_batch(PDO $pdo, string $title, string $messag
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     emit_perf_headers($request_start, 'api_check_expiring_permits');
-    echo json_encode(['status' => 'error', 'message' => 'Method not allowed. Use POST.']);
+    echo json_encode(['success' => false, 'error' => 'Method not allowed. Use POST.']);
     exit;
 }
 
-$schedulerAuthorized = is_scheduler_authorized();
-$adminAuthorized = is_logged_in() && (($_SESSION['role'] ?? '') === 'admin') && csrf_validate();
+$schedulerAuth = is_scheduler_authorized();
+$schedulerAuthorized = (bool)($schedulerAuth['authorized'] ?? false);
+
+$sessionLoggedIn = is_logged_in();
+$sessionCsrfValid = $sessionLoggedIn ? csrf_validate() : false;
+$sessionHasFinancialPermission = $sessionLoggedIn ? require_permission('financial_management') : false;
+$adminAuthorized = $sessionLoggedIn && $sessionCsrfValid && $sessionHasFinancialPermission;
 
 if (!$schedulerAuthorized && !$adminAuthorized) {
-    http_response_code(403);
     emit_perf_headers($request_start, 'api_check_expiring_permits');
-    echo json_encode(['status' => 'error', 'message' => 'Unauthorized request.']);
-    exit;
+
+    if ($sessionLoggedIn && !$sessionCsrfValid) {
+        permit_check_json_error(403, 'Invalid security token.', 'csrf_token');
+    }
+
+    if ($sessionLoggedIn && !$sessionHasFinancialPermission) {
+        permit_check_json_error(403, 'Forbidden', 'financial_management');
+    }
+
+    permit_check_json_error(403, 'Unauthorized request.', 'scheduler_token:permit_check');
 }
 
 $lockName = '';
@@ -120,8 +184,13 @@ try {
         'timestamp' => date('Y-m-d H:i:s'),
         'checks' => [],
         'notifications_sent' => 0,
-        'trigger' => $schedulerAuthorized ? 'scheduler' : 'admin'
+        'trigger' => $schedulerAuthorized ? 'scheduler' : 'admin_ui'
     ];
+
+    if ($schedulerAuthorized) {
+        $results['scheduler_scope'] = (string)($schedulerAuth['scope'] ?? 'unspecified');
+        $results['scheduler_token_source'] = (string)($schedulerAuth['source'] ?? 'unknown');
+    }
 
     $expiring_stmt = $pdo->query("SELECT
         SUM(CASE WHEN permit_expiration_date = DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND status IN ('Active', 'Pending') THEN 1 ELSE 0 END) AS count_30,

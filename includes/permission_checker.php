@@ -269,6 +269,47 @@ function require_permission_or_json($permission, $status_code = 403, $error_mess
 }
 
 /**
+ * Enforce any permission in a list and emit JSON response when denied.
+ *
+ * @param array $permissions
+ * @param int $status_code
+ * @param string $error_message
+ * @param string|null $user_role
+ * @return bool True when access is allowed
+ */
+function require_any_permission_or_json(array $permissions, $status_code = 403, $error_message = 'Forbidden', $user_role = null) {
+    if (require_any_permission($permissions, $user_role)) {
+        return true;
+    }
+
+    $normalized_permissions = [];
+    foreach ($permissions as $permission) {
+        $permission_key = normalize_rbac_key($permission);
+        if ($permission_key !== '') {
+            $normalized_permissions[] = $permission_key;
+        }
+    }
+
+    log_rbac_warning('all_permissions_denied_json', [
+        'permissions' => $normalized_permissions,
+        'role' => resolve_permission_role($user_role),
+        'status_code' => (int) $status_code,
+    ]);
+
+    if (!headers_sent()) {
+        http_response_code((int) $status_code);
+        header('Content-Type: application/json');
+    }
+
+    echo json_encode([
+        'success' => false,
+        'error' => $error_message,
+        'required_permission' => implode('|', $normalized_permissions),
+    ]);
+    exit;
+}
+
+/**
  * Check if user can access a specific permission (alias for require_permission)
  * @param string $permission The permission to check
  * @param string|null $user_role Optional role to check. If null, uses session role.

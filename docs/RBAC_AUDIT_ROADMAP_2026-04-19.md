@@ -13,6 +13,11 @@
       - `require_any_permission_or_redirect(...)`
       - `require_permission_or_json(...)`
    - Added warning-level authorization deny logging (error log + activity log mirror when available).
+- Phase 4: Completed (core API alignment)
+   - Aligned `api/incidents.php`, `api/notifications.php`, `api/chat.php`, and `api/post-reactions.php` to permission-based authorization.
+   - Removed deprecated endpoint `api/announcements.php`.
+   - Hardened scheduler endpoint authorization in `api/check-expiring-permits.php` and `api/cleanup-active-sessions.php` for scoped/rotating tokens.
+   - Validation artifact published at `docs/PHASE4_API_ALIGNMENT_2026-04-20.md`.
 - Decision locks applied:
    - Legacy `official` is blocked immediately in permission guards.
    - Web deny default is redirect.

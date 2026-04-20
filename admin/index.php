@@ -16,6 +16,7 @@ require_once '../includes/csrf.php';
 // Page title
 $page_title = "Dashboard - CommunaLink";
 $permit_check_csrf_token = csrf_token();
+$can_run_permit_check = require_permission('financial_management');
 
 // Initialize cache manager (Using file driver for Free Tier compatibility)
 init_cache_manager(['cache_dir' => '../cache/']);
@@ -389,7 +390,10 @@ $today_quote = $quotes[array_rand($quotes)];
                     <div class="bg-white rounded-2xl shadow-lg p-6 transition hover:shadow-xl border-l-4 <?php echo ($expired_permits > 0) ? 'border-red-500' : 'border-orange-500'; ?>">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-gray-500 text-base font-semibold">Permit Status</h3>
-                            <button id="check-expiry-btn" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded-md text-xs transition" title="Run expiry check now">
+                            <button id="check-expiry-btn"
+                                class="px-2 py-1 rounded-md text-xs transition <?php echo $can_run_permit_check ? 'bg-blue-100 hover:bg-blue-200 text-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'; ?>"
+                                title="<?php echo $can_run_permit_check ? 'Run expiry check now' : 'Requires financial management permission'; ?>"
+                                <?php echo $can_run_permit_check ? '' : 'disabled aria-disabled="true"'; ?>>
                                 <i class="fas fa-sync-alt"></i>
                             </button>
                         </div>
@@ -600,10 +604,15 @@ $today_quote = $quotes[array_rand($quotes)];
         businessCounts: <?= $business_counts ?: '[]' ?>
     };
     window.permitCheckCsrfToken = <?= json_encode($permit_check_csrf_token) ?>;
+    window.canRunPermitCheck = <?= $can_run_permit_check ? 'true' : 'false' ?>;
     </script>
     <script>
     // Permit Expiry Checker
     async function checkExpiringPermits() {
+        if (!window.canRunPermitCheck) {
+            return;
+        }
+
         try {
             const formData = new FormData();
             formData.append('csrf_token', window.permitCheckCsrfToken || '');
@@ -642,6 +651,10 @@ $today_quote = $quotes[array_rand($quotes)];
     
     // Run permit check on page load and add button listener
     document.addEventListener('DOMContentLoaded', function() {
+        if (!window.canRunPermitCheck) {
+            return;
+        }
+
         // Auto-check on load
         checkExpiringPermits();
         

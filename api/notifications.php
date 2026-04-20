@@ -1,10 +1,12 @@
 <?php
 header('Content-Type: application/json');
+
 require_once '../config/database.php';
 define('AUTH_LIGHTWEIGHT_BOOTSTRAP', true);
 require_once '../includes/auth.php';
 require_once '../includes/csrf.php';
 require_once '../includes/cache_manager.php';
+require_once '../includes/permission_checker.php';
 
 $request_start = microtime(true);
 
@@ -13,6 +15,24 @@ function emit_perf_headers(float $start, string $endpoint): void
     $elapsed_ms = (microtime(true) - $start) * 1000;
     header('X-Endpoint: ' . $endpoint);
     header('X-Response-Time-Ms: ' . number_format($elapsed_ms, 2, '.', ''));
+}
+
+function notifications_json_error(int $statusCode, string $error, float $requestStart, ?string $requiredPermission = null): void
+{
+    http_response_code($statusCode);
+    emit_perf_headers($requestStart, 'api_notifications');
+
+    $payload = [
+        'success' => false,
+        'error' => $error,
+    ];
+
+    if ($requiredPermission !== null && $requiredPermission !== '') {
+        $payload['required_permission'] = $requiredPermission;
+    }
+
+    echo json_encode($payload);
+    exit;
 }
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -35,52 +55,41 @@ function notifications_cache_set(string $key, array $payload, int $ttl = 15): vo
 }
 
 if (!is_logged_in()) {
-    http_response_code(401);
-    emit_perf_headers($request_start, 'api_notifications');
-    echo json_encode(['error' => 'Authentication required.']);
-    exit;
+    notifications_json_error(401, 'Authentication required.', $request_start);
 }
 
 $notifications_rate_limit = RateLimiter::checkRateLimit('notifications_api', RateLimiter::getClientIP());
 if (!$notifications_rate_limit['allowed']) {
-    $retry_after = (int) ($notifications_rate_limit['lockout_remaining'] ?? 60);
+    $retry_after = (int)($notifications_rate_limit['lockout_remaining'] ?? 60);
     header('Retry-After: ' . $retry_after);
     http_response_code(429);
     emit_perf_headers($request_start, 'api_notifications');
     echo json_encode([
+        'success' => false,
         'error' => 'Too Many Requests',
         'message' => $notifications_rate_limit['message'] ?? 'Rate limit exceeded. Please try again later.',
-        'retry_after' => $retry_after
+        'retry_after' => $retry_after,
     ]);
     exit;
 }
 
 RateLimiter::recordAttempt('notifications_api', RateLimiter::getClientIP());
 
-$action = $_GET['action'] ?? '';
-$allowed_mark_read_roles = ['resident', 'admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod'];
+$action = (string)($_GET['action'] ?? '');
+$requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($action === 'mark_read' || $action === 'mark_all_read')) {
-    if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], $allowed_mark_read_roles, true)) {
-        http_response_code(403);
-        emit_perf_headers($request_start, 'api_notifications');
-        echo json_encode(['error' => 'Unauthorized']);
-        exit;
+if ($requestMethod === 'POST') {
+    if ($action !== 'mark_read' && $action !== 'mark_all_read') {
+        notifications_json_error(400, 'Invalid request.', $request_start);
     }
 
     if (!csrf_validate()) {
-        http_response_code(403);
-        emit_perf_headers($request_start, 'api_notifications');
-        echo json_encode(['error' => 'Invalid security token.']);
-        exit;
+        notifications_json_error(403, 'Invalid security token.', $request_start, 'csrf_token');
     }
 
-    $user_id = (int) ($_SESSION['user_id'] ?? 0);
+    $user_id = (int)($_SESSION['user_id'] ?? 0);
     if ($user_id <= 0) {
-        http_response_code(400);
-        emit_perf_headers($request_start, 'api_notifications');
-        echo json_encode(['error' => 'Invalid request.']);
-        exit;
+        notifications_json_error(400, 'Invalid request.', $request_start);
     }
 
     if ($action === 'mark_all_read') {
@@ -88,164 +97,172 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($action === 'mark_read' || $action
             $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0");
             $stmt->execute([$user_id]);
 
+            emit_perf_headers($request_start, 'api_notifications');
             echo json_encode([
                 'success' => true,
-                'updated_count' => (int) $stmt->rowCount(),
+                'updated_count' => (int)$stmt->rowCount(),
             ]);
+            exit;
         } catch (PDOException $e) {
             error_log('notifications mark_all_read database error: ' . $e->getMessage());
-            echo json_encode(['error' => 'Database error while updating notifications.']);
+            notifications_json_error(500, 'Database error while updating notifications.', $request_start);
         }
-        emit_perf_headers($request_start, 'api_notifications');
-        exit;
     }
 
     $notification_id = filter_input(INPUT_POST, 'notification_id', FILTER_VALIDATE_INT);
-
     if ($notification_id <= 0) {
-        http_response_code(400);
-        emit_perf_headers($request_start, 'api_notifications');
-        echo json_encode(['error' => 'Invalid request.']);
-        exit;
+        notifications_json_error(400, 'Invalid request.', $request_start);
     }
 
     try {
         $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?");
         $stmt->execute([$notification_id, $user_id]);
 
+        emit_perf_headers($request_start, 'api_notifications');
         echo json_encode([
             'success' => true,
-            'updated' => ((int) $stmt->rowCount()) > 0,
+            'updated' => ((int)$stmt->rowCount()) > 0,
         ]);
+        exit;
     } catch (PDOException $e) {
         error_log('notifications mark_read database error: ' . $e->getMessage());
-        echo json_encode(['error' => 'Database error while updating notification.']);
+        notifications_json_error(500, 'Database error while updating notification.', $request_start);
     }
-    emit_perf_headers($request_start, 'api_notifications');
-    exit;
 }
 
-if (!in_array($_SESSION['role'], ['admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true)) {
-    http_response_code(403);
-    emit_perf_headers($request_start, 'api_notifications');
-    echo json_encode(['error' => 'Unauthorized']);
-    exit;
+if ($requestMethod !== 'GET') {
+    notifications_json_error(405, 'Method not allowed.', $request_start);
 }
 
-$response = ['error' => 'Invalid request.'];
+$response = ['success' => false, 'error' => 'Invalid request.'];
 
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action !== '') {
-
-    if ($action === 'get_admin_sidebar_counts') {
-        $cacheKey = 'notifications:get_admin_sidebar_counts';
-        $cachedResponse = notifications_cache_get($cacheKey);
-        if ($cachedResponse !== null) {
-            $response = $cachedResponse;
-            emit_perf_headers($request_start, 'api_notifications');
-            echo json_encode($response);
-            exit;
-        }
-
-        try {
-            $stmtSidebar = $pdo->query("SELECT
-                (SELECT COUNT(*) FROM incidents WHERE status = 'Pending') AS pending_incidents,
-                (SELECT COUNT(*) FROM events WHERE event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 1 DAY)) AS upcoming_events");
-            $counts = $stmtSidebar->fetch(PDO::FETCH_ASSOC) ?: [];
-            $pendingIncidents = (int)($counts['pending_incidents'] ?? 0);
-            $upcomingEvents = (int)($counts['upcoming_events'] ?? 0);
-
-            $response = [
-                'success' => true,
-                'incidents' => $pendingIncidents,
-                'events' => $upcomingEvents,
-            ];
-            notifications_cache_set($cacheKey, $response);
-        } catch (PDOException $e) {
-            error_log('notifications get_admin_sidebar_counts database error: ' . $e->getMessage());
-            $response = ['error' => 'Database error while fetching sidebar counts.'];
-        }
-
-    } elseif ($action === 'get_business_counts') {
-        $cacheKey = 'notifications:get_business_counts';
-        $cachedResponse = notifications_cache_get($cacheKey);
-        if ($cachedResponse !== null) {
-            $response = $cachedResponse;
-            emit_perf_headers($request_start, 'api_notifications');
-            echo json_encode($response);
-            exit;
-        }
-
-        try {
-            $stmtBiz = $pdo->query("SELECT
-                (SELECT COUNT(*) FROM businesses WHERE status = 'Pending') AS pending_businesses,
-                (SELECT COUNT(*) FROM business_transactions WHERE status = 'Pending') AS pending_transactions");
-            $counts = $stmtBiz->fetch(PDO::FETCH_ASSOC) ?: [];
-            $pendingBusinesses = (int)($counts['pending_businesses'] ?? 0);
-            $pendingTransactions = (int)($counts['pending_transactions'] ?? 0);
-
-            $response = [
-                'success'      => true,
-                'businesses'   => $pendingBusinesses,
-                'transactions' => $pendingTransactions,
-                'total'        => $pendingBusinesses + $pendingTransactions,
-            ];
-            notifications_cache_set($cacheKey, $response);
-        } catch (PDOException $e) {
-            error_log('notifications get_business_counts database error: ' . $e->getMessage());
-            $response = ['error' => 'Database error while fetching business counts.'];
-        }
-
-    } elseif ($action === 'get_incident_counts') {
-        $cacheKey = 'notifications:get_incident_counts';
-        $cachedResponse = notifications_cache_get($cacheKey);
-        if ($cachedResponse !== null) {
-            $response = $cachedResponse;
-            emit_perf_headers($request_start, 'api_notifications');
-            echo json_encode($response);
-            exit;
-        }
-
-        try {
-            $stmtInc = $pdo->query("SELECT
-                SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending_incidents
-                FROM incidents");
-            $counts = $stmtInc->fetch(PDO::FETCH_ASSOC) ?: [];
-            $pendingIncidents = (int)($counts['pending_incidents'] ?? 0);
-            $response = [
-                'success'   => true,
-                'incidents' => $pendingIncidents,
-            ];
-            notifications_cache_set($cacheKey, $response);
-        } catch (PDOException $e) {
-            error_log('notifications get_incident_counts database error: ' . $e->getMessage());
-            $response = ['error' => 'Database error while fetching incident counts.'];
-        }
-    } elseif ($action === 'get_events_counts') {
-        $cacheKey = 'notifications:get_events_counts';
-        $cachedResponse = notifications_cache_get($cacheKey);
-        if ($cachedResponse !== null) {
-            $response = $cachedResponse;
-            emit_perf_headers($request_start, 'api_notifications');
-            echo json_encode($response);
-            exit;
-        }
-
-        try {
-            $stmtEvt = $pdo->query("SELECT
-                SUM(CASE WHEN event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 1 DAY) THEN 1 ELSE 0 END) AS upcoming_events
-                FROM events");
-            $counts = $stmtEvt->fetch(PDO::FETCH_ASSOC) ?: [];
-            $upcomingEvents = (int)($counts['upcoming_events'] ?? 0);
-            $response = [
-                'success' => true,
-                'events'  => $upcomingEvents,
-            ];
-            notifications_cache_set($cacheKey, $response);
-        } catch (PDOException $e) {
-            error_log('notifications get_events_counts database error: ' . $e->getMessage());
-            $response = ['error' => 'Database error while fetching event counts.'];
-        }
+if ($action === 'get_admin_sidebar_counts') {
+    if (!require_any_permission(['manage_incidents', 'manage_events'])) {
+        notifications_json_error(403, 'Forbidden', $request_start, 'manage_incidents|manage_events');
     }
+
+    $canManageIncidents = require_permission('manage_incidents');
+    $canManageEvents = require_permission('manage_events');
+    $cacheKey = 'notifications:get_admin_sidebar_counts:' . (int)$canManageIncidents . ':' . (int)$canManageEvents;
+    $cachedResponse = notifications_cache_get($cacheKey);
+    if ($cachedResponse !== null) {
+        emit_perf_headers($request_start, 'api_notifications');
+        echo json_encode($cachedResponse);
+        exit;
+    }
+
+    try {
+        $pendingIncidents = 0;
+        $upcomingEvents = 0;
+
+        if ($canManageIncidents) {
+            $pendingIncidents = (int)$pdo->query("SELECT COUNT(*) FROM incidents WHERE status = 'Pending'")->fetchColumn();
+        }
+
+        if ($canManageEvents) {
+            $upcomingEvents = (int)$pdo->query("SELECT COUNT(*) FROM events WHERE event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 1 DAY)")->fetchColumn();
+        }
+
+        $response = [
+            'success' => true,
+            'incidents' => $pendingIncidents,
+            'events' => $upcomingEvents,
+        ];
+
+        notifications_cache_set($cacheKey, $response);
+    } catch (PDOException $e) {
+        error_log('notifications get_admin_sidebar_counts database error: ' . $e->getMessage());
+        notifications_json_error(500, 'Database error while fetching sidebar counts.', $request_start);
+    }
+} elseif ($action === 'get_business_counts') {
+    require_permission_or_json('manage_businesses', 403, 'Forbidden');
+
+    $cacheKey = 'notifications:get_business_counts';
+    $cachedResponse = notifications_cache_get($cacheKey);
+    if ($cachedResponse !== null) {
+        emit_perf_headers($request_start, 'api_notifications');
+        echo json_encode($cachedResponse);
+        exit;
+    }
+
+    try {
+        $stmtBiz = $pdo->query("SELECT
+            (SELECT COUNT(*) FROM businesses WHERE status = 'Pending') AS pending_businesses,
+            (SELECT COUNT(*) FROM business_transactions WHERE status = 'Pending') AS pending_transactions");
+        $counts = $stmtBiz->fetch(PDO::FETCH_ASSOC) ?: [];
+        $pendingBusinesses = (int)($counts['pending_businesses'] ?? 0);
+        $pendingTransactions = (int)($counts['pending_transactions'] ?? 0);
+
+        $response = [
+            'success' => true,
+            'businesses' => $pendingBusinesses,
+            'transactions' => $pendingTransactions,
+            'total' => $pendingBusinesses + $pendingTransactions,
+        ];
+
+        notifications_cache_set($cacheKey, $response);
+    } catch (PDOException $e) {
+        error_log('notifications get_business_counts database error: ' . $e->getMessage());
+        notifications_json_error(500, 'Database error while fetching business counts.', $request_start);
+    }
+} elseif ($action === 'get_incident_counts') {
+    require_permission_or_json('manage_incidents', 403, 'Forbidden');
+
+    $cacheKey = 'notifications:get_incident_counts';
+    $cachedResponse = notifications_cache_get($cacheKey);
+    if ($cachedResponse !== null) {
+        emit_perf_headers($request_start, 'api_notifications');
+        echo json_encode($cachedResponse);
+        exit;
+    }
+
+    try {
+        $stmtInc = $pdo->query("SELECT
+            SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending_incidents
+            FROM incidents");
+        $counts = $stmtInc->fetch(PDO::FETCH_ASSOC) ?: [];
+        $pendingIncidents = (int)($counts['pending_incidents'] ?? 0);
+
+        $response = [
+            'success' => true,
+            'incidents' => $pendingIncidents,
+        ];
+
+        notifications_cache_set($cacheKey, $response);
+    } catch (PDOException $e) {
+        error_log('notifications get_incident_counts database error: ' . $e->getMessage());
+        notifications_json_error(500, 'Database error while fetching incident counts.', $request_start);
+    }
+} elseif ($action === 'get_events_counts') {
+    require_permission_or_json('manage_events', 403, 'Forbidden');
+
+    $cacheKey = 'notifications:get_events_counts';
+    $cachedResponse = notifications_cache_get($cacheKey);
+    if ($cachedResponse !== null) {
+        emit_perf_headers($request_start, 'api_notifications');
+        echo json_encode($cachedResponse);
+        exit;
+    }
+
+    try {
+        $stmtEvt = $pdo->query("SELECT
+            SUM(CASE WHEN event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 1 DAY) THEN 1 ELSE 0 END) AS upcoming_events
+            FROM events");
+        $counts = $stmtEvt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $upcomingEvents = (int)($counts['upcoming_events'] ?? 0);
+
+        $response = [
+            'success' => true,
+            'events' => $upcomingEvents,
+        ];
+
+        notifications_cache_set($cacheKey, $response);
+    } catch (PDOException $e) {
+        error_log('notifications get_events_counts database error: ' . $e->getMessage());
+        notifications_json_error(500, 'Database error while fetching event counts.', $request_start);
+    }
+} else {
+    notifications_json_error(400, 'Invalid request.', $request_start);
 }
 
 emit_perf_headers($request_start, 'api_notifications');
