@@ -302,18 +302,6 @@ try {
             FOREIGN KEY (`resident_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
-        "CREATE TABLE IF NOT EXISTS `chat_messages` (
-            `id` INT(11) NOT NULL AUTO_INCREMENT,
-            `sender_id` INT(11) NOT NULL,
-            `receiver_id` INT(11) NOT NULL,
-            `message` TEXT NOT NULL,
-            `sent_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-            `is_read` TINYINT(1) NOT NULL DEFAULT 0,
-            PRIMARY KEY (`id`),
-            FOREIGN KEY (`sender_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-            FOREIGN KEY (`receiver_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-
         "CREATE TABLE IF NOT EXISTS `announcements` (
             `id` INT(11) NOT NULL AUTO_INCREMENT,
             `user_id` INT(11) NOT NULL,

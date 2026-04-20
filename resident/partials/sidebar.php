@@ -52,10 +52,6 @@ $display_name = ucfirst(trim((string) $user_fullname));
             <i class="fas fa-phone-alt"></i>
             <span>Emergency Contacts</span>
         </a>
-        <a href="chat.php" class="nav-link <?= $current_page === 'chat.php' ? 'active' : '' ?>">
-            <i class="fas fa-comments"></i>
-            <span>Live Chat</span>
-        </a>
     </nav>
     <div class="sidebar-footer">
         <a href="account.php" class="nav-link <?= $current_page === 'account.php' ? 'active' : '' ?>">

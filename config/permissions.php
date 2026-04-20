@@ -171,7 +171,6 @@ $role_permissions = [
             'view_residents' => true,
             'edit_resident_profile' => true,
             'view_monitoring_requests' => true,
-            'access_chat' => true,
             'financial_management' => true,
             'approve_applications' => true,
             'override_decisions' => true,
@@ -208,7 +207,6 @@ $role_permissions = [
             'view_residents' => true,
             'edit_resident_profile' => false,
             'view_monitoring_requests' => true,
-            'access_chat' => true,
             'financial_management' => true,
             'approve_applications' => false,
             'override_decisions' => false,
@@ -242,7 +240,6 @@ $role_permissions = [
             'view_residents' => true,
             'edit_resident_profile' => false,
             'view_monitoring_requests' => true,
-            'access_chat' => true,
             'financial_management' => false,
             'approve_applications' => false,
             'override_decisions' => false,
@@ -254,7 +251,7 @@ $role_permissions = [
     ],
 
     'barangay-tanod' => [
-        'description' => 'Barangay Tanod - incident reports and chat access',
+        'description' => 'Barangay Tanod - incident response and patrol support access',
         'access' => [
             'user_management' => false,
             'system_logs' => false,
@@ -271,7 +268,6 @@ $role_permissions = [
             'view_residents' => false,
             'edit_resident_profile' => false,
             'view_monitoring_requests' => false,
-            'access_chat' => true,
             'financial_management' => false,
             'approve_applications' => false,
             'override_decisions' => false,
@@ -303,7 +299,6 @@ $role_permissions = [
             'view_residents' => false,
             'edit_resident_profile' => false,
             'view_monitoring_requests' => false,
-            'access_chat' => false,
             'financial_management' => false,
             'approve_applications' => false,
             'override_decisions' => false,
@@ -316,7 +311,7 @@ $role_permissions = [
             'report_incidents' => true,          // Can report incidents
             'access_services' => true            // Can access basic services
         ],
-        'restricted' => ['user_management', 'system_logs', 'all_pages', 'delete_users', 'view_logs', 'manage_announcements', 'manage_events', 'manage_incidents', 'manage_documents', 'manage_businesses', 'manage_residents', 'view_residents', 'edit_resident_profile', 'view_monitoring_requests', 'access_chat', 'financial_management', 'approve_applications', 'override_decisions', 'preside_meetings', 'emergency_powers']
+        'restricted' => ['user_management', 'system_logs', 'all_pages', 'delete_users', 'view_logs', 'manage_announcements', 'manage_events', 'manage_incidents', 'manage_documents', 'manage_businesses', 'manage_residents', 'view_residents', 'edit_resident_profile', 'view_monitoring_requests', 'financial_management', 'approve_applications', 'override_decisions', 'preside_meetings', 'emergency_powers']
     ]
 ];
 

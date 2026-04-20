@@ -405,19 +405,19 @@ require_once 'partials/header.php';
         </p>
     </div>
     
-    <div class="service-card indigo" onclick="window.location.href='chat.php';" style="cursor: pointer;">
+    <div class="service-card indigo" onclick="window.location.href='notifications.php';" style="cursor: pointer;">
         <div class="service-icon">
-            <i class="fas fa-comments"></i>
+            <i class="fas fa-bell"></i>
         </div>
         <div class="service-title">
-            <h3>Chat Support</h3>
-            <div class="service-subtitle">Real-time assistance</div>
+            <h3>Notifications</h3>
+            <div class="service-subtitle">Important updates</div>
         </div>
         <p class="service-description">
-            Chat with barangay officials for immediate assistance and inquiries.
+            View the latest alerts and updates related to your requests, reports, and announcements.
         </p>
         <div style="text-align: center; margin-top: 10px;">
-            <div class="action-button">Start Chat</div>
+            <div class="action-button">View Alerts</div>
         </div>
     </div>
 </div>

@@ -34,8 +34,6 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], $authorized_roles)
 
 // Phase 2 page-level permission map for admin UI entry points.
 $admin_page_permissions = [
-    'about-us.php' => ['access_chat'],
-    'account.php' => ['access_chat'],
     'add-resident.php' => ['add_residents'],
     'edit-resident.php' => ['edit_resident_profile'],
     'resident-id.php' => ['edit_resident_profile'],
@@ -44,7 +42,6 @@ $admin_page_permissions = [
     'incident-reports.php' => ['manage_incidents'],
     'update-incident.php' => ['manage_incidents'],
     'maps.php' => ['manage_incidents'],
-    'chat.php' => ['access_chat'],
     'announcements.php' => ['manage_announcements'],
     'events.php' => ['manage_events'],
     'new-barangay-clearance.php' => ['manage_documents'],

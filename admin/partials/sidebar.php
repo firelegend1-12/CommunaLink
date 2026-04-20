@@ -47,7 +47,6 @@ $can_manage_announcements = sidebar_has_permission('manage_announcements', $side
 $can_manage_events = sidebar_has_permission('manage_events', $sidebar_role);
 $can_view_monitoring = sidebar_has_permission('view_monitoring_requests', $sidebar_role);
 $can_manage_documents = sidebar_has_permission('manage_documents', $sidebar_role);
-$can_access_chat = sidebar_has_permission('access_chat', $sidebar_role);
 $can_user_management = sidebar_has_permission('user_management', $sidebar_role);
 $can_view_logs = sidebar_has_permission('view_logs', $sidebar_role);
 $can_show_admin_tools = $can_user_management || $can_view_logs;
@@ -87,7 +86,6 @@ if ($hour >= 12 && $hour < 18) {
         <script>
             window.sidebarConfig = {
                 currentPage: '<?php echo $current_page; ?>',
-                apiBase: '<?php echo ($current_dir === "pages") ? "../../api/chat.php" : "../api/chat.php"; ?>',
                 notifBase: '<?php echo ($current_dir === "pages") ? "../../api/notifications.php" : "../api/notifications.php"; ?>'
             };
         </script>
@@ -116,7 +114,7 @@ if ($hour >= 12 && $hour < 18) {
                     <button onclick="toggleDropdown('report-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
                         <i class="fas fa-flag mr-3 text-lg flex-shrink-0 <?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                         Report
-                        <span id="report-unread-dot" class="chat-unread-dot"></span>
+                        <span id="report-unread-dot" class="unread-dot"></span>
                         <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200<?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? ' rotate-180' : ''; ?>" id="report-chevron"></i>
                     </button>
                     <div id="report-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? 'block' : 'none'; ?>">
@@ -124,7 +122,7 @@ if ($hour >= 12 && $hour < 18) {
                             <a href="<?php echo ($current_dir === 'admin') ? 'pages/incident-reports.php' : 'incident-reports.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'incident-reports.php' ? 'bg-gray-900 text-white' : ''; ?>">
                                 <i class="fas fa-bullhorn mr-2 text-gray-400 flex-shrink-0"></i>
                                 Incident Reports
-                                <span id="incident-reports-badge" class="chat-unread-badge"></span>
+                                <span id="incident-reports-badge" class="unread-badge"></span>
                             </a>
                         </div>
                         <div>
@@ -153,15 +151,6 @@ if ($hour >= 12 && $hour < 18) {
                 </a>
                 <?php endif; ?>
 
-                <!-- Chat Link -->
-                <?php if ($can_access_chat): ?>
-                <a id="chat-nav-link" href="<?php echo ($current_dir === 'admin') ? 'pages/chat.php' : 'chat.php'; ?>" class="<?php echo $current_page === 'chat.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
-                    <i class="fas fa-comments mr-3 text-lg flex-shrink-0 <?php echo $current_page === 'chat.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
-                    Chat
-                    <span id="chat-unread-badge" class="chat-unread-badge"></span>
-                </a>
-                <?php endif; ?>
-                
                 <!-- Document Requests Link -->
                 <?php if ($can_manage_documents): ?>
                 <div id="document-dropdown" class="dropdown-container">
@@ -202,13 +191,12 @@ if ($hour >= 12 && $hour < 18) {
                 <!-- Admin Dropdown -->
                 <?php if ($can_show_admin_tools): ?>
                 <div id="admin-dropdown" class="dropdown-container">
-                    <button id="admin-dropdown-btn" onclick="toggleDropdown('admin-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
-                        <i class="fas fa-cog mr-3 text-lg flex-shrink-0 <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
+                    <button id="admin-dropdown-btn" onclick="toggleDropdown('admin-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['user-management.php', 'logs.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
+                        <i class="fas fa-cog mr-3 text-lg flex-shrink-0 <?php echo in_array($current_page, ['user-management.php', 'logs.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                         Admin
-                        <span id="admin-unread-dot" class="chat-unread-dot"></span>
-                        <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200<?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? ' rotate-180' : ''; ?>" id="admin-chevron"></i>
+                        <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200<?php echo in_array($current_page, ['user-management.php', 'logs.php']) ? ' rotate-180' : ''; ?>" id="admin-chevron"></i>
                     </button>
-                    <div id="admin-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'block' : 'none'; ?>">
+                    <div id="admin-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['user-management.php', 'logs.php']) ? 'block' : 'none'; ?>">
                         <?php if ($can_user_management): ?>
                         <div>
                             <a href="<?php echo ($current_dir === 'admin') ? 'pages/user-management.php' : 'user-management.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'user-management.php' ? 'bg-gray-900 text-white' : ''; ?>">

@@ -189,22 +189,6 @@ CREATE TABLE IF NOT EXISTS `incidents` (
     INDEX `idx_incidents_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Table: chat_messages
-CREATE TABLE IF NOT EXISTS `chat_messages` (
-    `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `sender_id` INT(11) NOT NULL,
-    `receiver_id` INT(11) NOT NULL,
-    `message` TEXT NOT NULL,
-    `sent_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    `is_read` TINYINT(1) NOT NULL DEFAULT 0,
-    PRIMARY KEY (`id`),
-    FOREIGN KEY (`sender_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-    FOREIGN KEY (`receiver_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-    INDEX `idx_chat_sender_id` (`sender_id`),
-    INDEX `idx_chat_receiver_id` (`receiver_id`),
-    INDEX `idx_chat_sent_at` (`sent_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- Table: announcements
 CREATE TABLE IF NOT EXISTS `announcements` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
