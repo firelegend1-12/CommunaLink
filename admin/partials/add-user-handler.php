@@ -155,8 +155,14 @@ if ($resident_email === '' || !filter_var($resident_email, FILTER_VALIDATE_EMAIL
     redirect_to('../pages/add-user.php');
 }
 
-$email = $resident_email;
-$username = $resident_email; // Use resident email as the account username
+$role_slug = strtolower((string)preg_replace('/[^a-z0-9]+/i', '', $final_role));
+if ($role_slug === '') {
+    $role_slug = 'official';
+}
+
+$linked_identity_base = 'linked.r' . $resident_id . '.' . $role_slug;
+$username = $linked_identity_base;
+$email = $linked_identity_base . '@linked.local';
 
 // Ensure the provided password is not the same as the resident's existing account password
 $resident_hash = '';
@@ -281,12 +287,26 @@ try {
         }
     }
 
-    // Check if email already exists
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-    $stmt->execute([$email]);
+    // Check if linked privileged account already exists for this resident+role identity.
+    // We also match legacy suffixed identities (e.g. linked.r12.admin.2) to prevent duplicates.
+    $linked_username_like = $linked_identity_base . '%';
+    $linked_email_like = $linked_identity_base . '%@linked.local';
+    $stmt = $pdo->prepare(
+        "SELECT id
+         FROM users
+         WHERE role = ?
+           AND (
+               username = ?
+               OR email = ?
+               OR username LIKE ?
+               OR email LIKE ?
+           )
+         LIMIT 1"
+    );
+    $stmt->execute([$final_role, $username, $email, $linked_username_like, $linked_email_like]);
     if ($stmt->fetch()) {
         $pdo->rollBack();
-        $_SESSION['error_message'] = "A user with this email already exists.";
+        $_SESSION['error_message'] = "This resident is already enrolled for the selected privileged role.";
         redirect_to('../pages/add-user.php');
     }
 
@@ -345,7 +365,7 @@ try {
     $pdo->commit();
     
     // Prepare user details for logging
-    $user_details = "Username: {$username}, Full Name: {$fullname}, Email: {$email}, Role: {$final_role}, Status: active, ActivationFlow: direct-password";
+    $user_details = "LinkedLoginEmail: {$resident_email}, Username: {$username}, Full Name: {$fullname}, AccountEmail: {$email}, Role: {$final_role}, Status: active, ActivationFlow: linked-account";
     
     // Log the user creation
     log_activity_db(

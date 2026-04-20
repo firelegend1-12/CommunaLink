@@ -316,6 +316,19 @@ $page_title = "Add New User";
                      this.requirements.hasSpecial &&
                      this.residentFound && !this.residentPasswordConflict;
         },
+        formCompletionPercent() {
+            const checks = [
+                this.residentFound,
+                this.requirements.minLength,
+                this.requirements.hasUppercase,
+                this.requirements.hasLowercase,
+                this.requirements.hasNumber,
+                this.requirements.hasSpecial
+            ];
+
+            const completed = checks.filter(Boolean).length;
+            return Math.round((completed / checks.length) * 100);
+        },
         handleFormSubmit(event) {
             if (this.formSubmitting) {
                 event.preventDefault();
@@ -401,10 +414,10 @@ unset($_SESSION['error_message']); endif; ?>
                             <div class="mt-6 pt-6 border-t border-slate-200">
                                 <div class="flex items-center justify-between mb-3">
                                     <p class="text-xs font-bold uppercase tracking-widest text-slate-600">Form Completion</p>
-                                    <span class="text-xs font-black text-indigo-600" x-text="`${Math.round(((emailValid ? 1 : 0) + (requirements.minLength ? 1 : 0) + (requirements.hasUppercase ? 1 : 0) + (requirements.hasLowercase ? 1 : 0) + (requirements.hasNumber ? 1 : 0) + (requirements.hasSpecial ? 1 : 0)) / 6 * 100)}%`"></span>
+                                    <span class="text-xs font-black text-indigo-600" x-text="`${formCompletionPercent()}%`"></span>
                                 </div>
                                 <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                                    <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 h-full rounded-full transition-all duration-300" :style="`width: ${((emailValid ? 1 : 0) + (requirements.minLength ? 1 : 0) + (requirements.hasUppercase ? 1 : 0) + (requirements.hasLowercase ? 1 : 0) + (requirements.hasNumber ? 1 : 0) + (requirements.hasSpecial ? 1 : 0)) / 6 * 100}%`"></div>
+                                    <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 h-full rounded-full transition-all duration-300" :style="`width: ${formCompletionPercent()}%`"></div>
                                 </div>
                             </div>
                         </div>
@@ -427,14 +440,13 @@ echo csrf_field(); ?>
                                         <p x-show="residentLookupValidating" class="text-xs text-slate-500"><i class="fas fa-spinner fa-pulse mr-1"></i> Verifying resident...</p>
                                         <p x-show="residentFound" class="text-xs text-emerald-600"><i class="fas fa-check-circle mr-1"></i> Resident record found (<span x-text="residentEmail"></span>)</p>
                                         <p x-show="!residentFound && residentError" class="text-xs text-rose-600"><i class="fas fa-exclamation-circle mr-1"></i> <span x-text="residentError"></span></p>
-                                        <p x-show="residentEmailConflict" class="text-xs text-rose-600"><i class="fas fa-ban mr-1"></i> Account email must be different from resident's registered email (<span x-text="residentEmail"></span>)</p>
                                      </div>
                                   </div>
                                 
                                 <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200">
                                     <p class="text-xs font-bold uppercase tracking-widest text-slate-600 mb-2">Account Username</p>
                                     <p class="text-sm text-slate-700 leading-relaxed">
-                                        The resident's registered email will be used automatically as the username for this account.
+                                        The resident's registered email is used at sign-in to discover this tied privileged account.
                                     </p>
                                 </div>
                                 
@@ -550,7 +562,7 @@ echo $old_official_position === 'barangay-tanod' ? 'selected' : ''; ?>>Barangay 
                                         <i class="fas fa-lightbulb mr-1"></i> Pro Tips
                                     </p>
                                     <ul class="space-y-1 text-xs text-indigo-800">
-                                        <li><i class="fas fa-shield-alt mr-1"></i> Double-check the email address - it cannot be changed later without admin intervention</li>
+                                        <li><i class="fas fa-shield-alt mr-1"></i> Verify the resident profile has the correct email before enrollment</li>
                                         <li><i class="fas fa-key mr-1"></i> Share the created credentials securely and ask the user to change password after first sign-in</li>
                                         <li><i class="fas fa-user-shield mr-1"></i> Admin accounts have unrestricted access - assign only to trusted personnel</li>
                                     </ul>
