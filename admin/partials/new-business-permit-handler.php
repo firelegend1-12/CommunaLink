@@ -5,16 +5,19 @@
 
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 
 require_login();
-
-if (!is_admin_or_official()) {
-    $_SESSION['error_message'] = 'Unauthorized access.';
-    header("Location: ../pages/new-barangay-business-clearance.php?error=true");
-    exit();
-}
+require_permission_or_redirect('manage_businesses', '../pages/new-barangay-business-clearance.php?error=true');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!csrf_validate()) {
+        $_SESSION['error_message'] = 'Invalid security token. Please refresh and try again.';
+        header("Location: ../pages/new-barangay-business-clearance.php?error=true");
+        exit();
+    }
+
     // Basic sanitization and data retrieval
     $data = [];
     foreach ($_POST as $key => $value) {

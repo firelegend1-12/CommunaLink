@@ -6,13 +6,27 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 require_once '../../includes/notification_system.php';
 
 header('Content-Type: application/json');
 
-// Check authorization
-if (!is_admin_or_official()) {
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+require_login();
+require_permission_or_json('financial_management', 403, 'Forbidden');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    if (!headers_sent()) {
+        header('Allow: POST');
+    }
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => 'Method not allowed']);
+    exit;
+}
+
+if (!csrf_validate()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Invalid security token.']);
     exit;
 }
 
@@ -24,16 +38,19 @@ $payment_status = isset($_POST['payment_status']) ? trim($_POST['payment_status'
 
 // Validate parameters
 if (empty($id) || empty($type)) {
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Missing required parameters']);
     exit;
 }
 
 if (!in_array($type, ['document', 'business'])) {
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid request type']);
     exit;
 }
 
-if (!in_array($payment_status, ['Unpaid', 'Paid'])) {
+if (!in_array($payment_status, ['Unpaid', 'Paid'], true)) {
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid payment status']);
     exit;
 }
@@ -94,7 +111,11 @@ try {
 
     echo json_encode($response);
 } catch (PDOException $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
-    echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log('update-payment-info failed: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Failed to update payment info.']);
 }
 exit;

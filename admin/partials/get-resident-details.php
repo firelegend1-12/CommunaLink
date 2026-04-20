@@ -5,18 +5,17 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/permission_checker.php';
 
 header('Content-Type: application/json');
 
-// Check if user is logged in as an authorized official
-if (!is_admin_or_official()) {
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-    exit;
-}
+require_login();
+require_permission_or_json('view_residents', 403, 'Forbidden');
 
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 
 if (!$id) {
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid Resident ID']);
     exit;
 }
@@ -36,6 +35,7 @@ try {
     $resident = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$resident) {
+        http_response_code(404);
         echo json_encode(['success' => false, 'error' => 'Resident not found']);
         exit;
     }
@@ -87,5 +87,7 @@ try {
     ]);
 
 } catch (PDOException $e) {
-    echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+    error_log('get-resident-details failed: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Database error while fetching resident details.']);
 }

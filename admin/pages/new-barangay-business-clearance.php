@@ -202,6 +202,7 @@ endif; ?>
                         </div>
                         
                         <form action="../partials/new-business-permit-handler.php" method="POST" class="space-y-6">
+                            <?php echo csrf_field(); ?>
                              <!-- II. Initial Information Block -->
                              <div>
                                 <h3 class="text-lg font-medium text-gray-900 border-b pb-2 mb-4">Initial Information</h3>

@@ -102,6 +102,7 @@ echo json_encode($residents); ?>,
                          }'>
 
                         <form action="../partials/new-certificate-of-indigency-handler.php" method="POST">
+                            <?php echo csrf_field(); ?>
                             <!-- Header Section -->
                             <div class="text-center mb-8">
                                 <p>REPUBLIC OF THE PHILIPPINES</p>

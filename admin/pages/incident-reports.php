@@ -22,6 +22,7 @@ if (!require_permission('manage_incidents')) {
 }
 
 $page_title = "Incident Reports";
+$incident_csrf_token = csrf_token();
 
 // Fetch counts for cards
 // 1. Total Reports
@@ -743,6 +744,8 @@ echo $critical_type; ?></h3>
     </div>
 
     <script>
+        const INCIDENT_CSRF_TOKEN = <?php echo json_encode($incident_csrf_token); ?>;
+
         function adminShowToast(message, type = 'info') {
             const existing = document.getElementById('admin-toast-container');
             const container = existing || (() => {
@@ -937,6 +940,7 @@ echo $resolution_rate; ?>
                         formData.append('id', this.viewData.id);
                         formData.append('status', this.viewData.status);
                         formData.append('rejection_reason', reason);
+                        formData.append('csrf_token', INCIDENT_CSRF_TOKEN);
 
                         const response = await fetch('../partials/update-incident-status-ajax.php', {
                             method: 'POST',
@@ -973,6 +977,7 @@ echo $resolution_rate; ?>
                         const formData = new FormData();
                         formData.append('id', this.viewData.id);
                         formData.append('status', this.viewData.status);
+                        formData.append('csrf_token', INCIDENT_CSRF_TOKEN);
 
                         const response = await fetch('../partials/update-incident-status-ajax.php', {
                             method: 'POST',
@@ -1008,6 +1013,7 @@ echo $resolution_rate; ?>
                         const formData = new FormData();
                         formData.append('id', this.viewData.id);
                         formData.append('remarks', this.viewData.admin_remarks || '');
+                        formData.append('csrf_token', INCIDENT_CSRF_TOKEN);
 
                         const response = await fetch('../partials/update-incident-remarks.php', {
                             method: 'POST',

@@ -5,15 +5,18 @@
 
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 
 require_login();
+require_permission_or_redirect('manage_documents', '../pages/monitoring-of-request.php');
 
-if (!is_admin_or_official()) {
-    $_SESSION['error_message'] = 'Unauthorized access.';
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect_to('../pages/monitoring-of-request.php');
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if (!csrf_validate()) {
+    $_SESSION['error_message'] = 'Invalid security token. Please refresh and try again.';
     redirect_to('../pages/monitoring-of-request.php');
 }
 

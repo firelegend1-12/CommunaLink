@@ -2,15 +2,11 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/permission_checker.php';
 
 header('Content-Type: application/json');
 require_login();
-
-if (!is_admin_or_official()) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-    exit();
-}
+require_permission_or_json('user_management', 403, 'Forbidden');
 
 $search_query = isset($_GET['search']) ? sanitize_input($_GET['search']) : '';
 $sql = "SELECT id, username, fullname, email, role, created_at, last_login FROM users";

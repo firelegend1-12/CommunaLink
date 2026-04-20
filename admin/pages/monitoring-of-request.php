@@ -325,6 +325,7 @@ foreach ($requests as $summary_req) {
             formData.append('id', this.selectedReq.id);
             formData.append('type', this.selectedReq.type);
             formData.append('cash_received', cash.toFixed(2));
+            formData.append('csrf_token', MONITORING_CSRF_TOKEN);
 
             try {
                 const response = await fetch('../partials/make-cash-payment.php', {
@@ -1198,7 +1199,7 @@ echo json_encode($monitoring_csrf_token); ?>;
     }
 
     function doBulkDelete() {
-        confirmModal(`<span class="text-red-600 font-bold">Delete ${selectedRequests.size} request(s)?</span><br><span class="text-sm text-gray-500">This cannot be undone.</span>`, () => {
+        confirmModal(`<span class="text-red-600 font-bold">Delete/Cancel ${selectedRequests.size} request(s)?</span><br><span class="text-sm text-gray-500">Document requests are permanently deleted. Business transactions are marked as Cancelled for history.</span>`, () => {
 
         const ids = Array.from(selectedRequests.keys());
         const types = Array.from(selectedRequests.values());
@@ -1362,6 +1363,7 @@ echo json_encode($monitoring_csrf_token); ?>;
         formData.append('type', type);
         formData.append('or_number', orNumber);
         formData.append('payment_status', status);
+        formData.append('csrf_token', MONITORING_CSRF_TOKEN);
 
         fetch('../partials/update-payment-info.php', {
             method: 'POST',
@@ -1396,7 +1398,10 @@ echo json_encode($monitoring_csrf_token); ?>;
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: 'id=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type) + '&reason=' + encodeURIComponent(trimmedReason)
+                body: 'id=' + encodeURIComponent(id)
+                    + '&type=' + encodeURIComponent(type)
+                    + '&reason=' + encodeURIComponent(trimmedReason)
+                    + '&csrf_token=' + encodeURIComponent(MONITORING_CSRF_TOKEN)
             })
             .then(response => response.json())
             .then(data => {
@@ -1522,8 +1527,10 @@ echo json_encode($monitoring_csrf_token); ?>;
         deleteRequestId = id;
         deleteRequestType = type;
         const requestTypeText = type === 'document' ? 'document request' : 'business transaction';
-        document.getElementById('deleteModalMessage').textContent =
-            `Are you sure you want to delete this ${requestTypeText}? This action cannot be undone and all associated data will be permanently removed.`;
+        const message = type === 'document'
+            ? `Are you sure you want to delete this ${requestTypeText}? This action cannot be undone and all associated data will be permanently removed.`
+            : `Are you sure you want to remove this ${requestTypeText}? It will be kept in history and marked as Cancelled.`;
+        document.getElementById('deleteModalMessage').textContent = message;
         document.getElementById('deleteModal').classList.remove('hidden');
     }
 
@@ -1535,14 +1542,17 @@ echo json_encode($monitoring_csrf_token); ?>;
         };
         document.getElementById('deleteModalConfirm').onclick = function() {
             if (!deleteRequestId || !deleteRequestType) return;
-            let url = '';
-            if (deleteRequestType === 'document') {
-                url = '../partials/delete-document-request.php?id=' + encodeURIComponent(deleteRequestId);
-            } else {
-                url = '../partials/delete-business-transaction.php?id=' + encodeURIComponent(deleteRequestId);
-            }
-            fetch(url, {
-                method: 'GET',
+            const endpoint = deleteRequestType === 'document'
+                ? '../partials/delete-document-request.php'
+                : '../partials/delete-business-transaction.php';
+
+            const formData = new FormData();
+            formData.append('id', deleteRequestId);
+            formData.append('csrf_token', MONITORING_CSRF_TOKEN);
+
+            fetch(endpoint, {
+                method: 'POST',
+                body: formData,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
             .then(response => response.json())
@@ -1552,7 +1562,10 @@ echo json_encode($monitoring_csrf_token); ?>;
                     const rowId = `request-row-${deleteRequestType}-${deleteRequestId}`;
                     const row = document.getElementById(rowId);
                     if (row) row.remove();
-                    showToast('Request has been successfully deleted.');
+                    const successMessage = deleteRequestType === 'document'
+                        ? 'Request has been successfully deleted.'
+                        : 'Business transaction marked as cancelled.';
+                    showToast(successMessage);
                 } else {
                     showToast('Failed to delete request: ' + (data.error || 'Unknown error'), 'error');
                 }

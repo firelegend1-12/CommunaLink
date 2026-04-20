@@ -4,13 +4,11 @@ require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 require_once '../../includes/storage_manager.php';
 
-// Check for admin role
-if (!is_admin_or_official()) {
-    $_SESSION['error_message'] = "You are not authorized to perform this action.";
-    redirect_to('../pages/announcements.php');
-}
+require_login();
+require_permission_or_redirect('manage_announcements', '../pages/announcements.php');
 
 $user_id = $_SESSION['user_id'];
 

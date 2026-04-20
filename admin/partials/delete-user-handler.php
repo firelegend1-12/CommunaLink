@@ -5,16 +5,16 @@
 
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/auth.php';
 require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    $_SESSION['error_message'] = 'You are not authorized to perform this action.';
-    redirect_to('../pages/user-management.php');
-}
+require_login();
+require_permission_or_redirect('delete_users', '../pages/user-management.php');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect_to('../pages/user-management.php');

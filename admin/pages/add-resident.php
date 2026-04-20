@@ -204,6 +204,7 @@ endif; ?>
                 
                 <div class="bg-white rounded-lg shadow p-6">
                     <form action="../partials/add-resident-handler.php" method="POST" enctype="multipart/form-data" class="space-y-6" id="residentForm">
+                        <?php echo csrf_field(); ?>
                         <!-- Personal Information Section -->
                         <div>
                             <h3 class="text-lg font-medium text-gray-900 border-b pb-2 mb-4">Personal Information</h3>

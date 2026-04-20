@@ -3,9 +3,18 @@ session_start();
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 
-if (!is_admin_or_official()) {
-    $_SESSION['error_message'] = "You are not authorized to perform this action.";
+require_login();
+require_permission_or_redirect('manage_events', '../pages/events.php');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    redirect_to('../pages/events.php');
+}
+
+if (!csrf_validate()) {
+    $_SESSION['error_message'] = 'Invalid security token. Please refresh and try again.';
     redirect_to('../pages/events.php');
 }
 

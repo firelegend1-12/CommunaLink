@@ -6,13 +6,27 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 require_once '../../includes/notification_system.php';
 
 header('Content-Type: application/json');
 
-// Check authorization
-if (!is_admin_or_official()) {
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+require_login();
+require_permission_or_json('manage_documents', 403, 'Forbidden');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    if (!headers_sent()) {
+        header('Allow: POST');
+    }
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => 'Method not allowed']);
+    exit;
+}
+
+if (!csrf_validate()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Invalid security token.']);
     exit;
 }
 
@@ -22,12 +36,14 @@ $status = isset($_POST['status']) ? trim($_POST['status']) : '';
 
 // Validate parameters
 if (empty($id) || empty($status)) {
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
     exit;
 }
 
 $allowed_statuses = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled'];
 if (!in_array($status, $allowed_statuses, true)) {
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid status value']);
     exit;
 }
@@ -43,6 +59,7 @@ try {
     
     if (!$old_data) {
         $pdo->rollBack();
+        http_response_code(404);
         echo json_encode(['success' => false, 'error' => 'Request not found']);
         exit;
     }
@@ -53,12 +70,14 @@ try {
 
     if ($old_status === 'Cancelled' && $status !== 'Cancelled') {
         $pdo->rollBack();
+        http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Cancelled requests cannot be reopened']);
         exit;
     }
 
     if ($status === 'Cancelled' && strcasecmp((string) $old_status, 'Pending') !== 0) {
         $pdo->rollBack();
+        http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Only pending requests can be cancelled']);
         exit;
     }
@@ -105,7 +124,11 @@ try {
     echo json_encode($response);
     
 } catch (PDOException $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
-    echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log('update-document-request-status failed: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Failed to update request status.']);
 }
 exit; 

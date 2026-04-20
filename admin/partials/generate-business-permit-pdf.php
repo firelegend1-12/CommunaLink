@@ -2,15 +2,11 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/permission_checker.php';
 require_once '../../includes/simple_pdf.php';
 
 require_login();
-
-if (!is_admin_or_official()) {
-    $_SESSION['error_message'] = 'Unauthorized access.';
-    header('Location: ../pages/monitoring-of-request.php?type=business');
-    exit;
-}
+require_permission_or_redirect('manage_businesses', '../pages/monitoring-of-request.php?type=business');
 
 $transaction_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if ($transaction_id <= 0) {

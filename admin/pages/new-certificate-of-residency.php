@@ -81,6 +81,7 @@ display_flash_messages(); ?>
                     <div class="bg-white rounded-lg shadow-lg p-8">
                         <form action="../partials/new-certificate-of-residency-handler.php" method="POST" class="space-y-8" x-data='{ residents: <?php
 echo json_encode($residents); ?>, applicantName: "" }'>
+                            <?php echo csrf_field(); ?>
                             
                             <!-- Header Section -->
                             <div class="text-center border-b-2 border-gray-200 pb-6 mb-8">

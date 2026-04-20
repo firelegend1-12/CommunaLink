@@ -5,13 +5,27 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 require_once '../../includes/notification_system.php';
 
 header('Content-Type: application/json');
 
-// Check if user is logged in as an authorized official
-if (!is_admin_or_official()) {
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+require_login();
+require_permission_or_json('manage_incidents', 403, 'Forbidden');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    if (!headers_sent()) {
+        header('Allow: POST');
+    }
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => 'Method not allowed']);
+    exit;
+}
+
+if (!csrf_validate()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Invalid security token.']);
     exit;
 }
 
@@ -20,12 +34,14 @@ $status = isset($_POST['status']) ? sanitize_input($_POST['status']) : '';
 $rejection_reason = isset($_POST['rejection_reason']) ? trim((string) $_POST['rejection_reason']) : '';
 $allowed_statuses = ['Pending', 'Resolved', 'Rejected'];
 
-if (!$id || !in_array($status, $allowed_statuses)) {
+if (!$id || !in_array($status, $allowed_statuses, true)) {
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid Request Data']);
     exit;
 }
 
 if ($status === 'Rejected' && $rejection_reason === '') {
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'A rejection reason is required.']);
     exit;
 }
@@ -62,6 +78,7 @@ try {
     }
 
     if (($old_status === 'Resolved' || $old_status === 'Rejected') && $status !== $old_status) {
+        http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Resolved or rejected reports cannot be changed.']);
         exit;
     }
@@ -130,9 +147,12 @@ try {
 
         echo json_encode($response);
     } else {
+        http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Update failed']);
     }
 
 } catch (PDOException $e) {
-    echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+    error_log('update-incident-status-ajax failed: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Database error while updating incident status.']);
 }

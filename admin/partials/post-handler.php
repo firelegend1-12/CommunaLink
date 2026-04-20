@@ -7,14 +7,11 @@ require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 require_once '../../includes/storage_manager.php';
 
-// Check for admin/official authorization
-if (!is_admin_or_official()) {
-    $_SESSION['error_message'] = "You are not authorized to perform this action.";
-    header('Location: ../pages/announcements.php');
-    exit;
-}
+require_login();
+require_any_permission_or_redirect(['manage_announcements', 'manage_events'], '../pages/announcements.php');
 
 $user_id = $_SESSION['user_id'];
 

@@ -110,6 +110,7 @@ echo json_encode($residents); ?>,
                             </div>
                             
                             <form action="../partials/new-barangay-clearance-handler.php" method="POST">
+                                <?php echo csrf_field(); ?>
                                 <!-- Application Type & Initial Details -->
                                 <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
                                     <div class="col-span-2 flex items-center space-x-4">

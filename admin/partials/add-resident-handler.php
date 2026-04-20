@@ -6,7 +6,9 @@
 
 // Include authentication and database
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/permission_checker.php';
 require_once '../../includes/storage_manager.php';
 require_once '../../includes/password_security.php';
 require_once '../../includes/input_validator.php';
@@ -14,14 +16,15 @@ require_once '../../includes/input_validator.php';
 // Check if user is logged in
 require_login();
 
-// Restrict this flow to admin or official roles
-if (!is_admin_or_official()) {
-    $_SESSION['error_message'] = 'Unauthorized access.';
-    redirect_to('../pages/add-resident.php');
-}
+require_permission_or_redirect('add_residents', '../pages/add-resident.php');
 
 // Only process POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    redirect_to('../pages/add-resident.php');
+}
+
+if (!csrf_validate()) {
+    $_SESSION['error_message'] = 'Invalid security token. Please refresh and try again.';
     redirect_to('../pages/add-resident.php');
 }
 

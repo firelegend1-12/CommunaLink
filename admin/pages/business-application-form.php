@@ -92,6 +92,7 @@ echo substr($_SESSION['fullname'], 0, 1); ?>
             <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
                 <div class="bg-white rounded-lg shadow p-6">
                     <form action="../partials/business-application-handler.php" method="POST" class="space-y-6">
+                        <?php echo csrf_field(); ?>
                         
                         <!-- Owner Information -->
                         <div>
