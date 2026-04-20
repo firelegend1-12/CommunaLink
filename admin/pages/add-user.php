@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Add User Page - Modernized
  */
@@ -54,7 +55,8 @@ $page_title = "Add New User";
 </head>
 <body class="bg-[#F8FAFC] min-h-screen text-[#1E293B]">
     <div class="flex h-screen overflow-hidden" x-data="{ 
-        role: <?php echo htmlspecialchars(json_encode($old_role), ENT_QUOTES, 'UTF-8'); ?>,
+        role: <?php
+echo htmlspecialchars(json_encode($old_role), ENT_QUOTES, 'UTF-8'); ?>,
         password: '',
         strength: 0,
         validatePassword(pw) {
@@ -67,7 +69,8 @@ $page_title = "Add New User";
         }
     }">
         <!-- Sidebar Navigation -->
-        <?php include '../partials/sidebar.php'; ?>
+        <?php
+include '../partials/sidebar.php'; ?>
         
         <!-- Main Content -->
         <div class="flex flex-col flex-1 overflow-hidden">
@@ -82,7 +85,8 @@ $page_title = "Add New User";
                             <h1 class="text-xl font-bold text-slate-900 tracking-tight">Create New User</h1>
                         </div>
                         
-                        <?php include '../partials/user-dropdown.php'; ?>
+                        <?php
+include '../partials/user-dropdown.php'; ?>
                     </div>
                 </div>
             </header>
@@ -93,18 +97,23 @@ $page_title = "Add New User";
                     <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 mb-6 rounded-r-xl shadow-sm" role="status">
                         <div class="flex items-center">
                             <i class="fas fa-user-shield mr-3"></i>
-                            <p class="font-semibold text-sm">Admin slots used: <?php echo $admin_count; ?> / <?php echo $admin_cap; ?></p>
+                            <p class="font-semibold text-sm">Admin slots used: <?php
+echo $admin_count; ?> / <?php
+echo $admin_cap; ?></p>
                         </div>
                     </div>
 
-                    <?php if (isset($_SESSION['error_message'])): ?>
+                    <?php
+if (isset($_SESSION['error_message'])): ?>
                         <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-5 mb-8 rounded-r-2xl shadow-sm animate-pulse">
                             <div class="flex items-center">
                                 <i class="fas fa-exclamation-triangle mr-3"></i>
-                                <p class="font-semibold text-sm"><?php echo htmlspecialchars($_SESSION['error_message']); ?></p>
+                                <p class="font-semibold text-sm"><?php
+echo htmlspecialchars($_SESSION['error_message']); ?></p>
                             </div>
                         </div>
-                    <?php unset($_SESSION['error_message']); endif; ?>
+                    <?php
+unset($_SESSION['error_message']); endif; ?>
 
                     <div class="bg-white rounded-[2rem] shadow-xl shadow-indigo-100/30 border border-slate-200 overflow-hidden transform transition hover:shadow-2xl">
                         <div class="px-8 pt-10 pb-6 border-b border-slate-50 bg-gradient-to-br from-white to-slate-50/50">
@@ -116,14 +125,16 @@ $page_title = "Add New User";
                         </div>
                         
                         <form action="../partials/add-user-handler.php" method="POST" class="p-8 space-y-8">
-                            <?php echo csrf_field(); ?>
+                            <?php
+echo csrf_field(); ?>
                             
                             <!-- Basic Info Section -->
                             <div class="space-y-6">
                                 <div>
                                      <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Full legal name</label>
                                     <input type="text" name="fullname" required 
-                                         value="<?php echo $old_fullname; ?>"
+                                         value="<?php
+echo $old_fullname; ?>"
                                            class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm" 
                                            placeholder="e.g. John Doe">
                                 </div>
@@ -131,7 +142,8 @@ $page_title = "Add New User";
                                 <div>
                                      <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Email address (login username)</label>
                                     <input type="email" name="email" required 
-                                         value="<?php echo $old_email; ?>"
+                                         value="<?php
+echo $old_email; ?>"
                                            class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm" 
                                            placeholder="user@example.com">
                                 </div>
@@ -187,11 +199,12 @@ $page_title = "Add New User";
                                     <select name="official_position" :required="role === 'official'" 
                                             class="form-input w-full bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-sm font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 transition shadow-sm appearance-none">
                                         <option value="">Select official position...</option>
-                                        <option value="barangay-captain" <?php echo $old_official_position === 'barangay-captain' ? 'selected' : ''; ?>>Barangay Captain</option>
-                                        <option value="kagawad" <?php echo $old_official_position === 'kagawad' ? 'selected' : ''; ?>>Kagawad</option>
-                                        <option value="barangay-secretary" <?php echo $old_official_position === 'barangay-secretary' ? 'selected' : ''; ?>>Barangay Secretary</option>
-                                        <option value="barangay-treasurer" <?php echo $old_official_position === 'barangay-treasurer' ? 'selected' : ''; ?>>Barangay Treasurer</option>
-                                        <option value="barangay-tanod" <?php echo $old_official_position === 'barangay-tanod' ? 'selected' : ''; ?>>Barangay Tanod</option>
+                                        <option value="barangay-officials" <?php
+echo in_array($old_official_position, ['barangay-officials', 'barangay-captain', 'barangay-secretary', 'barangay-treasurer', 'official'], true) ? 'selected' : ''; ?>>Barangay Officials</option>
+                                        <option value="barangay-kagawad" <?php
+echo in_array($old_official_position, ['barangay-kagawad', 'kagawad'], true) ? 'selected' : ''; ?>>Barangay Kagawad</option>
+                                        <option value="barangay-tanod" <?php
+echo $old_official_position === 'barangay-tanod' ? 'selected' : ''; ?>>Barangay Tanod</option>
                                     </select>
                                 </div>
 
@@ -219,3 +232,5 @@ $page_title = "Add New User";
     </div>
 </body>
 </html>
+
+

@@ -1,11 +1,8 @@
 <?php
+require_once '../partials/admin_auth.php';
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
-
-if (!is_logged_in() || !in_array($_SESSION['role'], ['admin'])) {
-    redirect_to('../index.php');
-}
 
 $page_title = "Chat Management";
 
@@ -41,7 +38,8 @@ $chat_csrf_token = csrf_token();
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="flex h-screen overflow-hidden">
-        <?php include '../partials/sidebar.php'; ?>
+        <?php
+include '../partials/sidebar.php'; ?>
 
         <div class="flex flex-col flex-1 overflow-hidden">
             <header class="bg-white shadow-sm z-10">
@@ -149,7 +147,8 @@ $chat_csrf_token = csrf_token();
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        const CHAT_CSRF_TOKEN = <?php echo json_encode($chat_csrf_token); ?>;
+        const CHAT_CSRF_TOKEN = <?php
+echo json_encode($chat_csrf_token); ?>;
         const conversationList = document.getElementById('conversation-list');
         const chatWindow = document.getElementById('chat-window');
         const placeholderWindow = document.getElementById('placeholder-window');
@@ -164,10 +163,12 @@ $chat_csrf_token = csrf_token();
         let activePartnerId = null;
         let conversationPollingInterval = null;
         let messagePollingInterval = null;
-        const myUserId = <?php echo $_SESSION['user_id']; ?>;
+        const myUserId = <?php
+echo $_SESSION['user_id']; ?>;
         
         console.log('Chat initialized with user ID:', myUserId);
-        console.log('User role:', '<?php echo $_SESSION['role']; ?>');
+        console.log('User role:', '<?php
+echo $_SESSION['role']; ?>');
 
         function escapeHTML(str) {
             return str ? str.replace(/[&<>"']/g, match => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[match]) : '';
@@ -263,7 +264,7 @@ $chat_csrf_token = csrf_token();
                 <div>
                     <div class="${isAdminMsg ? 'bg-blue-600 text-white p-3 rounded-l-lg rounded-br-lg' : 'bg-gray-300 p-3 rounded-r-lg rounded-bl-lg'}">
                         <p class="text-sm">${escapeHTML(message.message)}</p>
-                        <p class="text-xs ${isAdminMsg ? 'text-blue-100' : 'text-gray-500'} mt-1">${timestamp}${isAdminMsg ? ' • ' + statusLabel : ''}</p>
+                        <p class="text-xs ${isAdminMsg ? 'text-blue-100' : 'text-gray-500'} mt-1">${timestamp}${isAdminMsg ? ' â€¢ ' + statusLabel : ''}</p>
                     </div>
                 </div>
             `;
@@ -399,3 +400,5 @@ $chat_csrf_token = csrf_token();
     </script>
 </body>
 </html> 
+
+

@@ -43,7 +43,7 @@ Canonical source is [config/init.php](../config/init.php), then additive/normali
   - password VARCHAR(255) NOT NULL
   - fullname VARCHAR(100) NOT NULL
   - email VARCHAR(100) NOT NULL
-  - role ENUM('admin','resident','barangay-captain','kagawad','barangay-secretary','barangay-treasurer','barangay-tanod') NOT NULL DEFAULT 'resident'
+  - role ENUM('admin','resident','barangay-officials','barangay-kagawad','barangay-tanod') NOT NULL DEFAULT 'resident'
   - created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   - last_login DATETIME DEFAULT NULL
 - Keys:
@@ -514,10 +514,8 @@ How it works:
 
 Defined in [config/permissions.php](../config/permissions.php):
 - admin
-- barangay-captain
-- kagawad
-- barangay-secretary
-- barangay-treasurer
+- barangay-officials
+- barangay-kagawad
 - barangay-tanod
 - resident
 
@@ -1188,11 +1186,9 @@ function get_role_hierarchy($role) {
   $hierarchy = [
     'resident' => 1,
     'barangay-tanod' => 2,
-    'barangay-treasurer' => 3,
-    'barangay-secretary' => 4,
-    'kagawad' => 5,
-    'barangay-captain' => 6,
-    'admin' => 7
+    'barangay-kagawad' => 3,
+    'barangay-officials' => 4,
+    'admin' => 5
   ];
   return $hierarchy[$role] ?? 0;
 }
@@ -1260,7 +1256,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 function is_official_role_only($role) {
-  return in_array($role, ['barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true);
+  return in_array($role, ['barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true);
 }
 
 function is_session_policy_tracked_role($role) {

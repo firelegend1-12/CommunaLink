@@ -15,16 +15,12 @@ Application-level permission checks should use:
 Allowed role keys in the RBAC matrix:
 - `admin`
 - `barangay-officials`
-- `barangay-captain`
-- `kagawad`
 - `barangay-kagawad`
-- `barangay-secretary`
-- `barangay-treasurer`
 - `barangay-tanod`
 - `resident`
 
 Legacy value note:
-- `official` is treated as a legacy role label and is not part of the canonical RBAC matrix.
+- `official`, `kagawad`, `barangay-captain`, `barangay-secretary`, and `barangay-treasurer` are treated as legacy role labels and are not part of the canonical RBAC matrix.
 
 ## Canonical Permissions
 
@@ -35,28 +31,29 @@ Legacy value note:
 | `all_pages` | `admin` |
 | `delete_users` | `admin` |
 | `view_logs` | `admin` |
-| `manage_announcements` | `admin`, `barangay-officials`, `barangay-captain`, `barangay-secretary`, `barangay-treasurer` |
-| `manage_events` | `admin`, `barangay-officials`, `barangay-captain`, `barangay-secretary`, `barangay-treasurer` |
-| `manage_incidents` | `admin`, `barangay-officials`, `barangay-captain`, `kagawad`, `barangay-kagawad`, `barangay-secretary`, `barangay-treasurer`, `barangay-tanod` |
-| `manage_documents` | `admin`, `barangay-officials`, `barangay-captain`, `barangay-secretary`, `barangay-treasurer` |
-| `manage_businesses` | `admin` |
+| `manage_announcements` | `admin`, `barangay-officials` |
+| `manage_events` | `admin`, `barangay-officials` |
+| `manage_incidents` | `admin`, `barangay-officials`, `barangay-kagawad`, `barangay-tanod` |
+| `manage_documents` | `admin`, `barangay-officials`, `barangay-kagawad` |
+| `manage_businesses` | `admin`, `barangay-officials`, `barangay-kagawad` |
 | `manage_residents` | `admin` |
-| `view_residents` | `admin`, `barangay-officials`, `barangay-captain`, `kagawad`, `barangay-kagawad`, `barangay-secretary`, `barangay-treasurer` |
+| `add_residents` | `admin`, `barangay-officials`, `barangay-kagawad` |
+| `view_residents` | `admin`, `barangay-officials`, `barangay-kagawad` |
 | `edit_resident_profile` | `admin` |
-| `view_monitoring_requests` | `admin`, `kagawad`, `barangay-kagawad` |
-| `access_chat` | `admin`, `barangay-officials`, `barangay-captain`, `kagawad`, `barangay-kagawad`, `barangay-secretary`, `barangay-treasurer`, `barangay-tanod` |
-| `financial_management` | `admin`, `barangay-treasurer` |
+| `view_monitoring_requests` | `admin`, `barangay-officials`, `barangay-kagawad` |
+| `access_chat` | `admin`, `barangay-officials`, `barangay-kagawad`, `barangay-tanod` |
+| `financial_management` | `admin`, `barangay-officials` |
 | `approve_applications` | `admin` |
 | `override_decisions` | `admin` |
 | `preside_meetings` | `admin` |
 | `emergency_powers` | `admin` |
 | `committee_management` | _none_ |
-| `record_keeping` | `barangay-secretary` |
-| `meeting_minutes` | `barangay-secretary` |
-| `budget_management` | `barangay-treasurer` |
-| `financial_reports` | `barangay-treasurer` |
-| `tax_collection` | `barangay-treasurer` |
-| `expense_tracking` | `barangay-treasurer` |
+| `record_keeping` | `admin`, `barangay-officials` |
+| `meeting_minutes` | `admin`, `barangay-officials` |
+| `budget_management` | `admin`, `barangay-officials` |
+| `financial_reports` | `admin`, `barangay-officials` |
+| `tax_collection` | `admin`, `barangay-officials` |
+| `expense_tracking` | `admin`, `barangay-officials` |
 | `patrol_management` | `barangay-tanod` |
 | `incident_reporting` | `barangay-tanod` |
 | `peace_and_order` | `barangay-tanod` |
@@ -77,13 +74,14 @@ Legacy value note:
 
 ## Decision Log (2026-04-20)
 
-1. Legacy role `official` is blocked immediately in permission guards and must be migrated to a specific barangay role.
+1. Legacy roles `official`, `kagawad`, `barangay-captain`, `barangay-secretary`, and `barangay-treasurer` are blocked in permission guards and must be migrated to canonical role keys.
 2. Denied web/page guard default behavior is redirect to index/dashboard paths.
 3. Denied JSON responses include `required_permission` for frontend debugging.
 4. Denied authorization attempts are logged at warning level (file log, plus activity log mirror when available).
-5. Permission vocabulary was updated based on the requested hierarchy/access policy (resident=1, tanod=2, kagawad=3, officials/admin=4).
-6. Role hierarchy is for reporting/analysis only and is not used as an authorization fallback.
-7. CSRF policy direction: enforce on browser/session-based mutating endpoints; token-authenticated service calls may be exempted by explicit design.
+5. Permission vocabulary was updated based on the requested hierarchy/access policy (resident=1, tanod=2, barangay-kagawad=3, barangay-officials=4, admin=5).
+6. Resident management split: `add_residents` is allowed for admin + barangay-kagawad + barangay-officials, while `edit_resident_profile` remains admin-only.
+7. Role hierarchy is for reporting/analysis only and is not used as an authorization fallback.
+8. CSRF policy direction: enforce on browser/session-based mutating endpoints; token-authenticated service calls may be exempted by explicit design.
 
 ## Baseline Validation
 

@@ -1,8 +1,8 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Announcements Management - Modernized
  */
-require_once '../partials/admin_auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/business_announcement_functions.php';
 require_once '../../includes/csrf.php';
@@ -289,7 +289,7 @@ try {
                                                         <div class="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-tighter">
                                                             <?php if ($ann['is_event']): ?>
                                                                 <span class="text-indigo-600"><i class="far fa-calendar-alt mr-1"></i> <?= date('M d, Y', strtotime($ann['event_date'])) ?></span>
-                                                                <span class="mx-1">•</span>
+                                                                <span class="mx-1">â€¢</span>
                                                                 <span><?= htmlspecialchars($ann['event_location']) ?></span>
                                                             <?php else: ?>
                                                                 <?= date('M d, Y @ h:i A', strtotime($ann['created_at'])) ?>
@@ -698,3 +698,4 @@ try {
     </script>
 </body>
 </html>
+

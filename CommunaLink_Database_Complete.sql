@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `password` VARCHAR(255) NOT NULL,
     `fullname` VARCHAR(100) NOT NULL,
     `email` VARCHAR(100) NOT NULL UNIQUE,
-    `role` ENUM('admin', 'resident', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod') NOT NULL DEFAULT 'resident',
+    `role` ENUM('admin', 'resident', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod') NOT NULL DEFAULT 'resident',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `last_login` DATETIME DEFAULT NULL,
     PRIMARY KEY (`id`)

@@ -162,7 +162,7 @@ try {
             `password` VARCHAR(255) NOT NULL,
             `fullname` VARCHAR(100) NOT NULL,
             `email` VARCHAR(100) NOT NULL UNIQUE,
-            `role` ENUM('admin', 'resident', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod') NOT NULL DEFAULT 'resident',
+            `role` ENUM('admin', 'resident', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod') NOT NULL DEFAULT 'resident',
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
             `last_login` DATETIME DEFAULT NULL,
             PRIMARY KEY (`id`)
@@ -628,7 +628,7 @@ try {
     if ($stmt->rowCount() == 0) {
         // Add role and last_login columns
         $pdo->exec("ALTER TABLE `users` 
-                    ADD COLUMN `role` ENUM('admin', 'resident') NOT NULL DEFAULT 'admin' AFTER `email`,
+                ADD COLUMN `role` ENUM('admin', 'resident', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod') NOT NULL DEFAULT 'admin' AFTER `email`,
                     ADD COLUMN `last_login` DATETIME DEFAULT NULL AFTER `created_at`;");
 
         // Migrate data from old `is_admin` column if it exists
@@ -638,8 +638,16 @@ try {
             $pdo->exec("ALTER TABLE `users` DROP COLUMN `is_admin`;");
         }
     } else {
-        // If role column exists, just modify it to include 'resident'
-        $pdo->exec("ALTER TABLE `users` MODIFY `role` ENUM('admin', 'resident', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod') NOT NULL DEFAULT 'resident';");
+        // Normalize legacy role values before constraining to the consolidated enum.
+        $pdo->exec("UPDATE `users` SET `role` = 'barangay-kagawad' WHERE `role` = 'kagawad';");
+        $pdo->exec("UPDATE `users` SET `role` = 'barangay-officials' WHERE `role` IN ('official', 'barangay-captain', 'barangay-secretary', 'barangay-treasurer');");
+
+        // If role column exists, modify it to the canonical consolidated role list.
+        $pdo->exec("ALTER TABLE `users` MODIFY `role` ENUM('admin', 'resident', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod') NOT NULL DEFAULT 'resident';");
+
+        // Keep active session role labels aligned for live-session metrics and policy checks.
+        $pdo->exec("UPDATE `active_user_sessions` SET `role` = 'barangay-kagawad' WHERE `role` = 'kagawad';");
+        $pdo->exec("UPDATE `active_user_sessions` SET `role` = 'barangay-officials' WHERE `role` IN ('official', 'barangay-captain', 'barangay-secretary', 'barangay-treasurer');");
     }
     
     // Check for admin and create if it doesn't exist

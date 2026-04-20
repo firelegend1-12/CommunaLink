@@ -1,8 +1,8 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Events Management - Modernized
  */
-require_once '../partials/admin_auth.php';
 require_once '../../includes/functions.php';
 
 $page_title = "Manage Events";
@@ -341,3 +341,4 @@ try {
     </script>
 </body>
 </html>
+

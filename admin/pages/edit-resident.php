@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Edit Resident Page
  */
@@ -190,7 +191,8 @@ $page_title = "Edit Resident - CommunaLink";
 <body class="bg-gray-100 min-h-screen">
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar Navigation -->
-        <?php include '../partials/sidebar.php'; ?>
+        <?php
+include '../partials/sidebar.php'; ?>
         
         <!-- Main Content -->
         <div class="flex flex-col flex-1 overflow-hidden">
@@ -208,9 +210,11 @@ $page_title = "Edit Resident - CommunaLink";
                         <!-- User Dropdown -->
                         <div class="relative">
                             <div class="flex items-center space-x-2 text-sm text-gray-600">
-                                <span><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
+                                <span><?php
+echo htmlspecialchars($_SESSION['fullname']); ?></span>
                                 <div class="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-white">
-                                    <?php echo substr($_SESSION['fullname'], 0, 1); ?>
+                                    <?php
+echo substr($_SESSION['fullname'], 0, 1); ?>
                                 </div>
                             </div>
                         </div>
@@ -227,23 +231,33 @@ $page_title = "Edit Resident - CommunaLink";
                     <span>/</span>
                     <span class="text-gray-700 font-semibold">Edit Resident</span>
                 </nav>
-                <?php if ($error_message): ?>
-                    <?php echo display_error($error_message); ?>
-                <?php endif; ?>
+                <?php
+if ($error_message): ?>
+                    <?php
+echo display_error($error_message); ?>
+                <?php
+endif; ?>
                 
-                <?php if ($success_message): ?>
-                    <?php if (!empty($success_message)): ?>
+                <?php
+if ($success_message): ?>
+                    <?php
+if (!empty($success_message)): ?>
                     <div id="edit-resident-success-alert" class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
-                        <p><?php echo htmlspecialchars($success_message); ?></p>
+                        <p><?php
+echo htmlspecialchars($success_message); ?></p>
                     </div>
-                <?php endif; ?>
-                <?php endif; ?>
+                <?php
+endif; ?>
+                <?php
+endif; ?>
                 
-                <?php if ($resident): ?>
+                <?php
+if ($resident): ?>
                     <div class="max-w-4xl mx-auto">
                         <div class="bg-white rounded-lg shadow p-6">
                             <form method="POST" action="edit-resident.php">
-                                <input type="hidden" name="resident_id" value="<?php echo htmlspecialchars($resident['id']); ?>">
+                                <input type="hidden" name="resident_id" value="<?php
+echo htmlspecialchars($resident['id']); ?>">
                                 
                                 <!-- Personal Information -->
                                 <div class="space-y-6">
@@ -255,7 +269,8 @@ $page_title = "Edit Resident - CommunaLink";
                                             <div>
                                                 <label for="first_name" class="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
                                                 <input type="text" id="first_name" name="first_name" 
-                                                       value="<?php echo htmlspecialchars($resident['first_name']); ?>" 
+                                                       value="<?php
+echo htmlspecialchars($resident['first_name']); ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
                                                        required>
                                             </div>
@@ -264,7 +279,8 @@ $page_title = "Edit Resident - CommunaLink";
                                             <div>
                                                 <label for="middle_initial" class="block text-sm font-medium text-gray-700 mb-2">Middle Initial</label>
                                                 <input type="text" id="middle_initial" name="middle_initial" 
-                                                       value="<?php echo htmlspecialchars($resident['middle_initial']); ?>" 
+                                                       value="<?php
+echo htmlspecialchars($resident['middle_initial']); ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
                                                        maxlength="5">
                                             </div>
@@ -273,7 +289,8 @@ $page_title = "Edit Resident - CommunaLink";
                                             <div>
                                                 <label for="last_name" class="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
                                                 <input type="text" id="last_name" name="last_name" 
-                                                       value="<?php echo htmlspecialchars($resident['last_name']); ?>" 
+                                                       value="<?php
+echo htmlspecialchars($resident['last_name']); ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
                                                        required>
                                             </div>
@@ -286,9 +303,12 @@ $page_title = "Edit Resident - CommunaLink";
                                                 <select id="gender" name="gender" 
                                                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
                                                         required>
-                                                    <option value="Male" <?php echo $resident['gender'] === 'Male' ? 'selected' : ''; ?>>Male</option>
-                                                    <option value="Female" <?php echo $resident['gender'] === 'Female' ? 'selected' : ''; ?>>Female</option>
-                                                    <option value="Other" <?php echo $resident['gender'] === 'Other' ? 'selected' : ''; ?>>Other</option>
+                                                    <option value="Male" <?php
+echo $resident['gender'] === 'Male' ? 'selected' : ''; ?>>Male</option>
+                                                    <option value="Female" <?php
+echo $resident['gender'] === 'Female' ? 'selected' : ''; ?>>Female</option>
+                                                    <option value="Other" <?php
+echo $resident['gender'] === 'Other' ? 'selected' : ''; ?>>Other</option>
                                                 </select>
                                             </div>
                                             
@@ -296,7 +316,8 @@ $page_title = "Edit Resident - CommunaLink";
                                             <div>
                                                 <label for="date_of_birth" class="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
                                                 <input type="date" id="date_of_birth" name="date_of_birth" 
-                                                       value="<?php echo htmlspecialchars($resident['date_of_birth']); ?>" 
+                                                       value="<?php
+echo htmlspecialchars($resident['date_of_birth']); ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
                                                        required>
                                             </div>
@@ -307,7 +328,8 @@ $page_title = "Edit Resident - CommunaLink";
                                             <div>
                                                 <label for="place_of_birth" class="block text-sm font-medium text-gray-700 mb-2">Place of Birth *</label>
                                                 <input type="text" id="place_of_birth" name="place_of_birth" 
-                                                       value="<?php echo htmlspecialchars($resident['place_of_birth']); ?>" 
+                                                       value="<?php
+echo htmlspecialchars($resident['place_of_birth']); ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
                                                        required>
                                             </div>
@@ -316,7 +338,8 @@ $page_title = "Edit Resident - CommunaLink";
                                             <div>
                                                 <label for="religion" class="block text-sm font-medium text-gray-700 mb-2">Religion</label>
                                                 <input type="text" id="religion" name="religion" 
-                                                       value="<?php echo htmlspecialchars($resident['religion']); ?>" 
+                                                       value="<?php
+echo htmlspecialchars($resident['religion']); ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                             </div>
                                         </div>
@@ -331,7 +354,8 @@ $page_title = "Edit Resident - CommunaLink";
                                             <div>
                                                 <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
                                                 <input type="email" id="email" name="email" 
-                                                       value="<?php echo htmlspecialchars($resident['email']); ?>" 
+                                                       value="<?php
+echo htmlspecialchars($resident['email']); ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                             </div>
                                             
@@ -339,7 +363,8 @@ $page_title = "Edit Resident - CommunaLink";
                                             <div>
                                                 <label for="contact_no" class="block text-sm font-medium text-gray-700 mb-2">Contact Number</label>
                                                 <input type="text" id="contact_no" name="contact_no" 
-                                                       value="<?php echo htmlspecialchars($resident['contact_no']); ?>" 
+                                                       value="<?php
+echo htmlspecialchars($resident['contact_no']); ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                             </div>
                                         </div>
@@ -349,7 +374,8 @@ $page_title = "Edit Resident - CommunaLink";
                                             <label for="address" class="block text-sm font-medium text-gray-700 mb-2">Address *</label>
                                             <textarea id="address" name="address" rows="3" 
                                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                                                      required><?php echo htmlspecialchars($resident['address']); ?></textarea>
+                                                      required><?php
+echo htmlspecialchars($resident['address']); ?></textarea>
                                         </div>
                                     </div>
                                     
@@ -362,7 +388,8 @@ $page_title = "Edit Resident - CommunaLink";
                                             <div>
                                                 <label for="citizenship" class="block text-sm font-medium text-gray-700 mb-2">Citizenship *</label>
                                                 <input type="text" id="citizenship" name="citizenship" 
-                                                       value="<?php echo htmlspecialchars($resident['citizenship']); ?>" 
+                                                       value="<?php
+echo htmlspecialchars($resident['citizenship']); ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
                                                        required>
                                             </div>
@@ -373,10 +400,14 @@ $page_title = "Edit Resident - CommunaLink";
                                                 <select id="civil_status" name="civil_status" 
                                                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
                                                         required>
-                                                    <option value="Single" <?php echo $resident['civil_status'] === 'Single' ? 'selected' : ''; ?>>Single</option>
-                                                    <option value="Married" <?php echo $resident['civil_status'] === 'Married' ? 'selected' : ''; ?>>Married</option>
-                                                    <option value="Widowed" <?php echo $resident['civil_status'] === 'Widowed' ? 'selected' : ''; ?>>Widowed</option>
-                                                    <option value="Separated" <?php echo $resident['civil_status'] === 'Separated' ? 'selected' : ''; ?>>Separated</option>
+                                                    <option value="Single" <?php
+echo $resident['civil_status'] === 'Single' ? 'selected' : ''; ?>>Single</option>
+                                                    <option value="Married" <?php
+echo $resident['civil_status'] === 'Married' ? 'selected' : ''; ?>>Married</option>
+                                                    <option value="Widowed" <?php
+echo $resident['civil_status'] === 'Widowed' ? 'selected' : ''; ?>>Widowed</option>
+                                                    <option value="Separated" <?php
+echo $resident['civil_status'] === 'Separated' ? 'selected' : ''; ?>>Separated</option>
                                                 </select>
                                             </div>
                                             
@@ -384,7 +415,8 @@ $page_title = "Edit Resident - CommunaLink";
                                             <div>
                                                 <label for="occupation" class="block text-sm font-medium text-gray-700 mb-2">Occupation</label>
                                                 <input type="text" id="occupation" name="occupation" 
-                                                       value="<?php echo htmlspecialchars($resident['occupation']); ?>" 
+                                                       value="<?php
+echo htmlspecialchars($resident['occupation']); ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                             </div>
                                         </div>
@@ -394,7 +426,8 @@ $page_title = "Edit Resident - CommunaLink";
                                             <div>
                                                 <label for="id_number" class="block text-sm font-medium text-gray-700 mb-2">ID Number</label>
                                                 <input type="text" id="id_number" name="id_number" 
-                                                       value="<?php echo htmlspecialchars($resident['id_number']); ?>" 
+                                                       value="<?php
+echo htmlspecialchars($resident['id_number']); ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                                 <p class="text-xs text-gray-500 mt-1">Format: BR-YYYY-XXXX (can be edited)</p>
                                             </div>
@@ -405,8 +438,10 @@ $page_title = "Edit Resident - CommunaLink";
                                                 <select id="voter_status" name="voter_status" 
                                                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
                                                         required>
-                                                    <option value="Yes" <?php echo $resident['voter_status'] === 'Yes' ? 'selected' : ''; ?>>Yes</option>
-                                                    <option value="No" <?php echo $resident['voter_status'] === 'No' ? 'selected' : ''; ?>>No</option>
+                                                    <option value="Yes" <?php
+echo $resident['voter_status'] === 'Yes' ? 'selected' : ''; ?>>Yes</option>
+                                                    <option value="No" <?php
+echo $resident['voter_status'] === 'No' ? 'selected' : ''; ?>>No</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -419,7 +454,8 @@ $page_title = "Edit Resident - CommunaLink";
                                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 mb-2">Age</label>
-                                                <input type="text" value="<?php echo htmlspecialchars($resident['age']); ?>" 
+                                                <input type="text" value="<?php
+echo htmlspecialchars($resident['age']); ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500" 
                                                        readonly>
                                                 <p class="text-xs text-gray-500 mt-1">Calculated from date of birth</p>
@@ -427,14 +463,16 @@ $page_title = "Edit Resident - CommunaLink";
                                             
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 mb-2">Created</label>
-                                                <input type="text" value="<?php echo date('M d, Y h:i A', strtotime($resident['created_at'])); ?>" 
+                                                <input type="text" value="<?php
+echo date('M d, Y h:i A', strtotime($resident['created_at'])); ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500" 
                                                        readonly>
                                             </div>
                                             
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 mb-2">Last Updated</label>
-                                                <input type="text" value="<?php echo $resident['updated_at'] ? date('M d, Y h:i A', strtotime($resident['updated_at'])) : 'Never'; ?>" 
+                                                <input type="text" value="<?php
+echo $resident['updated_at'] ? date('M d, Y h:i A', strtotime($resident['updated_at'])) : 'Never'; ?>" 
                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500" 
                                                        readonly>
                                             </div>
@@ -456,7 +494,8 @@ $page_title = "Edit Resident - CommunaLink";
                             </form>
                         </div>
                     </div>
-                <?php else: ?>
+                <?php
+else: ?>
                     <div class="max-w-2xl mx-auto">
                         <div class="bg-white rounded-lg shadow p-6 text-center">
                             <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i>
@@ -469,7 +508,8 @@ $page_title = "Edit Resident - CommunaLink";
                             </a>
                         </div>
                     </div>
-                <?php endif; ?>
+                <?php
+endif; ?>
             </main>
         </div>
     </div>
@@ -486,3 +526,5 @@ $page_title = "Edit Resident - CommunaLink";
     </script>
 </body>
 </html> 
+
+

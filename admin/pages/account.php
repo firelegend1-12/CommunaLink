@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * User Account Page - Modernized
  */
@@ -53,7 +54,8 @@ try {
         showPasswords: false
     }">
         <!-- Sidebar Navigation -->
-        <?php include '../partials/sidebar.php'; ?>
+        <?php
+include '../partials/sidebar.php'; ?>
         
         <!-- Main Content -->
         <div class="flex flex-col flex-1 overflow-hidden">
@@ -66,7 +68,8 @@ try {
                             <span class="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest border border-indigo-200">Security Vault</span>
                         </div>
                         
-                        <?php include '../partials/user-dropdown.php'; ?>
+                        <?php
+include '../partials/user-dropdown.php'; ?>
                     </div>
                 </div>
             </header>
@@ -74,24 +77,30 @@ try {
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-12">
                 <div class="max-w-3xl mx-auto">
-                    <?php if (isset($_SESSION['success_message'])): ?>
+                    <?php
+if (isset($_SESSION['success_message'])): ?>
                         <div id="account-success-alert" class="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-700 p-6 mb-8 rounded-r-3xl shadow-sm animate-fade-in">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center">
                                     <i class="fas fa-check-circle mr-3 text-emerald-500"></i>
-                                    <p class="font-bold text-xs uppercase tracking-widest"><?php echo htmlspecialchars($_SESSION['success_message']); ?></p>
+                                    <p class="font-bold text-xs uppercase tracking-widest"><?php
+echo htmlspecialchars($_SESSION['success_message']); ?></p>
                                 </div>
                                 <button onclick="this.parentElement.parentElement.remove()" class="text-emerald-300 hover:text-emerald-500 transition"><i class="fas fa-times"></i></button>
                             </div>
                         </div>
-                    <?php unset($_SESSION['success_message']); endif; ?>
+                    <?php
+unset($_SESSION['success_message']); endif; ?>
 
-                    <?php if (isset($_SESSION['error_message'])): ?>
+                    <?php
+if (isset($_SESSION['error_message'])): ?>
                         <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-6 mb-8 rounded-r-3xl shadow-sm">
                             <i class="fas fa-exclamation-circle mr-3"></i>
-                            <span class="font-bold text-xs uppercase tracking-widest"><?php echo htmlspecialchars($_SESSION['error_message']); ?></span>
+                            <span class="font-bold text-xs uppercase tracking-widest"><?php
+echo htmlspecialchars($_SESSION['error_message']); ?></span>
                         </div>
-                    <?php unset($_SESSION['error_message']); endif; ?>
+                    <?php
+unset($_SESSION['error_message']); endif; ?>
 
                     <div class="bg-white rounded-[3rem] shadow-2xl shadow-indigo-100/50 border border-slate-200 overflow-hidden transform transition duration-500">
                         <div class="px-12 py-12 bg-gradient-to-br from-slate-900 to-indigo-950 text-white relative">
@@ -121,13 +130,15 @@ try {
                                     
                                     <div>
                                         <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Display Name</label>
-                                        <input type="text" name="fullname" value="<?php echo htmlspecialchars($user['fullname']); ?>" required 
+                                        <input type="text" name="fullname" value="<?php
+echo htmlspecialchars($user['fullname']); ?>" required 
                                                class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4.5 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 transition shadow-sm">
                                     </div>
                                     
                                     <div>
                                         <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Email Connection</label>
-                                        <input type="email" name="email" value="<?php echo htmlspecialchars($user['email']); ?>" required 
+                                        <input type="email" name="email" value="<?php
+echo htmlspecialchars($user['email']); ?>" required 
                                                class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4.5 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 transition shadow-sm">
                                     </div>
                                 </div>
@@ -197,3 +208,5 @@ try {
     </script>
 </body>
 </html>
+
+

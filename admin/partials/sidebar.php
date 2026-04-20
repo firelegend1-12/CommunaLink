@@ -11,6 +11,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/../../includes/permission_checker.php';
+
 // Get current script name and directory depth
 $current_script = basename($_SERVER['PHP_SELF']);
 $current_dir = basename(dirname($_SERVER['PHP_SELF']));
@@ -24,6 +26,31 @@ if ($current_dir === 'admin' && $current_script === 'index.php') {
     // Handle direct admin directory access
     $current_page = $current_script;
 }
+
+function sidebar_has_permission($permission, $role = null) {
+    $resolved_role = resolve_permission_role($role);
+    if ($resolved_role === null) {
+        return false;
+    }
+
+    if (!rbac_is_known_role($resolved_role) || !rbac_is_known_permission($permission)) {
+        return false;
+    }
+
+    return can_access($resolved_role, $permission);
+}
+
+$sidebar_role = $_SESSION['role'] ?? null;
+$can_view_residents = sidebar_has_permission('view_residents', $sidebar_role);
+$can_manage_incidents = sidebar_has_permission('manage_incidents', $sidebar_role);
+$can_manage_announcements = sidebar_has_permission('manage_announcements', $sidebar_role);
+$can_manage_events = sidebar_has_permission('manage_events', $sidebar_role);
+$can_view_monitoring = sidebar_has_permission('view_monitoring_requests', $sidebar_role);
+$can_manage_documents = sidebar_has_permission('manage_documents', $sidebar_role);
+$can_access_chat = sidebar_has_permission('access_chat', $sidebar_role);
+$can_user_management = sidebar_has_permission('user_management', $sidebar_role);
+$can_view_logs = sidebar_has_permission('view_logs', $sidebar_role);
+$can_show_admin_tools = $can_user_management || $can_view_logs;
 
 
 
@@ -76,12 +103,15 @@ if ($hour >= 12 && $hour < 18) {
                 </a>
                 
                 <!-- Residents Link -->
+                <?php if ($can_view_residents): ?>
                 <a href="<?php echo ($current_dir === 'admin') ? 'pages/residents.php' : 'residents.php'; ?>" class="<?php echo $current_page === 'residents.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
                     <i class="fas fa-users mr-3 text-lg flex-shrink-0 <?php echo $current_page === 'residents.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                     Residents
                 </a>
+                <?php endif; ?>
                 
                 <!-- Report Dropdown -->
+                <?php if ($can_manage_incidents): ?>
                 <div id="report-dropdown" class="dropdown-container">
                     <button onclick="toggleDropdown('report-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
                         <i class="fas fa-flag mr-3 text-lg flex-shrink-0 <?php echo in_array($current_page, ['incident-reports.php', 'maps.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
@@ -105,20 +135,35 @@ if ($hour >= 12 && $hour < 18) {
                         </div>
                     </div>
                 </div>
+                <?php endif; ?>
 
                 <!-- Community Board Link -->
+                <?php if ($can_manage_announcements || $can_manage_events): ?>
                 <a href="<?php echo ($current_dir === 'admin') ? 'pages/announcements.php' : 'announcements.php'; ?>" class="<?php echo $current_page === 'announcements.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
                     <i class="fas fa-clipboard-list mr-3 text-lg flex-shrink-0 <?php echo $current_page === 'announcements.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                     Community Board
                 </a>
+                <?php endif; ?>
                 
                 <!-- Monitoring of Request Link -->
+                <?php if ($can_view_monitoring): ?>
                 <a href="<?php echo ($current_dir === 'admin') ? 'pages/monitoring-of-request.php' : 'monitoring-of-request.php'; ?>" class="<?php echo $current_page === 'monitoring-of-request.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
                     <i class="fas fa-desktop mr-3 text-lg flex-shrink-0 <?php echo $current_page === 'monitoring-of-request.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                     Monitoring of Request
                 </a>
+                <?php endif; ?>
+
+                <!-- Chat Link -->
+                <?php if ($can_access_chat): ?>
+                <a id="chat-nav-link" href="<?php echo ($current_dir === 'admin') ? 'pages/chat.php' : 'chat.php'; ?>" class="<?php echo $current_page === 'chat.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
+                    <i class="fas fa-comments mr-3 text-lg flex-shrink-0 <?php echo $current_page === 'chat.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
+                    Chat
+                    <span id="chat-unread-badge" class="chat-unread-badge"></span>
+                </a>
+                <?php endif; ?>
                 
                 <!-- Document Requests Link -->
+                <?php if ($can_manage_documents): ?>
                 <div id="document-dropdown" class="dropdown-container">
                     <button onclick="toggleDropdown('document-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
                         <i class="fas fa-file-alt mr-3 text-lg flex-shrink-0 <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
@@ -152,9 +197,10 @@ if ($hour >= 12 && $hour < 18) {
                         </div>
                     </div>
                 </div>
+                <?php endif; ?>
 
                 <!-- Admin Dropdown -->
-                <?php if (isset($_SESSION['role']) && in_array($_SESSION['role'], ['admin'])): ?>
+                <?php if ($can_show_admin_tools): ?>
                 <div id="admin-dropdown" class="dropdown-container">
                     <button id="admin-dropdown-btn" onclick="toggleDropdown('admin-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
                         <i class="fas fa-cog mr-3 text-lg flex-shrink-0 <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
@@ -163,25 +209,22 @@ if ($hour >= 12 && $hour < 18) {
                         <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200<?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? ' rotate-180' : ''; ?>" id="admin-chevron"></i>
                     </button>
                     <div id="admin-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['user-management.php', 'chat.php', 'logs.php']) ? 'block' : 'none'; ?>">
+                        <?php if ($can_user_management): ?>
                         <div>
                             <a href="<?php echo ($current_dir === 'admin') ? 'pages/user-management.php' : 'user-management.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'user-management.php' ? 'bg-gray-900 text-white' : ''; ?>">
                                 <i class="fas fa-users-cog mr-2 text-gray-400 flex-shrink-0"></i>
                                 User Management
                             </a>
                         </div>
-                        <div>
-                            <a id="chat-nav-link" href="<?php echo ($current_dir === 'admin') ? 'pages/chat.php' : 'chat.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'chat.php' ? 'bg-gray-900 text-white' : ''; ?>">
-                                <i class="fas fa-comments mr-2 text-gray-400 flex-shrink-0"></i>
-                                Chat
-                                <span id="chat-unread-badge" class="chat-unread-badge"></span>
-                            </a>
-                        </div>
+                        <?php endif; ?>
+                        <?php if ($can_view_logs): ?>
                         <div>
                             <a href="<?php echo ($current_dir === 'admin') ? 'pages/logs.php' : 'logs.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'logs.php' ? 'bg-gray-900 text-white' : ''; ?>">
                                 <i class="fas fa-clipboard-list mr-2 text-gray-400 flex-shrink-0"></i>
                                 Logs
                             </a>
                         </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php endif; ?>

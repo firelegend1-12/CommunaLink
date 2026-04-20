@@ -583,7 +583,7 @@ function insert_activity_log_entry($pdo, $user_id, $username, $action, $target_t
  */
 function log_activity_db($pdo, $action, $target_type, $target_id = null, $details = null, $old_value = null, $new_value = null, $severity = null, $request_id = null) {
     // Only log for authorized admin/official roles
-    if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'])) {
+    if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true)) {
         return;
     }
     

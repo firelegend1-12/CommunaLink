@@ -81,7 +81,7 @@ function env_to_bool($value, $default = false) {
 }
 
 function is_official_role_only($role) {
-    return in_array($role, ['official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true);
+    return in_array($role, ['barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true);
 }
 
 function is_admin_role($role) {
@@ -340,7 +340,7 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
             $count_stmt = $pdo->prepare("SELECT id
                                          FROM active_user_sessions
                                          WHERE is_active = 1
-                                                                                     AND role IN ('official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod')
+                                                                                     AND role IN ('barangay-officials', 'barangay-kagawad', 'barangay-tanod')
                                            AND expires_at > NOW()
                                          FOR UPDATE");
             $count_stmt->execute();
@@ -643,7 +643,7 @@ function is_logged_in() {
  */
 function is_admin_or_official() {
     if (!isset($_SESSION['role'])) return false;
-    return in_array($_SESSION['role'], ['admin', 'official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod']);
+    return in_array($_SESSION['role'], ['admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true);
 }
 
 /**

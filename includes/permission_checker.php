@@ -73,6 +73,52 @@ function resolve_permission_role($user_role = null) {
 }
 
 /**
+ * Compute a safe redirect path for denied admin-page access.
+ * Residents go to resident dashboard; non-resident roles go to admin dashboard.
+ *
+ * @param string|null $user_role
+ * @return string
+ */
+function get_rbac_page_redirect_path($user_role = null) {
+    $raw_role = $user_role;
+    if ($raw_role === null) {
+        $raw_role = $_SESSION['role'] ?? null;
+    }
+
+    $normalized_role = normalize_rbac_key($raw_role);
+    $current_parent_dir = basename(dirname($_SERVER['PHP_SELF'] ?? ''));
+    $is_pages_context = ($current_parent_dir === 'pages');
+
+    if ($normalized_role === 'resident') {
+        return $is_pages_context ? '../../resident/dashboard.php' : '../resident/dashboard.php';
+    }
+
+    return $is_pages_context ? '../index.php' : './index.php';
+}
+
+/**
+ * Enforce a single permission for admin-page access with role-aware redirect.
+ *
+ * @param string $permission
+ * @param string|null $user_role
+ * @return bool
+ */
+function require_permission_for_admin_page($permission, $user_role = null) {
+    return require_permission_or_redirect($permission, get_rbac_page_redirect_path($user_role), $user_role);
+}
+
+/**
+ * Enforce any permission in a list for admin-page access with role-aware redirect.
+ *
+ * @param array $permissions
+ * @param string|null $user_role
+ * @return bool
+ */
+function require_any_permission_for_admin_page(array $permissions, $user_role = null) {
+    return require_any_permission_or_redirect($permissions, get_rbac_page_redirect_path($user_role), $user_role);
+}
+
+/**
  * Check if any permission in the provided list is allowed for the role context.
  *
  * @param array $permissions
@@ -247,11 +293,8 @@ function get_role_display_name($role = null) {
     
     $role_names = [
         'admin' => 'Administrator',
-        'official' => 'Legacy Official',
-        'barangay-captain' => 'Barangay Captain',
-        'kagawad' => 'Barangay Kagawad',
-        'barangay-secretary' => 'Barangay Secretary',
-        'barangay-treasurer' => 'Barangay Treasurer',
+        'barangay-officials' => 'Barangay Officials',
+        'barangay-kagawad' => 'Barangay Kagawad',
         'barangay-tanod' => 'Barangay Tanod',
         'resident' => 'Resident'
     ];

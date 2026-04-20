@@ -1,9 +1,5 @@
-﻿<?php
-session_start();
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] !== 'admin')) {
-    header('Location: ../../index.php');
-    exit;
-}
+<?php
+require_once '../partials/admin_auth.php';
 
 include_once '../../config/database.php';
 include_once '../../includes/functions.php';
@@ -39,7 +35,8 @@ $title = "Maps";
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="flex h-screen overflow-hidden">
-        <?php include '../partials/sidebar.php'; ?>
+        <?php
+include '../partials/sidebar.php'; ?>
         <div class="flex flex-col flex-1 overflow-hidden">
             <header class="bg-white shadow-sm z-10">
                 <div class="px-4 sm:px-6 lg:px-8">
@@ -260,16 +257,22 @@ $title = "Maps";
     }
     </script>
     <?php
-    $apiKey = function_exists('maps_api_key') ? (string) maps_api_key('') : '';
+$apiKey = function_exists('maps_api_key') ? (string) maps_api_key('') : '';
     ?>
     <!-- Marker Clusterer CDN -->
     <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
-    <?php if ($apiKey !== ''): ?>
-    <script src="https://maps.googleapis.com/maps/api/js?key=<?php echo urlencode($apiKey); ?>&callback=initMap" async defer></script>
-    <?php else: ?>
+    <?php
+if ($apiKey !== ''): ?>
+    <script src="https://maps.googleapis.com/maps/api/js?key=<?php
+echo urlencode($apiKey); ?>&callback=initMap" async defer></script>
+    <?php
+else: ?>
     <script>
         console.error('Google Maps API key is missing. Set GOOGLE_MAPS_API_KEY in environment configuration.');
     </script>
-    <?php endif; ?>
+    <?php
+endif; ?>
 </body>
 </html> 
+
+

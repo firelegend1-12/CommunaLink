@@ -74,26 +74,35 @@ if (!$passwordValidation['valid']) {
     redirect_to('../pages/add-user.php');
 }
 
-if (!in_array($role, ['admin', 'official'])) {
+if (!in_array($role, ['admin', 'official'], true)) {
     $_SESSION['error_message'] = "Invalid role specified.";
     redirect_to('../pages/add-user.php');
 }
 
 // Process role selection
 if ($role === 'official') {
-    $official_position = sanitize_input($_POST['official_position'] ?? '');
+    $official_position = strtolower(sanitize_input($_POST['official_position'] ?? ''));
     if (empty($official_position)) {
         $_SESSION['error_message'] = "Please select an official position.";
         redirect_to('../pages/add-user.php');
     }
+
+    $official_role_aliases = [
+        'official' => 'barangay-officials',
+        'barangay-captain' => 'barangay-officials',
+        'barangay-secretary' => 'barangay-officials',
+        'barangay-treasurer' => 'barangay-officials',
+        'kagawad' => 'barangay-kagawad',
+    ];
+
     // Convert official role to specific official position
-    $final_role = $official_position;
+    $final_role = $official_role_aliases[$official_position] ?? $official_position;
 } else {
     $final_role = $role;
 }
 
 // Validate final role
-if (!in_array($final_role, ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'])) {
+if (!in_array($final_role, ['admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true)) {
     $_SESSION['error_message'] = "Invalid role specified.";
     redirect_to('../pages/add-user.php');
 }

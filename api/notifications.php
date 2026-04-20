@@ -58,7 +58,7 @@ if (!$notifications_rate_limit['allowed']) {
 RateLimiter::recordAttempt('notifications_api', RateLimiter::getClientIP());
 
 $action = $_GET['action'] ?? '';
-$allowed_mark_read_roles = ['resident', 'admin', 'barangay-captain', 'barangay-secretary', 'barangay-treasurer', 'kagawad', 'barangay-tanod'];
+$allowed_mark_read_roles = ['resident', 'admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($action === 'mark_read' || $action === 'mark_all_read')) {
     if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], $allowed_mark_read_roles, true)) {
@@ -125,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($action === 'mark_read' || $action
     exit;
 }
 
-if (!in_array($_SESSION['role'], ['admin', 'barangay-captain', 'barangay-secretary', 'barangay-treasurer', 'kagawad', 'barangay-tanod'])) {
+if (!in_array($_SESSION['role'], ['admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true)) {
     http_response_code(403);
     emit_perf_headers($request_start, 'api_notifications');
     echo json_encode(['error' => 'Unauthorized']);

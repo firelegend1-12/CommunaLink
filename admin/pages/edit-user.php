@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Edit User Page - Modernized
  */
@@ -7,6 +8,14 @@ require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 
 require_login();
+
+$official_role_aliases = [
+    'official' => 'barangay-officials',
+    'barangay-captain' => 'barangay-officials',
+    'barangay-secretary' => 'barangay-officials',
+    'barangay-treasurer' => 'barangay-officials',
+    'kagawad' => 'barangay-kagawad',
+];
 
 // Check if user is admin
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
@@ -38,17 +47,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($role === 'official') {
-        $official_position = sanitize_input($_POST['official_position'] ?? '');
-        if (!in_array($official_position, ['barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true)) {
+        $official_position = strtolower(sanitize_input($_POST['official_position'] ?? ''));
+        $official_position = $official_role_aliases[$official_position] ?? $official_position;
+
+        if (!in_array($official_position, ['barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true)) {
             $_SESSION['error_message'] = 'Please select a valid official position.';
             redirect_to('edit-user.php?id=' . (int) $target_user_id);
         }
+
         $final_role = $official_position;
     } else {
         $final_role = $role;
     }
 
-    if (!in_array($final_role, ['admin', 'resident', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true)) {
+    if (!in_array($final_role, ['admin', 'resident', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true)) {
         $_SESSION['error_message'] = 'Invalid role specified.';
         redirect_to('edit-user.php?id=' . (int) $target_user_id);
     }
@@ -160,6 +172,21 @@ if ($user_id) {
     }
 }
 
+$ui_role_picker = '';
+$ui_official_position = '';
+
+if ($user) {
+    $normalized_role = strtolower((string) ($user['role'] ?? ''));
+    $normalized_role = $official_role_aliases[$normalized_role] ?? $normalized_role;
+
+    if (in_array($normalized_role, ['admin', 'resident'], true)) {
+        $ui_role_picker = $normalized_role;
+    } else {
+        $ui_role_picker = 'official';
+        $ui_official_position = $normalized_role;
+    }
+}
+
 $page_title = "Manage Account Profile";
 ?>
 <!DOCTYPE html>
@@ -190,12 +217,13 @@ $page_title = "Manage Account Profile";
 </head>
 <body class="bg-[#F8FAFC] min-h-screen text-[#1E293B]">
     <div class="flex h-screen overflow-hidden" x-data="{ 
-        role: '<?= $user ? (in_array($user['role'], ['admin', 'resident']) ? $user['role'] : 'official') : '' ?>',
-        officialPosition: '<?= $user && !in_array($user['role'], ['admin', 'resident']) ? $user['role'] : '' ?>',
+        role: '<?= htmlspecialchars($ui_role_picker, ENT_QUOTES, 'UTF-8') ?>',
+        officialPosition: '<?= htmlspecialchars($ui_official_position, ENT_QUOTES, 'UTF-8') ?>',
         showPassword: false
     }">
         <!-- Sidebar Navigation -->
-        <?php include '../partials/sidebar.php'; ?>
+        <?php
+include '../partials/sidebar.php'; ?>
         
         <!-- Main Content -->
         <div class="flex flex-col flex-1 overflow-hidden">
@@ -210,7 +238,8 @@ $page_title = "Manage Account Profile";
                             <h1 class="text-xl font-bold text-slate-900 tracking-tight">Modify Account</h1>
                         </div>
                         
-                        <?php include '../partials/user-dropdown.php'; ?>
+                        <?php
+include '../partials/user-dropdown.php'; ?>
                     </div>
                 </div>
             </header>
@@ -218,28 +247,37 @@ $page_title = "Manage Account Profile";
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-12">
                 <div class="max-w-2xl mx-auto">
-                    <?php if (isset($_SESSION['success_message'])): ?>
+                    <?php
+if (isset($_SESSION['success_message'])): ?>
                         <div class="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-700 p-6 mb-8 rounded-r-2xl shadow-sm">
                             <i class="fas fa-check-circle mr-3"></i>
-                            <span class="font-bold uppercase tracking-widest text-xs"><?php echo htmlspecialchars($_SESSION['success_message']); ?></span>
+                            <span class="font-bold uppercase tracking-widest text-xs"><?php
+echo htmlspecialchars($_SESSION['success_message']); ?></span>
                         </div>
-                    <?php unset($_SESSION['success_message']); endif; ?>
+                    <?php
+unset($_SESSION['success_message']); endif; ?>
 
-                    <?php if (isset($_SESSION['error_message'])): ?>
+                    <?php
+if (isset($_SESSION['error_message'])): ?>
                         <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-6 mb-8 rounded-r-2xl shadow-sm">
                             <i class="fas fa-exclamation-circle mr-3"></i>
-                            <span class="font-bold uppercase tracking-widest text-xs"><?php echo htmlspecialchars($_SESSION['error_message']); ?></span>
+                            <span class="font-bold uppercase tracking-widest text-xs"><?php
+echo htmlspecialchars($_SESSION['error_message']); ?></span>
                         </div>
-                    <?php unset($_SESSION['error_message']); endif; ?>
+                    <?php
+unset($_SESSION['error_message']); endif; ?>
 
-                    <?php if ($error_message): ?>
+                    <?php
+if ($error_message): ?>
                         <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-700 p-6 mb-8 rounded-r-2xl shadow-sm">
                             <i class="fas fa-exclamation-circle mr-3"></i>
                             <span class="font-bold uppercase tracking-widest text-xs"><?= $error_message ?></span>
                         </div>
-                    <?php endif; ?>
+                    <?php
+endif; ?>
 
-                    <?php if ($user): ?>
+                    <?php
+if ($user): ?>
                         <div class="bg-white rounded-[2.5rem] shadow-xl shadow-indigo-100/40 border border-slate-200 overflow-hidden">
                             <div class="px-10 py-10 bg-gradient-to-br from-indigo-600 to-indigo-800 text-white relative">
                                 <div class="absolute right-10 top-10 opacity-10"><i class="fas fa-user-cog text-8xl"></i></div>
@@ -259,7 +297,8 @@ $page_title = "Manage Account Profile";
                             </div>
                             
                             <form action="edit-user.php" method="POST" class="p-10 space-y-10">
-                                <?php echo csrf_field(); ?>
+                                <?php
+echo csrf_field(); ?>
                                 <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
                                 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -303,10 +342,8 @@ $page_title = "Manage Account Profile";
                                             <select name="official_position" x-model="officialPosition" :required="role === 'official'"
                                                     class="form-input w-full bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-sm font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 transition shadow-sm appearance-none">
                                                 <option value="">Select official position...</option>
-                                                <option value="barangay-captain">Barangay Captain</option>
-                                                <option value="kagawad">Kagawad</option>
-                                                <option value="barangay-secretary">Barangay Secretary</option>
-                                                <option value="barangay-treasurer">Barangay Treasurer</option>
+                                                <option value="barangay-officials">Barangay Officials</option>
+                                                <option value="barangay-kagawad">Barangay Kagawad</option>
                                                 <option value="barangay-tanod">Barangay Tanod</option>
                                             </select>
                                         </div>
@@ -350,10 +387,13 @@ $page_title = "Manage Account Profile";
                                 </div>
                             </form>
                         </div>
-                    <?php endif; ?>
+                    <?php
+endif; ?>
                 </div>
             </main>
         </div>
     </div>
 </body>
 </html>
+
+

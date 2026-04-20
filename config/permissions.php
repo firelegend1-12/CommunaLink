@@ -128,13 +128,9 @@ function get_role_hierarchy($role) {
     $hierarchy = [
         'resident' => 1,
         'barangay-tanod' => 2,
-        'kagawad' => 3,
         'barangay-kagawad' => 3,
         'barangay-officials' => 4,
-        'barangay-captain' => 4,
-        'barangay-secretary' => 4,
-        'barangay-treasurer' => 4,
-        'admin' => 4
+        'admin' => 5
     ];
     return $hierarchy[$role] ?? 0;
 }
@@ -155,7 +151,7 @@ function check_role_override($user_role, $target_role) {
     return get_role_hierarchy($user_role) > get_role_hierarchy($target_role);
 }
 
-// Role definitions with REAL-LIFE permissions based on Philippine barangay governance
+// Role definitions after Phase 2 role consolidation.
 $role_permissions = [
     'admin' => [
         'description' => 'System Administrator - Full system control',
@@ -171,19 +167,31 @@ $role_permissions = [
             'manage_documents' => true,
             'manage_businesses' => true,
             'manage_residents' => true,
+            'add_residents' => true,
             'view_residents' => true,
             'edit_resident_profile' => true,
             'view_monitoring_requests' => true,
             'access_chat' => true,
             'financial_management' => true,
             'approve_applications' => true,
-            'override_decisions' => true
+            'override_decisions' => true,
+            'record_keeping' => true,
+            'meeting_minutes' => true,
+            'budget_management' => true,
+            'financial_reports' => true,
+            'tax_collection' => true,
+            'expense_tracking' => true,
+            'committee_management' => true,
+            'patrol_management' => true,
+            'incident_reporting' => true,
+            'peace_and_order' => true,
+            'emergency_response' => true
         ],
         'restricted' => []
     ],
 
     'barangay-officials' => [
-        'description' => 'Barangay Officials umbrella tier (community board, incident, document, chat, residents view-only)',
+        'description' => 'Barangay Officials - consolidated officials role for captain, secretary, and treasurer',
         'access' => [
             'user_management' => false,
             'system_logs' => false,
@@ -194,166 +202,59 @@ $role_permissions = [
             'manage_events' => true,
             'manage_incidents' => true,
             'manage_documents' => true,
-            'manage_businesses' => false,
+            'manage_businesses' => true,
             'manage_residents' => false,
-            'view_residents' => true,
-            'edit_resident_profile' => false,
-            'view_monitoring_requests' => false,
-            'access_chat' => true,
-            'financial_management' => false,
-            'approve_applications' => false,
-            'override_decisions' => false,
-            'preside_meetings' => false,
-            'emergency_powers' => false
-        ],
-        'restricted' => ['user_management', 'system_logs', 'all_pages', 'delete_users', 'view_logs', 'manage_businesses', 'manage_residents', 'edit_resident_profile', 'view_monitoring_requests', 'financial_management', 'approve_applications', 'override_decisions', 'preside_meetings', 'emergency_powers']
-    ],
-    
-    'barangay-captain' => [
-        'description' => 'Barangay Captain - Official tier access profile',
-        'access' => [
-            'user_management' => false,
-            'system_logs' => false,
-            'all_pages' => false,
-            'view_logs' => false,
-            'delete_users' => false,
-            'manage_announcements' => true,
-            'manage_events' => true,
-            'manage_incidents' => true,
-            'manage_documents' => true,
-            'manage_businesses' => false,
-            'manage_residents' => false,
-            'view_residents' => true,
-            'edit_resident_profile' => false,
-            'view_monitoring_requests' => false,
-            'access_chat' => true,
-            'financial_management' => false,
-            'approve_applications' => false,
-            'override_decisions' => false,
-            'preside_meetings' => false,
-            'emergency_powers' => false
-        ],
-        'restricted' => ['user_management', 'system_logs', 'all_pages', 'delete_users', 'view_logs', 'manage_businesses', 'manage_residents', 'edit_resident_profile', 'view_monitoring_requests', 'financial_management', 'approve_applications', 'override_decisions', 'preside_meetings', 'emergency_powers']
-    ],
-    
-    'kagawad' => [
-        'description' => 'Barangay Kagawad - Incident, chat, monitoring, residents view-only access',
-        'access' => [
-            'user_management' => false,
-            'system_logs' => false,
-            'all_pages' => false,
-            'view_logs' => false,
-            'delete_users' => false,
-            'manage_announcements' => false,
-            'manage_events' => false,
-            'manage_incidents' => true,
-            'manage_documents' => false,
-            'manage_businesses' => false,
-            'manage_residents' => false,
+            'add_residents' => true,
             'view_residents' => true,
             'edit_resident_profile' => false,
             'view_monitoring_requests' => true,
-            'access_chat' => true,
-            'financial_management' => false,
-            'approve_applications' => false,
-            'override_decisions' => false,
-            'preside_meetings' => false,
-            'emergency_powers' => false,
-            'committee_management' => false
-        ],
-        'restricted' => ['user_management', 'system_logs', 'all_pages', 'delete_users', 'view_logs', 'manage_announcements', 'manage_events', 'manage_documents', 'manage_businesses', 'manage_residents', 'edit_resident_profile', 'financial_management', 'approve_applications', 'override_decisions', 'preside_meetings', 'emergency_powers', 'committee_management']
-    ],
-
-    'barangay-kagawad' => [
-        'description' => 'Barangay Kagawad alias role key with the same access profile',
-        'access' => [
-            'user_management' => false,
-            'system_logs' => false,
-            'all_pages' => false,
-            'view_logs' => false,
-            'delete_users' => false,
-            'manage_announcements' => false,
-            'manage_events' => false,
-            'manage_incidents' => true,
-            'manage_documents' => false,
-            'manage_businesses' => false,
-            'manage_residents' => false,
-            'view_residents' => true,
-            'edit_resident_profile' => false,
-            'view_monitoring_requests' => true,
-            'access_chat' => true,
-            'financial_management' => false,
-            'approve_applications' => false,
-            'override_decisions' => false,
-            'preside_meetings' => false,
-            'emergency_powers' => false,
-            'committee_management' => false
-        ],
-        'restricted' => ['user_management', 'system_logs', 'all_pages', 'delete_users', 'view_logs', 'manage_announcements', 'manage_events', 'manage_documents', 'manage_businesses', 'manage_residents', 'edit_resident_profile', 'financial_management', 'approve_applications', 'override_decisions', 'preside_meetings', 'emergency_powers', 'committee_management']
-    ],
-    
-    'barangay-secretary' => [
-        'description' => 'Barangay Secretary - Official tier access profile',
-        'access' => [
-            'user_management' => false,
-            'system_logs' => false,
-            'all_pages' => false,
-            'view_logs' => false,
-            'delete_users' => false,
-            'manage_announcements' => true,
-            'manage_events' => true,
-            'manage_incidents' => true,
-            'manage_documents' => true,
-            'manage_businesses' => false,
-            'manage_residents' => false,
-            'view_residents' => true,
-            'edit_resident_profile' => false,
-            'view_monitoring_requests' => false,
-            'access_chat' => true,
-            'financial_management' => false,
-            'approve_applications' => false,
-            'override_decisions' => false,
-            'preside_meetings' => false,
-            'emergency_powers' => false,
-            'record_keeping' => true,
-            'meeting_minutes' => true
-        ],
-        'restricted' => ['user_management', 'system_logs', 'all_pages', 'delete_users', 'view_logs', 'manage_businesses', 'manage_residents', 'edit_resident_profile', 'view_monitoring_requests', 'financial_management', 'approve_applications', 'override_decisions', 'preside_meetings', 'emergency_powers']
-    ],
-    
-    'barangay-treasurer' => [
-        'description' => 'Barangay Treasurer - Official tier access profile with financial tasks',
-        'access' => [
-            'user_management' => false,
-            'system_logs' => false,
-            'all_pages' => false,
-            'view_logs' => false,
-            'delete_users' => false,
-            'manage_announcements' => true,
-            'manage_events' => true,
-            'manage_incidents' => true,
-            'manage_documents' => true,
-            'manage_businesses' => false,
-            'manage_residents' => false,
-            'view_residents' => true,
-            'edit_resident_profile' => false,
-            'view_monitoring_requests' => false,
             'access_chat' => true,
             'financial_management' => true,
             'approve_applications' => false,
             'override_decisions' => false,
             'preside_meetings' => false,
             'emergency_powers' => false,
+            'record_keeping' => true,
+            'meeting_minutes' => true,
             'budget_management' => true,
             'financial_reports' => true,
             'tax_collection' => true,
             'expense_tracking' => true
         ],
-        'restricted' => ['user_management', 'system_logs', 'all_pages', 'delete_users', 'view_logs', 'manage_businesses', 'manage_residents', 'edit_resident_profile', 'view_monitoring_requests', 'approve_applications', 'override_decisions', 'preside_meetings', 'emergency_powers']
+        'restricted' => ['user_management', 'system_logs', 'all_pages', 'delete_users', 'view_logs', 'manage_residents', 'edit_resident_profile', 'approve_applications', 'override_decisions', 'preside_meetings', 'emergency_powers']
     ],
-    
+
+    'barangay-kagawad' => [
+        'description' => 'Barangay Kagawad - incident, document, business, monitoring, and resident add/view access',
+        'access' => [
+            'user_management' => false,
+            'system_logs' => false,
+            'all_pages' => false,
+            'view_logs' => false,
+            'delete_users' => false,
+            'manage_announcements' => false,
+            'manage_events' => false,
+            'manage_incidents' => true,
+            'manage_documents' => true,
+            'manage_businesses' => true,
+            'manage_residents' => false,
+            'add_residents' => true,
+            'view_residents' => true,
+            'edit_resident_profile' => false,
+            'view_monitoring_requests' => true,
+            'access_chat' => true,
+            'financial_management' => false,
+            'approve_applications' => false,
+            'override_decisions' => false,
+            'preside_meetings' => false,
+            'emergency_powers' => false,
+            'committee_management' => false
+        ],
+        'restricted' => ['user_management', 'system_logs', 'all_pages', 'delete_users', 'view_logs', 'manage_announcements', 'manage_events', 'manage_residents', 'edit_resident_profile', 'financial_management', 'approve_applications', 'override_decisions', 'preside_meetings', 'emergency_powers', 'committee_management']
+    ],
+
     'barangay-tanod' => [
-        'description' => 'Barangay Tanod - Incident reports and chat access',
+        'description' => 'Barangay Tanod - incident reports and chat access',
         'access' => [
             'user_management' => false,
             'system_logs' => false,
@@ -366,6 +267,7 @@ $role_permissions = [
             'manage_documents' => false,
             'manage_businesses' => false,
             'manage_residents' => false,
+            'add_residents' => false,
             'view_residents' => false,
             'edit_resident_profile' => false,
             'view_monitoring_requests' => false,
@@ -382,7 +284,7 @@ $role_permissions = [
         ],
         'restricted' => ['user_management', 'system_logs', 'all_pages', 'delete_users', 'view_logs', 'manage_announcements', 'manage_events', 'manage_documents', 'manage_businesses', 'manage_residents', 'view_residents', 'edit_resident_profile', 'view_monitoring_requests', 'financial_management', 'approve_applications', 'override_decisions', 'preside_meetings', 'emergency_powers']
     ],
-    
+
     'resident' => [
         'description' => 'Regular resident - Resident interface only',
         'access' => [
@@ -397,6 +299,7 @@ $role_permissions = [
             'manage_documents' => false,
             'manage_businesses' => false,
             'manage_residents' => false,
+            'add_residents' => false,
             'view_residents' => false,
             'edit_resident_profile' => false,
             'view_monitoring_requests' => false,
@@ -435,17 +338,14 @@ function is_barangay_official($user_role) {
     $user_role = normalize_rbac_key($user_role);
     return in_array($user_role, [
         'barangay-officials',
-        'barangay-captain', 
-        'kagawad', 
         'barangay-kagawad',
-        'barangay-secretary', 
-        'barangay-treasurer', 
         'barangay-tanod'
     ], true);
 }
 
 function is_barangay_captain($user_role) {
-    return normalize_rbac_key($user_role) === 'barangay-captain';
+    // Legacy helper retained for backwards compatibility after role consolidation.
+    return normalize_rbac_key($user_role) === 'barangay-officials';
 }
 
 function can_final_approve_documents($user_role) {
@@ -453,27 +353,27 @@ function can_final_approve_documents($user_role) {
 }
 
 function can_manage_incidents($user_role) {
-    return in_array(normalize_rbac_key($user_role), ['admin', 'barangay-officials', 'barangay-captain', 'kagawad', 'barangay-kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true);
+    return in_array(normalize_rbac_key($user_role), ['admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true);
 }
 
 function can_manage_businesses($user_role) {
-    return in_array(normalize_rbac_key($user_role), ['admin'], true);
+    return in_array(normalize_rbac_key($user_role), ['admin', 'barangay-officials', 'barangay-kagawad'], true);
 }
 
 function can_manage_documents($user_role) {
-    return in_array(normalize_rbac_key($user_role), ['admin', 'barangay-officials', 'barangay-captain', 'barangay-secretary', 'barangay-treasurer'], true);
+    return in_array(normalize_rbac_key($user_role), ['admin', 'barangay-officials', 'barangay-kagawad'], true);
 }
 
 function can_manage_announcements($user_role) {
-    return in_array(normalize_rbac_key($user_role), ['admin', 'barangay-officials', 'barangay-captain', 'barangay-secretary', 'barangay-treasurer'], true);
+    return in_array(normalize_rbac_key($user_role), ['admin', 'barangay-officials'], true);
 }
 
 function can_manage_events($user_role) {
-    return in_array(normalize_rbac_key($user_role), ['admin', 'barangay-officials', 'barangay-captain', 'barangay-secretary', 'barangay-treasurer'], true);
+    return in_array(normalize_rbac_key($user_role), ['admin', 'barangay-officials'], true);
 }
 
 function can_manage_finances($user_role) {
-    return in_array(normalize_rbac_key($user_role), ['admin', 'barangay-treasurer'], true);
+    return in_array(normalize_rbac_key($user_role), ['admin', 'barangay-officials'], true);
 }
 
 function can_preside_meetings($user_role) {

@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Generate Business Permit Page
  * - Generates official business permits with permit numbers and expiration dates
@@ -175,7 +176,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="flex h-screen">
-        <?php include '../partials/sidebar.php'; ?>
+        <?php
+include '../partials/sidebar.php'; ?>
         
         <div class="flex flex-col flex-1">
             <header class="bg-white shadow-sm z-10 no-print">
@@ -190,9 +192,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
                             
                             <div x-data="{ open: false }" class="relative">
                                 <button @click="open = !open" class="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 focus:outline-none">
-                                    <span><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
+                                    <span><?php
+echo htmlspecialchars($_SESSION['fullname']); ?></span>
                                     <div class="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-white">
-                                        <?php echo substr($_SESSION['fullname'], 0, 1); ?>
+                                        <?php
+echo substr($_SESSION['fullname'], 0, 1); ?>
                                     </div>
                                 </button>
                                 <div x-show="open" @click.away="open = false" x-cloak
@@ -208,34 +212,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
             
             <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
                 <div class="max-w-4xl mx-auto">
-                    <?php if (isset($_SESSION['success_message'])): ?>
+                    <?php
+if (isset($_SESSION['success_message'])): ?>
                         <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded-md no-print">
-                            <p><?php echo htmlspecialchars($_SESSION['success_message']); ?></p>
+                            <p><?php
+echo htmlspecialchars($_SESSION['success_message']); ?></p>
                         </div>
-                        <?php unset($_SESSION['success_message']); ?>
-                    <?php endif; ?>
+                        <?php
+unset($_SESSION['success_message']); ?>
+                    <?php
+endif; ?>
 
-                    <?php if (isset($_SESSION['error_message'])): ?>
+                    <?php
+if (isset($_SESSION['error_message'])): ?>
                         <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-md no-print">
-                            <p><?php echo htmlspecialchars($_SESSION['error_message']); ?></p>
+                            <p><?php
+echo htmlspecialchars($_SESSION['error_message']); ?></p>
                         </div>
-                        <?php unset($_SESSION['error_message']); ?>
-                    <?php endif; ?>
+                        <?php
+unset($_SESSION['error_message']); ?>
+                    <?php
+endif; ?>
 
                     <!-- Action Buttons -->
                     <div class="flex justify-between items-center mb-6 no-print">
                         <div class="flex space-x-4">
-                            <?php if (empty($transaction['permit_number'])): ?>
+                            <?php
+if (empty($transaction['permit_number'])): ?>
                                 <form method="POST" class="inline">
                                     <button type="submit" name="generate_permit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md text-sm font-medium">
                                         <i class="fas fa-certificate mr-2"></i> Generate Permit
                                     </button>
                                 </form>
-                            <?php else: ?>
+                            <?php
+else: ?>
                                 <span class="bg-green-100 text-green-800 px-4 py-2 rounded-md text-sm font-medium">
                                     <i class="fas fa-check mr-2"></i> Permit Generated
                                 </span>
-                            <?php endif; ?>
+                            <?php
+endif; ?>
                         </div>
                         
                         <div class="flex space-x-2">
@@ -273,16 +288,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
 
                         <!-- Permit Number and Status -->
                         <div class="text-center mb-6">
-                            <?php if (!empty($transaction['permit_number'])): ?>
+                            <?php
+if (!empty($transaction['permit_number'])): ?>
                                 <div class="permit-number">
-                                    Permit No: <?php echo htmlspecialchars($transaction['permit_number']); ?>
+                                    Permit No: <?php
+echo htmlspecialchars($transaction['permit_number']); ?>
                                 </div>
                                 <div class="expiration-badge mt-2">
-                                    Valid Until: <?php echo date('M d, Y', strtotime($transaction['permit_expiration_date'])); ?>
+                                    Valid Until: <?php
+echo date('M d, Y', strtotime($transaction['permit_expiration_date'])); ?>
                                 </div>
-                            <?php else: ?>
+                            <?php
+else: ?>
                                 <div class="text-gray-500 italic">Permit number will be generated when approved</div>
-                            <?php endif; ?>
+                            <?php
+endif; ?>
                         </div>
 
                         <!-- Business Information -->
@@ -292,24 +312,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
                                 <div class="space-y-3">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Business Name:</label>
-                                        <p class="text-lg font-semibold text-gray-900"><?php echo htmlspecialchars($transaction['business_name']); ?></p>
+                                        <p class="text-lg font-semibold text-gray-900"><?php
+echo htmlspecialchars($transaction['business_name']); ?></p>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Business Type:</label>
-                                        <p class="text-gray-900"><?php echo htmlspecialchars($transaction['business_type']); ?></p>
+                                        <p class="text-gray-900"><?php
+echo htmlspecialchars($transaction['business_type']); ?></p>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Business Address:</label>
-                                        <p class="text-gray-900"><?php echo htmlspecialchars($transaction['address']); ?></p>
+                                        <p class="text-gray-900"><?php
+echo htmlspecialchars($transaction['address']); ?></p>
                                     </div>
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700">OR No.:</label>
-                                            <p class="text-gray-900 font-bold"><?php echo htmlspecialchars($transaction['official_receipt_no'] ?? 'N/A'); ?></p>
+                                            <p class="text-gray-900 font-bold"><?php
+echo htmlspecialchars($transaction['official_receipt_no'] ?? 'N/A'); ?></p>
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700">Capital:</label>
-                                            <p class="text-gray-900 font-bold">₱<?php echo number_format($transaction['capital'] ?? 0, 2); ?></p>
+                                            <p class="text-gray-900 font-bold">â‚±<?php
+echo number_format($transaction['capital'] ?? 0, 2); ?></p>
                                         </div>
                                     </div>
                                 </div>
@@ -320,15 +345,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
                                 <div class="space-y-3">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Owner Name:</label>
-                                        <p class="text-lg font-semibold text-gray-900"><?php echo htmlspecialchars($transaction['first_name'] . ' ' . $transaction['last_name']); ?></p>
+                                        <p class="text-lg font-semibold text-gray-900"><?php
+echo htmlspecialchars($transaction['first_name'] . ' ' . $transaction['last_name']); ?></p>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Residential Address:</label>
-                                        <p class="text-gray-900"><?php echo htmlspecialchars($transaction['resident_address']); ?></p>
+                                        <p class="text-gray-900"><?php
+echo htmlspecialchars($transaction['resident_address']); ?></p>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Application Date:</label>
-                                        <p class="text-gray-900"><?php echo date('F j, Y', strtotime($transaction['application_date'])); ?></p>
+                                        <p class="text-gray-900"><?php
+echo date('F j, Y', strtotime($transaction['application_date'])); ?></p>
                                     </div>
                                 </div>
                             </div>
@@ -352,12 +380,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
                             <div class="text-center">
                                 <div class="border-t-2 border-gray-400 pt-2 mb-2" style="width: 200px; margin: 0 auto;"></div>
                                 <p class="text-sm font-medium text-gray-900">Business Owner</p>
-                                <p class="text-xs text-gray-600"><?php echo htmlspecialchars($transaction['first_name'] . ' ' . $transaction['last_name']); ?></p>
+                                <p class="text-xs text-gray-600"><?php
+echo htmlspecialchars($transaction['first_name'] . ' ' . $transaction['last_name']); ?></p>
                             </div>
                             
                             <div class="text-center">
                                 <div class="border-t-2 border-gray-400 pt-2 mb-2" style="width: 200px; margin: 0 auto;"></div>
-                                <p class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($_SESSION['fullname'] ?? 'Barangay Captain'); ?></p>
+                                <p class="text-sm font-medium text-gray-900"><?php
+echo htmlspecialchars($_SESSION['fullname'] ?? 'Barangay Captain'); ?></p>
                                 <p class="text-xs text-gray-600">Punong Barangay</p>
                                 <p class="text-xs text-gray-600">Official Seal</p>
                             </div>
@@ -370,8 +400,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
                                 Municipality of Oton, Province of Iloilo, Philippines.
                             </p>
                             <p class="text-xs text-gray-500 mt-2">
-                                Generated on: <?php echo date('F j, Y \a\t g:i A'); ?> | 
-                                Generated by: <?php echo htmlspecialchars($_SESSION['fullname']); ?>
+                                Generated on: <?php
+echo date('F j, Y \a\t g:i A'); ?> | 
+                                Generated by: <?php
+echo htmlspecialchars($_SESSION['fullname']); ?>
                             </p>
                         </div>
                     </div>
@@ -382,8 +414,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
 
     <script>
         function downloadPDF() {
-            window.location.href = '../partials/generate-business-permit-pdf.php?id=<?php echo (int) $transaction_id; ?>';
+            window.location.href = '../partials/generate-business-permit-pdf.php?id=<?php
+echo (int) $transaction_id; ?>';
         }
     </script>
 </body>
 </html> 
+
+

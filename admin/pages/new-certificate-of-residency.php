@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * New Certificate of Residency Page
  */
@@ -33,7 +34,8 @@ try {
 <body class="bg-gray-100 min-h-screen">
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar Navigation -->
-        <?php include '../partials/sidebar.php'; ?>
+        <?php
+include '../partials/sidebar.php'; ?>
         
         <!-- Main Content -->
         <div class="flex flex-col flex-1 overflow-hidden">
@@ -46,9 +48,11 @@ try {
                         <!-- User Dropdown -->
                         <div x-data="{ open: false }" class="relative">
                             <button @click="open = !open" class="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 focus:outline-none">
-                                <span><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
+                                <span><?php
+echo htmlspecialchars($_SESSION['fullname']); ?></span>
                                 <div class="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-white">
-                                    <?php echo substr($_SESSION['fullname'], 0, 1); ?>
+                                    <?php
+echo substr($_SESSION['fullname'], 0, 1); ?>
                                 </div>
                             </button>
                             <div x-show="open" @click.away="open = false" x-cloak
@@ -71,10 +75,12 @@ try {
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
                  <div class="max-w-4xl mx-auto">
-                    <?php display_flash_messages(); ?>
+                    <?php
+display_flash_messages(); ?>
 
                     <div class="bg-white rounded-lg shadow-lg p-8">
-                        <form action="../partials/new-certificate-of-residency-handler.php" method="POST" class="space-y-8" x-data='{ residents: <?php echo json_encode($residents); ?>, applicantName: "" }'>
+                        <form action="../partials/new-certificate-of-residency-handler.php" method="POST" class="space-y-8" x-data='{ residents: <?php
+echo json_encode($residents); ?>, applicantName: "" }'>
                             
                             <!-- Header Section -->
                             <div class="text-center border-b-2 border-gray-200 pb-6 mb-8">
@@ -89,9 +95,13 @@ try {
                                         <label for="resident_id" class="block text-sm font-medium text-gray-700">Select Applicant</label>
                                         <select name="resident_id" id="resident_id" required @change="applicantName = residents.find(r => r.id == $event.target.value)?.full_name || ''" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                                             <option value="" disabled selected>-- Select a Resident --</option>
-                                            <?php foreach ($residents as $resident): ?>
-                                                <option value="<?php echo $resident['id']; ?>"><?php echo htmlspecialchars($resident['full_name']); ?></option>
-                                            <?php endforeach; ?>
+                                            <?php
+foreach ($residents as $resident): ?>
+                                                <option value="<?php
+echo $resident['id']; ?>"><?php
+echo htmlspecialchars($resident['full_name']); ?></option>
+                                            <?php
+endforeach; ?>
                                         </select>
                                     </div>
                                     <div>
@@ -146,7 +156,8 @@ try {
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                      <div>
                                         <label for="issued_on" class="block text-sm font-medium text-gray-700">Date of Issuance</label>
-                                        <input type="date" name="issued_on" id="issued_on" value="<?php echo date('Y-m-d'); ?>" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                        <input type="date" name="issued_on" id="issued_on" value="<?php
+echo date('Y-m-d'); ?>" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                                     </div>
                                 </div>
                             </div>
@@ -167,3 +178,5 @@ try {
     </div>
 </body>
 </html> 
+
+

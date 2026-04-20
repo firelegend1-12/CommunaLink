@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
@@ -163,14 +164,16 @@ $page_title = 'System Logs';
 </head>
 <body class="bg-gray-100 min-h-screen">
 <div class="flex h-screen overflow-hidden">
-    <?php include '../partials/sidebar.php'; ?>
+    <?php
+include '../partials/sidebar.php'; ?>
     <div class="flex flex-col flex-1 overflow-hidden">
         <header class="bg-white shadow-sm z-10">
             <div class="px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     <h1 class="text-2xl font-semibold text-gray-800">System Logs</h1>
                     <div class="flex items-center space-x-4">
-                        <span class="text-sm text-gray-600">Total Logs: <?php echo number_format($total_logs); ?></span>
+                        <span class="text-sm text-gray-600">Total Logs: <?php
+echo number_format($total_logs); ?></span>
                     </div>
                 </div>
             </div>
@@ -178,23 +181,32 @@ $page_title = 'System Logs';
 
         <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div class="bg-white rounded-lg shadow p-6">
-                <?php if (isset($_SESSION['success_message'])): ?>
+                <?php
+if (isset($_SESSION['success_message'])): ?>
                     <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 text-sm font-semibold">
-                        <i class="fas fa-check-circle mr-2"></i><?php echo htmlspecialchars($_SESSION['success_message']); ?>
+                        <i class="fas fa-check-circle mr-2"></i><?php
+echo htmlspecialchars($_SESSION['success_message']); ?>
                     </div>
-                <?php unset($_SESSION['success_message']); endif; ?>
+                <?php
+unset($_SESSION['success_message']); endif; ?>
 
-                <?php if (isset($_SESSION['warning_message'])): ?>
+                <?php
+if (isset($_SESSION['warning_message'])): ?>
                     <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 text-sm font-semibold">
-                        <i class="fas fa-triangle-exclamation mr-2"></i><?php echo htmlspecialchars($_SESSION['warning_message']); ?>
+                        <i class="fas fa-triangle-exclamation mr-2"></i><?php
+echo htmlspecialchars($_SESSION['warning_message']); ?>
                     </div>
-                <?php unset($_SESSION['warning_message']); endif; ?>
+                <?php
+unset($_SESSION['warning_message']); endif; ?>
 
-                <?php if (isset($_SESSION['error_message'])): ?>
+                <?php
+if (isset($_SESSION['error_message'])): ?>
                     <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800 text-sm font-semibold">
-                        <i class="fas fa-exclamation-circle mr-2"></i><?php echo htmlspecialchars($_SESSION['error_message']); ?>
+                        <i class="fas fa-exclamation-circle mr-2"></i><?php
+echo htmlspecialchars($_SESSION['error_message']); ?>
                     </div>
-                <?php unset($_SESSION['error_message']); endif; ?>
+                <?php
+unset($_SESSION['error_message']); endif; ?>
 
                 <div class="mb-4 flex flex-wrap gap-2 items-center">
                     <a href="logs.php" class="inline-flex items-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
@@ -204,48 +216,79 @@ $page_title = 'System Logs';
 
                 <div class="mb-4 flex flex-wrap gap-2 items-center">
                     <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider">Quick Filters</span>
-                    <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'today', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php echo $quick_filter === 'today' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'; ?>">Today</a>
-                    <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'errors_only', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php echo $quick_filter === 'errors_only' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'; ?>">Errors Only</a>
-                    <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'payment_events', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php echo $quick_filter === 'payment_events' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'; ?>">Payment Events</a>
-                    <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'status_changes', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php echo $quick_filter === 'status_changes' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'; ?>">Status Changes</a>
-                    <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'auth_events', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php echo $quick_filter === 'auth_events' ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'; ?>">Auth Events</a>
-                    <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'session_events', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php echo $quick_filter === 'session_events' ? 'bg-fuchsia-600 text-white' : 'bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100'; ?>">Session Events</a>
-                    <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => '', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">Clear Quick Filter</a>
+                    <a href="<?php
+echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'today', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php
+echo $quick_filter === 'today' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'; ?>">Today</a>
+                    <a href="<?php
+echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'errors_only', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php
+echo $quick_filter === 'errors_only' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'; ?>">Errors Only</a>
+                    <a href="<?php
+echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'payment_events', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php
+echo $quick_filter === 'payment_events' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'; ?>">Payment Events</a>
+                    <a href="<?php
+echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'status_changes', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php
+echo $quick_filter === 'status_changes' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'; ?>">Status Changes</a>
+                    <a href="<?php
+echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'auth_events', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php
+echo $quick_filter === 'auth_events' ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'; ?>">Auth Events</a>
+                    <a href="<?php
+echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => 'session_events', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold <?php
+echo $quick_filter === 'session_events' ? 'bg-fuchsia-600 text-white' : 'bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100'; ?>">Session Events</a>
+                    <a href="<?php
+echo htmlspecialchars(build_logs_url($base_query, ['quick_filter' => '', 'page' => 1])); ?>" class="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">Clear Quick Filter</a>
                 </div>
 
                 <form method="get" class="mb-4 flex flex-wrap gap-2 items-end">
-                    <input type="hidden" name="quick_filter" value="<?php echo htmlspecialchars($quick_filter); ?>">
+                    <input type="hidden" name="quick_filter" value="<?php
+echo htmlspecialchars($quick_filter); ?>">
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
                             <i class="fas fa-search"></i>
                         </span>
-                        <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Search logs..." class="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <input type="text" name="search" value="<?php
+echo htmlspecialchars($search); ?>" placeholder="Search logs..." class="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
 
                     <select name="user" class="bg-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
                         <option value="">All Users</option>
-                        <?php foreach ($users as $u): ?>
-                            <option value="<?php echo htmlspecialchars($u); ?>" <?php if ($user === $u) echo 'selected'; ?>><?php echo htmlspecialchars($u); ?></option>
-                        <?php endforeach; ?>
+                        <?php
+foreach ($users as $u): ?>
+                            <option value="<?php
+echo htmlspecialchars($u); ?>" <?php
+if ($user === $u) echo 'selected'; ?>><?php
+echo htmlspecialchars($u); ?></option>
+                        <?php
+endforeach; ?>
                     </select>
 
                     <select name="action" class="bg-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
                         <option value="">All Actions</option>
-                        <?php foreach ($actions as $a): ?>
-                            <option value="<?php echo htmlspecialchars($a); ?>" <?php if ($action === $a) echo 'selected'; ?>><?php echo htmlspecialchars(ucfirst($a)); ?></option>
-                        <?php endforeach; ?>
+                        <?php
+foreach ($actions as $a): ?>
+                            <option value="<?php
+echo htmlspecialchars($a); ?>" <?php
+if ($action === $a) echo 'selected'; ?>><?php
+echo htmlspecialchars(ucfirst($a)); ?></option>
+                        <?php
+endforeach; ?>
                     </select>
 
                     <select name="severity" class="bg-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
                         <option value="">All Severities</option>
-                        <option value="info" <?php if ($severity_filter === 'info') echo 'selected'; ?>>Info</option>
-                        <option value="warning" <?php if ($severity_filter === 'warning') echo 'selected'; ?>>Warning</option>
-                        <option value="error" <?php if ($severity_filter === 'error') echo 'selected'; ?>>Error</option>
-                        <option value="critical" <?php if ($severity_filter === 'critical') echo 'selected'; ?>>Critical</option>
+                        <option value="info" <?php
+if ($severity_filter === 'info') echo 'selected'; ?>>Info</option>
+                        <option value="warning" <?php
+if ($severity_filter === 'warning') echo 'selected'; ?>>Warning</option>
+                        <option value="error" <?php
+if ($severity_filter === 'error') echo 'selected'; ?>>Error</option>
+                        <option value="critical" <?php
+if ($severity_filter === 'critical') echo 'selected'; ?>>Critical</option>
                     </select>
 
-                    <input type="date" name="date_from" value="<?php echo htmlspecialchars($date_from); ?>" class="bg-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-                    <input type="date" name="date_to" value="<?php echo htmlspecialchars($date_to); ?>" class="bg-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                    <input type="date" name="date_from" value="<?php
+echo htmlspecialchars($date_from); ?>" class="bg-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                    <input type="date" name="date_to" value="<?php
+echo htmlspecialchars($date_to); ?>" class="bg-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">Filter</button>
                     <a href="logs.php" class="inline-flex items-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold ml-2 transition">
                         <i class="fas fa-undo mr-2"></i>Reset
@@ -258,13 +301,20 @@ $page_title = 'System Logs';
 
                 <form method="get" class="mb-6 flex flex-wrap items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3">
                     <input type="hidden" name="export" value="csv">
-                    <input type="hidden" name="quick_filter" value="<?php echo htmlspecialchars($quick_filter); ?>">
-                    <input type="hidden" name="search" value="<?php echo htmlspecialchars($search); ?>">
-                    <input type="hidden" name="user" value="<?php echo htmlspecialchars($user); ?>">
-                    <input type="hidden" name="action" value="<?php echo htmlspecialchars($action); ?>">
-                    <input type="hidden" name="severity" value="<?php echo htmlspecialchars($severity_filter); ?>">
-                    <input type="hidden" name="date_from" value="<?php echo htmlspecialchars($date_from); ?>">
-                    <input type="hidden" name="date_to" value="<?php echo htmlspecialchars($date_to); ?>">
+                    <input type="hidden" name="quick_filter" value="<?php
+echo htmlspecialchars($quick_filter); ?>">
+                    <input type="hidden" name="search" value="<?php
+echo htmlspecialchars($search); ?>">
+                    <input type="hidden" name="user" value="<?php
+echo htmlspecialchars($user); ?>">
+                    <input type="hidden" name="action" value="<?php
+echo htmlspecialchars($action); ?>">
+                    <input type="hidden" name="severity" value="<?php
+echo htmlspecialchars($severity_filter); ?>">
+                    <input type="hidden" name="date_from" value="<?php
+echo htmlspecialchars($date_from); ?>">
+                    <input type="hidden" name="date_to" value="<?php
+echo htmlspecialchars($date_to); ?>">
 
                     <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider">Export Presets</span>
                     <select name="export_preset" class="bg-white rounded-lg px-3 py-2 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm">
@@ -282,29 +332,38 @@ $page_title = 'System Logs';
                 <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
                         <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Hot Logs</p>
-                        <p class="text-2xl font-black text-slate-800"><?php echo number_format($total_logs); ?></p>
+                        <p class="text-2xl font-black text-slate-800"><?php
+echo number_format($total_logs); ?></p>
                         <p class="text-xs text-slate-500 mt-1">Active logs in primary table</p>
                     </div>
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <p class="text-xs uppercase tracking-wider text-blue-600 font-semibold">Archived Logs</p>
-                        <p class="text-2xl font-black text-blue-800"><?php echo number_format($archive_logs_count); ?></p>
+                        <p class="text-2xl font-black text-blue-800"><?php
+echo number_format($archive_logs_count); ?></p>
                         <p class="text-xs text-blue-600 mt-1">Historical logs in archive table</p>
                     </div>
                     <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
                         <p class="text-xs uppercase tracking-wider text-amber-600 font-semibold">Last Archive Batch</p>
-                        <p class="text-sm font-black text-amber-800"><?php echo htmlspecialchars($latest_archive_batch['batch_id'] ?? 'None'); ?></p>
+                        <p class="text-sm font-black text-amber-800"><?php
+echo htmlspecialchars($latest_archive_batch['batch_id'] ?? 'None'); ?></p>
                         <p class="text-xs text-amber-700 mt-1">
-                            <?php if ($latest_archive_batch): ?>
-                                <?php echo number_format((int) $latest_archive_batch['entry_count']); ?> rows on <?php echo htmlspecialchars($latest_archive_batch['created_at']); ?>
-                            <?php else: ?>
+                            <?php
+if ($latest_archive_batch): ?>
+                                <?php
+echo number_format((int) $latest_archive_batch['entry_count']); ?> rows on <?php
+echo htmlspecialchars($latest_archive_batch['created_at']); ?>
+                            <?php
+else: ?>
                                 No archive runs yet.
-                            <?php endif; ?>
+                            <?php
+endif; ?>
                         </p>
                     </div>
                 </div>
 
                 <form method="post" action="../partials/archive-logs.php" class="mb-6 flex flex-wrap items-end gap-3 bg-rose-50 border border-rose-200 rounded-lg p-4">
-                    <?php echo csrf_field(); ?>
+                    <?php
+echo csrf_field(); ?>
                     <div>
                         <label class="block text-xs font-semibold text-rose-700 uppercase tracking-wider mb-1">Retention Days</label>
                         <input type="number" name="keep_days" min="30" max="365" value="90" class="bg-white border border-rose-200 rounded-lg px-3 py-2 w-32 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
@@ -317,7 +376,8 @@ $page_title = 'System Logs';
                     </button>
                 </form>
 
-                <?php if (count($logs)): ?>
+                <?php
+if (count($logs)): ?>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-100">
@@ -335,34 +395,48 @@ $page_title = 'System Logs';
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-100">
-                            <?php foreach ($logs as $log): ?>
+                            <?php
+foreach ($logs as $log): ?>
                                 <?php
-                                $severity = strtolower((string) ($log['severity'] ?? 'info'));
+$severity = strtolower((string) ($log['severity'] ?? 'info'));
                                 $severity_class = 'bg-slate-100 text-slate-700';
                                 if ($severity === 'warning') $severity_class = 'bg-amber-100 text-amber-800';
                                 if ($severity === 'error') $severity_class = 'bg-rose-100 text-rose-800';
                                 if ($severity === 'critical') $severity_class = 'bg-red-200 text-red-900';
                                 ?>
                                 <tr class="hover:bg-gray-50">
-                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($log['created_at']); ?></td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-600"><?php
+echo htmlspecialchars($log['created_at']); ?></td>
                                     <td class="px-4 py-2 whitespace-nowrap text-xs font-semibold">
-                                        <span class="px-2 py-1 rounded-full uppercase <?php echo $severity_class; ?>"><?php echo htmlspecialchars($severity); ?></span>
+                                        <span class="px-2 py-1 rounded-full uppercase <?php
+echo $severity_class; ?>"><?php
+echo htmlspecialchars($severity); ?></span>
                                     </td>
-                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-800 font-medium"><?php echo htmlspecialchars($log['username']); ?></td>
-                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-blue-700 font-semibold"><?php echo htmlspecialchars(ucfirst($log['action'])); ?></td>
-                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"><?php echo htmlspecialchars($log['target_type']); ?><?php if ($log['target_id']) echo ' #' . htmlspecialchars($log['target_id']); ?></td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-800 font-medium"><?php
+echo htmlspecialchars($log['username']); ?></td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-blue-700 font-semibold"><?php
+echo htmlspecialchars(ucfirst($log['action'])); ?></td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"><?php
+echo htmlspecialchars($log['target_type']); ?><?php
+if ($log['target_id']) echo ' #' . htmlspecialchars($log['target_id']); ?></td>
                                     <td class="px-4 py-2 text-xs text-gray-500">
-                                        <div>Req: <?php echo htmlspecialchars($log['request_id'] ?: '-'); ?></div>
-                                        <div>Session: <?php echo htmlspecialchars($log['session_id'] ?: '-'); ?></div>
-                                        <div>IP: <?php echo htmlspecialchars($log['ip_address'] ?: '-'); ?></div>
+                                        <div>Req: <?php
+echo htmlspecialchars($log['request_id'] ?: '-'); ?></div>
+                                        <div>Session: <?php
+echo htmlspecialchars($log['session_id'] ?: '-'); ?></div>
+                                        <div>IP: <?php
+echo htmlspecialchars($log['ip_address'] ?: '-'); ?></div>
                                     </td>
                                     <td class="px-4 py-2 text-sm text-gray-600 max-w-sm">
-                                        <div><?php echo htmlspecialchars($log['details']); ?></div>
-                                        <div class="mt-1 text-xs text-gray-400 truncate" title="<?php echo htmlspecialchars($log['user_agent'] ?: ''); ?>"><?php echo htmlspecialchars($log['user_agent'] ?: ''); ?></div>
+                                        <div><?php
+echo htmlspecialchars($log['details']); ?></div>
+                                        <div class="mt-1 text-xs text-gray-400 truncate" title="<?php
+echo htmlspecialchars($log['user_agent'] ?: ''); ?>"><?php
+echo htmlspecialchars($log['user_agent'] ?: ''); ?></div>
                                     </td>
                                     <td class="px-4 py-2 text-sm text-gray-500">
                                         <?php
-                                        $old_val = (string) ($log['old_value'] ?? '');
+$old_val = (string) ($log['old_value'] ?? '');
                                         if (strlen($old_val) > 60) {
                                             $short = htmlspecialchars(mb_substr($old_val, 0, 60)) . '...';
                                             $full = htmlspecialchars($old_val);
@@ -382,7 +456,7 @@ $page_title = 'System Logs';
                                     </td>
                                     <td class="px-4 py-2 text-sm text-gray-500">
                                         <?php
-                                        $new_val = (string) ($log['new_value'] ?? '');
+$new_val = (string) ($log['new_value'] ?? '');
                                         if (strlen($new_val) > 60) {
                                             $short = htmlspecialchars(mb_substr($new_val, 0, 60)) . '...';
                                             $full = htmlspecialchars($new_val);
@@ -402,7 +476,7 @@ $page_title = 'System Logs';
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm">
                                         <?php
-                                        $drawerPayload = [
+$drawerPayload = [
                                             'id' => (int) ($log['id'] ?? 0),
                                             'created_at' => (string) ($log['created_at'] ?? ''),
                                             'severity' => (string) ($log['severity'] ?? 'info'),
@@ -424,45 +498,58 @@ $page_title = 'System Logs';
                                         <button
                                             type="button"
                                             class="open-details-drawer inline-flex items-center px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold"
-                                            data-log="<?php echo htmlspecialchars(json_encode($drawerPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-log="<?php
+echo htmlspecialchars(json_encode($drawerPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>"
                                         >
                                             <i class="fas fa-up-right-and-down-left-from-center mr-1"></i>Details
                                         </button>
                                     </td>
                                 </tr>
-                            <?php endforeach; ?>
+                            <?php
+endforeach; ?>
                         </tbody>
                     </table>
                 </div>
 
                 <?php
-                $total_pages = (int) ceil($total_logs / $per_page);
+$total_pages = (int) ceil($total_logs / $per_page);
                 if ($total_pages > 1): ?>
                 <div class="mb-4 mt-4 flex justify-center space-x-1 items-center">
-                    <a href="?<?php $q = $_GET; $q['page'] = 1; echo http_build_query($q); ?>"
-                       class="px-3 py-1 rounded <?php echo $page == 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'; ?> text-sm font-semibold mr-2">First</a>
+                    <a href="?<?php
+$q = $_GET; $q['page'] = 1; echo http_build_query($q); ?>"
+                       class="px-3 py-1 rounded <?php
+echo $page == 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'; ?> text-sm font-semibold mr-2">First</a>
                     <?php
-                    $start = max(1, $page - 2);
+$start = max(1, $page - 2);
                     $end = min($total_pages, $page + 2);
                     if ($start > 1) echo '<span class="px-2">...</span>';
                     for ($i = $start; $i <= $end; $i++): ?>
-                        <a href="?<?php $q = $_GET; $q['page'] = $i; echo http_build_query($q); ?>"
-                           class="px-3 py-1 rounded <?php echo $i == $page ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'; ?> text-sm font-semibold"><?php echo $i; ?></a>
-                    <?php endfor;
+                        <a href="?<?php
+$q = $_GET; $q['page'] = $i; echo http_build_query($q); ?>"
+                           class="px-3 py-1 rounded <?php
+echo $i == $page ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'; ?> text-sm font-semibold"><?php
+echo $i; ?></a>
+                    <?php
+endfor;
                     if ($end < $total_pages) echo '<span class="px-2">...</span>';
                     ?>
-                    <a href="?<?php $q = $_GET; $q['page'] = $total_pages; echo http_build_query($q); ?>"
-                       class="px-3 py-1 rounded <?php echo $page == $total_pages ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'; ?> text-sm font-semibold ml-2">Last</a>
+                    <a href="?<?php
+$q = $_GET; $q['page'] = $total_pages; echo http_build_query($q); ?>"
+                       class="px-3 py-1 rounded <?php
+echo $page == $total_pages ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'; ?> text-sm font-semibold ml-2">Last</a>
                 </div>
-                <?php endif; ?>
+                <?php
+endif; ?>
 
-                <?php else: ?>
+                <?php
+else: ?>
                 <div class="text-center py-8">
                     <i class="fas fa-clipboard-list text-4xl text-gray-300 mb-4"></i>
                     <p class="text-gray-500 text-lg">No activity logs found.</p>
                     <p class="text-gray-400 text-sm mt-2">Activity logs will appear here when users perform actions in the system.</p>
                 </div>
-                <?php endif; ?>
+                <?php
+endif; ?>
             </div>
         </main>
     </div>
@@ -647,4 +734,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 </body>
 </html>
+
+
 

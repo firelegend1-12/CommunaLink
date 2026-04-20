@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Incident Reports Management - Modernized
  */
@@ -9,7 +10,7 @@ require_once '../../includes/permission_checker.php';
 
 require_login();
 
-// Check manage_incidents permission (admin, barangay-captain, kagawad, barangay-tanod)
+// Check manage_incidents permission (admin, barangay-officials, barangay-kagawad, barangay-tanod)
 if (!require_permission('manage_incidents')) {
     $redirect_prefix = (basename(dirname($_SERVER['PHP_SELF'])) === 'pages') ? '../../' : '../';
     if (isset($_SESSION['role']) && $_SESSION['role'] === 'resident') {
@@ -84,7 +85,8 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
 <body class="bg-gray-100 min-h-screen text-[#1E293B]">
     <div class="flex h-screen overflow-hidden" x-data="pageData()">
         <!-- Sidebar Navigation -->
-        <?php include '../partials/sidebar.php'; ?>
+        <?php
+include '../partials/sidebar.php'; ?>
         
         <!-- Main Content -->
         <div class="flex flex-col flex-1 overflow-hidden">
@@ -94,7 +96,8 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                     <div class="flex items-center justify-between h-16">
                         <div class="flex items-center gap-4">
                             <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Incidents</h1>
-                            <span class="bg-indigo-100 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded-full uppercase"><?php echo $total_incidents; ?> Reports</span>
+                            <span class="bg-indigo-100 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded-full uppercase"><?php
+echo $total_incidents; ?> Reports</span>
                         </div>
                         
                         <!-- Refresh Button & User -->
@@ -105,9 +108,11 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                             
                             <div x-data="{ open: false }" class="relative">
                                 <button @click="open = !open" class="flex items-center space-x-3 text-sm text-slate-700 hover:text-slate-900 focus:outline-none transition group">
-                                    <span class="font-medium group-hover:text-indigo-600"><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
+                                    <span class="font-medium group-hover:text-indigo-600"><?php
+echo htmlspecialchars($_SESSION['fullname']); ?></span>
                                     <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-sm font-bold shadow-sm group-hover:shadow-md transition">
-                                        <?php echo substr($_SESSION['fullname'], 0, 1); ?>
+                                        <?php
+echo substr($_SESSION['fullname'], 0, 1); ?>
                                     </div>
                                 </button>
                                 <div x-show="open" @click.away="open = false" x-cloak
@@ -130,14 +135,17 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
             
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-8">
-                <?php if (isset($_SESSION['success_message'])): ?>
+                <?php
+if (isset($_SESSION['success_message'])): ?>
                     <div id="incident-success-alert" class="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-700 p-4 mb-6 rounded-r-xl shadow-sm animate-fade-in" role="alert">
                         <div class="flex items-center">
                             <i class="fas fa-check-circle mr-3"></i>
-                            <p class="font-bold text-sm"><?php echo htmlspecialchars($_SESSION['success_message']); ?></p>
+                            <p class="font-bold text-sm"><?php
+echo htmlspecialchars($_SESSION['success_message']); ?></p>
                         </div>
                     </div>
-                <?php unset($_SESSION['success_message']); endif; ?>
+                <?php
+unset($_SESSION['success_message']); endif; ?>
 
                 <!-- Summary Stats Bar -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -202,7 +210,8 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
                         <div class="flex items-center justify-between relative z-10">
                             <div>
                                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Most Frequent</p>
-                                <h3 class="text-xl font-black text-slate-900 leading-tight truncate max-w-[140px]"><?php echo $critical_type; ?></h3>
+                                <h3 class="text-xl font-black text-slate-900 leading-tight truncate max-w-[140px]"><?php
+echo $critical_type; ?></h3>
                                 <p class="text-[10px] font-medium text-slate-500 mt-1 uppercase tracking-tighter">Frequent this month</p>
                             </div>
                             <div class="h-12 w-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-xl shadow-inner group-hover:translate-x-1 transition duration-300">
@@ -799,9 +808,12 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
 
                 // Initialize stats from PHP
                 stats: {
-                    active_cases: <?php echo $active_cases; ?>,
-                    trending_today: <?php echo $trending_today; ?>,
-                    resolution_rate: <?php echo $resolution_rate; ?>
+                    active_cases: <?php
+echo $active_cases; ?>,
+                    trending_today: <?php
+echo $trending_today; ?>,
+                    resolution_rate: <?php
+echo $resolution_rate; ?>
                 },
 
                 init() {
@@ -1048,3 +1060,5 @@ $critical_type = $most_frequent ? $most_frequent['type'] : 'None';
     </script>
 </body>
 </html>
+
+

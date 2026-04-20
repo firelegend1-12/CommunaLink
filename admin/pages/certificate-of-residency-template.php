@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Printable Certificate of Residency Template
  */
@@ -73,7 +74,8 @@ $page_title = "Print Certificate of Residency";
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .no-print { display: none !important; }
         }
-<?php if ($is_view_only): ?>
+<?php
+if ($is_view_only): ?>
         @media print {
             body * { visibility: hidden !important; }
             body::before {
@@ -86,7 +88,8 @@ $page_title = "Print Certificate of Residency";
                 font-weight: 700;
             }
         }
-<?php endif; ?>
+<?php
+endif; ?>
         .certificate-body { font-family: 'Times New Roman', Times, serif; }
         .placeholder-logo {
             width: 80px;
@@ -106,20 +109,24 @@ $page_title = "Print Certificate of Residency";
 
     <div class="max-w-4xl mx-auto my-10 p-4">
         <div class="no-print text-center mb-6">
-<?php if (!$is_view_only): ?>
+<?php
+if (!$is_view_only): ?>
             <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md shadow-md">
                 <i class="fas fa-print mr-2"></i> Print Certificate
             </button>
-<?php endif; ?>
+<?php
+endif; ?>
             <a href="monitoring-of-request.php" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md shadow-md">
                 <i class="fas fa-arrow-left mr-2"></i> Back to Monitoring
             </a>
         </div>
-<?php if ($is_view_only): ?>
+<?php
+if ($is_view_only): ?>
         <div class="no-print text-center mb-4">
             <span class="inline-block bg-yellow-100 border border-yellow-300 text-yellow-900 px-3 py-2 rounded text-xs font-bold uppercase tracking-wide">Viewing purpose only</span>
         </div>
-<?php endif; ?>
+<?php
+endif; ?>
         
         <div id="certificate" class="bg-white p-12 border-4 border-gray-800 certificate-body relative">
             
@@ -142,20 +149,28 @@ $page_title = "Print Certificate of Residency";
             <!-- Main Content -->
             <div class="text-lg leading-loose">
                 <p class="mb-6 indent-8">
-                    This is to certify that <span class="underline-dotted"><?php echo htmlspecialchars($details['applicant_name']); ?></span> of legal age, single, Filipino citizen, is the <strong>present occupant</strong> of <span class="underline-dotted"><?php echo htmlspecialchars($details['sitio']); ?></span>, Brgy. Pakiad, <span class="underline-dotted"><?php echo htmlspecialchars($details['district']); ?></span>, Iloilo City, which property is owned by <span class="underline-dotted"><?php echo htmlspecialchars($details['property_owner']); ?></span>.
+                    This is to certify that <span class="underline-dotted"><?php
+echo htmlspecialchars($details['applicant_name']); ?></span> of legal age, single, Filipino citizen, is the <strong>present occupant</strong> of <span class="underline-dotted"><?php
+echo htmlspecialchars($details['sitio']); ?></span>, Brgy. Pakiad, <span class="underline-dotted"><?php
+echo htmlspecialchars($details['district']); ?></span>, Iloilo City, which property is owned by <span class="underline-dotted"><?php
+echo htmlspecialchars($details['property_owner']); ?></span>.
                 </p>
                 <p class="mb-6 indent-8">
                     Based on records of this office, the above-named individual belongs to the:
                     <div class="pl-16 mt-2 flex space-x-8">
                         <span class="flex items-center">
                             <div class="w-5 h-5 border border-black mr-2 flex items-center justify-center">
-                                <?php if (in_array('low income bracket', $details['status'])): ?>&#10003;<?php endif; ?>
+                                <?php
+if (in_array('low income bracket', $details['status'])): ?>&#10003;<?php
+endif; ?>
                             </div>
                             low income bracket
                         </span>
                         <span class="flex items-center">
                              <div class="w-5 h-5 border border-black mr-2 flex items-center justify-center">
-                                <?php if (in_array('informal settler', $details['status'])): ?>&#10003;<?php endif; ?>
+                                <?php
+if (in_array('informal settler', $details['status'])): ?>&#10003;<?php
+endif; ?>
                             </div>
                             informal settler
                         </span>
@@ -166,14 +181,19 @@ $page_title = "Print Certificate of Residency";
                     This certification is being issued upon the request of the above-named person intended for compliance with the requirements of the <strong>iKonek ELECTRIFICATION PROGRAM OF MAYOR JERRY P. TRENAS</strong> and <strong>MORE ELECTRIC AND POWER CORP.</strong>
                 </p>
                 <p class="indent-8">
-                    Issued this <span class="underline-dotted"><?php echo $day; ?></span> day of <span class="underline-dotted"><?php echo $month; ?></span>, <span class="underline-dotted"><?php echo $year; ?></span>, Barangay Pakiad, District of <span class="underline-dotted"><?php echo htmlspecialchars($details['district']); ?></span>, Iloilo City.
+                    Issued this <span class="underline-dotted"><?php
+echo $day; ?></span> day of <span class="underline-dotted"><?php
+echo $month; ?></span>, <span class="underline-dotted"><?php
+echo $year; ?></span>, Barangay Pakiad, District of <span class="underline-dotted"><?php
+echo htmlspecialchars($details['district']); ?></span>, Iloilo City.
                 </p>
             </div>
 
             <!-- Signature -->
             <div class="mt-24 text-right">
                 <div class="inline-block text-center">
-                    <p class="font-bold text-lg border-b-2 border-black px-12"><?php echo htmlspecialchars($_SESSION['fullname'] ?? '[PUNONG BARANGAY NAME]'); ?></p>
+                    <p class="font-bold text-lg border-b-2 border-black px-12"><?php
+echo htmlspecialchars($_SESSION['fullname'] ?? '[PUNONG BARANGAY NAME]'); ?></p>
                     <p>Punong Barangay</p>
                 </div>
             </div>
@@ -181,7 +201,8 @@ $page_title = "Print Certificate of Residency";
         </div>
     </div>
 </body>
-<?php if ($is_view_only): ?>
+<?php
+if ($is_view_only): ?>
 <script>
 document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
@@ -194,5 +215,8 @@ window.print = function() {
     alert('Printing is disabled in view-only mode.');
 };
 </script>
-<?php endif; ?>
+<?php
+endif; ?>
 </html> 
+
+

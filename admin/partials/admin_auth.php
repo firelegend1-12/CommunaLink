@@ -15,7 +15,12 @@ require_once __DIR__ . '/../../includes/permission_checker.php';
 require_login();
 
 // Define authorized roles for the admin section
-$authorized_roles = ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'];
+$authorized_roles = [
+    'admin',
+    'barangay-officials',
+    'barangay-kagawad',
+    'barangay-tanod'
+];
 
 // Check if user has an authorized role
 if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], $authorized_roles)) {
@@ -25,5 +30,43 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], $authorized_roles)
         header('Location: ' . app_url('/index.php'));
     }
     exit;
+}
+
+// Phase 2 page-level permission map for admin UI entry points.
+$admin_page_permissions = [
+    'about-us.php' => ['access_chat'],
+    'account.php' => ['access_chat'],
+    'add-resident.php' => ['add_residents'],
+    'edit-resident.php' => ['edit_resident_profile'],
+    'resident-id.php' => ['edit_resident_profile'],
+    'residents.php' => ['view_residents'],
+    'monitoring-of-request.php' => ['view_monitoring_requests'],
+    'incident-reports.php' => ['manage_incidents'],
+    'update-incident.php' => ['manage_incidents'],
+    'maps.php' => ['manage_incidents'],
+    'chat.php' => ['access_chat'],
+    'announcements.php' => ['manage_announcements'],
+    'events.php' => ['manage_events'],
+    'new-barangay-clearance.php' => ['manage_documents'],
+    'new-certificate-of-indigency.php' => ['manage_documents'],
+    'new-certificate-of-residency.php' => ['manage_documents'],
+    'barangay-clearance-template.php' => ['manage_documents'],
+    'certificate-of-indigency-template.php' => ['manage_documents'],
+    'certificate-of-residency-template.php' => ['manage_documents'],
+    'new-barangay-business-clearance.php' => ['manage_documents'],
+    'business-application-form.php' => ['manage_businesses'],
+    'business-clearance.php' => ['manage_businesses'],
+    'business-clearance-template.php' => ['manage_businesses'],
+    'generate-business-permit.php' => ['manage_businesses'],
+    'add-user.php' => ['user_management'],
+    'edit-user.php' => ['user_management'],
+    'user-management.php' => ['user_management'],
+    'logs.php' => ['view_logs']
+];
+
+$current_page = basename($_SERVER['PHP_SELF'] ?? '');
+$required_permissions = $admin_page_permissions[$current_page] ?? [];
+if (!empty($required_permissions)) {
+    require_any_permission_for_admin_page($required_permissions);
 }
 ?>

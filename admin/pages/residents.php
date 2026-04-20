@@ -1,11 +1,10 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Residents Management Page
  */
 
 // Include admin authentication and session management
-require_once '../partials/admin_auth.php';
-
 // Page-specific requirements
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
@@ -651,3 +650,4 @@ try {
     </script>
 </body>
 </html> 
+

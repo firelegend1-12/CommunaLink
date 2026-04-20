@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Barangay Business Clearance Certificate Template
  */
@@ -73,7 +74,8 @@ $month_issued = date('F');
             .no-print { display: none !important; }
             .printable-area { margin: 0; padding: 1rem; border: none; box-shadow: none; }
         }
-<?php if ($is_view_only): ?>
+<?php
+if ($is_view_only): ?>
         @media print {
             body * { visibility: hidden !important; }
             body::before {
@@ -86,7 +88,8 @@ $month_issued = date('F');
                 font-weight: 700;
             }
         }
-<?php endif; ?>
+<?php
+endif; ?>
         .certificate-body {
             font-family: 'Times New Roman', Times, serif;
         }
@@ -105,17 +108,21 @@ $month_issued = date('F');
             <a href="monitoring-of-request.php" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md">
                 <i class="fas fa-arrow-left mr-2"></i> Back to Monitoring
             </a>
-<?php if (!$is_view_only): ?>
+<?php
+if (!$is_view_only): ?>
             <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md">
                 <i class="fas fa-print mr-2"></i> Print Certificate
             </button>
-<?php endif; ?>
+<?php
+endif; ?>
         </div>
-<?php if ($is_view_only): ?>
+<?php
+if ($is_view_only): ?>
         <div class="no-print text-center mb-4">
             <span class="inline-block bg-yellow-100 border border-yellow-300 text-yellow-900 px-3 py-2 rounded text-xs font-bold uppercase tracking-wide">Viewing purpose only</span>
         </div>
-<?php endif; ?>
+<?php
+endif; ?>
         <div id="certificate" class="printable-area bg-white p-12 border-4 border-blue-800 certificate-body relative">
             <div class="text-center">
                 <p class="text-lg">Republic of the Philippines</p>
@@ -169,7 +176,8 @@ $month_issued = date('F');
         </div>
     </div>
 </body>
-<?php if ($is_view_only): ?>
+<?php
+if ($is_view_only): ?>
 <script>
 document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
@@ -182,5 +190,8 @@ window.print = function() {
     alert('Printing is disabled in view-only mode.');
 };
 </script>
-<?php endif; ?>
+<?php
+endif; ?>
 </html> 
+
+
