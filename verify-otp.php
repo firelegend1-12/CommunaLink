@@ -328,6 +328,12 @@ $masked_email = substr($email, 0, 3) . '***' . substr($email, strpos($email, '@'
         updateTimer();
     });
     </script>
+    <script>
+        // Clear saved registration draft after successful registration (OTP step)
+        (function(){
+            try { localStorage.removeItem('communalink_registration_v1'); } catch(e) { /* ignore */ }
+        })();
+    </script>
 </body>
 </html>
 

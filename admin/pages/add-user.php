@@ -17,13 +17,17 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 $admin_cap = get_admin_user_cap();
 $admin_count_stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'");
 $admin_count = (int) $admin_count_stmt->fetchColumn();
+$admin_selection_limit = min(2, $admin_cap);
+$is_admin_selection_locked = $admin_count >= $admin_selection_limit;
 
 $form_data = $_SESSION['form_data'] ?? [];
 $old_fullname = htmlspecialchars((string)($form_data['fullname'] ?? ''), ENT_QUOTES, 'UTF-8');
-$old_email = htmlspecialchars((string)($form_data['email'] ?? ''), ENT_QUOTES, 'UTF-8');
 $old_role = (string)($form_data['role'] ?? '');
 $old_official_position = (string)($form_data['official_position'] ?? '');
 unset($_SESSION['form_data']);
+
+// Show inactivity warning on this page after 3 minutes.
+$session_warning_threshold = 180;
 
 $page_title = "Add New User";
 ?>
@@ -51,23 +55,281 @@ $page_title = "Add New User";
         .form-input:focus {
             transform: translateY(-1px);
         }
+        .requirement-check {
+            transition: all 0.2s ease;
+        }
+        .requirement-met {
+            color: #10b981;
+        }
+        .requirement-unmet {
+            color: #6b7280;
+        }
+        .modal-backdrop {
+            animation: fadeIn 0.2s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .email-valid {
+            border-color: #10b981 !important;
+            background-color: #f0fdf4 !important;
+        }
+        .email-invalid {
+            border-color: #ef4444 !important;
+            background-color: #fef2f2 !important;
+        }
+        .pulse-warning {
+            animation: pulse-warn 2s infinite;
+        }
+        @keyframes pulse-warn {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
     </style>
 </head>
 <body class="bg-[#F8FAFC] min-h-screen text-[#1E293B]">
     <div class="flex h-screen overflow-hidden" x-data="{ 
-        role: <?php
-echo htmlspecialchars(json_encode($old_role), ENT_QUOTES, 'UTF-8'); ?>,
+        role: <?php echo htmlspecialchars(json_encode($old_role), ENT_QUOTES, 'UTF-8'); ?>,
+        officialPosition: <?php echo htmlspecialchars(json_encode($old_official_position), ENT_QUOTES, 'UTF-8'); ?>,
+        fullnameInput: <?php echo htmlspecialchars(json_encode($old_fullname), ENT_QUOTES, 'UTF-8'); ?>,
+        residentFound: false,
+        residentEmail: '',
+        residentId: null,
+        residentLookupValidating: false,
+        residentError: '',
+        residentPasswordConflict: false,
+        residentPasswordValidating: false,
+        pwdCheckTimer: null,
         password: '',
         strength: 0,
+        showAdminConfirmModal: false,
+        pendingAdminRole: false,
+        adminRoleLimit: <?php echo $admin_selection_limit; ?>,
+        adminRoleLimitReached: <?php echo $is_admin_selection_locked ? 'true' : 'false'; ?>,
+        sessionWarningThreshold: <?php echo $session_warning_threshold; ?>,
+        sessionWarningActive: false,
+        lastActivityAt: Date.now(),
+        activityEventsBound: false,
+        formSubmitting: false,
+        requirements: {
+            minLength: false,
+            hasUppercase: false,
+            hasLowercase: false,
+            hasNumber: false,
+            hasSpecial: false
+        },
+        init() {
+            if (this.adminRoleLimitReached && this.role === 'admin') {
+                this.role = 'official';
+            }
+
+            if (this.role !== 'official') {
+                this.officialPosition = '';
+            }
+
+            this.bindActivityListeners();
+            this.lastActivityAt = Date.now();
+            this.checkSessionTimeout();
+            setInterval(() => this.checkSessionTimeout(), 1000);
+
+            // if fullname pre-filled, run resident check on init
+            if (this.fullnameInput) {
+                this.checkResident();
+            }
+        },
+        bindActivityListeners() {
+            if (this.activityEventsBound) {
+                return;
+            }
+
+            this.activityEventsBound = true;
+
+            const resetInactivityTimer = () => {
+                this.lastActivityAt = Date.now();
+                this.sessionWarningActive = false;
+            };
+
+            ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'].forEach((eventName) => {
+                window.addEventListener(eventName, resetInactivityTimer, { passive: true });
+            });
+        },
+        checkSessionTimeout() {
+            const inactiveForSeconds = Math.floor((Date.now() - this.lastActivityAt) / 1000);
+            this.sessionWarningActive = inactiveForSeconds >= this.sessionWarningThreshold;
+        },
         validatePassword(pw) {
             let s = 0;
-            if (pw.length >= 8) s++;
-            if (/[A-Z]/.test(pw)) s++;
-            if (/[0-9]/.test(pw)) s++;
-            if (/[^A-Za-z0-9]/.test(pw)) s++;
+            
+            // Check requirements
+            this.requirements.minLength = pw.length >= 8;
+            this.requirements.hasUppercase = /[A-Z]/.test(pw);
+            this.requirements.hasLowercase = /[a-z]/.test(pw);
+            this.requirements.hasNumber = /[0-9]/.test(pw);
+            this.requirements.hasSpecial = /[^A-Za-z0-9]/.test(pw);
+            
+            // Calculate strength
+            if (this.requirements.minLength) s++;
+            if (this.requirements.hasUppercase) s++;
+            if (this.requirements.hasNumber) s++;
+            if (this.requirements.hasSpecial) s++;
+            
             this.strength = s;
+            // If resident record exists, check that the provided password is not the same
+            if (this.residentFound) {
+                this.scheduleResidentPasswordCheck();
+            } else {
+                this.residentPasswordConflict = false;
+            }
+        },
+        handleRoleChange(newRole) {
+            if (newRole === 'admin' && this.adminRoleLimitReached) {
+                return;
+            }
+
+            if (newRole === 'admin' && this.role !== 'admin') {
+                this.officialPosition = '';
+                this.pendingAdminRole = true;
+                this.showAdminConfirmModal = true;
+            } else if (newRole !== 'admin') {
+                this.pendingAdminRole = false;
+                this.role = newRole;
+                this.showAdminConfirmModal = false;
+                if (newRole !== 'official') {
+                    this.officialPosition = '';
+                }
+            }
+        },
+        // Lookup resident record by fullname using AJAX
+        checkResident() {
+            const name = (this.fullnameInput || '').trim();
+            this.residentError = '';
+            this.residentFound = false;
+            this.residentEmail = '';
+            this.residentId = null;
+            if (!name) return;
+            this.residentLookupValidating = true;
+
+            const payload = new FormData();
+            payload.append('fullname', name);
+
+            fetch('../ajax/check-resident.php', { method: 'POST', body: payload, credentials: 'same-origin' })
+                .then(r => r.json())
+                .then(data => {
+                    this.residentLookupValidating = false;
+                    if (data && data.found) {
+                        this.residentFound = true;
+                        this.residentId = data.id || null;
+                        this.residentEmail = data.email || '';
+                        this.residentError = '';
+                    } else {
+                        this.residentFound = false;
+                        this.residentId = null;
+                        this.residentEmail = '';
+                        this.residentError = data && data.error ? data.error : 'Name cannot be found as resident';
+                    }
+                    // If we found a resident, schedule a password check with current password
+                    if (this.residentFound) {
+                        this.scheduleResidentPasswordCheck();
+                    }
+                }).catch(err => {
+                    this.residentLookupValidating = false;
+                    this.residentFound = false;
+                    this.residentError = 'Lookup failed';
+                });
+        },
+
+        scheduleResidentPasswordCheck() {
+            // Debounce checks to avoid excessive requests
+            if (this.pwdCheckTimer) clearTimeout(this.pwdCheckTimer);
+            this.pwdCheckTimer = setTimeout(() => this.checkResidentPassword(), 350);
+        },
+
+        checkResidentPassword() {
+            // If resident not found or no password entered, nothing to do
+            if (!this.residentFound || !this.password) {
+                this.residentPasswordConflict = false;
+                return;
+            }
+
+            if (!this.residentId) {
+                this.residentPasswordConflict = false;
+                return;
+            }
+
+            this.residentPasswordValidating = true;
+            const payload = new FormData();
+            payload.append('resident_id', this.residentId);
+            payload.append('password', this.password);
+
+            fetch('../ajax/check-resident-password.php', { method: 'POST', body: payload, credentials: 'same-origin' })
+                .then(r => r.json())
+                .then(data => {
+                    this.residentPasswordValidating = false;
+                    if (data && typeof data.matches !== 'undefined') {
+                        this.residentPasswordConflict = !!data.matches;
+                    } else {
+                        this.residentPasswordConflict = false;
+                    }
+                }).catch(err => {
+                    this.residentPasswordValidating = false;
+                    this.residentPasswordConflict = false;
+                });
+        },
+        confirmAdminRole() {
+            if (this.adminRoleLimitReached) {
+                this.showAdminConfirmModal = false;
+                return;
+            }
+
+            this.role = 'admin';
+            this.officialPosition = '';
+            this.pendingAdminRole = false;
+            this.showAdminConfirmModal = false;
+        },
+        cancelAdminRole() {
+            this.showAdminConfirmModal = false;
+            this.pendingAdminRole = false;
+        },
+        canSubmit() {
+            if (!(this.role === 'official' || this.role === 'admin')) {
+                return false;
+            }
+
+            if (this.role === 'official' && !this.officialPosition) {
+                return false;
+            }
+
+            if (this.role === 'admin' && this.adminRoleLimitReached) {
+                return false;
+            }
+
+            if (this.residentLookupValidating || this.residentPasswordValidating) {
+                return false;
+            }
+
+                 return this.fullnameInput && 
+                     this.requirements.minLength && 
+                     this.requirements.hasUppercase && 
+                     this.requirements.hasLowercase && 
+                     this.requirements.hasNumber && 
+                     this.requirements.hasSpecial &&
+                     this.residentFound && !this.residentPasswordConflict;
+        },
+        handleFormSubmit(event) {
+            if (this.formSubmitting) {
+                event.preventDefault();
+                return;
+            }
+
+            if (!this.canSubmit()) {
+                event.preventDefault();
+                return;
+            }
+
+            this.formSubmitting = true;
         }
-    }">
+    }" x-init="init()">
         <!-- Sidebar Navigation -->
         <?php
 include '../partials/sidebar.php'; ?>
@@ -94,12 +356,24 @@ include '../partials/user-dropdown.php'; ?>
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-12">
                 <div class="max-w-3xl mx-auto">
+                    <!-- Session Timeout Warning -->
+                    <div x-show="sessionWarningActive" x-cloak class="mb-6 bg-amber-50 border-l-4 border-amber-500 text-amber-900 p-4 rounded-r-xl shadow-sm pulse-warning">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-clock text-amber-600 text-lg"></i>
+                            <div class="flex-1">
+                                <p class="font-bold text-sm">Session Activity Detected</p>
+                                <p class="text-xs mt-1">Your session will expire due to inactivity. Consider saving your work or taking a break.</p>
+                            </div>
+                            <a href="../index.php" class="whitespace-nowrap text-xs font-bold text-amber-600 hover:text-amber-800 underline">Refresh Session</a>
+                        </div>
+                    </div>
+
                     <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 mb-6 rounded-r-xl shadow-sm" role="status">
                         <div class="flex items-center">
                             <i class="fas fa-user-shield mr-3"></i>
                             <p class="font-semibold text-sm">Admin slots used: <?php
 echo $admin_count; ?> / <?php
-echo $admin_cap; ?></p>
+echo $admin_selection_limit; ?></p>
                         </div>
                     </div>
 
@@ -122,30 +396,46 @@ unset($_SESSION['error_message']); endif; ?>
                             </div>
                             <h2 class="text-2xl font-extrabold text-slate-900">Registration Form</h2>
                             <p class="text-sm font-medium text-slate-500 mt-1">Enroll new members to the system</p>
+                            
+                            <!-- Form Progress Indicator -->
+                            <div class="mt-6 pt-6 border-t border-slate-200">
+                                <div class="flex items-center justify-between mb-3">
+                                    <p class="text-xs font-bold uppercase tracking-widest text-slate-600">Form Completion</p>
+                                    <span class="text-xs font-black text-indigo-600" x-text="`${Math.round(((emailValid ? 1 : 0) + (requirements.minLength ? 1 : 0) + (requirements.hasUppercase ? 1 : 0) + (requirements.hasLowercase ? 1 : 0) + (requirements.hasNumber ? 1 : 0) + (requirements.hasSpecial ? 1 : 0)) / 6 * 100)}%`"></span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                                    <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 h-full rounded-full transition-all duration-300" :style="`width: ${((emailValid ? 1 : 0) + (requirements.minLength ? 1 : 0) + (requirements.hasUppercase ? 1 : 0) + (requirements.hasLowercase ? 1 : 0) + (requirements.hasNumber ? 1 : 0) + (requirements.hasSpecial ? 1 : 0)) / 6 * 100}%`"></div>
+                                </div>
+                            </div>
                         </div>
                         
-                        <form action="../partials/add-user-handler.php" method="POST" class="p-8 space-y-8">
+                        <form action="../partials/add-user-handler.php" method="POST" @submit="handleFormSubmit($event)" class="p-8 space-y-8">
                             <?php
 echo csrf_field(); ?>
                             
                             <!-- Basic Info Section -->
                             <div class="space-y-6">
-                                <div>
-                                     <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Full legal name</label>
-                                    <input type="text" name="fullname" required 
+                                  <div>
+                                      <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Full legal name</label>
+                                     <input id="fullname" x-model="fullnameInput" @blur="checkResident()" type="text" name="fullname" required 
                                          value="<?php
-echo $old_fullname; ?>"
+        echo $old_fullname; ?>"
                                            class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm" 
                                            placeholder="e.g. John Doe">
-                                </div>
+
+                                     <div class="mt-2">
+                                        <p x-show="residentLookupValidating" class="text-xs text-slate-500"><i class="fas fa-spinner fa-pulse mr-1"></i> Verifying resident...</p>
+                                        <p x-show="residentFound" class="text-xs text-emerald-600"><i class="fas fa-check-circle mr-1"></i> Resident record found (<span x-text="residentEmail"></span>)</p>
+                                        <p x-show="!residentFound && residentError" class="text-xs text-rose-600"><i class="fas fa-exclamation-circle mr-1"></i> <span x-text="residentError"></span></p>
+                                        <p x-show="residentEmailConflict" class="text-xs text-rose-600"><i class="fas fa-ban mr-1"></i> Account email must be different from resident's registered email (<span x-text="residentEmail"></span>)</p>
+                                     </div>
+                                  </div>
                                 
-                                <div>
-                                     <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Email address (login username)</label>
-                                    <input type="email" name="email" required 
-                                         value="<?php
-echo $old_email; ?>"
-                                           class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm" 
-                                           placeholder="user@example.com">
+                                <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                                    <p class="text-xs font-bold uppercase tracking-widest text-slate-600 mb-2">Account Username</p>
+                                    <p class="text-sm text-slate-700 leading-relaxed">
+                                        The resident's registered email will be used automatically as the username for this account.
+                                    </p>
                                 </div>
                                 
                                 <div class="relative">
@@ -167,6 +457,39 @@ echo $old_email; ?>"
                                             <span x-text="strength <= 1 ? 'Weak Protection' : (strength === 2 ? 'Fair Security' : (strength === 3 ? 'Strong Vault' : 'Military Grade'))"></span>
                                         </p>
                                     </div>
+
+                                    <div class="mt-2">
+                                        <p x-show="residentPasswordValidating" class="text-xs text-slate-500"><i class="fas fa-spinner fa-pulse mr-1"></i> Checking password against resident account...</p>
+                                        <p x-show="residentPasswordConflict" class="text-xs text-rose-600"><i class="fas fa-ban mr-1"></i> Password used is unavailable</p>
+                                    </div>
+
+                                    <!-- Password Requirements Checklist -->
+                                    <div class="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3">Password Requirements</p>
+                                        <div class="space-y-2">
+                                            <div class="flex items-center gap-2 requirement-check" :class="requirements.minLength ? 'requirement-met' : 'requirement-unmet'">
+                                                <i :class="requirements.minLength ? 'fas fa-check-circle' : 'fas fa-circle'" class="text-xs"></i>
+                                                <span class="text-xs font-medium">At least 8 characters</span>
+                                            </div>
+                                            <div class="flex items-center gap-2 requirement-check" :class="requirements.hasUppercase ? 'requirement-met' : 'requirement-unmet'">
+                                                <i :class="requirements.hasUppercase ? 'fas fa-check-circle' : 'fas fa-circle'" class="text-xs"></i>
+                                                <span class="text-xs font-medium">Uppercase letter (A-Z)</span>
+                                            </div>
+                                            <div class="flex items-center gap-2 requirement-check" :class="requirements.hasLowercase ? 'requirement-met' : 'requirement-unmet'">
+                                                <i :class="requirements.hasLowercase ? 'fas fa-check-circle' : 'fas fa-circle'" class="text-xs"></i>
+                                                <span class="text-xs font-medium">Lowercase letter (a-z)</span>
+                                            </div>
+                                            <div class="flex items-center gap-2 requirement-check" :class="requirements.hasNumber ? 'requirement-met' : 'requirement-unmet'">
+                                                <i :class="requirements.hasNumber ? 'fas fa-check-circle' : 'fas fa-circle'" class="text-xs"></i>
+                                                <span class="text-xs font-medium">Number (0-9)</span>
+                                            </div>
+                                            <div class="flex items-center gap-2 requirement-check" :class="requirements.hasSpecial ? 'requirement-met' : 'requirement-unmet'">
+                                                <i :class="requirements.hasSpecial ? 'fas fa-check-circle' : 'fas fa-circle'" class="text-xs"></i>
+                                                <span class="text-xs font-medium">Special character (!@#$%^&*)</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                 </div>
                             </div>
                             
@@ -178,25 +501,28 @@ echo $old_email; ?>"
                                     <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">System role</label>
                                     <div class="flex gap-3">
                                         <label class="flex-1 cursor-pointer">
-                                            <input type="radio" name="role" value="official" x-model="role" class="sr-only peer">
+                                            <input type="radio" name="role" value="official" @change="handleRoleChange('official')" class="sr-only peer">
                                             <div class="p-4 border-2 border-slate-100 rounded-2xl text-center transition hover:bg-emerald-50 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 group">
                                                 <i class="fas fa-award text-slate-400 group-hover:text-emerald-600 mb-2"></i>
                                                 <div class="text-xs font-bold text-slate-900">Official</div>
                                             </div>
                                         </label>
-                                        <label class="flex-1 cursor-pointer">
-                                            <input type="radio" name="role" value="admin" x-model="role" class="sr-only peer">
-                                            <div class="p-4 border-2 border-slate-100 rounded-2xl text-center transition hover:bg-rose-50 peer-checked:border-rose-600 peer-checked:bg-rose-50 group">
+                                        <label class="flex-1" :class="adminRoleLimitReached ? 'cursor-not-allowed' : 'cursor-pointer'">
+                                            <input type="radio" name="role" value="admin" @change="handleRoleChange('admin')" :disabled="adminRoleLimitReached" class="sr-only peer">
+                                            <div class="p-4 border-2 border-slate-100 rounded-2xl text-center transition group" :class="adminRoleLimitReached ? 'opacity-50 bg-slate-100 border-slate-200' : 'hover:bg-rose-50 peer-checked:border-rose-600 peer-checked:bg-rose-50'">
                                                 <i class="fas fa-shield-alt text-slate-400 group-hover:text-rose-600 mb-2"></i>
                                                 <div class="text-xs font-bold text-slate-900">Admin</div>
                                             </div>
                                         </label>
                                     </div>
+                                    <p x-show="adminRoleLimitReached" x-cloak class="text-xs font-semibold text-rose-600 mt-2 ml-1">
+                                        Admin role is disabled because the maximum of <?php echo $admin_selection_limit; ?> admin accounts has been reached.
+                                    </p>
                                 </div>
                                 
-                                <div x-show="role === 'official'" x-cloak x-transition class="md:col-span-2">
+                                <div x-show="role === 'official' && !pendingAdminRole" x-cloak x-transition class="md:col-span-2">
                                     <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Official position</label>
-                                    <select name="official_position" :required="role === 'official'" 
+                                    <select name="official_position" x-model="officialPosition" :required="role === 'official'" :disabled="role !== 'official'"
                                             class="form-input w-full bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-sm font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 transition shadow-sm appearance-none">
                                         <option value="">Select official position...</option>
                                         <option value="barangay-officials" <?php
@@ -217,17 +543,108 @@ echo $old_official_position === 'barangay-tanod' ? 'selected' : ''; ?>>Barangay 
                                         Privileged action: creating an admin account requires re-authentication.
                                     </p>
                                 </div>
+                                
+                                <!-- Form Safety Tips -->
+                                <div class="md:col-span-2 mt-4 p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+                                    <p class="text-[10px] font-bold uppercase tracking-widest text-indigo-900 mb-2">
+                                        <i class="fas fa-lightbulb mr-1"></i> Pro Tips
+                                    </p>
+                                    <ul class="space-y-1 text-xs text-indigo-800">
+                                        <li><i class="fas fa-shield-alt mr-1"></i> Double-check the email address - it cannot be changed later without admin intervention</li>
+                                        <li><i class="fas fa-key mr-1"></i> Share the created credentials securely and ask the user to change password after first sign-in</li>
+                                        <li><i class="fas fa-user-shield mr-1"></i> Admin accounts have unrestricted access - assign only to trusted personnel</li>
+                                    </ul>
+                                </div>
                             </div>
                             
                             <!-- Action Buttons -->
                             <div class="pt-6 flex gap-4">
                                 <a href="user-management.php" class="flex-1 px-8 py-5 rounded-2xl text-xs font-black uppercase text-center text-slate-500 bg-slate-100 hover:bg-slate-200 transition">Cancel</a>
-                                <button type="submit" class="flex-[2] px-8 py-5 rounded-2xl text-xs font-black uppercase text-white bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-600/30 transition transform active:scale-95">Complete Enrollment</button>
+                                <button type="submit" 
+                                        :disabled="!canSubmit() || formSubmitting"
+                                        :class="!canSubmit() || formSubmitting ? 'opacity-50 cursor-not-allowed' : ''"
+                                        class="flex-[2] px-8 py-5 rounded-2xl text-xs font-black uppercase text-white bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-600/30 transition transform active:scale-95">
+                                    <span x-show="!formSubmitting">Complete Enrollment</span>
+                                    <span x-show="formSubmitting"><i class="fas fa-spinner fa-spin mr-2"></i>Processing...</span>
+                                </button>
+                            </div>
+
+                            <!-- Form Validation Summary -->
+                            <div x-show="!canSubmit() && (password || fullnameInput)" x-cloak class="mt-4 p-4 bg-rose-50 rounded-xl border border-rose-200">
+                                <p class="text-[10px] font-bold uppercase tracking-widest text-rose-700 mb-2">
+                                    <i class="fas fa-circle-exclamation mr-1"></i> Complete the following before submitting:
+                                </p>
+                                <ul class="space-y-1">
+                                    <li x-show="!residentFound && fullnameInput" class="text-xs text-rose-600">
+                                        <i class="fas fa-times mr-1"></i> Full legal name must match a resident record
+                                    </li>
+                                    <li x-show="residentPasswordConflict" class="text-xs text-rose-600">
+                                        <i class="fas fa-times mr-1"></i> Password used is unavailable
+                                    </li>
+                                    <li x-show="!requirements.minLength" class="text-xs text-rose-600">
+                                        <i class="fas fa-times mr-1"></i> Password must be 8+ characters
+                                    </li>
+                                    <li x-show="!requirements.hasUppercase" class="text-xs text-rose-600">
+                                        <i class="fas fa-times mr-1"></i> Add uppercase letter
+                                    </li>
+                                    <li x-show="!requirements.hasLowercase" class="text-xs text-rose-600">
+                                        <i class="fas fa-times mr-1"></i> Add lowercase letter
+                                    </li>
+                                    <li x-show="!requirements.hasNumber" class="text-xs text-rose-600">
+                                        <i class="fas fa-times mr-1"></i> Add a number
+                                    </li>
+                                    <li x-show="!requirements.hasSpecial" class="text-xs text-rose-600">
+                                        <i class="fas fa-times mr-1"></i> Add special character (!@#$%^&*)
+                                    </li>
+                                </ul>
                             </div>
                         </form>
                     </div>
                 </div>
             </main>
+        </div>
+    </div>
+
+    <!-- Admin Privilege Confirmation Modal -->
+    <div x-show="showAdminConfirmModal" x-cloak @click.self="cancelAdminRole()" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 modal-backdrop p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden" @click.stop>
+            <!-- Modal Header -->
+            <div class="bg-gradient-to-r from-rose-50 to-rose-100 px-8 py-6 border-b-2 border-rose-200">
+                <div class="flex items-center gap-3">
+                    <div class="h-10 w-10 rounded-full bg-rose-600 flex items-center justify-center text-white">
+                        <i class="fas fa-exclamation-circle text-sm"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-rose-900">Create Privileged Account</h3>
+                </div>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="px-8 py-6 space-y-4">
+                <p class="text-sm text-slate-700 leading-relaxed">
+                    You are about to create an <strong class="font-bold text-rose-600">ADMIN account</strong>. This user will have <strong>full system access</strong> and can manage all aspects of CommunaLink.
+                </p>
+                
+                <div class="bg-rose-50 border-l-4 border-rose-600 p-4 rounded">
+                    <p class="text-xs text-rose-900 font-semibold">
+                        <i class="fas fa-shield-alt mr-2"></i>
+                        Ensure this is intentional and the person is trusted.
+                    </p>
+                </div>
+
+                <p class="text-xs text-slate-600">
+                    <strong>Admin Slots:</strong> <span class="text-rose-600 font-bold"><?php echo $admin_count; ?>/<?php echo $admin_selection_limit; ?></span> used
+                </p>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="bg-slate-50 px-8 py-4 flex gap-3">
+                <button @click="cancelAdminRole()" type="button" class="flex-1 px-4 py-3 rounded-xl text-xs font-bold uppercase text-slate-700 bg-slate-200 hover:bg-slate-300 transition">
+                    Cancel
+                </button>
+                <button @click="confirmAdminRole()" type="button" class="flex-1 px-4 py-3 rounded-xl text-xs font-bold uppercase text-white bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-600/30 transition">
+                    Confirm Admin
+                </button>
+            </div>
         </div>
     </div>
 </body>
