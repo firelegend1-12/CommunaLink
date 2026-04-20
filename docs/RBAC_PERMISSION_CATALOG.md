@@ -41,7 +41,6 @@ Legacy value note:
 | `view_residents` | `admin`, `barangay-officials`, `barangay-kagawad` |
 | `edit_resident_profile` | `admin` |
 | `view_monitoring_requests` | `admin`, `barangay-officials`, `barangay-kagawad` |
-| `access_chat` | `admin`, `barangay-officials`, `barangay-kagawad`, `barangay-tanod` |
 | `financial_management` | `admin`, `barangay-officials` |
 | `approve_applications` | `admin` |
 | `override_decisions` | `admin` |

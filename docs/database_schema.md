@@ -175,23 +175,7 @@ The barangay management system uses a MySQL database with 10 main tables to mana
 | reported_at | DATETIME | DEFAULT CURRENT_TIMESTAMP | Report timestamp |
 | admin_remarks | TEXT | NULL | Admin response |
 
-### 8. chat_messages
-**Purpose**: Internal messaging system
-**Primary Key**: `id`
-**Foreign Keys**: 
-- `sender_id` → `users.id`
-- `receiver_id` → `users.id`
-
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| id | INT(11) | PK, AUTO_INCREMENT | Unique message identifier |
-| sender_id | INT(11) | FK, NOT NULL | Message sender |
-| receiver_id | INT(11) | FK, NOT NULL | Message receiver |
-| message | TEXT | NOT NULL | Message content |
-| sent_at | DATETIME | DEFAULT CURRENT_TIMESTAMP | Send timestamp |
-| is_read | TINYINT(1) | NOT NULL, DEFAULT 0 | Read status |
-
-### 9. announcements
+### 8. announcements
 **Purpose**: System announcements and notifications
 **Primary Key**: `id`
 **Foreign Keys**: `user_id` → `users.id`
@@ -205,7 +189,7 @@ The barangay management system uses a MySQL database with 10 main tables to mana
 | image_path | VARCHAR(255) | NULL | Path to announcement image |
 | created_at | DATETIME | DEFAULT CURRENT_TIMESTAMP | Creation timestamp |
 
-### 10. events
+### 9. events
 **Purpose**: Community events and activities
 **Primary Key**: `id`
 **Foreign Keys**: `created_by` → `users.id`
@@ -240,11 +224,7 @@ The barangay management system uses a MySQL database with 10 main tables to mana
    - A user can report multiple incidents
    - Each incident is reported by one user
 
-5. **Users ↔ Chat Messages**: Many-to-many relationship
-   - Users can send/receive multiple messages
-   - Messages have one sender and one receiver
-
-6. **Users ↔ Announcements/Events**: One-to-many relationship
+5. **Users ↔ Announcements/Events**: One-to-many relationship
    - Admins can create multiple announcements/events
    - Each announcement/event has one creator
 

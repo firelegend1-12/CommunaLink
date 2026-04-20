@@ -15,8 +15,6 @@ Align secured API endpoints to the RBAC permission matrix, remove endpoint-local
 - Incident mapping:
   - `report_incident`, `get_my_reports` -> `report_incidents`
   - `get_all_reports`, `update_report_status` -> `manage_incidents`
-- Chat operator role policy: all roles with `access_chat`.
-- Chat model: per-operator isolated inbox.
 - Notification count APIs: permission-based per action.
 - Post reactions: resident-facing permission only.
 - `api/announcements.php`: removed.
@@ -26,7 +24,6 @@ Align secured API endpoints to the RBAC permission matrix, remove endpoint-local
 - `includes/permission_checker.php`
 - `api/incidents.php`
 - `api/notifications.php`
-- `api/chat.php`
 - `api/post-reactions.php`
 - `api/check-expiring-permits.php`
 - `api/cleanup-active-sessions.php`
@@ -58,11 +55,9 @@ Align secured API endpoints to the RBAC permission matrix, remove endpoint-local
 - `mark_read` and `mark_all_read` remain authenticated self-service actions with CSRF.
 - Added permission-aware cache key for sidebar counts to avoid cross-role cache leakage.
 
-### 4) Chat API
-- Replaced admin-only shared inbox assumptions with per-operator isolated thread model.
-- Operator actions now require `access_chat`.
-- Resident chat path remains available for resident users, while operator actions enforce permission.
-- Normalized deny payloads and strict status codes.
+### 4) Legacy Messaging Endpoint Status
+- The legacy messaging endpoint previously aligned in Phase 4 has since been fully removed from runtime.
+- Current runtime has no messaging API/page surfaces.
 
 ### 5) Post Reactions API
 - Enforced resident-facing permission (`view_announcements`) and strict deny payloads.
@@ -106,7 +101,6 @@ Align secured API endpoints to the RBAC permission matrix, remove endpoint-local
 ### Runtime Validation (Unauthenticated)
 - `GET /api/incidents.php?action=get_all_reports` -> `401` with JSON auth error.
 - `GET /api/notifications.php?action=get_admin_sidebar_counts` -> `401` with JSON auth error.
-- `GET /api/chat.php?action=get_conversations` -> `401` with JSON auth error.
 - `POST /api/check-expiring-permits.php` -> `403` with scheduler permission contract.
 - `POST /api/cleanup-active-sessions.php` -> `403` with scheduler permission contract.
 - `POST /api/check-expiring-permits.php` with `X-Scheduler-Scope=wrong_scope` -> `403`.
@@ -115,8 +109,6 @@ Align secured API endpoints to the RBAC permission matrix, remove endpoint-local
 
 ### Runtime Validation (Authenticated Admin)
 - Login: successful (`302`, no invalid-credential message).
-- `GET /api/chat.php?action=get_conversations` -> `200` success JSON.
-- `GET /api/chat.php?action=get_unread_count` -> `200` success JSON.
 - `GET /api/notifications.php?action=get_admin_sidebar_counts` -> `200` success JSON.
 - `GET /api/notifications.php?action=get_business_counts` -> `200` success JSON.
 - `GET /api/notifications.php?action=get_incident_counts` -> `200` success JSON.
@@ -129,7 +121,6 @@ Align secured API endpoints to the RBAC permission matrix, remove endpoint-local
 
 ## Residual Validation Gaps
 - Resident positive-path runtime checks were not fully exercised due unavailable resident test credentials in this run.
-- Non-admin operator (`barangay-officials`, `barangay-kagawad`, `barangay-tanod`) runtime chat verification was not executed due unavailable test credentials for those roles.
 
 ## Recommended Follow-up
 1. Run resident login smoke for:
@@ -137,8 +128,4 @@ Align secured API endpoints to the RBAC permission matrix, remove endpoint-local
    - `get_my_reports`
    - `mark_read` and `mark_all_read`
    - post reactions toggle.
-2. Run role-specific operator chat smoke for:
-   - `barangay-officials`
-   - `barangay-kagawad`
-   - `barangay-tanod`
-3. Rotate scheduler tokens to current/next env keys and document rotation SOP.
+2. Rotate scheduler tokens to current/next env keys and document rotation SOP.

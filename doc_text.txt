@@ -145,10 +145,10 @@ a. Resident profiles
 b. Properties  
 c. Official documents 
 2. Implement an incident reporting system using Google Maps Platform with 
-“conversational interface (Chat)” and interactive mapping functionalities, 
+interactive mapping functionalities, 
 leveraging it’s accurate, up -to-date location pinpointing while also enhancing 
 location identification for emergency response. 
-3. Enhance “Chat” feature so it won’t be limited by implementing request functions 
+3. Enhance service-request workflows by implementing request functions 
 that facilitates and generates barangay service functions such as: 
 a. Online document requests 
 b. Incident reporting 
@@ -940,16 +940,16 @@ cas@usa.edu.ph | usa.edu.ph
  The figure shows the Entity Relationship Diagram, for the CommunaLink: Online 
 Barangay and Management System. It focuses on the main components of the system with 
 the tables: Users, Residents, Announcements, Events, Incidents, Businesses, Business 
-Transactions, Business permits, Document Requests, Chat Messages, and Activity Logs. 
+Transactions, Business permits, Document Requests, and Activity Logs. 
 The Users (admin) table admits each of the resident’s profile information on which can 
 also be linked to the table of Residents. This allows resident only features like submittin g 
 incident reports or requesting official documents. They are the key role since they involve 
 in various important actions. The Users (admin) has the control post announcements, 
-organize events, and communicate through a chat feature in the system. The Bus iness, 
+organize events, and communicate through announcement and notification workflows in the system. The Bus iness, 
 Business Transactions and Business Permits table handles the business registration and 
 permit processing. The Document Requests table manages residents’ requests for 
-certificates or other barangay -issued documents, while the Chat Messages table supp orts 
-communication between residents and barangay officials for coordination and 
+certificates or other barangay -issued documents, while the activity and notification records support 
+coordination between residents and barangay officials for 
 transparency. When a resident files a request of business permits, official documents, 
 admin changes the system logs everything, when it was made and why ensuring 
 accountability and traceability across operations. 
