@@ -30,10 +30,10 @@ if (!csrf_validate()) {
 }
 
 $action = trim($_POST['action'] ?? '');
-$user_id = $_SESSION['user_id'];
+$user_id = (int)($_SESSION['user_id'] ?? 0);
 
 // Helper: fetch current user record
-function get_current_user(PDO $pdo, int $user_id): ?array
+function load_account_security_user(PDO $pdo, int $user_id): ?array
 {
     $stmt = $pdo->prepare("SELECT u.id, u.email, u.password, u.fullname, r.first_name, r.last_name FROM users u LEFT JOIN residents r ON u.id = r.user_id WHERE u.id = ?");
     $stmt->execute([$user_id]);
@@ -46,11 +46,18 @@ switch ($action) {
     // ─── STEP 1: Send OTP ───
     case 'send_otp':
         $type = trim($_POST['type'] ?? ''); // 'email' or 'password'
-        $user = get_current_user($pdo, $user_id);
+        if (!in_array($type, ['email', 'password'], true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid verification request type.']);
+            exit;
+        }
+
+        $user = load_account_security_user($pdo, $user_id);
         if (!$user) {
             echo json_encode(['success' => false, 'message' => 'User not found.']);
             exit;
         }
+
+        $newPasswordPlain = trim((string)($_POST['new_password'] ?? ''));
 
         // For password change, validate current password first
         if ($type === 'password') {
@@ -59,9 +66,19 @@ switch ($action) {
                 echo json_encode(['success' => false, 'message' => 'Current password is incorrect.']);
                 exit;
             }
+
+            $has_upper = preg_match('/[A-Z]/', $newPasswordPlain) === 1;
+            $has_lower = preg_match('/[a-z]/', $newPasswordPlain) === 1;
+            $has_number = preg_match('/[0-9]/', $newPasswordPlain) === 1;
+            $has_special = preg_match('/[^A-Za-z0-9]/', $newPasswordPlain) === 1;
+            if ($newPasswordPlain === '' || strlen($newPasswordPlain) < 8 || !$has_upper || !$has_lower || !$has_number || !$has_special) {
+                echo json_encode(['success' => false, 'message' => 'New password must be at least 8 characters and include uppercase, lowercase, number, and special character.']);
+                exit;
+            }
         }
 
         // For email change, validate new email
+        $new_email = '';
         if ($type === 'email') {
             $new_email = trim($_POST['new_email'] ?? '');
             if (empty($new_email) || !filter_var($new_email, FILTER_VALIDATE_EMAIL)) {
@@ -104,7 +121,7 @@ switch ($action) {
         $_SESSION['account_change_email']     = $user['email'];   // current registered email
         $_SESSION['account_change_otp_email'] = $otpTarget;       // where OTP record is stored
         if ($type === 'email') $_SESSION['account_change_new_email'] = $new_email;
-        if ($type === 'password') $_SESSION['account_change_new_password'] = password_hash(trim($_POST['new_password'] ?? ''), PASSWORD_DEFAULT);
+        if ($type === 'password') $_SESSION['account_change_new_password'] = password_hash($newPasswordPlain, PASSWORD_DEFAULT);
 
         $masked = preg_replace('/(?<=.{2}).(?=.*@)/', '*', $otpTarget);
         echo json_encode(['success' => true, 'message' => "Verification code sent to {$masked}."]);
@@ -114,9 +131,10 @@ switch ($action) {
     case 'verify_change_email':
         $otp_code = trim($_POST['otp_code'] ?? '');
         $email = $_SESSION['account_change_email'] ?? '';
+        $otp_email = $_SESSION['account_change_otp_email'] ?? '';
         $new_email = $_SESSION['account_change_new_email'] ?? '';
 
-        if (empty($email) || empty($new_email)) {
+        if (empty($email) || empty($otp_email) || empty($new_email)) {
             echo json_encode(['success' => false, 'message' => 'Session expired. Please start over.']);
             exit;
         }
@@ -126,10 +144,10 @@ switch ($action) {
             exit;
         }
 
-        $result = OTPEmailService::verifyOTP($pdo, $email, $otp_code);
+        $result = OTPEmailService::verifyOTP($pdo, $otp_email, $otp_code);
         if ($result === 'max_attempts') {
-            $pdo->prepare("DELETE FROM email_verification_otps WHERE email = ?")->execute([$email]);
-            unset($_SESSION['account_change_email'], $_SESSION['account_change_type'], $_SESSION['account_change_new_email']);
+            $pdo->prepare("DELETE FROM email_verification_otps WHERE email = ?")->execute([$otp_email]);
+            unset($_SESSION['account_change_email'], $_SESSION['account_change_otp_email'], $_SESSION['account_change_type'], $_SESSION['account_change_new_email']);
             echo json_encode(['success' => false, 'message' => 'Too many failed attempts. Please start over.']);
             exit;
         }
@@ -153,18 +171,19 @@ switch ($action) {
         }
 
         // Destroy session and redirect to login
-        unset($_SESSION['account_change_email'], $_SESSION['account_change_type'], $_SESSION['account_change_new_email']);
+        unset($_SESSION['account_change_email'], $_SESSION['account_change_otp_email'], $_SESSION['account_change_type'], $_SESSION['account_change_new_email']);
         session_destroy();
-        echo json_encode(['success' => true, 'message' => 'Email updated successfully. Please sign in with your new email.', 'redirect' => '../../index.php']);
+        echo json_encode(['success' => true, 'message' => 'Email updated successfully. Please sign in with your new email.', 'redirect' => app_url('/index.php')]);
         exit;
 
     // ─── STEP 2: Verify OTP & apply password change ───
     case 'verify_change_password':
         $otp_code = trim($_POST['otp_code'] ?? '');
         $email = $_SESSION['account_change_email'] ?? '';
+        $otp_email = $_SESSION['account_change_otp_email'] ?? $email;
         $new_password_hash = $_SESSION['account_change_new_password'] ?? '';
 
-        if (empty($email) || empty($new_password_hash)) {
+        if (empty($otp_email) || empty($new_password_hash)) {
             echo json_encode(['success' => false, 'message' => 'Session expired. Please start over.']);
             exit;
         }
@@ -174,10 +193,10 @@ switch ($action) {
             exit;
         }
 
-        $result = OTPEmailService::verifyOTP($pdo, $email, $otp_code);
+        $result = OTPEmailService::verifyOTP($pdo, $otp_email, $otp_code);
         if ($result === 'max_attempts') {
-            $pdo->prepare("DELETE FROM email_verification_otps WHERE email = ?")->execute([$email]);
-            unset($_SESSION['account_change_email'], $_SESSION['account_change_type'], $_SESSION['account_change_new_password']);
+            $pdo->prepare("DELETE FROM email_verification_otps WHERE email = ?")->execute([$otp_email]);
+            unset($_SESSION['account_change_email'], $_SESSION['account_change_otp_email'], $_SESSION['account_change_type'], $_SESSION['account_change_new_password']);
             echo json_encode(['success' => false, 'message' => 'Too many failed attempts. Please start over.']);
             exit;
         }
@@ -197,9 +216,9 @@ switch ($action) {
         }
 
         // Destroy session and redirect to login
-        unset($_SESSION['account_change_email'], $_SESSION['account_change_type'], $_SESSION['account_change_new_password']);
+        unset($_SESSION['account_change_email'], $_SESSION['account_change_otp_email'], $_SESSION['account_change_type'], $_SESSION['account_change_new_password']);
         session_destroy();
-        echo json_encode(['success' => true, 'message' => 'Password updated successfully. Please sign in with your new password.', 'redirect' => '../../index.php']);
+        echo json_encode(['success' => true, 'message' => 'Password updated successfully. Please sign in with your new password.', 'redirect' => app_url('/index.php')]);
         exit;
 
     default:

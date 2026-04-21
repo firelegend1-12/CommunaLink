@@ -54,6 +54,7 @@ $display_name = ucfirst(trim((string) $user_fullname));
             <i class="fas fa-user-cog"></i>
             <span>My Account</span>
         </a>
+        
         <a href="../includes/logout.php" class="nav-link">
             <i class="fas fa-sign-out-alt"></i>
             <span>Logout</span>

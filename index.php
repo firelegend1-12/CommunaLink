@@ -202,6 +202,7 @@ function hydrate_linked_prompt_state(PDO $pdo): array {
 }
 
 // Check if user is already logged in
+
 if (is_logged_in()) {
     if (isset($_SESSION['role']) && $_SESSION['role'] === 'resident') {
         redirect_to('resident/dashboard.php');
@@ -456,6 +457,7 @@ $page_title = "Sign In - Barangay Pakiad";
                         echo '<div class="alert alert-success"><p>' . $_SESSION['success_message'] . '</p></div>';
                         unset($_SESSION['success_message']);
                     }
+                    
                     if (!empty($login_err)) {
                         echo '<div class="alert alert-error"><p>' . $login_err . '</p></div>';
                     }

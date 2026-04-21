@@ -222,7 +222,7 @@ if ($user_id) {
                 <button class="hamburger-btn" id="hamburger-btn" aria-label="Open navigation menu" aria-expanded="false">
                     <i class="fas fa-bars"></i>
                 </button>
-                <div class="header-menu relative">
+                <div class="header-menu relative" style="margin-left: auto;">
                     <!-- Notification Bell -->
                     <div class="relative group" id="notif-bell-wrapper">
                         <button id="notif-bell" class="focus:outline-none">

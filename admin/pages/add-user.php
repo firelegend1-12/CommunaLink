@@ -103,6 +103,7 @@ $page_title = "Add New User";
         residentPasswordValidating: false,
         pwdCheckTimer: null,
         password: '',
+        confirmPassword: '',
         strength: 0,
         showAdminConfirmModal: false,
         pendingAdminRole: false,
@@ -318,6 +319,9 @@ $page_title = "Add New User";
 
                  return this.fullnameInput &&
                      !!this.residentId &&
+                     this.password &&
+                     this.confirmPassword &&
+                     this.password === this.confirmPassword &&
                      this.requirements.minLength && 
                      this.requirements.hasUppercase && 
                      this.requirements.hasLowercase && 
@@ -465,6 +469,19 @@ echo csrf_field(); ?>
                                     <input type="password" name="password" required x-model="password" @input="validatePassword($event.target.value)"
                                            class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm" 
                                            placeholder="Min. 8 characters">
+
+                                    <div class="mt-3">
+                                        <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Confirm New Password</label>
+                                        <input type="password" name="confirm_password" required x-model="confirmPassword"
+                                               class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm"
+                                               placeholder="Re-enter secure password">
+                                        <p x-show="password && confirmPassword && password !== confirmPassword" x-cloak class="text-xs text-rose-600 mt-2">
+                                            <i class="fas fa-exclamation-circle mr-1"></i> Passwords do not match
+                                        </p>
+                                        <p x-show="password && confirmPassword && password === confirmPassword" x-cloak class="text-xs text-emerald-600 mt-2">
+                                            <i class="fas fa-check-circle mr-1"></i> Passwords match
+                                        </p>
+                                    </div>
                                     
                                     <!-- Strength Meter -->
                                     <div class="mt-3 px-1">
@@ -602,6 +619,12 @@ echo $old_official_position === 'barangay-tanod' ? 'selected' : ''; ?>>Barangay 
                                     </li>
                                     <li x-show="residentPasswordConflict" class="text-xs text-rose-600">
                                         <i class="fas fa-times mr-1"></i> Password used is unavailable
+                                    </li>
+                                    <li x-show="password && !confirmPassword" class="text-xs text-rose-600">
+                                        <i class="fas fa-times mr-1"></i> Confirm new password is required
+                                    </li>
+                                    <li x-show="password && confirmPassword && password !== confirmPassword" class="text-xs text-rose-600">
+                                        <i class="fas fa-times mr-1"></i> Passwords must match
                                     </li>
                                     <li x-show="!requirements.minLength" class="text-xs text-rose-600">
                                         <i class="fas fa-times mr-1"></i> Password must be 8+ characters

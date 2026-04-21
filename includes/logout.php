@@ -36,6 +36,20 @@ $redirect_url = app_url('/index.php?logout=success');
             border-left-color: #3b82f6;
             animation: spin 1s linear infinite;
         }
+        .loading-dots span {
+            display: inline-block;
+            animation: bounce 1.2s infinite ease-in-out;
+        }
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.15s;
+        }
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
+            40% { transform: translateY(-4px); opacity: 1; }
+        }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -48,14 +62,15 @@ $redirect_url = app_url('/index.php?logout=success');
             <div class="spinner"></div>
         </div>
         <h2 class="text-2xl font-bold text-gray-800 mb-2">Logging Out</h2>
-        <p class="text-gray-500 mb-4">Please wait while we securely end your session...</p>
+        <p class="text-gray-500 mb-2">Please wait while we securely end your session</p>
+        <p class="text-sm text-gray-400 loading-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></p>
     </div>
 
     <script>
         // Redirect after a slight delay for better UX
         setTimeout(function() {
             window.location.href = "<?php echo addslashes($redirect_url); ?>";
-        }, 1200);
+        }, 1800);
     </script>
 </body>
 </html>

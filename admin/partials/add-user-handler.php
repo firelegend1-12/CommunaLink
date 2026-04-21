@@ -28,6 +28,7 @@ if (!csrf_validate()) {
 
 $fullname = sanitize_input($_POST['fullname']);
 $password = $_POST['password'];
+$confirm_password = (string)($_POST['confirm_password'] ?? '');
 $role = sanitize_input($_POST['role']);
 $resident_id = isset($_POST['resident_id']) ? (int)$_POST['resident_id'] : 0;
 $admin_confirmation_password = (string)($_POST['admin_confirmation_password'] ?? '');
@@ -67,6 +68,11 @@ $role = $validation_result['data']['role'];
 $passwordValidation = PasswordSecurity::validatePassword($password);
 if (!$passwordValidation['valid']) {
     $_SESSION['error_message'] = "Password does not meet security requirements: " . implode(' ', $passwordValidation['errors']);
+    redirect_to('../pages/add-user.php');
+}
+
+if ($confirm_password === '' || $password !== $confirm_password) {
+    $_SESSION['error_message'] = "Password confirmation does not match.";
     redirect_to('../pages/add-user.php');
 }
 

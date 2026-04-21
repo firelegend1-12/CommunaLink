@@ -248,6 +248,80 @@ try {
     .submit-btn:active {
         transform: translateY(0);
     }
+
+    .password-requirements {
+        margin-top: 16px;
+        padding: 16px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+    }
+
+    .password-requirements-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #475569;
+        margin-bottom: 10px;
+    }
+
+    .requirement-check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.82rem;
+        font-weight: 500;
+        margin-bottom: 6px;
+    }
+
+    .requirement-check:last-child {
+        margin-bottom: 0;
+    }
+
+    .requirement-check i {
+        font-size: 0.75rem;
+    }
+
+    .requirement-met {
+        color: #16a34a;
+    }
+
+    .requirement-unmet {
+        color: #64748b;
+    }
+
+    .redirect-spinner {
+        border: 4px solid rgba(0,0,0,0.1);
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border-left-color: #3b82f6;
+        animation: redirect-spin 1s linear infinite;
+    }
+
+    .redirect-loading-dots span {
+        display: inline-block;
+        animation: redirect-bounce 1.2s infinite ease-in-out;
+    }
+
+    .redirect-loading-dots span:nth-child(2) {
+        animation-delay: 0.15s;
+    }
+
+    .redirect-loading-dots span:nth-child(3) {
+        animation-delay: 0.3s;
+    }
+
+    @keyframes redirect-bounce {
+        0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
+        40% { transform: translateY(-4px); opacity: 1; }
+    }
+
+    @keyframes redirect-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
     
     @media (max-width: 992px) {
         .account-container {
@@ -360,9 +434,18 @@ try {
                             <label for="religion">Religion</label>
                             <input type="text" id="religion" name="religion" value="<?= htmlspecialchars($resident['religion'] ?? '') ?>">
                         </div>
+                    </div>
+                    <div class="form-grid-2-col" style="margin-top:24px;">
                         <div class="form-group">
                             <label for="citizenship">Citizenship</label>
                             <input type="text" id="citizenship" name="citizenship" value="<?= htmlspecialchars($resident['citizenship'] ?? 'Filipino') ?>" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="voter_status">Voter Status</label>
+                            <select id="voter_status" name="voter_status" required>
+                                <option value="Yes" <?= ($resident['voter_status'] ?? '') === 'Yes' ? 'selected' : '' ?>>Yes</option>
+                                <option value="No" <?= ($resident['voter_status'] ?? '') === 'No' ? 'selected' : '' ?>>No</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -413,11 +496,15 @@ try {
                     <div class="form-grid-2-col">
                         <div class="form-group">
                             <label for="new_password">New Password</label>
-                            <input type="password" id="new_password" placeholder="At least 6 characters" autocomplete="new-password" minlength="6">
+                            <input type="password" id="new_password" placeholder="At least 8 characters" autocomplete="new-password" minlength="8">
                         </div>
                         <div class="form-group">
                             <label for="confirm_password">Confirm New Password</label>
                             <input type="password" id="confirm_password" placeholder="Re-enter new password" autocomplete="new-password">
+                            <div id="pw-match-status" style="display:none;margin-top:6px;font-size:0.85rem;align-items:center;gap:6px;">
+                                <i id="pw-match-icon" class="fas fa-circle" aria-hidden="true"></i>
+                                <span id="pw-match-text"></span>
+                            </div>
                         </div>
                         <div class="form-group full-width" id="current-password-row" style="display:none;">
                             <label for="current_password">Current Password <span style="color:#94a3b8;font-weight:400;font-size:0.8rem;">(required to confirm it's you)</span></label>
@@ -428,17 +515,30 @@ try {
                         <button type="button" id="btn-change-password" style="padding:11px 24px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;"><i class="fas fa-lock" style="margin-right:8px;"></i>Change Password</button>
                         <div id="pw-change-status" style="display:none;margin-top:8px;font-size:0.85rem;"></div>
                     </div>
-                </div>
-
-                <div class="form-section">
-                    <div class="form-section-title">Other Information</div>
-                    <div class="form-grid-2-col">
-                        <div class="form-group">
-                            <label for="voter_status">Voter Status</label>
-                            <select id="voter_status" name="voter_status" required>
-                                <option value="Yes" <?= ($resident['voter_status'] ?? '') === 'Yes' ? 'selected' : '' ?>>Yes</option>
-                                <option value="No" <?= ($resident['voter_status'] ?? '') === 'No' ? 'selected' : '' ?>>No</option>
-                            </select>
+                    <div class="password-requirements" id="password-requirements">
+                        <p class="password-requirements-title">Password Requirements</p>
+                        <div class="requirements-list">
+                            <div class="requirement-check requirement-unmet" data-rule="minLength">
+                                <i class="fas fa-circle" aria-hidden="true"></i>
+                                <span>At least 8 characters</span>
+                            </div>
+                            <div class="requirement-check requirement-unmet" data-rule="hasUppercase">
+                                <i class="fas fa-circle" aria-hidden="true"></i>
+                                <span>Uppercase letter (A-Z)</span>
+                            </div>
+                            <div class="requirement-check requirement-unmet" data-rule="hasLowercase">
+                                <i class="fas fa-circle" aria-hidden="true"></i>
+                                <span>Lowercase letter (a-z)</span>
+                            </div>
+                            <div class="requirement-check requirement-unmet" data-rule="hasNumber">
+                                <i class="fas fa-circle" aria-hidden="true"></i>
+                                <span>Number (0-9)</span>
+                            </div>
+                            <div class="requirement-check requirement-unmet" data-rule="hasSpecial">
+                                <i class="fas fa-circle" aria-hidden="true"></i>
+                                <span>Special character (!@#$%^&*)</span>
+                            </div>
+                            <!-- moved 'Passwords match' indicator under Confirm New Password field -->
                         </div>
                     </div>
                 </div>
@@ -475,8 +575,20 @@ try {
     </div>
 </div>
 
+<div id="login-redirect-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.62); z-index:10000; align-items:center; justify-content:center; backdrop-filter:blur(6px);">
+    <div style="background:#fff; border-radius:16px; box-shadow:0 25px 50px rgba(0,0,0,0.15); max-width:420px; width:90%; padding:32px; text-align:center; position:relative;">
+        <div style="margin-bottom:20px; display:flex; justify-content:center;">
+            <div class="redirect-spinner"></div>
+        </div>
+        <h3 style="margin:0 0 8px;font-size:1.3rem;font-weight:700;color:#1e293b;">Redirecting</h3>
+        <p id="login-redirect-message" style="margin:0;font-size:0.9rem;color:#64748b;">Please wait while we take you back to the login screen.</p>
+        <p class="redirect-loading-dots" aria-hidden="true" style="margin-top:12px;font-size:0.8rem;color:#94a3b8;"><span>.</span><span>.</span><span>.</span></p>
+    </div>
+</div>
+
 <script>
 const SECURITY_CSRF_TOKEN = <?php echo json_encode($security_csrf_token); ?>;
+const LOGIN_REDIRECT_URL = <?php echo json_encode(app_url('/index.php')); ?>;
 
 document.addEventListener('DOMContentLoaded', function () {
     // --- Profile picture logic ---
@@ -488,6 +600,21 @@ document.addEventListener('DOMContentLoaded', function () {
     const urlParams = new URLSearchParams(window.location.search);
     const picUpdated = urlParams.get('success') === 'pic_updated';
     const picError = urlParams.get('error');
+    const loginRedirectModal = document.getElementById('login-redirect-modal');
+    const loginRedirectMessage = document.getElementById('login-redirect-message');
+
+    function showLoginRedirect(message, targetUrl) {
+        if (loginRedirectMessage) {
+            loginRedirectMessage.textContent = message || 'Please wait while we take you back to the login screen.';
+        }
+        if (loginRedirectModal) {
+            loginRedirectModal.style.display = 'flex';
+        }
+
+        window.setTimeout(() => {
+            window.location.href = targetUrl || LOGIN_REDIRECT_URL;
+        }, 1800);
+    }
 
     if (picUpdated) {
         uploadStatus.textContent = 'Profile photo updated successfully.';
@@ -629,7 +756,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     emailSendInfo.textContent = '✅ ' + data.message;
                     emailSendInfo.style.display = 'block';
                     btnConfirmEmailChange.textContent = 'Redirecting...';
-                    setTimeout(() => { window.location.href = data.redirect || '../../index.php'; }, 1500);
+                    showLoginRedirect(data.message || 'Email updated successfully. Redirecting to login...', data.redirect);
                 } else {
                     emailOtpError.textContent = data.message || 'Verification failed.';
                     emailOtpError.style.display = 'block';
@@ -653,13 +780,79 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnChangePassword = document.getElementById('btn-change-password');
     const pwChangeStatus = document.getElementById('pw-change-status');
 
-    function checkShowCurrentPw() {
+    const requirementNodes = document.querySelectorAll('.requirement-check[data-rule]');
+    const requirementMap = {};
+    requirementNodes.forEach((node) => {
+        const rule = node.getAttribute('data-rule');
+        if (rule) {
+            requirementMap[rule] = node;
+        }
+    });
+    const pwMatchEl = document.getElementById('pw-match-status');
+    const pwMatchIcon = document.getElementById('pw-match-icon');
+    const pwMatchText = document.getElementById('pw-match-text');
+
+    function getPasswordRules(passwordValue, confirmValue) {
+        const pw = passwordValue || '';
+        const confirmPw = confirmValue || '';
+        return {
+            minLength: pw.length >= 8,
+            hasUppercase: /[A-Z]/.test(pw),
+            hasLowercase: /[a-z]/.test(pw),
+            hasNumber: /[0-9]/.test(pw),
+            hasSpecial: /[^A-Za-z0-9]/.test(pw),
+            matches: pw.length > 0 && pw === confirmPw
+        };
+    }
+
+    function updateRequirementState(rule, met) {
+        const node = requirementMap[rule];
+        if (!node) return;
+        node.classList.toggle('requirement-met', !!met);
+        node.classList.toggle('requirement-unmet', !met);
+        const icon = node.querySelector('i');
+        if (icon) {
+            icon.className = met ? 'fas fa-check-circle' : 'fas fa-circle';
+        }
+    }
+
+    function updateRequirementUI() {
+        const pw = newPwInput ? newPwInput.value.trim() : '';
+        const confirmPw = confirmPwInput ? confirmPwInput.value.trim() : '';
+        const rules = getPasswordRules(pw, confirmPw);
+        Object.keys(rules).forEach((rule) => updateRequirementState(rule, rules[rule]));
+
+        // Update dedicated password-match element (moved out of checklist)
+        if (pwMatchEl) {
+            if (rules.matches) {
+                pwMatchEl.style.display = 'inline-flex';
+                pwMatchEl.style.color = '#16a34a';
+                if (pwMatchIcon) pwMatchIcon.className = 'fas fa-check-circle';
+                if (pwMatchText) pwMatchText.textContent = 'Passwords match';
+            } else if (pw.length > 0 || confirmPw.length > 0) {
+                pwMatchEl.style.display = 'inline-flex';
+                pwMatchEl.style.color = '#dc2626';
+                if (pwMatchIcon) pwMatchIcon.className = 'fas fa-exclamation-circle';
+                if (pwMatchText) pwMatchText.textContent = 'Passwords do not match';
+            } else {
+                pwMatchEl.style.display = 'none';
+                if (pwMatchIcon) pwMatchIcon.className = 'fas fa-circle';
+                if (pwMatchText) pwMatchText.textContent = '';
+            }
+        }
+
+        return rules;
+    }
+
+    function handlePasswordInput() {
         const nv = newPwInput ? newPwInput.value.trim() : '';
         const cv = confirmPwInput ? confirmPwInput.value.trim() : '';
-        if (currentPwRow) currentPwRow.style.display = (nv.length >= 6 && cv.length >= 1) ? 'block' : 'none';
+        updateRequirementUI();
+        if (currentPwRow) currentPwRow.style.display = (nv.length >= 8 && cv.length >= 1) ? 'block' : 'none';
     }
-    if (newPwInput) newPwInput.addEventListener('input', checkShowCurrentPw);
-    if (confirmPwInput) confirmPwInput.addEventListener('input', checkShowCurrentPw);
+    if (newPwInput) newPwInput.addEventListener('input', handlePasswordInput);
+    if (confirmPwInput) confirmPwInput.addEventListener('input', handlePasswordInput);
+    handlePasswordInput();
 
     function showPwStatus(msg, ok) {
         if (!pwChangeStatus) return;
@@ -674,10 +867,14 @@ document.addEventListener('DOMContentLoaded', function () {
             const confirmPw = confirmPwInput ? confirmPwInput.value.trim() : '';
             const currentPw = currentPwInput ? currentPwInput.value.trim() : '';
             if (pwChangeStatus) pwChangeStatus.style.display = 'none';
+            const rules = updateRequirementUI();
 
             if (!newPw) { showPwStatus('Please enter a new password.', false); return; }
-            if (newPw.length < 6) { showPwStatus('Password must be at least 6 characters.', false); return; }
-            if (newPw !== confirmPw) { showPwStatus('Passwords do not match.', false); return; }
+            if (!rules.minLength || !rules.hasUppercase || !rules.hasLowercase || !rules.hasNumber || !rules.hasSpecial) {
+                showPwStatus('Password must be at least 8 characters and include uppercase, lowercase, number, and special character.', false);
+                return;
+            }
+            if (!rules.matches) { showPwStatus('Passwords do not match.', false); return; }
             if (!currentPw) {
                 if (currentPwRow) { currentPwRow.style.display = 'block'; }
                 showPwStatus('Please enter your current password.', false);
@@ -753,7 +950,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById('otp-subtitle').textContent = '✅ ' + data.message;
                     if (otpErrorEl) otpErrorEl.style.display = 'none';
                     otpSubmitBtn.textContent = 'Redirecting...';
-                    setTimeout(() => { window.location.href = data.redirect || '../../index.php'; }, 1500);
+                    showLoginRedirect(data.message || 'Password updated successfully. Redirecting to login...', data.redirect);
                 } else {
                     if (otpErrorEl) { otpErrorEl.textContent = data.message || 'Verification failed.'; otpErrorEl.style.display='block'; }
                     otpSubmitBtn.disabled = false;

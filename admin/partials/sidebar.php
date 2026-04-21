@@ -230,6 +230,7 @@ if ($hour >= 12 && $hour < 18) {
                 <i class="fas fa-info-circle mr-3 text-lg text-gray-400 flex-shrink-0"></i>
                 About Us
             </a>
+            
             <a href="<?php echo ($current_dir === 'pages') ? '../../includes/logout.php' : '../includes/logout.php'; ?>" class="text-gray-300 hover:bg-gray-700 hover:text-white group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
                 <i class="fas fa-sign-out-alt mr-3 text-lg text-gray-400 flex-shrink-0"></i>
                 <span>Logout</span>
