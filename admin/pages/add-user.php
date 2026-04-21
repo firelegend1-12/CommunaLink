@@ -24,6 +24,7 @@ $form_data = $_SESSION['form_data'] ?? [];
 $old_fullname = htmlspecialchars((string)($form_data['fullname'] ?? ''), ENT_QUOTES, 'UTF-8');
 $old_role = (string)($form_data['role'] ?? '');
 $old_official_position = (string)($form_data['official_position'] ?? '');
+$old_resident_id = (int)($form_data['resident_id'] ?? 0);
 unset($_SESSION['form_data']);
 
 // Show inactivity warning on this page after 3 minutes.
@@ -93,9 +94,9 @@ $page_title = "Add New User";
         role: <?php echo htmlspecialchars(json_encode($old_role), ENT_QUOTES, 'UTF-8'); ?>,
         officialPosition: <?php echo htmlspecialchars(json_encode($old_official_position), ENT_QUOTES, 'UTF-8'); ?>,
         fullnameInput: <?php echo htmlspecialchars(json_encode($old_fullname), ENT_QUOTES, 'UTF-8'); ?>,
-        residentFound: false,
+        residentFound: <?php echo $old_resident_id > 0 ? 'true' : 'false'; ?>,
         residentEmail: '',
-        residentId: null,
+        residentId: <?php echo $old_resident_id > 0 ? $old_resident_id : 'null'; ?>,
         residentLookupValidating: false,
         residentError: '',
         residentPasswordConflict: false,
@@ -181,6 +182,13 @@ $page_title = "Add New User";
             } else {
                 this.residentPasswordConflict = false;
             }
+        },
+        handleFullnameInput() {
+            this.residentFound = false;
+            this.residentId = null;
+            this.residentEmail = '';
+            this.residentError = '';
+            this.residentPasswordConflict = false;
         },
         handleRoleChange(newRole) {
             if (newRole === 'admin' && this.adminRoleLimitReached) {
@@ -308,7 +316,8 @@ $page_title = "Add New User";
                 return false;
             }
 
-                 return this.fullnameInput && 
+                 return this.fullnameInput &&
+                     !!this.residentId &&
                      this.requirements.minLength && 
                      this.requirements.hasUppercase && 
                      this.requirements.hasLowercase && 
@@ -425,12 +434,13 @@ unset($_SESSION['error_message']); endif; ?>
                         <form action="../partials/add-user-handler.php" method="POST" @submit="handleFormSubmit($event)" class="p-8 space-y-8">
                             <?php
 echo csrf_field(); ?>
+                            <input type="hidden" name="resident_id" :value="residentId || ''">
                             
                             <!-- Basic Info Section -->
                             <div class="space-y-6">
                                   <div>
                                       <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Full legal name</label>
-                                     <input id="fullname" x-model="fullnameInput" @blur="checkResident()" type="text" name="fullname" required 
+                                     <input id="fullname" x-model="fullnameInput" @input="handleFullnameInput()" @blur="checkResident()" type="text" name="fullname" required 
                                          value="<?php
         echo $old_fullname; ?>"
                                            class="form-input w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition shadow-sm" 

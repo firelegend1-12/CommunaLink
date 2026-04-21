@@ -346,7 +346,34 @@ if ($user_id) {
                     });
                 }
 
-                // Live notification polling
+                // Live notification polling + browser notification prompt
+                const initialNotificationIds = <?php echo json_encode(array_map('intval', array_column($notifications, 'id'))); ?>;
+                const knownNotificationIds = new Set((Array.isArray(initialNotificationIds) ? initialNotificationIds : []).map(function(id) {
+                    return String(id);
+                }));
+
+                const browserPromptKey = 'communalink_browser_notif_prompted_v1';
+                const browserEnabledKey = 'communalink_browser_notif_enabled_v1';
+                const defaultBrowserNotifLink = <?php echo json_encode(app_url('/resident/notifications.php')); ?>;
+                const defaultBrowserNotifIcon = <?php echo json_encode(app_url('/assets/images/barangay-logo.png')); ?>;
+                let browserNotificationsEnabled = false;
+
+                function getStoredPreference(key) {
+                    try {
+                        return window.localStorage.getItem(key);
+                    } catch (error) {
+                        return null;
+                    }
+                }
+
+                function setStoredPreference(key, value) {
+                    try {
+                        window.localStorage.setItem(key, value);
+                    } catch (error) {
+                        // Ignore storage write failures (private mode / browser policy).
+                    }
+                }
+
                 function escapeHtml(value) {
                     return String(value || '')
                         .replace(/&/g, '&amp;')
@@ -375,29 +402,140 @@ if ($user_id) {
                     return /^[A-Za-z0-9_\-\/.]+(?:\?[A-Za-z0-9_\-\.=&%]*)?$/.test(link) ? link : '';
                 }
 
-                function updateNotifications(notifications) {
-                    let unread = notifications.filter(n => n.is_read == 0).length;
-                    // Update badge
-                    let badge = bell.querySelector('span');
-                    if (unread > 0) {
-                        if (!badge) {
-                            badge = document.createElement('span');
-                            badge.className = 'absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5 font-bold animate-pulse';
-                            bell.appendChild(badge);
-                        }
-                        badge.textContent = unread;
-                        badge.style.display = '';
-                    } else if (badge) {
-                        badge.style.display = 'none';
+                function syncBrowserNotificationFlag() {
+                    if (!('Notification' in window)) {
+                        browserNotificationsEnabled = false;
+                        return;
                     }
-                    // Update dropdown
+
+                    const storedEnabled = getStoredPreference(browserEnabledKey);
+                    const hasPermission = Notification.permission === 'granted';
+                    browserNotificationsEnabled = hasPermission && storedEnabled !== '0';
+
+                    if (hasPermission && storedEnabled !== '1') {
+                        setStoredPreference(browserEnabledKey, '1');
+                    }
+
+                    if (Notification.permission !== 'default') {
+                        setStoredPreference(browserPromptKey, '1');
+                    }
+                }
+
+                function maybePromptBrowserNotifications() {
+                    if (!('Notification' in window)) {
+                        return;
+                    }
+
+                    syncBrowserNotificationFlag();
+
+                    if (Notification.permission !== 'default') {
+                        return;
+                    }
+
+                    if (getStoredPreference(browserPromptKey) === '1') {
+                        return;
+                    }
+
+                    window.setTimeout(function() {
+                        const wantsBrowserNotifications = window.confirm('Enable browser notifications for new barangay announcements and alerts?');
+                        setStoredPreference(browserPromptKey, '1');
+
+                        if (!wantsBrowserNotifications) {
+                            setStoredPreference(browserEnabledKey, '0');
+                            syncBrowserNotificationFlag();
+                            return;
+                        }
+
+                        Notification.requestPermission().then(function(permission) {
+                            if (permission === 'granted') {
+                                setStoredPreference(browserEnabledKey, '1');
+                            } else {
+                                setStoredPreference(browserEnabledKey, '0');
+                            }
+                            syncBrowserNotificationFlag();
+                        }).catch(function() {
+                            setStoredPreference(browserEnabledKey, '0');
+                            syncBrowserNotificationFlag();
+                        });
+                    }, 1200);
+                }
+
+                function showBrowserNotification(notif) {
+                    syncBrowserNotificationFlag();
+                    if (!browserNotificationsEnabled || !('Notification' in window) || Notification.permission !== 'granted') {
+                        return;
+                    }
+
+                    const title = (notif && notif.title) ? String(notif.title) : 'New Barangay Alert';
+                    const message = (notif && notif.message) ? String(notif.message) : 'You have a new notification.';
+                    const targetLink = sanitizeNotificationLink((notif && notif.link) ? notif.link : '') || defaultBrowserNotifLink;
+
+                    const options = {
+                        body: message,
+                        icon: defaultBrowserNotifIcon,
+                        badge: defaultBrowserNotifIcon,
+                        tag: 'communalink-resident-' + String(notif && notif.id ? notif.id : Date.now()),
+                        data: {
+                            link: targetLink
+                        }
+                    };
+
+                    const fallbackShow = function() {
+                        try {
+                            const browserNotification = new Notification(title, options);
+                            browserNotification.onclick = function() {
+                                window.focus();
+                                window.location.href = targetLink;
+                            };
+                        } catch (error) {
+                            // Browser blocked direct Notification constructor.
+                        }
+                    };
+
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.ready
+                            .then(function(registration) {
+                                if (registration && typeof registration.showNotification === 'function') {
+                                    return registration.showNotification(title, options);
+                                }
+                                fallbackShow();
+                                return null;
+                            })
+                            .catch(function() {
+                                fallbackShow();
+                            });
+                        return;
+                    }
+
+                    fallbackShow();
+                }
+
+                function updateNotifications(notifications) {
+                    const safeNotifications = Array.isArray(notifications) ? notifications : [];
+                    const unread = safeNotifications.filter(function(n) { return n.is_read == 0; }).length;
+
+                    if (bell) {
+                        let badge = bell.querySelector('span');
+                        if (unread > 0) {
+                            if (!badge) {
+                                badge = document.createElement('span');
+                                badge.className = 'absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5 font-bold animate-pulse';
+                                bell.appendChild(badge);
+                            }
+                            badge.textContent = unread;
+                            badge.style.display = '';
+                        } else if (badge) {
+                            badge.style.display = 'none';
+                        }
+                    }
+
                     let dropdownList = document.querySelector('#notif-dropdown ul');
                     if (dropdownList) {
                         dropdownList.innerHTML = '';
-                        if (notifications.length === 0) {
+                        if (safeNotifications.length === 0) {
                             dropdownList.innerHTML = '<li class="p-4 text-gray-500 text-center">No notifications</li>';
                         } else {
-                            notifications.forEach(function(notif) {
+                            safeNotifications.forEach(function(notif) {
                                 let li = document.createElement('li');
                                 li.className = 'px-4 py-3 border-b last:border-b-0 ' + (notif.is_read == 0 ? 'bg-blue-50' : '');
                                 const safeLink = sanitizeNotificationLink(notif.link);
@@ -424,14 +562,38 @@ if ($user_id) {
                         }
                     }
                 }
-                setInterval(function() {
+
+                function pollLiveNotifications() {
                     fetch('../resident/partials/fetch-live-updates.php')
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.notifications) {
-                                updateNotifications(data.notifications);
-                            }
+                        .then(function(res) { return res.json(); })
+                        .then(function(data) {
+                            const notifications = Array.isArray(data.notifications) ? data.notifications : [];
+                            const newUnreadNotifications = [];
+
+                            notifications.forEach(function(notif) {
+                                const notifId = String(notif.id || '');
+                                if (!notifId) {
+                                    return;
+                                }
+
+                                if (!knownNotificationIds.has(notifId)) {
+                                    knownNotificationIds.add(notifId);
+                                    if (String(notif.is_read) === '0') {
+                                        newUnreadNotifications.push(notif);
+                                    }
+                                }
+                            });
+
+                            updateNotifications(notifications);
+                            newUnreadNotifications.forEach(showBrowserNotification);
+                        })
+                        .catch(function() {
+                            // Keep silent during transient network failures.
                         });
-                }, 5000);
+                }
+
+                maybePromptBrowserNotifications();
+                pollLiveNotifications();
+                setInterval(pollLiveNotifications, 5000);
             });
             </script> 

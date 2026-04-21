@@ -120,6 +120,7 @@ unset($_SESSION['error_message']); endif; ?>
                         </div>
 
                         <form action="../partials/account-handler.php" method="POST" class="p-12 space-y-12">
+                            <?php echo csrf_field(); ?>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
                                 <!-- Profile Column -->
                                 <div class="space-y-8">

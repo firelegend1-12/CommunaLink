@@ -29,13 +29,15 @@ if (!csrf_validate()) {
 $fullname = sanitize_input($_POST['fullname']);
 $password = $_POST['password'];
 $role = sanitize_input($_POST['role']);
+$resident_id = isset($_POST['resident_id']) ? (int)$_POST['resident_id'] : 0;
 $admin_confirmation_password = (string)($_POST['admin_confirmation_password'] ?? '');
 
 // Store inputs in session to re-populate form on error
 $_SESSION['form_data'] = [
     'fullname' => $_POST['fullname'] ?? '',
     'role' => $_POST['role'] ?? '',
-    'official_position' => $_POST['official_position'] ?? ''
+    'official_position' => $_POST['official_position'] ?? '',
+    'resident_id' => $resident_id,
 ];
 
 // Enhanced input validation using InputValidator
@@ -101,54 +103,32 @@ if (!in_array($final_role, ['admin', 'barangay-officials', 'barangay-kagawad', '
     redirect_to('../pages/add-user.php');
 }
 
-$normalize_name_for_lookup = static function (string $name): string {
-    $normalized = strtolower(str_replace(['.', ','], ' ', trim($name)));
-    return (string)preg_replace('/\s+/', ' ', $normalized);
-};
-
-$remove_middle_initial_token = static function (string $name): string {
-    $parts = array_values(array_filter(explode(' ', $name), static fn($part) => $part !== ''));
-    if (count($parts) <= 2) {
-        return $name;
-    }
-
-    $filtered = [];
-    foreach ($parts as $index => $part) {
-        $is_middle_token = $index > 0 && $index < (count($parts) - 1);
-        if ($is_middle_token && strlen($part) === 1) {
-            continue;
-        }
-        $filtered[] = $part;
-    }
-
-    return implode(' ', $filtered);
-};
-
-$normalized_fullname = $normalize_name_for_lookup($fullname);
-$normalized_without_middle_initial = $remove_middle_initial_token($normalized_fullname);
+if ($resident_id <= 0) {
+    $_SESSION['error_message'] = "Please verify and select a valid resident record before submitting.";
+    redirect_to('../pages/add-user.php');
+}
 
 $resident_lookup_stmt = $pdo->prepare(
     "SELECT id, email, CONCAT_WS(' ', first_name, IFNULL(middle_initial, ''), last_name) AS full_name
      FROM residents
-     WHERE LOWER(TRIM(REPLACE(REPLACE(CONCAT_WS(' ', first_name, NULLIF(middle_initial, ''), last_name), '.', ''), ',', ''))) IN (?, ?)
-        OR LOWER(TRIM(REPLACE(REPLACE(CONCAT_WS(' ', first_name, last_name), '.', ''), ',', ''))) IN (?, ?)
+     WHERE id = ?
      LIMIT 1"
 );
-$resident_lookup_stmt->execute([
-    $normalized_fullname,
-    $normalized_without_middle_initial,
-    $normalized_fullname,
-    $normalized_without_middle_initial,
-]);
+$resident_lookup_stmt->execute([$resident_id]);
 
 $resident_row = $resident_lookup_stmt->fetch(PDO::FETCH_ASSOC);
 if (!$resident_row) {
-    $_SESSION['error_message'] = "Name cannot be found as resident";
+    $_SESSION['error_message'] = "Selected resident record was not found.";
     redirect_to('../pages/add-user.php');
 }
 
 $resident_id = (int)($resident_row['id'] ?? 0);
 $resident_email = (string)($resident_row['email'] ?? '');
+$resident_full_name = trim((string)($resident_row['full_name'] ?? ''));
+
+if ($resident_full_name !== '') {
+    $fullname = $resident_full_name;
+}
 
 if ($resident_email === '' || !filter_var($resident_email, FILTER_VALIDATE_EMAIL)) {
     $_SESSION['error_message'] = "The matched resident does not have a valid email address on file.";
@@ -256,6 +236,35 @@ function get_users_status_active_value(PDO $pdo): ?string {
 try {
     $pdo->beginTransaction();
 
+    $existing_privileged_stmt = null;
+    if (has_user_column($pdo, 'resident_id')) {
+        $existing_privileged_stmt = $pdo->prepare(
+            "SELECT id, role
+             FROM users
+             WHERE resident_id = ?
+               AND role IN ('admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod')
+             LIMIT 1"
+        );
+        $existing_privileged_stmt->execute([$resident_id]);
+    } else {
+        $resident_linked_username_like = 'linked.r' . $resident_id . '.%';
+        $resident_linked_email_like = 'linked.r' . $resident_id . '.%@linked.local';
+        $existing_privileged_stmt = $pdo->prepare(
+            "SELECT id, role
+             FROM users
+             WHERE role IN ('admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod')
+               AND (username LIKE ? OR email LIKE ?)
+             LIMIT 1"
+        );
+        $existing_privileged_stmt->execute([$resident_linked_username_like, $resident_linked_email_like]);
+    }
+
+    if ($existing_privileged_stmt && $existing_privileged_stmt->fetch(PDO::FETCH_ASSOC)) {
+        $pdo->rollBack();
+        $_SESSION['error_message'] = "This resident already has a privileged account. Edit the existing account instead.";
+        redirect_to('../pages/add-user.php');
+    }
+
     if ($final_role === 'admin') {
         if ($admin_confirmation_password === '') {
             $pdo->rollBack();
@@ -285,29 +294,6 @@ try {
             $_SESSION['error_message'] = "Admin account limit reached ({$admin_selection_limit}).";
             redirect_to('../pages/add-user.php');
         }
-    }
-
-    // Check if linked privileged account already exists for this resident+role identity.
-    // We also match legacy suffixed identities (e.g. linked.r12.admin.2) to prevent duplicates.
-    $linked_username_like = $linked_identity_base . '%';
-    $linked_email_like = $linked_identity_base . '%@linked.local';
-    $stmt = $pdo->prepare(
-        "SELECT id
-         FROM users
-         WHERE role = ?
-           AND (
-               username = ?
-               OR email = ?
-               OR username LIKE ?
-               OR email LIKE ?
-           )
-         LIMIT 1"
-    );
-    $stmt->execute([$final_role, $username, $email, $linked_username_like, $linked_email_like]);
-    if ($stmt->fetch()) {
-        $pdo->rollBack();
-        $_SESSION['error_message'] = "This resident is already enrolled for the selected privileged role.";
-        redirect_to('../pages/add-user.php');
     }
 
     // Use the entered password for immediate account access.

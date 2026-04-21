@@ -29,3 +29,29 @@ self.addEventListener('fetch', (e) => {
         fetch(e.request).catch(() => caches.match(e.request))
     );
 });
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+
+    const rawTarget = (event.notification && event.notification.data && event.notification.data.link)
+        ? String(event.notification.data.link)
+        : '/resident/notifications.php';
+
+    const targetUrl = new URL(rawTarget, self.registration.scope).href;
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            for (const client of windowClients) {
+                if (client.url === targetUrl && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+
+            if (clients.openWindow) {
+                return clients.openWindow(targetUrl);
+            }
+
+            return null;
+        })
+    );
+});

@@ -145,7 +145,7 @@ try {
                         
                         <div class="flex items-center gap-4">
                             <a href="add-user.php" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center transition shadow-md shadow-indigo-500/20">
-                                <i class="fas fa-user-plus mr-2"></i> CREATE ACCOUNT
+                                <i class="fas fa-user-plus mr-2"></i> CREATE PRIVILEGED USER
                             </a>
                             
                             <div class="h-8 w-px bg-slate-200 mx-2"></div>

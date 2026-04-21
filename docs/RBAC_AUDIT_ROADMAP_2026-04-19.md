@@ -23,6 +23,28 @@
    - Web deny default is redirect.
    - JSON deny includes `required_permission`.
 
+## Phase 5 Decision Lock (2026-04-21)
+
+- Approved baseline: proceed with recommended Phase 5 account lifecycle hardening plan.
+- Scope update: deprecated chat-permission todo is replaced by account and identity hardening work.
+- Naming clarity: admin UI action is standardized to "Create Privileged User" to avoid confusion with resident self-registration.
+- Privileged identity policy: one privileged account per resident identity.
+- Provisioning identity model: resident selection is anchored to resident record ID.
+- Linked login behavior: keep resident email discovery in the near term; document explicit identity UX as a later enhancement.
+- Sensitive action re-auth policy: expand current-password verification for critical identity changes.
+- Account self-service hardening: email changes require current password.
+- Password policy consistency: enforce shared password security policy on account password changes.
+- Resident onboarding policy: public resident registration remains open.
+- OTP development fallback: allowed only outside production and must be auditable.
+- Data cleanup policy: execute migration-driven legacy chat table removal with backup-first guardrails.
+- Evidence policy: preserve decommission history in archived documentation context.
+- Verification policy: Phase 5 completion requires registration, OTP, privileged-user creation, account update, and RBAC smoke coverage.
+- Regression policy: introduce baseline automation now, then expand suite coverage incrementally.
+- Phase 5 artifacts:
+   - Migration: `migrations/drop_legacy_chat_messages_phase5.sql`
+   - Static guard check: `scripts/phase5_account_guard_check.php`
+   - Execution log/spec: `docs/PHASE5_ACCOUNT_HARDENING_2026-04-21.md`
+
 ## Executive Verdict
 
 Current implementation is **not strict RBAC**. The project has a strong permission model definition, but enforcement is inconsistent and frequently bypasses permission-level checks.

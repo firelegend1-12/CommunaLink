@@ -138,6 +138,16 @@ try {
     if (!$emailSent) {
         $app_env = strtolower((string) env('APP_ENV', 'production'));
         if ($app_env !== 'production') {
+            log_activity_db_system(
+                $pdo,
+                'warning',
+                'otp_delivery',
+                null,
+                'OTP email delivery failed; development OTP fallback was used.',
+                null,
+                'email=' . $email . '; env=' . $app_env,
+                'warning'
+            );
             // Dev-safe fallback: continue to OTP page and show temporary code.
             $_SESSION['otp_success'] = 'Email delivery is unavailable. Using temporary development OTP code.';
             $_SESSION['otp_dev_code'] = $otpCode;

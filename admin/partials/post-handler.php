@@ -9,6 +9,7 @@ require_once '../../includes/auth.php';
 require_once '../../includes/csrf.php';
 require_once '../../includes/permission_checker.php';
 require_once '../../includes/storage_manager.php';
+require_once '../../includes/notification_system.php';
 
 require_login();
 require_any_permission_or_redirect(['manage_announcements', 'manage_events'], '../pages/announcements.php');
@@ -138,7 +139,29 @@ if (isset($_POST['add_post'])) {
         
         log_activity_db($pdo, 'add', $type_label, $post_id, "Added new $type_label", null, "Title: $title");
 
+        $broadcast_result = null;
+        $is_live_now = ($status === 'active') && ($publish_date === null || strtotime((string)$publish_date) <= time());
+        if ($is_live_now) {
+            $broadcast_result = NotificationSystem::notify_public_post($pdo, [
+                'title' => $title,
+                'content' => $content,
+                'target_audience' => $target_audience,
+                'is_event' => $is_event,
+                'event_date' => $event_date,
+                'event_time' => $event_time,
+                'event_location' => $event_location,
+            ]);
+
+            if (!$broadcast_result['success']) {
+                error_log('Post broadcast notification failed: ' . (string)($broadcast_result['error'] ?? 'unknown error'));
+            }
+        }
+
         $_SESSION['announcement_success_message'] = ucfirst($type_label) . " posted successfully.";
+        if (is_array($broadcast_result) && !empty($broadcast_result['success'])) {
+            $_SESSION['announcement_success_message'] .= ' Sent in-app alerts to ' . (int)$broadcast_result['notification_created']
+                . ' resident(s) and email notifications to ' . (int)$broadcast_result['email_sent'] . '.';
+        }
     } catch (Exception $e) {
         $_SESSION['error_message'] = $e->getMessage();
     }
