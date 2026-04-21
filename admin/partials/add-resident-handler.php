@@ -53,6 +53,23 @@ function handle_upload($file_input_name, $relative_dir, $prefix) {
     return ['path' => null];
 }
 
+function normalize_storage_path_for_db(string $storedPath): string {
+    $path = trim(str_replace('\\', '/', $storedPath));
+    if ($path === '') {
+        return '';
+    }
+
+    if (strpos($path, 'gs://') === 0 || preg_match('#^https?://#i', $path) === 1) {
+        return $path;
+    }
+
+    if (stripos($path, 'admin/') === 0) {
+        return substr($path, 6);
+    }
+
+    return ltrim($path, '/');
+}
+
 // Define upload directories
 $profile_storage_dir = 'admin/images/resident-profiles';
 $signature_storage_dir = 'admin/images/signatures';
@@ -71,12 +88,12 @@ if (isset($profile_image_upload['error']) || isset($signature_upload['error'])) 
 // Construct relative paths for database
 $profile_image_path = null;
 if (!empty($profile_image_upload['path'])) {
-    $profile_image_path = str_replace('admin/', '', $profile_image_upload['path']);
+    $profile_image_path = normalize_storage_path_for_db((string)$profile_image_upload['path']);
 }
 
 $signature_path = null;
 if (!empty($signature_upload['path'])) {
-    $signature_path = str_replace('admin/', '', $signature_upload['path']);
+    $signature_path = normalize_storage_path_for_db((string)$signature_upload['path']);
 }
 
 // Sanitize and validate form inputs

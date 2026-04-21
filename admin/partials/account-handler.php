@@ -39,7 +39,7 @@ if (empty($fullname) || empty($email)) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT email, password FROM users WHERE id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT email, username, password FROM users WHERE id = ? LIMIT 1");
     $stmt->execute([$user_id]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -49,9 +49,16 @@ try {
     }
 
     $existing_email = (string)($user['email'] ?? '');
+    $existing_username = (string)($user['username'] ?? '');
     $existing_password_hash = (string)($user['password'] ?? '');
+    $is_linked_account = (stripos($existing_username, 'linked.r') === 0) || (stripos($existing_email, '@linked.local') !== false);
     $is_email_changed = strcasecmp($existing_email, (string)$email) !== 0;
     $is_password_change_requested = ($new_password !== '' || $confirm_password !== '');
+
+    if ($is_linked_account && $is_email_changed) {
+        $_SESSION['error_message'] = "Email connection is managed by the system and cannot be changed manually for linked accounts.";
+        redirect_to('../pages/account.php');
+    }
 
     if ($is_email_changed || $is_password_change_requested) {
         if ($current_password === '' || $existing_password_hash === '' || !password_verify($current_password, $existing_password_hash)) {

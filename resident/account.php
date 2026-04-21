@@ -1,8 +1,32 @@
 <?php
 require_once '../config/database.php';
+require_once '../includes/storage_manager.php';
 $page_title = "My Account";
 require_once 'partials/header.php';
 $security_csrf_token = csrf_token();
+
+function resident_profile_image_url(string $storedPath): string
+{
+    $path = trim($storedPath);
+    if ($path === '') {
+        return '';
+    }
+
+    if (strpos($path, 'gs://') === 0 || preg_match('#^https?://#i', $path) === 1) {
+        return StorageManager::resolvePublicUrl($path);
+    }
+
+    $normalized = ltrim(str_replace('\\', '/', $path), '/');
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (stripos($normalized, 'admin/') === 0) {
+        return app_url('/' . $normalized);
+    }
+
+    return app_url('/admin/' . $normalized);
+}
 
 // user_id is from header session
 $user_id = $_SESSION['user_id'];
@@ -359,9 +383,8 @@ try {
             <div class="profile-picture-container">
                 <?php
                     $defaultAvatar = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%235c67e2'/%3E%3Ccircle cx='100' cy='75' r='40' fill='%23fff' opacity='0.9'/%3E%3Cellipse cx='100' cy='170' rx='60' ry='50' fill='%23fff' opacity='0.9'/%3E%3C/svg%3E";
-                    $profileSrc = !empty($resident['profile_image_path']) 
-                        ? '../admin/' . htmlspecialchars($resident['profile_image_path']) 
-                        : $defaultAvatar;
+                    $profileImageUrl = !empty($resident['profile_image_path']) ? resident_profile_image_url((string)$resident['profile_image_path']) : '';
+                    $profileSrc = $profileImageUrl !== '' ? htmlspecialchars($profileImageUrl, ENT_QUOTES, 'UTF-8') : $defaultAvatar;
                 ?>
                 <img src="<?= $profileSrc ?>" alt="Profile Picture" class="profile-picture" id="profile-pic-preview">
                 <label for="profile_image_input" class="upload-overlay">
@@ -623,7 +646,9 @@ document.addEventListener('DOMContentLoaded', function () {
     } else if (picError) {
         const errorMap = {
             upload_failed: 'Upload failed. Please try again.',
-            invalid_file: 'Invalid file. Use JPG, PNG, or GIF under 5MB.'
+            invalid_file: 'Invalid file. Use JPG, PNG, or GIF under 5MB.',
+            no_file: 'Please choose an image file before uploading.',
+            file_too_large: 'Image is too large. Please use a file under 5MB.'
         };
         uploadStatus.textContent = errorMap[picError] || 'Unable to update profile photo.';
         uploadStatus.classList.add('visible');
@@ -638,7 +663,6 @@ document.addEventListener('DOMContentLoaded', function () {
             uploadStatus.textContent = 'Uploading profile photo...';
             uploadStatus.classList.add('visible');
             uploadStatus.style.color = '#4a54b5';
-            profileImageInput.disabled = true;
             setTimeout(() => { profilePicForm.submit(); }, 300);
         }
     });

@@ -6,6 +6,30 @@ require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/permission_checker.php';
+require_once '../../includes/storage_manager.php';
+
+function admin_resident_profile_image_url(string $storedPath): string
+{
+    $path = trim($storedPath);
+    if ($path === '') {
+        return '';
+    }
+
+    if (strpos($path, 'gs://') === 0 || preg_match('#^https?://#i', $path) === 1) {
+        return StorageManager::resolvePublicUrl($path);
+    }
+
+    $normalized = ltrim(str_replace('\\', '/', $path), '/');
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (stripos($normalized, 'admin/') === 0) {
+        return app_url('/' . $normalized);
+    }
+
+    return app_url('/admin/' . $normalized);
+}
 
 header('Content-Type: application/json');
 
@@ -39,6 +63,8 @@ try {
         echo json_encode(['success' => false, 'error' => 'Resident not found']);
         exit;
     }
+
+    $resident['profile_image_url'] = admin_resident_profile_image_url((string)($resident['profile_image_path'] ?? ''));
 
     // 2. Fetch Recent Document Requests (Last 5)
     $stmt = $pdo->prepare("SELECT id, document_type, status, date_requested as requested_at 

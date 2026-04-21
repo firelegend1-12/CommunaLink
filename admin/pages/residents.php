@@ -8,6 +8,30 @@ require_once '../partials/admin_auth.php';
 // Page-specific requirements
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/storage_manager.php';
+
+function admin_resident_profile_image_url(string $storedPath): string
+{
+    $path = trim($storedPath);
+    if ($path === '') {
+        return '';
+    }
+
+    if (strpos($path, 'gs://') === 0 || preg_match('#^https?://#i', $path) === 1) {
+        return StorageManager::resolvePublicUrl($path);
+    }
+
+    $normalized = ltrim(str_replace('\\', '/', $path), '/');
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (stripos($normalized, 'admin/') === 0) {
+        return app_url('/' . $normalized);
+    }
+
+    return app_url('/admin/' . $normalized);
+}
 
 // Page title
 $page_title = "Residents - CommunaLink";
@@ -33,6 +57,11 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $residents = $stmt->fetchAll();
+
+    foreach ($residents as &$resident_row) {
+        $resident_row['profile_image_url'] = admin_resident_profile_image_url((string)($resident_row['profile_image_path'] ?? ''));
+    }
+    unset($resident_row);
 
 } catch (PDOException $e) {
     $residents = [];
@@ -217,8 +246,8 @@ try {
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="flex items-center">
                                                         <div class="flex-shrink-0 h-10 w-10">
-                                                            <?php if (!empty($resident['profile_image_path'])): ?>
-                                                                <img class="h-10 w-10 rounded-xl object-cover shadow-sm" src="<?php echo htmlspecialchars('../' . $resident['profile_image_path']); ?>" alt="Profile Image" onerror="this.onerror=null; this.outerHTML='<div class=\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\'><?php echo strtoupper(substr($resident['first_name'], 0, 1) . substr($resident['last_name'], 0, 1)); ?></div>';">
+                                                            <?php if (!empty($resident['profile_image_url'])): ?>
+                                                                <img class="h-10 w-10 rounded-xl object-cover shadow-sm" src="<?php echo htmlspecialchars($resident['profile_image_url']); ?>" alt="Profile Image" onerror="this.onerror=null; this.outerHTML='<div class=\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\'><?php echo strtoupper(substr($resident['first_name'], 0, 1) . substr($resident['last_name'], 0, 1)); ?></div>';">
                                                             <?php else: ?>
                                                                 <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm">
                                                                     <?php echo strtoupper(substr($resident['first_name'], 0, 1) . substr($resident['last_name'], 0, 1)); ?>
@@ -297,10 +326,10 @@ try {
                                 <div class="flex items-center gap-4">
                                     <template x-if="residentData && residentData.profile">
                                         <div class="h-20 w-20 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center overflow-hidden shadow-lg">
-                                            <template x-if="residentData.profile.profile_image_path">
-                                                <img :src="'../' + residentData.profile.profile_image_path" class="h-full w-full object-cover">
+                                            <template x-if="residentData.profile.profile_image_url">
+                                                <img :src="residentData.profile.profile_image_url" class="h-full w-full object-cover">
                                             </template>
-                                            <template x-if="!residentData.profile.profile_image_path">
+                                            <template x-if="!residentData.profile.profile_image_url">
                                                 <span class="text-white text-3xl font-bold" x-text="residentData.profile.first_name[0] + residentData.profile.last_name[0]"></span>
                                             </template>
                                         </div>
@@ -591,8 +620,8 @@ try {
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 h-10 w-10">
-                                    ${resident.profile_image_path && resident.profile_image_path !== '' ?
-                                        `<img class=\"h-10 w-10 rounded-xl object-cover shadow-sm\" src=\"../${resident.profile_image_path}\" alt=\"Profile Image\" onerror=\"this.onerror=null; this.outerHTML='<div class=\\\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\\\'>${(resident.first_name[0] + resident.last_name[0]).toUpperCase()}</div>';\">` :
+                                    ${resident.profile_image_url && resident.profile_image_url !== '' ?
+                                        `<img class=\"h-10 w-10 rounded-xl object-cover shadow-sm\" src=\"${resident.profile_image_url}\" alt=\"Profile Image\" onerror=\"this.onerror=null; this.outerHTML='<div class=\\\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\\\'>${(resident.first_name[0] + resident.last_name[0]).toUpperCase()}</div>';\">` :
                                         `<div class=\"h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\">${(resident.first_name[0] + resident.last_name[0]).toUpperCase()}</div>`
                                     }
                                 </div>

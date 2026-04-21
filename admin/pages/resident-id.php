@@ -11,6 +11,31 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin'])) {
 }
 
 require_once '../../config/init.php';
+require_once '../../includes/functions.php';
+require_once '../../includes/storage_manager.php';
+
+function admin_resident_profile_image_url(string $storedPath): string
+{
+    $path = trim($storedPath);
+    if ($path === '') {
+        return '';
+    }
+
+    if (strpos($path, 'gs://') === 0 || preg_match('#^https?://#i', $path) === 1) {
+        return StorageManager::resolvePublicUrl($path);
+    }
+
+    $normalized = ltrim(str_replace('\\', '/', $path), '/');
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (stripos($normalized, 'admin/') === 0) {
+        return app_url('/' . $normalized);
+    }
+
+    return app_url('/admin/' . $normalized);
+}
 
 $resident_id = $_GET['id'] ?? null;
 if (!$resident_id) {
@@ -33,6 +58,7 @@ $full_name = strtoupper($resident['last_name'] . ', ' . $resident['first_name'] 
 $address = strtoupper('123 AGUSTIN STREET, BGRY PAKIAD, ILOILO CITY'); // Example address
 $qr_data = "Resident ID: {$resident['id']}\nName: {$full_name}";
 $qr_code_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' . urlencode($qr_data);
+$resident_photo_url = admin_resident_profile_image_url((string)($resident['profile_image_path'] ?? ''));
 ?>
 <div class="id-card rounded-xl shadow-lg p-2 flex flex-col relative overflow-hidden">
     <!-- Background Map -->
@@ -57,7 +83,7 @@ $qr_code_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' 
         <!-- Left Side: Photo and Address -->
         <div class="w-1/4 flex flex-col items-center mr-2">
             <img src="<?php
-echo htmlspecialchars($resident['profile_image_path'] ? '../' . $resident['profile_image_path'] : 'https://via.placeholder.com/150'); ?>" alt="Resident Photo" class="w-20 h-20 object-cover border-2 border-white shadow-md">
+echo htmlspecialchars($resident_photo_url !== '' ? $resident_photo_url : 'https://via.placeholder.com/150'); ?>" alt="Resident Photo" class="w-20 h-20 object-cover border-2 border-white shadow-md">
             <p class="text-center mt-1 font-bold text-xxs leading-tight"><?php
 echo htmlspecialchars($address); ?></p>
         </div>

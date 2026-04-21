@@ -3,6 +3,30 @@ require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/permission_checker.php';
+require_once '../../includes/storage_manager.php';
+
+function admin_resident_profile_image_url(string $storedPath): string
+{
+    $path = trim($storedPath);
+    if ($path === '') {
+        return '';
+    }
+
+    if (strpos($path, 'gs://') === 0 || preg_match('#^https?://#i', $path) === 1) {
+        return StorageManager::resolvePublicUrl($path);
+    }
+
+    $normalized = ltrim(str_replace('\\', '/', $path), '/');
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (stripos($normalized, 'admin/') === 0) {
+        return app_url('/' . $normalized);
+    }
+
+    return app_url('/admin/' . $normalized);
+}
 
 header('Content-Type: application/json');
 
@@ -31,5 +55,11 @@ $sql .= " ORDER BY last_name, first_name ASC";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $residents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+foreach ($residents as &$resident_row) {
+    $resident_row['profile_image_url'] = admin_resident_profile_image_url((string)($resident_row['profile_image_path'] ?? ''));
+}
+unset($resident_row);
+
 echo json_encode($residents);
 exit(); 
