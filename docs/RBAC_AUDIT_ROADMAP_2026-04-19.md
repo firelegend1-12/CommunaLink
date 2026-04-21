@@ -22,6 +22,12 @@
    - Legacy `official` is blocked immediately in permission guards.
    - Web deny default is redirect.
    - JSON deny includes `required_permission`.
+- Phase 5: Completed (account lifecycle hardening)
+   - Account/update and privileged-user provisioning hardening implemented and validated.
+   - Guard verification script passes (`scripts/phase5_account_guard_check.php`).
+- Phase 6: Completed (manuscript-grade evidence package)
+   - Evidence package published at `docs/PHASE6_RBAC_EVIDENCE_PACKAGE_2026-04-21.md`.
+   - Current RBAC baseline run result: 29/29 checks passed.
 
 ## Phase 5 Decision Lock (2026-04-21)
 
