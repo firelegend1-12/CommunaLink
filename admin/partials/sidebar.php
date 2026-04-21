@@ -90,6 +90,7 @@ if ($hour >= 12 && $hour < 18) {
             };
         </script>
         <script src="<?php echo $asset_path; ?>/js/admin-sidebar.min.js?v=<?= filemtime(__DIR__ . '/../../assets/js/admin-sidebar.min.js') ?>" defer></script>
+        <script src="<?php echo $asset_path; ?>/js/system-worker.js?v=<?= filemtime(__DIR__ . '/../../assets/js/system-worker.js') ?>" defer></script>
 
         <!-- Navigation Links -->
         <div class="flex-1 overflow-y-auto px-4 py-2 mt-4 sidebar-scroll">

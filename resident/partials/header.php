@@ -64,15 +64,7 @@ if ($user_id) {
     <!-- PWA Setup -->
     <link rel="manifest" href="<?= htmlspecialchars(app_url('/resident/manifest.json')) ?>">
     <meta name="theme-color" content="#5c67e2">
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/resident/sw.js', { scope: '/resident/' })
-                    .then(reg => console.log('Service Worker registered successfully!', reg))
-                    .catch(err => console.log('Service Worker registration failed: ', err));
-            });
-        }
-    </script>
+    <script src="../assets/js/system-worker.js" defer></script>
     <style>
         /* Inlined styles for resident pages */
         :root {

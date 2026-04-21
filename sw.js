@@ -1,7 +1,8 @@
-const CACHE_NAME = 'communalink-resident-v1';
+const CACHE_NAME = 'communalink-system-v1';
 const ASSETS_TO_CACHE = [
-    './dashboard.php',
-    './offline.html' // Minimal fallback
+    '/',
+    '/index.php',
+    '/assets/images/barangay-logo.png'
 ];
 
 self.addEventListener('install', (e) => {
@@ -24,9 +25,30 @@ self.addEventListener('activate', (e) => {
     );
 });
 
-self.addEventListener('fetch', (e) => {
-    e.respondWith(
-        fetch(e.request).catch(() => caches.match(e.request))
+self.addEventListener('fetch', (event) => {
+    if (event.request.method !== 'GET') return;
+    
+    // We avoid caching API or dynamic PHP endpoints indiscriminately.
+    // Instead we do a Network-First strategy, falling back to cache.
+    // Notice: if you want local caching to be "stale-while-revalidate", that's better for assets.
+    event.respondWith(
+        caches.match(event.request).then((cachedResponse) => {
+            const fetchPromise = fetch(event.request).then((networkResponse) => {
+                // Ensure we only cache valid responses
+                if(networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                    // we don't want to aggressively cache dashboard html without network
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, responseToCache);
+                    });
+                }
+                return networkResponse;
+            }).catch(() => {
+                // Return cached fallback if network fails
+            });
+
+            return fetchPromise.catch(() => cachedResponse);
+        })
     );
 });
 

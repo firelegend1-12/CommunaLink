@@ -425,6 +425,7 @@ $page_title = "Sign In - Barangay Pakiad";
     <link rel="stylesheet" href="assets/css/auth.css">
     <link rel="icon" href="assets/images/barangay-logo.png" type="image/png">
     <script src="assets/js/login.js" defer></script>
+    <script src="assets/js/system-worker.js" defer></script>
 </head>
 <body>
     <div class="auth-container">
