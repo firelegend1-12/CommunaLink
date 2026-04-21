@@ -260,9 +260,20 @@ if ($user_id) {
                         </div>
                     </div>
                     <span>Welcome, <?= htmlspecialchars($user_fullname) ?></span>
-                    <a href="account.php" class="text-blue-600 hover:text-blue-800 transition-colors duration-200" title="My Account">
-                        <i class="fas fa-user-circle"></i>
-                    </a>
+                    <div id="profile-wrapper" class="relative" style="margin-left: 12px; cursor: pointer;">
+                        <button id="profile-btn" class="focus:outline-none flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors duration-200" title="Profile Menu">
+                            <i class="fas fa-user-circle" style="font-size: 32px;"></i>
+                            <i class="fas fa-chevron-down text-[10px]"></i>
+                        </button>
+                        <!-- Profile Dropdown -->
+                        <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
+                            <div class="py-2">
+                                <a href="account.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"><i class="fas fa-user-cog w-5 text-center mr-2 text-blue-500"></i> My Account</a>
+                                <div class="border-t border-gray-100 my-1"></div>
+                                <a href="../includes/logout.php" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"><i class="fas fa-sign-out-alt w-5 text-center mr-2"></i> Logout</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </header>
             <main class="page-main"> 
@@ -311,6 +322,11 @@ if ($user_id) {
                 if (bell && dropdown) {
                     bell.addEventListener('click', function(e) {
                         e.stopPropagation();
+                        // Close profile dropdown if open
+                        const profDrop = document.getElementById('profile-dropdown');
+                        if (profDrop && !profDrop.classList.contains('hidden')) {
+                            profDrop.classList.add('hidden');
+                        }
                         dropdown.classList.toggle('hidden');
                         // Mark notifications as read via AJAX
                         if (!dropdown.classList.contains('hidden')) {
@@ -334,6 +350,26 @@ if ($user_id) {
                     document.addEventListener('click', function(e) {
                         if (!wrapper.contains(e.target)) {
                             dropdown.classList.add('hidden');
+                        }
+                    });
+                }
+                
+                // Toggle profile dropdown
+                const profileBtn = document.getElementById('profile-btn');
+                const profileDropdown = document.getElementById('profile-dropdown');
+                const profileWrapper = document.getElementById('profile-wrapper');
+                if (profileBtn && profileDropdown) {
+                    profileBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        // Close notif dropdown if open
+                        if (dropdown && !dropdown.classList.contains('hidden')) {
+                            dropdown.classList.add('hidden');
+                        }
+                        profileDropdown.classList.toggle('hidden');
+                    });
+                    document.addEventListener('click', function(e) {
+                        if (profileWrapper && !profileWrapper.contains(e.target)) {
+                            profileDropdown.classList.add('hidden');
                         }
                     });
                 }
