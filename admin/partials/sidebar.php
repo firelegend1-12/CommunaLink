@@ -155,34 +155,46 @@ if ($hour >= 12 && $hour < 18) {
                 <!-- Document Requests Link -->
                 <?php if ($can_manage_documents): ?>
                 <div id="document-dropdown" class="dropdown-container">
-                    <button onclick="toggleDropdown('document-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
-                        <i class="fas fa-file-alt mr-3 text-lg flex-shrink-0 <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
+                    <button onclick="toggleDropdown('document-dropdown')" class="w-full text-left <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-indigency-special.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php', 'new-barangay-business-permit.php']) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
+                        <i class="fas fa-file-alt mr-3 text-lg flex-shrink-0 <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-indigency-special.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php', 'new-barangay-business-permit.php']) ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                         Document Requests
-                        <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200<?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php']) ? ' rotate-180' : ''; ?>" id="document-chevron"></i>
+                        <i class="fas fa-chevron-down ml-auto h-3 w-3 transform transition-transform duration-200<?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-indigency-special.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php', 'new-barangay-business-permit.php']) ? ' rotate-180' : ''; ?>" id="document-chevron"></i>
                     </button>
-                    <div id="document-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php']) ? 'block' : 'none'; ?>">
+                    <div id="document-content" class="mt-1 ml-4 space-y-1 bg-gray-700 rounded-md overflow-hidden divide-y divide-gray-600" style="display: <?php echo in_array($current_page, ['new-barangay-clearance.php', 'new-certificate-of-indigency.php', 'new-certificate-of-indigency-special.php', 'new-certificate-of-residency.php', 'new-barangay-business-clearance.php', 'new-barangay-business-permit.php']) ? 'block' : 'none'; ?>">
                         <div>
                             <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-barangay-clearance.php' : 'new-barangay-clearance.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'new-barangay-clearance.php' ? 'bg-gray-900 text-white' : ''; ?>">
                                 <i class="fas fa-file mr-2 text-gray-400 flex-shrink-0"></i>
-                                New Barangay Clearance
+                                Barangay Clearance
                             </a>
                         </div>
                         <div>
                             <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-certificate-of-indigency.php' : 'new-certificate-of-indigency.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'new-certificate-of-indigency.php' ? 'bg-gray-900 text-white' : ''; ?>">
                                 <i class="fas fa-file-medical mr-2 text-gray-400 flex-shrink-0"></i>
-                                New Cert. of Indigency
+                                Cert. of Indigency
+                            </a>
+                        </div>
+                        <div>
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-certificate-of-indigency-special.php' : 'new-certificate-of-indigency-special.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'new-certificate-of-indigency-special.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                                <i class="fas fa-notes-medical mr-2 text-gray-400 flex-shrink-0"></i>
+                                Cert. of Indigency (Special)
                             </a>
                         </div>
                         <div>
                             <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-certificate-of-residency.php' : 'new-certificate-of-residency.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'new-certificate-of-residency.php' ? 'bg-gray-900 text-white' : ''; ?>">
                                 <i class="fas fa-file-signature mr-2 text-gray-400 flex-shrink-0"></i>
-                                New Cert. of Residency
+                                Cert. of Residency
                             </a>
                         </div>
                         <div>
                             <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-barangay-business-clearance.php' : 'new-barangay-business-clearance.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'new-barangay-business-clearance.php' ? 'bg-gray-900 text-white' : ''; ?>">
                                 <i class="fas fa-file-invoice-dollar mr-2 text-gray-400 flex-shrink-0"></i>
-                                New Barangay Business Clearance
+                                Business Clearance
+                            </a>
+                        </div>
+                        <div>
+                            <a href="<?php echo ($current_dir === 'admin') ? 'pages/new-barangay-business-permit.php' : 'new-barangay-business-permit.php'; ?>" class="flex w-full items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white whitespace-nowrap <?php echo $current_page === 'new-barangay-business-permit.php' ? 'bg-gray-900 text-white' : ''; ?>">
+                                <i class="fas fa-stamp mr-2 text-gray-400 flex-shrink-0"></i>
+                                Business Permit
                             </a>
                         </div>
                     </div>

@@ -1,9 +1,11 @@
 <?php
 require_once '../partials/admin_auth.php';
 /**
- * New Barangay Business Clearance Page
+ * New Barangay Business Permit Page
  * SVG-embedded print preview using the same layout-shift logic as
- * the barangay clearance page.
+ * the barangay clearance page. Multiple SVG text nodes share single
+ * form inputs (business name / owner / location appear both in the
+ * header block and the paragraph body).
  */
 
 require_once '../../config/init.php';
@@ -11,7 +13,7 @@ require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 require_login();
 
-$page_title = "Application for Barangay Business Clearance";
+$page_title = "Application for Barangay Business Permit";
 
 // Fetch residents for the dropdown
 $residents = [];
@@ -34,7 +36,6 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
-        /* Always center the SVG inside its container */
         .printable-area { text-align: center; }
         .printable-area svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
 
@@ -55,18 +56,14 @@ try {
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="flex h-screen overflow-hidden">
-        <!-- Sidebar Navigation -->
         <?php include '../partials/sidebar.php'; ?>
 
-        <!-- Main Content -->
         <div class="flex flex-col flex-1 overflow-hidden">
-            <!-- Top Header -->
             <header class="bg-white shadow-sm z-10">
                 <div class="px-4 sm:px-6 lg:px-8">
                     <div class="flex items-center justify-between h-16">
                         <h1 class="text-2xl font-semibold text-gray-800"><?php echo $page_title; ?></h1>
 
-                        <!-- User Dropdown -->
                         <div x-data="{ open: false }" class="relative">
                             <button @click="open = !open" class="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 focus:outline-none">
                                 <span><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
@@ -75,12 +72,6 @@ try {
                                 </div>
                             </button>
                             <div x-show="open" @click.away="open = false" x-cloak
-                                 x-transition:enter="transition ease-out duration-100"
-                                 x-transition:enter-start="transform opacity-0 scale-95"
-                                 x-transition:enter-end="transform opacity-100 scale-100"
-                                 x-transition:leave="transition ease-in duration-75"
-                                 x-transition:leave-start="transform opacity-100 scale-100"
-                                 x-transition:leave-end="transform opacity-0 scale-95"
                                  class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
                                 <a href="account.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">My Account</a>
                                 <a href="../../includes/logout.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign Out</a>
@@ -90,7 +81,6 @@ try {
                 </div>
             </header>
 
-            <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
                 <div class="max-w-4xl mx-auto">
                     <?php display_flash_messages(); ?>
@@ -101,16 +91,26 @@ try {
                              selectedResident: {},
                              formBusinessName: "",
                              formOwner: "",
+                             formType: "",
                              formLocation: "",
                              formDay: new Date().getDate().toString(),
                              formMonth: new Date().toLocaleDateString("en-US", { month: "long" }),
-                             fieldIds: ["field-business-name", "field-owner", "field-location", "field-day", "field-month"],
+                             // Each SVG field maps to one of the form vars above.
+                             fieldMap: {
+                                 "field-name": "formBusinessName",
+                                 "field-name2": "formBusinessName",
+                                 "field-owner": "formOwner",
+                                 "field-owner2": "formOwner",
+                                 "field-type": "formType",
+                                 "field-location": "formLocation",
+                                 "field-location2": "formLocation",
+                                 "field-day": "formDay",
+                                 "field-month": "formMonth"
+                             },
                              init() {
-                                 this.$watch("formBusinessName", () => this.recomputeLayout());
-                                 this.$watch("formOwner", () => this.recomputeLayout());
-                                 this.$watch("formLocation", () => this.recomputeLayout());
-                                 this.$watch("formDay", () => this.recomputeLayout());
-                                 this.$watch("formMonth", () => this.recomputeLayout());
+                                 ["formBusinessName","formOwner","formType","formLocation","formDay","formMonth"].forEach(key => {
+                                     this.$watch(key, () => this.recomputeLayout());
+                                 });
                                  this.$nextTick(() => this.recomputeLayout());
                              },
                              selectResident() {
@@ -125,12 +125,8 @@ try {
                                  }
                              },
                              getFieldValue(id) {
-                                 if (id === "field-business-name") return this.formBusinessName;
-                                 if (id === "field-owner") return this.formOwner;
-                                 if (id === "field-location") return this.formLocation;
-                                 if (id === "field-day") return this.formDay;
-                                 if (id === "field-month") return this.formMonth;
-                                 return "";
+                                 const key = this.fieldMap[id];
+                                 return key ? this[key] : "";
                              },
                              recomputeLayout() {
                                  document.querySelectorAll("svg text").forEach(el => {
@@ -138,8 +134,9 @@ try {
                                          el.dataset.origTransform = el.getAttribute("transform");
                                      }
                                  });
-                                 // Step 1: set text content + reset x on each field, preserving trailing punctuation
-                                 this.fieldIds.forEach(id => {
+                                 const fieldIds = Object.keys(this.fieldMap);
+                                 // Step 1: set text + reset x, preserving any prefix/suffix around the blank
+                                 fieldIds.forEach(id => {
                                      const el = document.getElementById(id);
                                      if (!el) return;
                                      const tspan = el.querySelector("tspan");
@@ -156,8 +153,11 @@ try {
                                          tspan.textContent = tspan.dataset.origText;
                                          tspan.setAttribute("x", tspan.dataset.origX);
                                      } else {
-                                         const suffix = tspan.dataset.origText.replace(/^[_\s]+/, "");
-                                         tspan.textContent = String(value) + suffix;
+                                         // Detect prefix label + blank + suffix punctuation
+                                         const m = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
+                                         const prefix = m ? m[1] : "";
+                                         const suffix = m ? m[3] : "";
+                                         tspan.textContent = prefix + String(value) + suffix;
                                          tspan.setAttribute("x", firstX);
                                      }
                                  });
@@ -165,9 +165,9 @@ try {
                                  document.querySelectorAll("svg text[data-orig-transform]").forEach(el => {
                                      el.setAttribute("transform", el.dataset.origTransform);
                                  });
-                                 // Step 3: measure and shift after browser renders
+                                 // Step 3: measure and shift siblings after the browser renders
                                  requestAnimationFrame(() => {
-                                     this.fieldIds.forEach(id => {
+                                     fieldIds.forEach(id => {
                                          const el = document.getElementById(id);
                                          if (!el) return;
                                          const tspan = el.querySelector("tspan");
@@ -183,7 +183,7 @@ try {
                                          let actualWidth = 0;
                                          try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
                                          const shift = blankWidth - actualWidth;
-                                         if (shift <= 0.5) return;
+                                         if (Math.abs(shift) <= 0.5) return;
                                          const origLineTransform = el.dataset.origTransform || el.getAttribute("transform");
                                          const lineY = tspan.getAttribute("y");
                                          const parent = el.parentElement;
@@ -222,15 +222,21 @@ try {
                                 </select>
                             </div>
 
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Business Name / Nature of Business</label>
-                                <input type="text" x-model="formBusinessName" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="e.g. Juan's Sari-Sari Store">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Name of Business</label>
+                                    <input type="text" x-model="formBusinessName" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="e.g. Juan's Sari-Sari Store">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Name of Owner</label>
+                                    <input type="text" x-model="formOwner" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="Full name of owner">
+                                </div>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Owner Name</label>
-                                    <input type="text" x-model="formOwner" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="Business owner's full name">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Type / Line of Business</label>
+                                    <input type="text" x-model="formType" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="e.g. Retail / Sari-Sari Store">
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Business Location</label>
@@ -249,51 +255,75 @@ try {
                                 </div>
                                 <div class="flex items-end">
                                     <button @click="printCertificate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition">
-                                        <i class="fas fa-print mr-2"></i> Print Certificate
+                                        <i class="fas fa-print mr-2"></i> Print Permit
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Certificate Preview -->
+                        <!-- Permit Preview -->
                         <div class="printable-area max-w-4xl mx-auto my-8 p-8 bg-white shadow-lg overflow-auto">
                             <?php
-                            $svg_path = '../../Barangay Business Clearance.svg';
+                            $svg_path = '../../Barangay Business Permit.svg';
                             $svg = file_get_contents($svg_path);
                             if ($svg !== false) {
-                                // Business Name (line ~368)
+                                // Header: Name of Business (line ~271)
                                 $svg = str_replace(
-                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="46.079755" x="188.63808',
-                                    '<text id="field-business-name" xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="46.079755" x="188.63808',
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 298.6829)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.182291" x="144 152.66407',
+                                    '<text id="field-name" xml:space="preserve" transform="matrix(.75 0 0 .75 72 298.6829)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.182291" x="144 152.66407',
                                     $svg
                                 );
-                                // Owner Name (line ~374)
+                                // Header: Name of Owner (line ~279)
                                 $svg = str_replace(
-                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="46.079755" x="473.09687',
-                                    '<text id="field-owner" xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="46.079755" x="473.09687',
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 315.87394)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.182291" x="144 152.66407',
+                                    '<text id="field-owner" xml:space="preserve" transform="matrix(.75 0 0 .75 72 315.87394)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.182291" x="144 152.66407',
                                     $svg
                                 );
-                                // Location (line ~380)
+                                // Header: Type/Line of Business (line ~287)
                                 $svg = str_replace(
-                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="75.97721" x="16.837403',
-                                    '<text id="field-location" xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="75.97721" x="16.837403',
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 333.06498)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.182291" x="171.54647 180.21053',
+                                    '<text id="field-type" xml:space="preserve" transform="matrix(.75 0 0 .75 72 333.06498)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.182291" x="171.54647 180.21053',
                                     $svg
                                 );
-                                // Day (line ~459)
+                                // Header: Business Location (line ~291, has "Location:" prefix baked into tspan)
                                 $svg = str_replace(
-                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 458.2318)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="124.0475',
-                                    '<text id="field-day" xml:space="preserve" transform="matrix(.75 0 0 .75 72 458.2318)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="124.0475',
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 350.256)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.778668" x="67.89957 79.45729',
+                                    '<text id="field-location" xml:space="preserve" transform="matrix(.75 0 0 .75 72 350.256)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.778668" x="67.89957 79.45729',
                                     $svg
                                 );
-                                // Month (line ~465)
+                                // Paragraph: business name again (line ~334)
                                 $svg = str_replace(
-                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 458.2318)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="211.15349',
-                                    '<text id="field-month" xml:space="preserve" transform="matrix(.75 0 0 .75 72 458.2318)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="211.15349',
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 392.25056)" font-size="17.333334" font-family="Times New Roman"><tspan y="36.113935" x="188.63808 197.30214',
+                                    '<text id="field-name2" xml:space="preserve" transform="matrix(.75 0 0 .75 72 392.25056)" font-size="17.333334" font-family="Times New Roman"><tspan y="36.113935" x="188.63808 197.30214',
+                                    $svg
+                                );
+                                // Paragraph: owner again (line ~340)
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 392.25056)" font-size="17.333334" font-family="Times New Roman"><tspan y="36.113935" x="473.09687 481.76094',
+                                    '<text id="field-owner2" xml:space="preserve" transform="matrix(.75 0 0 .75 72 392.25056)" font-size="17.333334" font-family="Times New Roman"><tspan y="36.113935" x="473.09687 481.76094',
+                                    $svg
+                                );
+                                // Paragraph: location again (line ~346, trailing comma)
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 392.25056)" font-size="17.333334" font-family="Times New Roman"><tspan y="56.045576" x="16.837403 25.501465',
+                                    '<text id="field-location2" xml:space="preserve" transform="matrix(.75 0 0 .75 72 392.25056)" font-size="17.333334" font-family="Times New Roman"><tspan y="56.045576" x="16.837403 25.501465',
+                                    $svg
+                                );
+                                // Footer: Day (line ~425)
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 511.8404)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="124.0475 132.71157',
+                                    '<text id="field-day" xml:space="preserve" transform="matrix(.75 0 0 .75 72 511.8404)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="124.0475 132.71157',
+                                    $svg
+                                );
+                                // Footer: Month (line ~431, trailing comma)
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 511.8404)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="211.15349 219.81755',
+                                    '<text id="field-month" xml:space="preserve" transform="matrix(.75 0 0 .75 72 511.8404)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="211.15349 219.81755',
                                     $svg
                                 );
                                 echo $svg;
                             } else {
-                                echo '<p class="text-red-500 text-center py-8">Error: Could not load certificate template.</p>';
+                                echo '<p class="text-red-500 text-center py-8">Error: Could not load permit template.</p>';
                             }
                             ?>
                         </div>

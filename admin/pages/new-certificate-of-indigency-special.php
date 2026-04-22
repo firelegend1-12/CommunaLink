@@ -1,9 +1,8 @@
 <?php
 require_once '../partials/admin_auth.php';
 /**
- * New Barangay Business Clearance Page
- * SVG-embedded print preview using the same layout-shift logic as
- * the barangay clearance page.
+ * New Certificate of Indigency (Special) Page
+ * For deceased persons or patients needing assistance.
  */
 
 require_once '../../config/init.php';
@@ -11,12 +10,12 @@ require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 require_login();
 
-$page_title = "Application for Barangay Business Clearance";
+$page_title = "Certificate of Indigency (Special)";
 
 // Fetch residents for the dropdown
 $residents = [];
 try {
-    $resident_stmt = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) AS full_name, address FROM residents ORDER BY last_name ASC");
+    $resident_stmt = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) AS full_name, first_name, last_name, middle_initial, gender, address, date_of_birth, place_of_birth, civil_status, occupation FROM residents ORDER BY last_name ASC");
     $residents = $resident_stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $residents = [];
@@ -99,16 +98,16 @@ try {
                              residents: <?php echo json_encode($residents); ?>,
                              selectedResidentId: null,
                              selectedResident: {},
-                             formBusinessName: "",
-                             formOwner: "",
-                             formLocation: "",
+                             formName: "",
+                             formRequester: "",
+                             formRelation: "",
                              formDay: new Date().getDate().toString(),
                              formMonth: new Date().toLocaleDateString("en-US", { month: "long" }),
-                             fieldIds: ["field-business-name", "field-owner", "field-location", "field-day", "field-month"],
+                             fieldIds: ["field-name", "field-requester", "field-relation", "field-day", "field-month"],
                              init() {
-                                 this.$watch("formBusinessName", () => this.recomputeLayout());
-                                 this.$watch("formOwner", () => this.recomputeLayout());
-                                 this.$watch("formLocation", () => this.recomputeLayout());
+                                 this.$watch("formName", () => this.recomputeLayout());
+                                 this.$watch("formRequester", () => this.recomputeLayout());
+                                 this.$watch("formRelation", () => this.recomputeLayout());
                                  this.$watch("formDay", () => this.recomputeLayout());
                                  this.$watch("formMonth", () => this.recomputeLayout());
                                  this.$nextTick(() => this.recomputeLayout());
@@ -118,16 +117,13 @@ try {
                                  const resident = this.residents.find(r => r.id == this.selectedResidentId);
                                  if (resident) {
                                      this.selectedResident = resident;
-                                     this.formOwner = resident.full_name || "";
-                                     if (resident.address && !this.formLocation) {
-                                         this.formLocation = resident.address;
-                                     }
+                                     this.formName = resident.full_name || "";
                                  }
                              },
                              getFieldValue(id) {
-                                 if (id === "field-business-name") return this.formBusinessName;
-                                 if (id === "field-owner") return this.formOwner;
-                                 if (id === "field-location") return this.formLocation;
+                                 if (id === "field-name") return this.formName;
+                                 if (id === "field-requester") return this.formRequester;
+                                 if (id === "field-relation") return this.formRelation;
                                  if (id === "field-day") return this.formDay;
                                  if (id === "field-month") return this.formMonth;
                                  return "";
@@ -178,7 +174,7 @@ try {
                                          if (xCoords.length === 0) return;
                                          const firstX = xCoords[0];
                                          const lastX = xCoords[xCoords.length - 1];
-                                         const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.66;
+                                         const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 9.64;
                                          const blankWidth = (lastX - firstX) + charWidth;
                                          let actualWidth = 0;
                                          try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
@@ -211,8 +207,13 @@ try {
 
                         <!-- Form Controls -->
                         <div class="mb-6 space-y-4 print:hidden">
+                            <div class="bg-blue-50 border-l-4 border-blue-500 p-3 rounded text-sm text-blue-800">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                This certificate is for <strong>deceased persons</strong> or <strong>patients needing medical assistance</strong>.
+                            </div>
+
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Select Owner (Resident)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Select Resident (Patient / Deceased)</label>
                                 <select x-model="selectedResidentId" @change="selectResident()"
                                         class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2">
                                     <option value="">-- Choose a resident --</option>
@@ -222,23 +223,22 @@ try {
                                 </select>
                             </div>
 
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Business Name / Nature of Business</label>
-                                <input type="text" x-model="formBusinessName" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="e.g. Juan's Sari-Sari Store">
-                            </div>
-
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Owner Name</label>
-                                    <input type="text" x-model="formOwner" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="Business owner's full name">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Patient / Deceased Name</label>
+                                    <input type="text" x-model="formName" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="Full name of patient / deceased">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Business Location</label>
-                                    <input type="text" x-model="formLocation" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="Zone / Street / Purok">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Requester Name</label>
+                                    <input type="text" x-model="formRequester" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="Name of person requesting">
                                 </div>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Relation to Patient / Deceased</label>
+                                    <input type="text" x-model="formRelation" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="e.g. son, daughter, spouse">
+                                </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Day</label>
                                     <input type="text" x-model="formDay" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="Day">
@@ -247,48 +247,49 @@ try {
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
                                     <input type="text" x-model="formMonth" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="Month">
                                 </div>
-                                <div class="flex items-end">
-                                    <button @click="printCertificate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition">
-                                        <i class="fas fa-print mr-2"></i> Print Certificate
-                                    </button>
-                                </div>
+                            </div>
+
+                            <div>
+                                <button @click="printCertificate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition">
+                                    <i class="fas fa-print mr-2"></i> Print Certificate
+                                </button>
                             </div>
                         </div>
 
                         <!-- Certificate Preview -->
                         <div class="printable-area max-w-4xl mx-auto my-8 p-8 bg-white shadow-lg overflow-auto">
                             <?php
-                            $svg_path = '../../Barangay Business Clearance.svg';
+                            $svg_path = '../../Certificate of Indigency (Special).svg';
                             $svg = file_get_contents($svg_path);
                             if ($svg !== false) {
-                                // Business Name (line ~368)
+                                // Patient / deceased name (line ~346)
                                 $svg = str_replace(
-                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="46.079755" x="188.63808',
-                                    '<text id="field-business-name" xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="46.079755" x="188.63808',
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 306.63758)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="206.88924',
+                                    '<text id="field-name" xml:space="preserve" transform="matrix(.75 0 0 .75 72 306.63758)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="206.88924',
                                     $svg
                                 );
-                                // Owner Name (line ~374)
+                                // Requester name (line ~408)
                                 $svg = str_replace(
-                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="46.079755" x="473.09687',
-                                    '<text id="field-owner" xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="46.079755" x="473.09687',
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 396.32997)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="467.0144',
+                                    '<text id="field-requester" xml:space="preserve" transform="matrix(.75 0 0 .75 72 396.32997)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="467.0144',
                                     $svg
                                 );
-                                // Location (line ~380)
+                                // Relation (line ~418)
                                 $svg = str_replace(
-                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="75.97721" x="16.837403',
-                                    '<text id="field-location" xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="75.97721" x="16.837403',
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 396.32997)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="115.56888',
+                                    '<text id="field-relation" xml:space="preserve" transform="matrix(.75 0 0 .75 72 396.32997)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="115.56888',
                                     $svg
                                 );
-                                // Day (line ~459)
+                                // Day (line ~442)
                                 $svg = str_replace(
-                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 458.2318)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="124.0475',
-                                    '<text id="field-day" xml:space="preserve" transform="matrix(.75 0 0 .75 72 458.2318)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="124.0475',
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 486.02235)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="135.64756',
+                                    '<text id="field-day" xml:space="preserve" transform="matrix(.75 0 0 .75 72 486.02235)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="135.64756',
                                     $svg
                                 );
-                                // Month (line ~465)
+                                // Month (line ~448)
                                 $svg = str_replace(
-                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 458.2318)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="211.15349',
-                                    '<text id="field-month" xml:space="preserve" transform="matrix(.75 0 0 .75 72 458.2318)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="211.15349',
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 486.02235)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="221.39139',
+                                    '<text id="field-month" xml:space="preserve" transform="matrix(.75 0 0 .75 72 486.02235)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="221.39139',
                                     $svg
                                 );
                                 echo $svg;

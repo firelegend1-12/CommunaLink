@@ -14,7 +14,7 @@ $page_title = "Certificate of Indigency";
 // Fetch residents for the dropdown
 $residents = [];
 try {
-    $resident_stmt = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) AS full_name, civil_status FROM residents ORDER BY last_name ASC");
+    $resident_stmt = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) AS full_name, first_name, last_name, middle_initial, gender, address, date_of_birth, place_of_birth, civil_status, occupation FROM residents ORDER BY last_name ASC");
     $residents = $resident_stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $residents = [];
@@ -31,6 +31,25 @@ try {
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        /* Always center the SVG inside its container */
+        .printable-area { text-align: center; }
+        .printable-area svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+
+        @page { size: auto; margin: 0; }
+
+        @media print {
+            .print\:hidden { display: none !important; }
+            html, body { background: white !important; margin: 0 !important; padding: 0 !important; width: 100% !important; height: auto !important; }
+            .no-print, header, .sidebar, nav, .flex.h-screen > :first-child { display: none !important; }
+            .flex.h-screen { display: block !important; height: auto !important; overflow: visible !important; }
+            .flex-col.flex-1 { display: block !important; overflow: visible !important; }
+            main { padding: 0 !important; overflow: visible !important; }
+            .max-w-4xl { max-width: 100% !important; margin: 0 auto !important; padding: 0 !important; }
+            .bg-white.rounded-lg { box-shadow: none !important; padding: 0 !important; }
+            .printable-area { box-shadow: none !important; margin: 0 auto !important; padding: 1cm !important; }
+        }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="flex h-screen overflow-hidden">
@@ -79,116 +98,198 @@ echo substr($_SESSION['fullname'], 0, 1); ?>
                 <div class="max-w-4xl mx-auto">
                     <?php
 display_flash_messages(); ?>
-                    <div class="bg-white rounded-lg shadow p-8" 
-                         x-data='{ 
-                             residents: <?php
-echo json_encode($residents); ?>, 
-                             selectedResident: { id: "", full_name: "", civil_status: "" },
-                             updateFields() {
-                                 if (this.selectedResident.id) {
-                                     const resident = this.residents.find(r => r.id == this.selectedResident.id);
-                                     if (resident) {
-                                        this.selectedResident.full_name = resident.full_name;
-                                        this.selectedResident.civil_status = resident.civil_status;
+                    <div class="bg-white rounded-lg shadow p-8"
+                         x-data='{
+                             residents: <?php echo json_encode($residents); ?>,
+                             selectedResidentId: null,
+                             selectedResident: {},
+                             formName: "",
+                             formAge: "",
+                             formDay: new Date().getDate().toString(),
+                             formMonth: new Date().toLocaleDateString("en-US", { month: "long" }),
+                             fieldIds: ["field-name", "field-age", "field-day", "field-month"],
+                             init() {
+                                 this.$watch("formName", () => this.recomputeLayout());
+                                 this.$watch("formAge", () => this.recomputeLayout());
+                                 this.$watch("formDay", () => this.recomputeLayout());
+                                 this.$watch("formMonth", () => this.recomputeLayout());
+                                 this.$nextTick(() => this.recomputeLayout());
+                             },
+                             selectResident() {
+                                 if (!this.selectedResidentId) return;
+                                 const resident = this.residents.find(r => r.id == this.selectedResidentId);
+                                 if (resident) {
+                                     this.selectedResident = resident;
+                                     this.formName = resident.full_name || "";
+                                     if (resident.date_of_birth) {
+                                         const bd = new Date(resident.date_of_birth);
+                                         this.formAge = new Date().getFullYear() - bd.getFullYear();
                                      } else {
-                                        this.selectedResident.full_name = "";
-                                        this.selectedResident.civil_status = "";
+                                         this.formAge = "";
                                      }
-                                 } else {
-                                     this.selectedResident.full_name = "";
-                                     this.selectedResident.civil_status = "";
                                  }
+                             },
+                             getFieldValue(id) {
+                                 if (id === "field-name") return this.formName;
+                                 if (id === "field-age") return this.formAge;
+                                 if (id === "field-day") return this.formDay;
+                                 if (id === "field-month") return this.formMonth;
+                                 return "";
+                             },
+                             recomputeLayout() {
+                                 document.querySelectorAll("svg text").forEach(el => {
+                                     if (!el.dataset.origTransform && el.hasAttribute("transform")) {
+                                         el.dataset.origTransform = el.getAttribute("transform");
+                                     }
+                                 });
+                                 // Step 1: set text content + reset x on each field, preserving trailing punctuation
+                                 this.fieldIds.forEach(id => {
+                                     const el = document.getElementById(id);
+                                     if (!el) return;
+                                     const tspan = el.querySelector("tspan");
+                                     if (!tspan) return;
+                                     if (!tspan.dataset.origX) {
+                                         tspan.dataset.origX = tspan.getAttribute("x") || "0";
+                                     }
+                                     if (!tspan.dataset.origText) {
+                                         tspan.dataset.origText = tspan.textContent;
+                                     }
+                                     const value = this.getFieldValue(id);
+                                     const firstX = tspan.dataset.origX.split(/\s+/)[0];
+                                     if (!value || String(value).trim() === "") {
+                                         tspan.textContent = tspan.dataset.origText;
+                                         tspan.setAttribute("x", tspan.dataset.origX);
+                                     } else {
+                                         const suffix = tspan.dataset.origText.replace(/^[_\s]+/, "");
+                                         tspan.textContent = String(value) + suffix;
+                                         tspan.setAttribute("x", firstX);
+                                     }
+                                 });
+                                 // Step 2: reset every shifted text element back to original transform
+                                 document.querySelectorAll("svg text[data-orig-transform]").forEach(el => {
+                                     el.setAttribute("transform", el.dataset.origTransform);
+                                 });
+                                 // Step 3: measure and shift after browser renders
+                                 requestAnimationFrame(() => {
+                                     this.fieldIds.forEach(id => {
+                                         const el = document.getElementById(id);
+                                         if (!el) return;
+                                         const tspan = el.querySelector("tspan");
+                                         if (!tspan || !tspan.dataset.origX) return;
+                                         const value = this.getFieldValue(id);
+                                         if (!value || String(value).trim() === "") return;
+                                         const xCoords = tspan.dataset.origX.split(/\s+/).map(parseFloat).filter(n => !isNaN(n));
+                                         if (xCoords.length === 0) return;
+                                         const firstX = xCoords[0];
+                                         const lastX = xCoords[xCoords.length - 1];
+                                         const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 9.64;
+                                         const blankWidth = (lastX - firstX) + charWidth;
+                                         let actualWidth = 0;
+                                         try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
+                                         const shift = blankWidth - actualWidth;
+                                         if (shift <= 0.5) return;
+                                         const origLineTransform = el.dataset.origTransform || el.getAttribute("transform");
+                                         const lineY = tspan.getAttribute("y");
+                                         const parent = el.parentElement;
+                                         if (!parent) return;
+                                         Array.from(parent.querySelectorAll("text")).forEach(t => {
+                                             if (t === el) return;
+                                             const ts = t.querySelector("tspan");
+                                             if (!ts) return;
+                                             const tBaseTransform = t.dataset.origTransform || t.getAttribute("transform") || "";
+                                             if (tBaseTransform !== origLineTransform) return;
+                                             if (ts.getAttribute("y") !== lineY) return;
+                                             const tOrigX = ts.dataset.origX || ts.getAttribute("x") || "0";
+                                             const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
+                                             if (isNaN(tFirstX) || tFirstX <= firstX) return;
+                                             const currentTransform = t.getAttribute("transform") || tBaseTransform;
+                                             t.setAttribute("transform", currentTransform + " translate(" + (-shift) + " 0)");
+                                         });
+                                     });
+                                 });
+                             },
+                             printCertificate() {
+                                 window.print();
                              }
                          }'>
 
-                        <form action="../partials/new-certificate-of-indigency-handler.php" method="POST">
-                            <?php echo csrf_field(); ?>
-                            <!-- Header Section -->
-                            <div class="text-center mb-8">
-                                <p>REPUBLIC OF THE PHILIPPINES</p>
-                                <p>Iloilo City</p>
-                                <p class="font-bold">Barangay Pakiad Oton</p>
-                                <h2 class="text-xl font-bold mt-2">Office of the Punong Barangay</h2>
+                        <!-- Form Controls -->
+                        <div class="mb-6 space-y-4 print:hidden">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Select Resident</label>
+                                <select x-model="selectedResidentId" @change="selectResident()"
+                                        class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2">
+                                    <option value="">-- Choose a resident --</option>
+                                    <template x-for="resident in residents" :key="resident.id">
+                                        <option :value="resident.id" x-text="resident.full_name"></option>
+                                    </template>
+                                </select>
                             </div>
 
-                            <h1 class="text-center text-2xl font-bold uppercase my-8">CERTIFICATE OF INDIGENCY</h1>
-
-                            <!-- Main Body -->
-                            <div class="mb-6 space-y-6">
-                                <p class="font-bold">TO WHOM IT MAY CONCERN:</p>
-                                
-                                <p class="text-justify indent-8 leading-relaxed">
-                                    This is to CERTIFY that Mr./Ms. <strong x-text="selectedResident.full_name || '__________________'"></strong>, 
-                                    of legal age, <strong x-text="selectedResident.civil_status || '___________'"></strong>, 
-                                    Filipino Citizen and a resident of Barangay Pakiad Oton, Iloilo City,
-                                    belongs to the Indigent Families of this barangay having an annual income not exceeding the Regional Poverty Threshold (RPT) of Php 169, 824.00 per anum as determined by the National Economic Development Authority (NEDA).
-                                </p>
-                                
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label for="resident_id" class="block text-sm font-medium text-gray-700">Select Recipient:</label>
-                                        <select id="resident_id" name="resident_id" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md" x-model="selectedResident.id" @change="updateFields()" required>
-                                            <option value="">-- Select a Resident --</option>
-                                            <?php
-foreach ($residents as $res): ?>
-                                                <option value="<?= htmlspecialchars($res['id']) ?>"><?= htmlspecialchars($res['full_name']) ?></option>
-                                            <?php
-endforeach; ?>
-                                        </select>
-                                    </div>
-                                    <div class="flex items-end">
-                                        <input type="text" name="civil_status" x-model="selectedResident.civil_status" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" placeholder="Civil Status" readonly>
-                                    </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                                    <input type="text" x-model="formName" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="Enter full name">
                                 </div>
-                                <input type="hidden" name="recipient_name" x-bind:value="selectedResident.full_name">
-                                
-                                <p class="text-justify indent-8 leading-relaxed">
-                                    This CERTIFICATION is issued upon the request of the above-mentioned individual for whatever legal purpose/s it may best serve him or her.
-                                </p>
-                                
-                                <div class="flex flex-wrap items-baseline gap-x-2">
-                                    <span>ISSUED this</span>
-                                    <input type="text" name="day_issued" placeholder="day" class="w-16 text-center border-b focus:border-blue-500 focus:outline-none">
-                                    <span>day of</span>
-                                    <input type="text" name="month_issued" placeholder="Month" class="flex-grow text-center border-b focus:border-blue-500 focus:outline-none">,
-                                    <input type="number" name="year_issued" value="<?= date('Y') ?>" class="w-20 text-center border-b focus:border-blue-500 focus:outline-none">
-                                    <span>at Barangay Pakiad Oton, Iloilo City.</span>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Age</label>
+                                    <input type="text" x-model="formAge" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="Age">
                                 </div>
                             </div>
 
-                            <!-- Approval Section -->
-                            <div class="mt-16 text-right">
-                                <div class="inline-block text-center">
-                                    <div class="border-b-2 border-gray-800 w-64 mb-2"></div>
-                                    <p class="font-bold uppercase text-sm"><?php
-echo htmlspecialchars($_SESSION['fullname']); ?></p>
-                                    <p class="text-xs">PRINTED NAME OF PUNONG BARANGAY</p>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Day</label>
+                                    <input type="text" x-model="formDay" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="Day">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                                    <input type="text" x-model="formMonth" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="Month">
+                                </div>
+                                <div class="flex items-end">
+                                    <button @click="printCertificate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition">
+                                        <i class="fas fa-print mr-2"></i> Print Certificate
+                                    </button>
                                 </div>
                             </div>
-                            
-                            <!-- Special Instructions -->
-                            <div class="mt-12 border-t pt-6">
-                                <h4 class="font-bold text-sm">SPECIAL NOTE ON THE DRY SEAL:</h4>
-                                <ul class="list-disc list-inside text-xs text-gray-600 mt-2 space-y-1">
-                                    <li>Place the Dry Seal IF AVAILABLE.</li>
-                                    <li>If the Barangay has NO dry seal, then leave the lower part of the Certificate EMPTY.</li>
-                                    <li>If the Certificate contains, "NOT VALID WITHOUT SEAL", then the seal MUST BE PLACED.</li>
-                                    <li>If the "NOT VALID WITHOUT SEAL" is present but no dry seal has been placed then the Certificate is NOT VALID AND NOT ACCEPTED.</li>
-                                </ul>
-                            </div>
+                        </div>
 
-                            <div class="flex justify-end pt-6 border-t mt-8">
-                                <a href="monitoring-of-request.php" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md mr-2">Cancel</a>
-                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">Submit Request</button>
-                            </div>
-                        </form>
-
+                        <!-- Certificate Preview -->
+                        <div class="printable-area max-w-4xl mx-auto my-8 p-8 bg-white shadow-lg overflow-auto">
+                            <?php
+                            $svg_path = '../../Certificate of Indigency.svg';
+                            $svg = file_get_contents($svg_path);
+                            if ($svg !== false) {
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 299.79566)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="206.88924',
+                                    '<text id="field-name" xml:space="preserve" transform="matrix(.75 0 0 .75 72 299.79566)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="206.88924',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 299.79566)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="544.1788',
+                                    '<text id="field-age" xml:space="preserve" transform="matrix(.75 0 0 .75 72 299.79566)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="544.1788',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 456.75733)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="135.64756',
+                                    '<text id="field-day" xml:space="preserve" transform="matrix(.75 0 0 .75 72 456.75733)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="135.64756',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 456.75733)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="221.39139',
+                                    '<text id="field-month" xml:space="preserve" transform="matrix(.75 0 0 .75 72 456.75733)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="221.39139',
+                                    $svg
+                                );
+                                echo $svg;
+                            } else {
+                                echo '<p class="text-red-500 text-center py-8">Error: Could not load certificate template.</p>';
+                            }
+                            ?>
+                        </div>
                     </div>
                 </div>
             </main>
         </div>
     </div>
 </body>
-</html> 
-
-
+</html>

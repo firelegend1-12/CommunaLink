@@ -33,7 +33,23 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
-        /* The custom style will be removed, and Tailwind classes will be used instead. */
+        /* Always center the SVG inside its container */
+        .printable-area { text-align: center; }
+        .printable-area svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+
+        @page { size: auto; margin: 0; }
+
+        @media print {
+            .print\:hidden { display: none !important; }
+            html, body { background: white !important; margin: 0 !important; padding: 0 !important; width: 100% !important; height: auto !important; }
+            .no-print, header, .sidebar, nav, .flex.h-screen > :first-child { display: none !important; }
+            .flex.h-screen { display: block !important; height: auto !important; overflow: visible !important; }
+            .flex-col.flex-1 { display: block !important; overflow: visible !important; }
+            main { padding: 0 !important; overflow: visible !important; }
+            .max-w-4xl { max-width: 100% !important; margin: 0 auto !important; padding: 0 !important; }
+            .bg-white.rounded-lg { box-shadow: none !important; padding: 0 !important; }
+            .printable-area { box-shadow: none !important; margin: 0 auto !important; padding: 1cm !important; }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -84,138 +100,198 @@ echo substr($_SESSION['fullname'], 0, 1); ?>
                     <?php
 display_flash_messages(); ?>
                     <div class="bg-white rounded-lg shadow p-8" 
-                         x-data='{ 
-                             residents: <?php
-echo json_encode($residents); ?>, 
+                         x-data='{
+                             residents: <?php echo json_encode($residents); ?>,
+                             selectedResidentId: null,
                              selectedResident: {},
-                             age: null,
-                             updateFields() {
-                                 if (this.selectedResident.id) {
-                                     const resident = this.residents.find(r => r.id == this.selectedResident.id);
-                                     this.selectedResident = { ...this.selectedResident, ...resident };
-                                     if (this.selectedResident.date_of_birth) {
-                                        const birthDate = new Date(this.selectedResident.date_of_birth);
-                                        this.age = new Date().getFullYear() - birthDate.getFullYear();
+                             formName: "",
+                             formAge: "",
+                             formPurpose: "",
+                             formDay: new Date().getDate().toString(),
+                             formMonth: new Date().toLocaleDateString("en-US", { month: "long" }),
+                             fieldIds: ["field-name", "field-age", "field-purpose", "field-day", "field-month"],
+                             init() {
+                                 this.$watch("formName", () => this.recomputeLayout());
+                                 this.$watch("formAge", () => this.recomputeLayout());
+                                 this.$watch("formPurpose", () => this.recomputeLayout());
+                                 this.$watch("formDay", () => this.recomputeLayout());
+                                 this.$watch("formMonth", () => this.recomputeLayout());
+                                 this.$nextTick(() => this.recomputeLayout());
+                             },
+                             selectResident() {
+                                 if (!this.selectedResidentId) return;
+                                 const resident = this.residents.find(r => r.id == this.selectedResidentId);
+                                 if (resident) {
+                                     this.selectedResident = resident;
+                                     this.formName = resident.full_name || "";
+                                     if (resident.date_of_birth) {
+                                         const bd = new Date(resident.date_of_birth);
+                                         this.formAge = new Date().getFullYear() - bd.getFullYear();
+                                     } else {
+                                         this.formAge = "";
                                      }
                                  }
+                             },
+                             getFieldValue(id) {
+                                 if (id === "field-name") return this.formName;
+                                 if (id === "field-age") return this.formAge;
+                                 if (id === "field-purpose") return this.formPurpose;
+                                 if (id === "field-day") return this.formDay;
+                                 if (id === "field-month") return this.formMonth;
+                                 return "";
+                             },
+                             recomputeLayout() {
+                                 // Pre-save original transforms for all text elements (once)
+                                 document.querySelectorAll("svg text").forEach(el => {
+                                     if (!el.dataset.origTransform && el.hasAttribute("transform")) {
+                                         el.dataset.origTransform = el.getAttribute("transform");
+                                     }
+                                 });
+                                 // Step 1: set text content + reset x on each field
+                                 this.fieldIds.forEach(id => {
+                                     const el = document.getElementById(id);
+                                     if (!el) return;
+                                     const tspan = el.querySelector("tspan");
+                                     if (!tspan) return;
+                                     if (!tspan.dataset.origX) {
+                                         tspan.dataset.origX = tspan.getAttribute("x") || "0";
+                                     }
+                                     const firstX = tspan.dataset.origX.split(/\s+/)[0];
+                                     tspan.textContent = this.getFieldValue(id) || "";
+                                     tspan.setAttribute("x", firstX);
+                                 });
+                                 // Step 2: reset every shifted text element back to its original transform
+                                 document.querySelectorAll("svg text[data-orig-transform]").forEach(el => {
+                                     el.setAttribute("transform", el.dataset.origTransform);
+                                 });
+                                 // Step 3: after browser re-renders, measure and shift
+                                 requestAnimationFrame(() => {
+                                     this.fieldIds.forEach(id => {
+                                         const el = document.getElementById(id);
+                                         if (!el) return;
+                                         const tspan = el.querySelector("tspan");
+                                         if (!tspan || !tspan.dataset.origX) return;
+                                         const value = this.getFieldValue(id);
+                                         // Skip shifting entirely when field is empty - keep original layout
+                                         if (!value || String(value).trim() === "") return;
+                                         const xCoords = tspan.dataset.origX.split(/\s+/).map(parseFloat).filter(n => !isNaN(n));
+                                         if (xCoords.length === 0) return;
+                                         const firstX = xCoords[0];
+                                         const lastX = xCoords[xCoords.length - 1];
+                                         const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
+                                         const blankWidth = (lastX - firstX) + charWidth;
+                                         let actualWidth = 0;
+                                         try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
+                                         const shift = blankWidth - actualWidth;
+                                         if (shift <= 0.5) return;
+                                         const origLineTransform = el.dataset.origTransform || el.getAttribute("transform");
+                                         const lineY = tspan.getAttribute("y");
+                                         // Find all same-line siblings by original x position (not DOM order)
+                                         const parent = el.parentElement;
+                                         if (!parent) return;
+                                         Array.from(parent.querySelectorAll("text")).forEach(t => {
+                                             if (t === el) return;
+                                             const ts = t.querySelector("tspan");
+                                             if (!ts) return;
+                                             const tBaseTransform = t.dataset.origTransform || t.getAttribute("transform") || "";
+                                             if (tBaseTransform !== origLineTransform) return;
+                                             if (ts.getAttribute("y") !== lineY) return;
+                                             // Only shift elements whose original x is to the right of this field
+                                             const tOrigX = ts.dataset.origX || ts.getAttribute("x") || "0";
+                                             const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
+                                             if (isNaN(tFirstX) || tFirstX <= firstX) return;
+                                             const currentTransform = t.getAttribute("transform") || tBaseTransform;
+                                             t.setAttribute("transform", currentTransform + " translate(" + (-shift) + " 0)");
+                                         });
+                                     });
+                                 });
+                             },
+                             printCertificate() {
+                                 window.print();
                              }
                          }'>
 
-                        <div class="printable-area max-w-4xl mx-auto my-8 p-8 bg-white shadow-lg">
-                            <div class="text-center border-b pb-4 mb-6">
-                                <h2 class="text-lg font-bold">Barangay Pakiad Oton</h2>
-                                <p class="font-semibold">Iloilo City</p>
-                                <p class="font-semibold">OFFICE OF THE PUNONG BARANGAY</p>
-                                <h1 class="text-2xl font-bold mt-4 uppercase">APPLICATION FOR BARANGAY CLEARANCE (INDIVIDUAL)</h1>
+                        <!-- Form Controls -->
+                        <div class="mb-6 space-y-4 print:hidden">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Select Resident</label>
+                                <select x-model="selectedResidentId" @change="selectResident()"
+                                        class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2">
+                                    <option value="">-- Choose a resident --</option>
+                                    <template x-for="resident in residents" :key="resident.id">
+                                        <option :value="resident.id" x-text="resident.full_name"></option>
+                                    </template>
+                                </select>
                             </div>
-                            
-                            <form action="../partials/new-barangay-clearance-handler.php" method="POST">
-                                <?php echo csrf_field(); ?>
-                                <!-- Application Type & Initial Details -->
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-                                    <div class="col-span-2 flex items-center space-x-4">
-                                        <label class="font-medium">Application Type:</label>
-                                        <label class="flex items-center"><input type="radio" name="application_type" value="New" class="mr-1 h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"> NEW</label>
-                                        <label class="flex items-center"><input type="radio" name="application_type" value="Renewal" class="mr-1 h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"> RENEWAL</label>
-                                    </div>
-                                    <div><label class="block text-sm font-medium text-gray-700">No.:</label><input type="text" name="clearance_no" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                    <div><label class="block text-sm font-medium text-gray-700">Date:</label><input type="date" name="clearance_date" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                </div>
-                                
-                                <!-- Applicant's Personal Information -->
-                                <fieldset class="border p-4 rounded-md mb-6">
-                                    <legend class="font-semibold px-2">Applicant's Personal Information</legend>
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <div class="md:col-span-3">
-                                            <label for="resident_id" class="block text-sm font-medium text-gray-700">Select Applicant Name:</label>
-                                            <select id="resident_id" name="resident_id" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md" x-model="selectedResident.id" @change="updateFields()" required>
-                                                <option value="">-- Select a Resident --</option>
-                                                <?php
-foreach ($residents as $res): ?>
-                                                    <option value="<?= $res['id'] ?>"><?= htmlspecialchars($res['full_name']) ?></option>
-                                                <?php
-endforeach; ?>
-                                            </select>
-                                        </div>
 
-                                        <div><label class="block text-sm font-medium text-gray-700">Last Name (Apelyido):</label><input type="text" x-model="selectedResident.last_name" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" readonly></div>
-                                        <div><label class="block text-sm font-medium text-gray-700">First Name (Pangalan):</label><input type="text" x-model="selectedResident.first_name" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" readonly></div>
-                                        <div><label class="block text-sm font-medium text-gray-700">Middle Name (Gitnang Pangalan):</label><input type="text" x-model="selectedResident.middle_initial" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" readonly></div>
-                                        
-                                        <div><label class="block text-sm font-medium text-gray-700">Sex:</label><input type="text" x-model="selectedResident.gender" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" readonly></div>
-                                        <div class="col-span-2"><label class="block text-sm font-medium text-gray-700">Address:</label><textarea x-model="selectedResident.address" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" rows="1" readonly></textarea></div>
-
-                                        <div><label class="block text-sm font-medium text-gray-700">Date of Birth:</label><input type="date" x-model="selectedResident.date_of_birth" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" readonly></div>
-                                        <div><label class="block text-sm font-medium text-gray-700">Age:</label><input type="number" x-model="age" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" readonly></div>
-                                        <div><label class="block text-sm font-medium text-gray-700">Place of Birth:</label><input type="text" x-model="selectedResident.place_of_birth" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" readonly></div>
-                                        
-                                        <div><label class="block text-sm font-medium text-gray-700">Occupation:</label><input type="text" x-model="selectedResident.occupation" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" readonly></div>
-                                        <div><label class="block text-sm font-medium text-gray-700">Civil Status:</label><input type="text" x-model="selectedResident.civil_status" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" readonly></div>
-                                        <div><label class="block text-sm font-medium text-gray-700">Precinct No.:</label><input type="text" name="precinct_no" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-
-                                        <div><label class="block text-sm font-medium text-gray-700">Resident Since:</label><input type="text" name="resident_since" placeholder="Year" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                        <div class="col-span-2"><label class="block text-sm font-medium text-gray-700">If employed, Name of Company:</label><input type="text" name="company_name" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                        
-                                        <div class="col-span-3"><label class="block text-sm font-medium text-gray-700">Purpose of Clearance:</label><textarea name="purpose" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required rows="2"></textarea></div>
-                                    </div>
-                                </fieldset>
-
-                                <!-- References -->
-                                <fieldset class="border p-4 rounded-md mb-6">
-                                    <legend class="font-semibold px-2">References</legend>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div><label class="block text-sm font-medium text-gray-700">Reference (1) (not your relative):</label><input type="text" name="reference_1" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                        <div><label class="block text-sm font-medium text-gray-700">Reference (2) (not your relative):</label><input type="text" name="reference_2" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                        <div class="col-span-2"><label class="block text-sm font-medium text-gray-700">Tel. No.:</label><input type="tel" name="reference_tel_no" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                    </div>
-                                </fieldset>
-                                
-                                <!-- CTC and Fees -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                    <fieldset class="border p-4 rounded-md">
-                                        <legend class="font-semibold px-2">Community Tax Certificate</legend>
-                                        <div class="space-y-4">
-                                            <div><label class="block text-sm font-medium text-gray-700">CTC No.:</label><input type="text" name="ctc_no" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                            <div><label class="block text-sm font-medium text-gray-700">Issued At:</label><input type="text" name="ctc_issued_at" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                            <div><label class="block text-sm font-medium text-gray-700">Issued On:</label><input type="date" name="ctc_issued_on" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                        </div>
-                                    </fieldset>
-                                    <fieldset class="border p-4 rounded-md">
-                                        <legend class="font-semibold px-2">Official Use / Fees</legend>
-                                        <div class="space-y-4">
-                                            <div><label class="block text-sm font-medium text-gray-700">Clearance Fee:</label><input type="number" name="clearance_fee" step="0.01" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                            <div><label class="block text-sm font-medium text-gray-700">O.R. No.:</label><input type="text" name="or_no" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                            <div><label class="block text-sm font-medium text-gray-700">Date:</label><input type="date" name="or_date" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                            <div><label class="block text-sm font-medium text-gray-700">Remarks:</label><textarea name="remarks" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" rows="1"></textarea></div>
-                                        </div>
-                                    </fieldset>
-                                    </div>
-                                
-                                <!-- Signatures -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                    <div>
-                                        <label class="block text-sm font-medium">Signature of Applicant:</label>
-                                        <div class="mt-1 p-4 border-2 border-dashed rounded-md h-24"></div>
-                                    </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                        <label class="block text-sm font-medium">Right Thumbmark:</label>
-                                        <div class="mt-1 p-4 border-2 border-dashed rounded-md h-24"></div>
-                                    </div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                                    <input type="text" x-model="formName" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="___________________________________">
                                 </div>
-                                
-                                <!-- Approval -->
-                                <div class="text-right">
-                                    <p class="mb-8">______________________________________</p>
-                                    <p class="font-bold uppercase"><?php
-echo htmlspecialchars($_SESSION['fullname']); ?></p>
-                                    <p>PUNONG BARANGAY</p>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Age</label>
+                                    <input type="text" x-model="formAge" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="____">
                                 </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
+                                    <input type="text" x-model="formPurpose" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="______________________________">
+                                </div>
+                            </div>
 
-                                <div class="flex justify-end pt-4 border-t mt-6">
-                                    <a href="dashboard.php" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md mr-2">Cancel</a>
-                                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">Submit Application</button>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Day</label>
+                                    <input type="text" x-model="formDay" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="____">
                                 </div>
-                            </form>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                                    <input type="text" x-model="formMonth" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="____________________">
+                                </div>
+                                <div class="flex items-end">
+                                    <button @click="printCertificate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition">
+                                        <i class="fas fa-print mr-2"></i> Print Certificate
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Certificate Preview -->
+                        <div class="printable-area max-w-4xl mx-auto my-8 p-8 bg-white shadow-lg overflow-auto">
+                            <?php
+                            $svg_path = '../../Barangay Forms (1) (1).svg';
+                            $svg = file_get_contents($svg_path);
+                            if ($svg !== false) {
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman"><tspan y="15.5598959" x="238.0417',
+                                    '<text id="field-name" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman"><tspan y="15.5598959" x="238.0417',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="15.5598959" x="537.8542 546.1823 554.51046 562.83859">',
+                                    '<text id="field-age" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="15.5598959" x="537.8542 546.1823 554.51046 562.83859">',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 394.6116)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="0 8.328125',
+                                    '<text id="field-purpose" xml:space="preserve" transform="matrix(.75 0 0 .75 72 394.6116)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="0 8.328125',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 460.731)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="15.5598959" x="72.16353 80.49165 88.81978 97.1479">',
+                                    '<text id="field-day" xml:space="preserve" transform="matrix(.75 0 0 .75 72 460.731)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="15.5598959" x="72.16353 80.49165 88.81978 97.1479">',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 460.731)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="15.5598959" x="154.97307 163.3012',
+                                    '<text id="field-month" xml:space="preserve" transform="matrix(.75 0 0 .75 72 460.731)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="15.5598959" x="154.97307 163.3012',
+                                    $svg
+                                );
+                                echo $svg;
+                            } else {
+                                echo '<p class="text-red-500 text-center py-8">Error: Could not load certificate template.</p>';
+                            }
+                            ?>
                         </div>
                     </div>
                 </div>
