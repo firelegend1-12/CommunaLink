@@ -12,10 +12,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <i class="fas fa-file-invoice"></i>
         <span>Requests</span>
     </a>
-    <a href="chat.php" class="bottom-nav-item <?= $current_page === 'chat.php' ? 'active' : '' ?>">
-        <i class="fas fa-comments"></i>
-        <span>Chat</span>
-    </a>
     <a href="notifications.php" class="bottom-nav-item <?= $current_page === 'notifications.php' ? 'active' : '' ?>">
         <div class="relative inline-block">
             <i class="fas fa-bell"></i>

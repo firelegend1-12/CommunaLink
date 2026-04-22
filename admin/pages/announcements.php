@@ -1,8 +1,8 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Announcements Management - Modernized
  */
-require_once '../partials/admin_auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/business_announcement_functions.php';
 require_once '../../includes/csrf.php';
@@ -52,7 +52,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?> - CommunaLink</title>
+    <title>Barangay Pakiad</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
@@ -72,7 +72,7 @@ try {
         }
     </style>
 </head>
-<body class="bg-[#F8FAFC] min-h-screen text-[#1E293B]">
+<body class="bg-gray-100 min-h-screen text-[#1E293B]">
     <div class="flex h-screen overflow-hidden" x-data="{ 
         showAddModal: false, 
         showEditModal: false, 
@@ -225,7 +225,15 @@ try {
                     </div>
 
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-slate-100">
+                        <table class="min-w-full table-fixed divide-y divide-slate-100">
+                            <colgroup>
+                                <col class="w-[30%]">
+                                <col class="w-[14%]">
+                                <col class="w-[14%]">
+                                <col class="w-[14%]">
+                                <col class="w-[14%]">
+                                <col class="w-[14%]">
+                            </colgroup>
                             <thead>
                                 <tr class="bg-slate-50/30">
                                     <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Post Info</th>
@@ -233,7 +241,7 @@ try {
                                     <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Priority</th>
                                     <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Engagement</th>
                                     <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Created By</th>
-                                    <th class="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
+                                    <th class="px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-50">
@@ -281,7 +289,7 @@ try {
                                                         <div class="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-tighter">
                                                             <?php if ($ann['is_event']): ?>
                                                                 <span class="text-indigo-600"><i class="far fa-calendar-alt mr-1"></i> <?= date('M d, Y', strtotime($ann['event_date'])) ?></span>
-                                                                <span class="mx-1">•</span>
+                                                                <span class="mx-1">â€¢</span>
                                                                 <span><?= htmlspecialchars($ann['event_location']) ?></span>
                                                             <?php else: ?>
                                                                 <?= date('M d, Y @ h:i A', strtotime($ann['created_at'])) ?>
@@ -343,8 +351,8 @@ try {
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-right">
-                                                <div class="flex items-center justify-end space-x-2">
+                                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                                <div class="flex items-center justify-center space-x-2">
                                                     <button @click='showEditModal = true; editingPost = <?= $edit_payload_json ?>; isEvent = editingPost.is_event; isScheduled = editingPost.is_scheduled' class="text-indigo-600 hover:bg-indigo-100 p-2 rounded-xl transition shadow-sm group/btn" title="Edit Post">
                                                         <i class="fas fa-pen-nib"></i>
                                                     </button>
@@ -690,3 +698,4 @@ try {
     </script>
 </body>
 </html>
+

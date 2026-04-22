@@ -34,11 +34,6 @@ class RateLimiter {
             'window_minutes' => 60,
             'lockout_minutes' => 60
         ],
-        'chat_api' => [
-            'max_attempts' => 1200,
-            'window_minutes' => 60,
-            'lockout_minutes' => 10
-        ],
         'post_reactions_api' => [
             'max_attempts' => 240,
             'window_minutes' => 60,

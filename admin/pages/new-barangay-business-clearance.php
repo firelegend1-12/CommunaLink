@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * New Barangay Business Clearance Page
  * - This page now contains the full Business Permit Application Form.
@@ -40,8 +41,8 @@ if (!$permit_data) { // Only fetch if it's a new form, not a success-redirect
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>Barangay Pakiad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
@@ -116,7 +117,8 @@ if (!$permit_data) { // Only fetch if it's a new form, not a success-redirect
 <body class="bg-gray-100 min-h-screen">
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar Navigation -->
-        <?php include '../partials/sidebar.php'; ?>
+        <?php
+include '../partials/sidebar.php'; ?>
         
         <!-- Main Content -->
         <div class="flex flex-col flex-1 overflow-hidden">
@@ -129,9 +131,11 @@ if (!$permit_data) { // Only fetch if it's a new form, not a success-redirect
                         <!-- User Dropdown -->
                         <div x-data="{ open: false }" class="relative">
                             <button @click="open = !open" class="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 focus:outline-none">
-                                <span><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
+                                <span><?php
+echo htmlspecialchars($_SESSION['fullname']); ?></span>
                                 <div class="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-white">
-                                    <?php echo substr($_SESSION['fullname'], 0, 1); ?>
+                                    <?php
+echo substr($_SESSION['fullname'], 0, 1); ?>
                                 </div>
                             </button>
                             <div x-show="open" @click.away="open = false" x-cloak
@@ -154,28 +158,38 @@ if (!$permit_data) { // Only fetch if it's a new form, not a success-redirect
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
                 <div class="max-w-5xl mx-auto">
-                    <?php if (isset($_SESSION['success_message'])): ?>
+                    <?php
+if (isset($_SESSION['success_message'])): ?>
                         <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded-md no-print" role="alert">
                             <p class="font-bold">Success</p>
-                            <p><?php echo htmlspecialchars($_SESSION['success_message']); ?></p>
+                            <p><?php
+echo htmlspecialchars($_SESSION['success_message']); ?></p>
                         </div>
-                        <?php unset($_SESSION['success_message']); ?>
-                    <?php endif; ?>
+                        <?php
+unset($_SESSION['success_message']); ?>
+                    <?php
+endif; ?>
 
-                    <?php if (isset($_SESSION['error_message'])): ?>
+                    <?php
+if (isset($_SESSION['error_message'])): ?>
                         <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-md no-print" role="alert">
                             <p class="font-bold">Error</p>
-                            <p><?php echo htmlspecialchars($_SESSION['error_message']); ?></p>
+                            <p><?php
+echo htmlspecialchars($_SESSION['error_message']); ?></p>
                         </div>
-                        <?php unset($_SESSION['error_message']); ?>
-                    <?php endif; ?>
+                        <?php
+unset($_SESSION['error_message']); ?>
+                    <?php
+endif; ?>
 
                     <div class="flex justify-end mb-4 no-print">
-                        <?php if (isset($_GET['success'])): ?>
+                        <?php
+if (isset($_GET['success'])): ?>
                             <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center">
                                 <i class="fas fa-print mr-2"></i> Print Form
                             </button>
-                        <?php endif; ?>
+                        <?php
+endif; ?>
                     </div>
                     <div class="bg-white rounded-lg shadow p-8 printable-area" id="application-form">
                         <!-- I. Header Section -->
@@ -188,116 +202,204 @@ if (!$permit_data) { // Only fetch if it's a new form, not a success-redirect
                         </div>
                         
                         <form action="../partials/new-business-permit-handler.php" method="POST" class="space-y-6">
+                            <?php echo csrf_field(); ?>
                              <!-- II. Initial Information Block -->
                              <div>
                                 <h3 class="text-lg font-medium text-gray-900 border-b pb-2 mb-4">Initial Information</h3>
                                 <div class="grid grid-cols-2 md:grid-cols-5 gap-6">
-                                    <div><label class="block text-sm font-medium text-gray-700">Date of Application:</label><input type="date" name="date_of_application" value="<?php echo $permit_data['date_of_application'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                    <div><label class="block text-sm font-medium text-gray-700">Business Account No.:</label><input type="text" name="business_account_no" value="<?php echo $permit_data['business_account_no'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                    <div><label class="block text-sm font-medium text-gray-700">Official Receipt No.:</label><input type="text" name="official_receipt_no" value="<?php echo $permit_data['official_receipt_no'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                    <div><label class="block text-sm font-medium text-gray-700">O.R. Date:</label><input type="date" name="or_date" value="<?php echo $permit_data['or_date'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                    <div><label class="block text-sm font-medium text-gray-700">Amount Paid:</label><input type="number" name="amount_paid" step="0.01" value="<?php echo $permit_data['amount_paid'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="₱"></div>
+                                    <div><label class="block text-sm font-medium text-gray-700">Date of Application:</label><input type="date" name="date_of_application" value="<?php
+echo $permit_data['date_of_application'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                    <div><label class="block text-sm font-medium text-gray-700">Business Account No.:</label><input type="text" name="business_account_no" value="<?php
+echo $permit_data['business_account_no'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                    <div><label class="block text-sm font-medium text-gray-700">Official Receipt No.:</label><input type="text" name="official_receipt_no" value="<?php
+echo $permit_data['official_receipt_no'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                    <div><label class="block text-sm font-medium text-gray-700">O.R. Date:</label><input type="date" name="or_date" value="<?php
+echo $permit_data['or_date'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                    <div><label class="block text-sm font-medium text-gray-700">Amount Paid:</label><input type="number" name="amount_paid" step="0.01" value="<?php
+echo $permit_data['amount_paid'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="â‚±"></div>
                                 </div>
                             </div>
                             
                             <!-- III. Taxpayer & Business Information -->
                             <div>
                                 <h3 class="text-lg font-medium text-gray-900 border-b pb-2 mb-4">Taxpayer & Business Information</h3>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4" x-data='{ residents: <?php echo json_encode($residents); ?>, selectedId: null, taxpayerAddress: `<?php echo addslashes($permit_data['taxpayer_address'] ?? ''); ?>` }'>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4" x-data='{ residents: <?php
+echo json_encode($residents); ?>, selectedId: null, taxpayerAddress: `<?php
+echo addslashes($permit_data['taxpayer_address'] ?? ''); ?>` }'>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Name of Taxpayers:</label>
-                                        <?php if ($permit_data): ?>
-                                            <input type="text" value="<?php echo htmlspecialchars($permit_data['taxpayer_name'] ?? ''); ?>" readonly class="mt-1 block w-full px-3 py-2 bg-gray-200 border border-gray-300 rounded-md shadow-sm sm:text-sm">
-                                        <?php else: ?>
+                                        <?php
+if ($permit_data): ?>
+                                            <input type="text" value="<?php
+echo htmlspecialchars($permit_data['taxpayer_name'] ?? ''); ?>" readonly class="mt-1 block w-full px-3 py-2 bg-gray-200 border border-gray-300 rounded-md shadow-sm sm:text-sm">
+                                        <?php
+else: ?>
                                             <select name="resident_id" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                                                     x-model="selectedId" 
                                                     @change="taxpayerAddress = residents.find(r => r.id == selectedId)?.address || ''">
                                                 <option value="" disabled selected>Select a resident...</option>
-                                                <?php foreach ($residents as $resident): ?>
-                                                    <option value="<?php echo $resident['id']; ?>"><?php echo htmlspecialchars($resident['full_name']); ?></option>
-                                                <?php endforeach; ?>
+                                                <?php
+foreach ($residents as $resident): ?>
+                                                    <option value="<?php
+echo $resident['id']; ?>"><?php
+echo htmlspecialchars($resident['full_name']); ?></option>
+                                                <?php
+endforeach; ?>
                                             </select>
-                                        <?php endif; ?>
+                                        <?php
+endif; ?>
                                     </div>
                                     <div class="grid grid-cols-2 gap-4">
-                                        <div><label class="block text-sm font-medium text-gray-700">Telephone No.:</label><input type="tel" name="taxpayer_tel_no" value="<?php echo $permit_data['taxpayer_tel_no'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                        <div><label class="block text-sm font-medium text-gray-700">Fax No.:</label><input type="tel" name="taxpayer_fax_no" value="<?php echo $permit_data['taxpayer_fax_no'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                        <div><label class="block text-sm font-medium text-gray-700">Telephone No.:</label><input type="tel" name="taxpayer_tel_no" value="<?php
+echo $permit_data['taxpayer_tel_no'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                        <div><label class="block text-sm font-medium text-gray-700">Fax No.:</label><input type="tel" name="taxpayer_fax_no" value="<?php
+echo $permit_data['taxpayer_fax_no'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Address:</label>
-                                        <textarea name="taxpayer_address" x-model="taxpayerAddress" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" rows="2"><?php echo $permit_data['taxpayer_address'] ?? ''; ?></textarea>
+                                        <textarea name="taxpayer_address" x-model="taxpayerAddress" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" rows="2"><?php
+echo $permit_data['taxpayer_address'] ?? ''; ?></textarea>
                                     </div>
                                     <div class="grid grid-cols-2 gap-4">
-                                        <div><label class="block text-sm font-medium text-gray-700">Capital:</label><input type="number" name="capital" step="0.01" value="<?php echo $permit_data['capital'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="₱"></div>
-                                        <div><label class="block text-sm font-medium text-gray-700">Barangay No.:</label><input type="text" name="taxpayer_barangay_no" value="<?php echo $permit_data['taxpayer_barangay_no'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                        <div><label class="block text-sm font-medium text-gray-700">Capital:</label><input type="number" name="capital" step="0.01" value="<?php
+echo $permit_data['capital'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="â‚±"></div>
+                                        <div><label class="block text-sm font-medium text-gray-700">Barangay No.:</label><input type="text" name="taxpayer_barangay_no" value="<?php
+echo $permit_data['taxpayer_barangay_no'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
                                     </div>
                                 </div>
                                 <hr class="my-4">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                    <div><label class="block text-sm font-medium text-gray-700">Business Trade Name:</label><input type="text" name="business_trade_name" value="<?php echo $permit_data['business_trade_name'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                    <div><label class="block text-sm font-medium text-gray-700">Telephone No. (Business):</label><input type="tel" name="business_tel_no" value="<?php echo $permit_data['business_tel_no'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                    <div><label class="block text-sm font-medium text-gray-700">Business Trade Name:</label><input type="text" name="business_trade_name" value="<?php
+echo $permit_data['business_trade_name'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                    <div><label class="block text-sm font-medium text-gray-700">Telephone No. (Business):</label><input type="tel" name="business_tel_no" value="<?php
+echo $permit_data['business_tel_no'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Commercial Address:</label>
                                         <div class="grid grid-cols-2 gap-2 mt-1">
-                                            <input type="text" name="comm_address_building" placeholder="Building Name" value="<?php echo $permit_data['comm_address_building'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                                            <input type="text" name="comm_address_no" placeholder="No." value="<?php echo $permit_data['comm_address_no'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                                            <input type="text" name="comm_address_street" placeholder="Street" value="<?php echo $permit_data['comm_address_street'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="col-span-2 mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                                            <input type="text" name="comm_address_barangay_no" placeholder="Barangay No." value="<?php echo $permit_data['comm_address_barangay_no'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="col-span-2 mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                            <input type="text" name="comm_address_building" placeholder="Building Name" value="<?php
+echo $permit_data['comm_address_building'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                            <input type="text" name="comm_address_no" placeholder="No." value="<?php
+echo $permit_data['comm_address_no'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                            <input type="text" name="comm_address_street" placeholder="Street" value="<?php
+echo $permit_data['comm_address_street'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="col-span-2 mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                            <input type="text" name="comm_address_barangay_no" placeholder="Barangay No." value="<?php
+echo $permit_data['comm_address_barangay_no'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="col-span-2 mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                                         </div>
                                     </div>
                                     <div>
                                         <div class="grid grid-cols-2 gap-4">
-                                            <div><label class="block text-sm font-medium text-gray-700">DTI Reg. No.:</label><input type="text" name="dti_reg_no" value="<?php echo $permit_data['dti_reg_no'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                            <div><label class="block text-sm font-medium text-gray-700">SEC Reg. No.:</label><input type="text" name="sec_reg_no" value="<?php echo $permit_data['sec_reg_no'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                            <div><label class="block text-sm font-medium text-gray-700">DTI Reg. No.:</label><input type="text" name="dti_reg_no" value="<?php
+echo $permit_data['dti_reg_no'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                            <div><label class="block text-sm font-medium text-gray-700">SEC Reg. No.:</label><input type="text" name="sec_reg_no" value="<?php
+echo $permit_data['sec_reg_no'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
                                         </div>
-                                        <div class="mt-4"><label class="block text-sm font-medium text-gray-700">No. of Employees:</label><input type="number" name="num_employees" value="<?php echo $permit_data['num_employees'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                        <div class="mt-4"><label class="block text-sm font-medium text-gray-700">No. of Employees:</label><input type="number" name="num_employees" value="<?php
+echo $permit_data['num_employees'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mt-4">
-                                     <div><label class="block text-sm font-medium text-gray-700">Main Line of Business:</label><input type="text" name="main_line_business" value="<?php echo $permit_data['main_line_business'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                     <div><label class="block text-sm font-medium text-gray-700">Other Line of Business:</label><input type="text" name="other_line_business" value="<?php echo $permit_data['other_line_business'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                     <div><label class="block text-sm font-medium text-gray-700">Main Products / Services:</label><input type="text" name="main_products_services" value="<?php echo $permit_data['main_products_services'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                     <div><label class="block text-sm font-medium text-gray-700">Others:</label><input type="text" name="other_products_services" value="<?php echo $permit_data['other_products_services'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                     <div><label class="block text-sm font-medium text-gray-700">Main Line of Business:</label><input type="text" name="main_line_business" value="<?php
+echo $permit_data['main_line_business'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                     <div><label class="block text-sm font-medium text-gray-700">Other Line of Business:</label><input type="text" name="other_line_business" value="<?php
+echo $permit_data['other_line_business'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                     <div><label class="block text-sm font-medium text-gray-700">Main Products / Services:</label><input type="text" name="main_products_services" value="<?php
+echo $permit_data['main_products_services'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                     <div><label class="block text-sm font-medium text-gray-700">Others:</label><input type="text" name="other_products_services" value="<?php
+echo $permit_data['other_products_services'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
                                 </div>
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 mt-4" x-data="{ proof: '<?php echo $permit_data['proof_of_ownership'] ?? 'owned'; ?>' }">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 mt-4" x-data="{ proof: '<?php
+echo $permit_data['proof_of_ownership'] ?? 'owned'; ?>' }">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Ownership Type:</label>
                                         <div class="flex space-x-4 mt-2">
-                                            <label class="flex items-center"><input type="radio" name="ownership_type" value="single" <?php if($permit_data && $permit_data['ownership_type'] == 'single') echo 'checked'; ?> <?php if($permit_data) echo 'disabled'; ?> class="mr-1"> Single</label>
-                                            <label class="flex items-center"><input type="radio" name="ownership_type" value="partnership" <?php if($permit_data && $permit_data['ownership_type'] == 'partnership') echo 'checked'; ?> <?php if($permit_data) echo 'disabled'; ?> class="mr-1"> Partnership</label>
-                                            <label class="flex items-center"><input type="radio" name="ownership_type" value="corporation" <?php if($permit_data && $permit_data['ownership_type'] == 'corporation') echo 'checked'; ?> <?php if($permit_data) echo 'disabled'; ?> class="mr-1"> Corporation</label>
+                                            <label class="flex items-center"><input type="radio" name="ownership_type" value="single" <?php
+if($permit_data && $permit_data['ownership_type'] == 'single') echo 'checked'; ?> <?php
+if($permit_data) echo 'disabled'; ?> class="mr-1"> Single</label>
+                                            <label class="flex items-center"><input type="radio" name="ownership_type" value="partnership" <?php
+if($permit_data && $permit_data['ownership_type'] == 'partnership') echo 'checked'; ?> <?php
+if($permit_data) echo 'disabled'; ?> class="mr-1"> Partnership</label>
+                                            <label class="flex items-center"><input type="radio" name="ownership_type" value="corporation" <?php
+if($permit_data && $permit_data['ownership_type'] == 'corporation') echo 'checked'; ?> <?php
+if($permit_data) echo 'disabled'; ?> class="mr-1"> Corporation</label>
                                         </div>
                                     </div>
                                     <div class="col-span-2">
                                         <label class="block text-sm font-medium text-gray-700">Proof of Ownership:</label>
                                         <div class="flex space-x-4 mt-2">
-                                            <label class="flex items-center"><input type="radio" name="proof_of_ownership" value="owned" x-model="proof" <?php if($permit_data) echo 'disabled'; ?> class="mr-1"> Owned</label>
-                                            <label class="flex items-center"><input type="radio" name="proof_of_ownership" value="leased" x-model="proof" <?php if($permit_data) echo 'disabled'; ?> class="mr-1"> Leased</label>
+                                            <label class="flex items-center"><input type="radio" name="proof_of_ownership" value="owned" x-model="proof" <?php
+if($permit_data) echo 'disabled'; ?> class="mr-1"> Owned</label>
+                                            <label class="flex items-center"><input type="radio" name="proof_of_ownership" value="leased" x-model="proof" <?php
+if($permit_data) echo 'disabled'; ?> class="mr-1"> Leased</label>
                                         </div>
-                                        <div x-show="proof === 'owned'" class="mt-2"><label class="block text-sm font-medium text-gray-700">Registered Name:</label><input type="text" name="proof_owned_reg_name" value="<?php echo $permit_data['proof_owned_reg_name'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                        <div x-show="proof === 'leased'" class="mt-2"><label class="block text-sm font-medium text-gray-700">Lessor's Name:</label><input type="text" name="proof_leased_lessor_name" value="<?php echo $permit_data['proof_leased_lessor_name'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                        <div x-show="proof === 'owned'" class="mt-2"><label class="block text-sm font-medium text-gray-700">Registered Name:</label><input type="text" name="proof_owned_reg_name" value="<?php
+echo $permit_data['proof_owned_reg_name'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                        <div x-show="proof === 'leased'" class="mt-2"><label class="block text-sm font-medium text-gray-700">Lessor's Name:</label><input type="text" name="proof_leased_lessor_name" value="<?php
+echo $permit_data['proof_leased_lessor_name'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 mt-4">
-                                     <div><label class="block text-sm font-medium text-gray-700">Rent per Month:</label><input type="number" name="rent_per_month" step="0.01" value="<?php echo $permit_data['rent_per_month'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="₱"></div>
-                                     <div><label class="block text-sm font-medium text-gray-700">Area in Sq. Meter:</label><input type="number" name="area_sq_meter" value="<?php echo $permit_data['area_sq_meter'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                     <div><label class="block text-sm font-medium text-gray-700">Real Property Tax Receipt No.:</label><input type="text" name="real_property_tax_receipt_no" value="<?php echo $permit_data['real_property_tax_receipt_no'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                     <div><label class="block text-sm font-medium text-gray-700">Rent per Month:</label><input type="number" name="rent_per_month" step="0.01" value="<?php
+echo $permit_data['rent_per_month'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="â‚±"></div>
+                                     <div><label class="block text-sm font-medium text-gray-700">Area in Sq. Meter:</label><input type="number" name="area_sq_meter" value="<?php
+echo $permit_data['area_sq_meter'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                     <div><label class="block text-sm font-medium text-gray-700">Real Property Tax Receipt No.:</label><input type="text" name="real_property_tax_receipt_no" value="<?php
+echo $permit_data['real_property_tax_receipt_no'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
                                 </div>
                                 <div class="flex space-x-6 mt-4">
-                                    <label class="flex items-center"><input type="checkbox" name="has_barangay_clearance" value="1" <?php if($permit_data && $permit_data['has_barangay_clearance']) echo 'checked'; ?> <?php if($permit_data) echo 'disabled'; ?> class="mr-2 h-4 w-4"> Barangay Clearance</label>
-                                    <label class="flex items-center"><input type="checkbox" name="has_public_liability_insurance" value="1" <?php if($permit_data && $permit_data['has_public_liability_insurance']) echo 'checked'; ?> <?php if($permit_data) echo 'disabled'; ?> class="mr-2 h-4 w-4"> Public Liability Insurance</label>
+                                    <label class="flex items-center"><input type="checkbox" name="has_barangay_clearance" value="1" <?php
+if($permit_data && $permit_data['has_barangay_clearance']) echo 'checked'; ?> <?php
+if($permit_data) echo 'disabled'; ?> class="mr-2 h-4 w-4"> Barangay Clearance</label>
+                                    <label class="flex items-center"><input type="checkbox" name="has_public_liability_insurance" value="1" <?php
+if($permit_data && $permit_data['has_public_liability_insurance']) echo 'checked'; ?> <?php
+if($permit_data) echo 'disabled'; ?> class="mr-2 h-4 w-4"> Public Liability Insurance</label>
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 mt-2">
-                                    <div><label class="block text-sm font-medium text-gray-700">Insurance Company:</label><input type="text" name="insurance_company" value="<?php echo $permit_data['insurance_company'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                    <div><label class="block text-sm font-medium text-gray-700">Date of Insurance:</label><input type="date" name="insurance_date" value="<?php echo $permit_data['insurance_date'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                    <div><label class="block text-sm font-medium text-gray-700">Insurance Company:</label><input type="text" name="insurance_company" value="<?php
+echo $permit_data['insurance_company'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                    <div><label class="block text-sm font-medium text-gray-700">Date of Insurance:</label><input type="date" name="insurance_date" value="<?php
+echo $permit_data['insurance_date'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
                                 </div>
                             </div>
                              <!-- IV. Applicant Information -->
                             <div>
                                 <h3 class="text-lg font-medium text-gray-900 border-b pb-2 mb-4">Applicant Information</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <div><label class="block text-sm font-medium text-gray-700">Name of Applicant:</label><input type="text" name="applicant_name" value="<?php echo $permit_data['applicant_name'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
-                                    <div><label class="block text-sm font-medium text-gray-700">Position:</label><input type="text" name="applicant_position" value="<?php echo $permit_data['applicant_position'] ?? ''; ?>" <?php if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                    <div><label class="block text-sm font-medium text-gray-700">Name of Applicant:</label><input type="text" name="applicant_name" value="<?php
+echo $permit_data['applicant_name'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
+                                    <div><label class="block text-sm font-medium text-gray-700">Position:</label><input type="text" name="applicant_position" value="<?php
+echo $permit_data['applicant_position'] ?? ''; ?>" <?php
+if($permit_data) echo 'readonly'; ?> class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
                                     <div><label class="block text-sm font-medium text-gray-700">Signature:</label><div class="h-10 border-b border-gray-400 mt-1"></div></div>
                                 </div>
                             </div>
@@ -315,8 +417,8 @@ if (!$permit_data) { // Only fetch if it's a new form, not a success-redirect
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php 
-                                            $offices = [
+                                        <?php
+$offices = [
                                                 "City Planning & Dev't Office", "Zoning", "City Engineer's Office", "City Fire Marshal's Office", "City Health Office",
                                                 "Tourism & Cultural Office <br><small>(For Travel Agency & Tourist Inns Only)</small>",
                                                 "TRAFFIC MANAGEMENT OFFICE", "CITY VETERINARIAN OFFICE <br><small>(For Mayor's Permit)</small>"
@@ -324,12 +426,14 @@ if (!$permit_data) { // Only fetch if it's a new form, not a success-redirect
                                             foreach ($offices as $office):
                                         ?>
                                         <tr>
-                                            <td class="table-cell font-semibold"><?php echo $office; ?></td>
+                                            <td class="table-cell font-semibold"><?php
+echo $office; ?></td>
                                             <td class="table-cell"><textarea class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" rows="2" readonly></textarea></td>
                                             <td class="table-cell"><div class="h-10 border-b border-gray-400"></div></td>
                                             <td class="table-cell"><input type="date" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" readonly></td>
                                         </tr>
-                                        <?php endforeach; ?>
+                                        <?php
+endforeach; ?>
                                     </tbody>
                                 </table>
                             </div>
@@ -352,7 +456,8 @@ if (!$permit_data) { // Only fetch if it's a new form, not a success-redirect
                                 <!-- VII. Business Permit and Plate Claim Stub -->
                                 <div class="border p-4 rounded-md bg-gray-50">
                                     <h3 class="text-lg font-medium text-gray-900 mb-4 text-center border-b pb-2">Claim Stub: Business Permit & Plate</h3>
-                                    <div class="mt-4"><label class="block text-sm font-medium text-gray-700">Business Trade Name:</label><input type="text" value="<?php echo $permit_data['business_trade_name'] ?? ''; ?>" class="mt-1 block w-full px-3 py-2 bg-gray-200 border border-gray-300 rounded-md shadow-sm sm:text-sm" readonly></div>
+                                    <div class="mt-4"><label class="block text-sm font-medium text-gray-700">Business Trade Name:</label><input type="text" value="<?php
+echo $permit_data['business_trade_name'] ?? ''; ?>" class="mt-1 block w-full px-3 py-2 bg-gray-200 border border-gray-300 rounded-md shadow-sm sm:text-sm" readonly></div>
                                     <div class="mt-2"><label class="block text-sm font-medium text-gray-700">Mayor's Permit No.:</label><input type="text" readonly class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
                                     <div class="mt-2"><label class="block text-sm font-medium text-gray-700">Date of Release:</label><input type="date" readonly class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
                                     <div class="mt-2"><label class="block text-sm font-medium text-gray-700">Time Release:</label><input type="time" readonly class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></div>
@@ -362,10 +467,12 @@ if (!$permit_data) { // Only fetch if it's a new form, not a success-redirect
 
                             <!-- VIII. Footer and Submission -->
                             <div class="flex justify-end pt-4 border-t mt-6 no-print">
-                                <?php if (!$permit_data): ?>
+                                <?php
+if (!$permit_data): ?>
                                     <a href="#" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md mr-2">Cancel</a>
                                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">Submit Application</button>
-                                <?php endif; ?>
+                                <?php
+endif; ?>
                             </div>
                         </form>
                     </div>
@@ -373,7 +480,8 @@ if (!$permit_data) { // Only fetch if it's a new form, not a success-redirect
             </main>
         </div>
     </div>
-    <?php if (isset($_GET['success'])): ?>
+    <?php
+if (isset($_GET['success'])): ?>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Give a short delay for the content to render before printing
@@ -382,6 +490,9 @@ if (!$permit_data) { // Only fetch if it's a new form, not a success-redirect
             }, 500);
         });
     </script>
-    <?php endif; ?>
+    <?php
+endif; ?>
 </body>
 </html> 
+
+

@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * New Certificate of Indigency Page
  */
@@ -26,15 +27,16 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>Barangay Pakiad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar Navigation -->
-        <?php include '../partials/sidebar.php'; ?>
+        <?php
+include '../partials/sidebar.php'; ?>
         
         <!-- Main Content -->
         <div class="flex flex-col flex-1 overflow-hidden">
@@ -42,14 +44,17 @@ try {
             <header class="bg-white shadow-sm z-10">
                 <div class="px-4 sm:px-6 lg:px-8">
                     <div class="flex items-center justify-between h-16">
-                        <h1 class="text-2xl font-semibold text-gray-800"><?php echo $page_title; ?></h1>
+                        <h1 class="text-2xl font-semibold text-gray-800"><?php
+echo $page_title; ?></h1>
                         
                         <!-- User Dropdown -->
                         <div x-data="{ open: false }" class="relative">
                             <button @click="open = !open" class="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 focus:outline-none">
-                                <span><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
+                                <span><?php
+echo htmlspecialchars($_SESSION['fullname']); ?></span>
                                 <div class="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-white">
-                                    <?php echo substr($_SESSION['fullname'], 0, 1); ?>
+                                    <?php
+echo substr($_SESSION['fullname'], 0, 1); ?>
                                 </div>
                             </button>
                             <div x-show="open" @click.away="open = false" x-cloak
@@ -72,10 +77,12 @@ try {
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
                 <div class="max-w-4xl mx-auto">
-                    <?php display_flash_messages(); ?>
+                    <?php
+display_flash_messages(); ?>
                     <div class="bg-white rounded-lg shadow p-8" 
                          x-data='{ 
-                             residents: <?php echo json_encode($residents); ?>, 
+                             residents: <?php
+echo json_encode($residents); ?>, 
                              selectedResident: { id: "", full_name: "", civil_status: "" },
                              updateFields() {
                                  if (this.selectedResident.id) {
@@ -95,6 +102,7 @@ try {
                          }'>
 
                         <form action="../partials/new-certificate-of-indigency-handler.php" method="POST">
+                            <?php echo csrf_field(); ?>
                             <!-- Header Section -->
                             <div class="text-center mb-8">
                                 <p>REPUBLIC OF THE PHILIPPINES</p>
@@ -121,9 +129,11 @@ try {
                                         <label for="resident_id" class="block text-sm font-medium text-gray-700">Select Recipient:</label>
                                         <select id="resident_id" name="resident_id" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md" x-model="selectedResident.id" @change="updateFields()" required>
                                             <option value="">-- Select a Resident --</option>
-                                            <?php foreach ($residents as $res): ?>
+                                            <?php
+foreach ($residents as $res): ?>
                                                 <option value="<?= htmlspecialchars($res['id']) ?>"><?= htmlspecialchars($res['full_name']) ?></option>
-                                            <?php endforeach; ?>
+                                            <?php
+endforeach; ?>
                                         </select>
                                     </div>
                                     <div class="flex items-end">
@@ -150,7 +160,8 @@ try {
                             <div class="mt-16 text-right">
                                 <div class="inline-block text-center">
                                     <div class="border-b-2 border-gray-800 w-64 mb-2"></div>
-                                    <p class="font-bold uppercase text-sm"><?php echo htmlspecialchars($_SESSION['fullname']); ?></p>
+                                    <p class="font-bold uppercase text-sm"><?php
+echo htmlspecialchars($_SESSION['fullname']); ?></p>
                                     <p class="text-xs">PRINTED NAME OF PUNONG BARANGAY</p>
                                 </div>
                             </div>
@@ -179,3 +190,5 @@ try {
     </div>
 </body>
 </html> 
+
+

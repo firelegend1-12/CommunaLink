@@ -1,8 +1,8 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Events Management - Modernized
  */
-require_once '../partials/admin_auth.php';
 require_once '../../includes/functions.php';
 
 $page_title = "Manage Events";
@@ -37,7 +37,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?> - CommunaLink</title>
+    <title>Barangay Pakiad</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
@@ -243,6 +243,7 @@ try {
             
             <div x-show="modalOpen" x-transition:enter="duration-300 ease-out" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
                 <form action="../partials/event-handler.php" method="POST">
+                    <?php echo csrf_field(); ?>
                     <div class="px-6 pt-8 pb-4 sm:px-10">
                         <div class="flex items-center justify-between mb-8">
                             <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest" x-text="modalMode === 'add' ? 'Schedule New Event' : 'Modify Event Detail'"></h3>
@@ -315,6 +316,7 @@ try {
                 <div class="flex gap-4">
                     <button @click="showDeleteModal = false" class="flex-1 px-6 py-4 rounded-2xl text-xs font-black uppercase text-slate-500 bg-slate-50 hover:bg-slate-100 transition">Back to List</button>
                     <form action="../partials/event-handler.php" method="POST" class="flex-1">
+                        <?php echo csrf_field(); ?>
                         <input type="hidden" name="event_id" :value="eventIdToDelete">
                         <button type="submit" name="delete_event" class="w-full px-6 py-4 rounded-2xl text-xs font-black uppercase text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-500/20 transition transform active:scale-95">Confirm Delete</button>
                     </form>
@@ -341,3 +343,4 @@ try {
     </script>
 </body>
 </html>
+

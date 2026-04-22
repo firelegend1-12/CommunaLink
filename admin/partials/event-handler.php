@@ -3,9 +3,19 @@ session_start();
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
+require_once '../../includes/notification_system.php';
 
-if (!is_admin_or_official()) {
-    $_SESSION['error_message'] = "You are not authorized to perform this action.";
+require_login();
+require_permission_or_redirect('manage_events', '../pages/events.php');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    redirect_to('../pages/events.php');
+}
+
+if (!csrf_validate()) {
+    $_SESSION['error_message'] = 'Invalid security token. Please refresh and try again.';
     redirect_to('../pages/events.php');
 }
 
@@ -28,7 +38,26 @@ if (isset($_POST['add_event'])) {
     try {
         $stmt = $pdo->prepare("INSERT INTO events (title, description, location, event_date, event_time, type, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([$title, $description, $location, $event_date, $event_time, $type, $user_id]);
-        $_SESSION['event_success_message'] = "Event posted successfully.";
+
+        $broadcast_result = NotificationSystem::notify_barangay_event($pdo, [
+            'title' => $title,
+            'content' => $description,
+            'event_date' => $event_date,
+            'event_time' => $event_time,
+            'event_location' => $location,
+            'event_type' => $type,
+            'target_audience' => 'all',
+        ]);
+
+        if (!$broadcast_result['success']) {
+            error_log('Event broadcast notification failed: ' . (string)($broadcast_result['error'] ?? 'unknown error'));
+        }
+
+        $_SESSION['event_success_message'] = "Event posted successfully. Sent in-app alerts to "
+            . (int)$broadcast_result['notification_created']
+            . " resident(s) and email notifications to "
+            . (int)$broadcast_result['email_sent']
+            . ".";
     } catch (PDOException $e) {
         $_SESSION['error_message'] = "Database error: " . $e->getMessage();
     }

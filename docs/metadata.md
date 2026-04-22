@@ -31,11 +31,11 @@ The following files were read to understand the project structure and implement 
 
 *   `resident/barangay-services.php`:
     *   **Action:** Created a new page showcasing all barangay services.
-    *   **Description:** Designed a modern page with a colored banner header, service cards organized in a grid, and a document services section. Each card includes an icon, title, subtitle, and description. The page follows the design pattern shown in the reference image with cards for reporting incidents, viewing reports, emergency contacts, barangay events, incident map, and chat support.
+    *   **Description:** Designed a modern page with a colored banner header, service cards organized in a grid, and a document services section. Each card includes an icon, title, subtitle, and description. The page follows the design pattern shown in the reference image with cards for reporting incidents, viewing reports, emergency contacts, barangay events, incident map, and notifications.
 
 *   `resident/dashboard.php`:
     *   **Action:** Updated the quick actions section.
-    *   **Description:** Changed the "Live Chat" card to a "Barangay Services" card that links to the new barangay-services.php page, while keeping the existing Emergency Contacts card.
+    *   **Description:** Changed the service quick action flow to route through barangay-services.php while keeping the existing Emergency Contacts card.
 
 *   `resident/partials/sidebar.php`:
     *   **Action:** Added Barangay Services link to the navigation menu.
@@ -146,10 +146,6 @@ The following files were read to understand the project structure and implement 
 
 ### Work Done on Files:
 
-*   `resident/chat.php`:
-    *   **Action:** Refactored to use the standard layout.
-    *   **Description:** Removed standalone HTML and header; integrated `partials/header.php` and `partials/footer.php` for consistency. Fixed a CSS bug causing the send button to disappear on hover.
-
 *   `resident/my-reports.php`:
     *   **Action:** Refactored to use the standard layout.
     *   **Description:** Replaced old boilerplate HTML with the shared header and footer partials, unifying its appearance with the rest of the dashboard.
@@ -172,7 +168,6 @@ The following files were read to understand the project structure and implement 
 *   `resident/dashboard.php`: To use as a template for the standard resident page layout.
 *   `resident/account.php`: The main page to be redesigned.
 *   `resident/announcements.php`: To verify existing standard layout.
-*   `resident/chat.php`: A page needing the standard layout.
 *   `resident/my-reports.php`: A page needing the standard layout.
 *   `resident/report-incident.php`: A page needing the standard layout.
 *   `resident/partials/header.php`: To understand the shared header, CSS, and sidebar inclusion.

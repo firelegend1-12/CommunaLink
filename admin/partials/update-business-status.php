@@ -6,6 +6,8 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 
 // Check if user is logged in
 require_login();
@@ -13,36 +15,55 @@ require_login();
 // Set content type to JSON
 header('Content-Type: application/json');
 
-if (!is_admin_or_official()) {
+require_permission_or_json('manage_businesses', 403, 'Forbidden');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    if (!headers_sent()) {
+        header('Allow: POST');
+    }
+    http_response_code(405);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Method not allowed'
+    ]);
+    exit;
+}
+
+if (!csrf_validate()) {
     http_response_code(403);
     echo json_encode([
         'success' => false,
-        'message' => 'Unauthorized'
+        'message' => 'Invalid security token.'
+    ]);
+    exit;
+}
+
+// Validate and sanitize input
+$business_id = isset($_POST['business_id']) ? (int)$_POST['business_id'] : 0;
+$status = isset($_POST['status']) ? sanitize_input($_POST['status']) : '';
+
+// Validate business ID
+if ($business_id <= 0) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Invalid business ID'
+    ]);
+    exit;
+}
+
+// Validate status
+$allowed_statuses = ['Active', 'Inactive', 'Pending'];
+if (!in_array($status, $allowed_statuses, true)) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Invalid status value'
     ]);
     exit;
 }
 
 try {
-    // Validate request method
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        throw new Exception('Invalid request method');
-    }
-
-    // Validate and sanitize input
-    $business_id = isset($_POST['business_id']) ? (int)$_POST['business_id'] : 0;
-    $status = isset($_POST['status']) ? sanitize_input($_POST['status']) : '';
-
-    // Validate business ID
-    if ($business_id <= 0) {
-        throw new Exception('Invalid business ID');
-    }
-
-    // Validate status
-    $allowed_statuses = ['Active', 'Inactive', 'Pending'];
-    if (!in_array($status, $allowed_statuses)) {
-        throw new Exception('Invalid status value');
-    }
-
     // Check if business exists
     $check_sql = "SELECT id, business_name FROM businesses WHERE id = ?";
     $check_stmt = $pdo->prepare($check_sql);
@@ -50,7 +71,12 @@ try {
     $business = $check_stmt->fetch();
 
     if (!$business) {
-        throw new Exception('Business not found');
+        http_response_code(404);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Business not found'
+        ]);
+        exit;
     }
 
     // Capture status before update for correct activity logging.
@@ -64,7 +90,7 @@ try {
     $result = $update_stmt->execute([$status, $business_id]);
 
     if (!$result) {
-        throw new Exception('Failed to update business status');
+        throw new Exception('Update query failed');
     }
 
     // Only log if status actually changed
@@ -91,6 +117,7 @@ try {
 
 } catch (Exception $e) {
     error_log('update-business-status failed: ' . $e->getMessage());
+    http_response_code(500);
     // Return error response
     echo json_encode([
         'success' => false,

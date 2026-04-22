@@ -1,6 +1,7 @@
 <?php
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/permission_checker.php';
 require_once '../../includes/storage_manager.php';
 header('Content-Type: application/json');
 
@@ -14,13 +15,7 @@ function emit_perf_headers(float $start, string $endpoint): void
 }
 
 require_login();
-
-if (!is_admin_or_official()) {
-    http_response_code(403);
-    emit_perf_headers($request_start, 'admin_fetch_live_incidents');
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-    exit;
-}
+require_permission_or_json('manage_incidents', 403, 'Forbidden');
 
 // Fetch Incidents (alias media_path as image_path for frontend compatibility)
 $stmt = $pdo->query('SELECT i.*, i.media_path AS image_path, u.fullname AS resident_name FROM incidents i LEFT JOIN users u ON i.resident_user_id = u.id ORDER BY i.reported_at DESC');

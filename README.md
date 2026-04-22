@@ -112,7 +112,7 @@ function csrf_validate() {
 }
 
 FEATURE 4: Rate Limiting for Sensitive Endpoints
-	This feature limits abusive requests (login, notifications API, chat API,
+    This feature limits abusive requests (login, notifications API,
 password resets, etc.) with lockout windows and retry metadata.
 
 Main files:
@@ -124,7 +124,6 @@ private static $config = [
     'login' => ['max_attempts' => 5, 'window_minutes' => 15, 'lockout_minutes' => 5],
     'password_reset' => ['max_attempts' => 3, 'window_minutes' => 60, 'lockout_minutes' => 120],
     'api_calls' => ['max_attempts' => 100, 'window_minutes' => 60, 'lockout_minutes' => 60],
-    'chat_api' => ['max_attempts' => 1200, 'window_minutes' => 60, 'lockout_minutes' => 10],
     'notifications_api' => ['max_attempts' => 3600, 'window_minutes' => 60, 'lockout_minutes' => 15]
 ];
 public static function checkRateLimit($action, $identifier) {
@@ -203,33 +202,9 @@ $storage_result = StorageManager::saveUploadedFile($validated_file, 'admin/image
 $sql = "INSERT INTO incidents (resident_user_id, type, location, latitude, longitude, description, media_path)
         VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-**FEATURE 7: Resident-Admin Chat (Shared Admin Inbox)
-	This feature supports resident-admin messaging, message read tracking,
-admin-side shared inbox across multiple admins, and unread counters.**
-
-Main files:
-- api/chat.php
-- admin/pages/chat.php
-- resident/chat.php
-
-Code snippet (from api/chat.php):
-
-function getAdminIds($pdo) {
-    // Multi-admin support: resolve all admin IDs dynamically
-    $stmt = $pdo->query("SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC");
-    ...
-}
-
-if ($_POST['action'] === 'send_message' && !empty($_POST['message'])) {
-    // Resident sends to primary admin; admin sends to selected resident
-    $stmt = $pdo->prepare("INSERT INTO chat_messages (sender_id, receiver_id, message) VALUES (?, ?, ?)");
-    $stmt->execute([$user_id, $receiver_id, $message_text]);
-}
-
-// Admin conversation list with unread counts and latest message per resident
-$sql = "SELECT u.id AS user_id, u.fullname, m.message, m.sent_at,
-               COALESCE(unread.unread_count, 0) AS unread_count
-        ...";
+**FEATURE 7: Legacy Messaging Module Decommissioned
+	The legacy resident-admin messaging module was removed from runtime on 2026-04-20,
+including endpoint/page surfaces and navigation hooks.**
 
 
 

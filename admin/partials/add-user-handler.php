@@ -5,7 +5,6 @@
 
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
-require_once '../../includes/otp_email_service.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -28,24 +27,23 @@ if (!csrf_validate()) {
 }
 
 $fullname = sanitize_input($_POST['fullname']);
-$email = filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL);
 $password = $_POST['password'];
+$confirm_password = (string)($_POST['confirm_password'] ?? '');
 $role = sanitize_input($_POST['role']);
+$resident_id = isset($_POST['resident_id']) ? (int)$_POST['resident_id'] : 0;
 $admin_confirmation_password = (string)($_POST['admin_confirmation_password'] ?? '');
-$username = $email; // Use email as username
 
 // Store inputs in session to re-populate form on error
 $_SESSION['form_data'] = [
     'fullname' => $_POST['fullname'] ?? '',
-    'email' => $_POST['email'] ?? '',
     'role' => $_POST['role'] ?? '',
-    'official_position' => $_POST['official_position'] ?? ''
+    'official_position' => $_POST['official_position'] ?? '',
+    'resident_id' => $resident_id,
 ];
 
 // Enhanced input validation using InputValidator
 $validation_rules = [
     'fullname' => ['type' => 'name', 'options' => ['required' => true, 'min_length' => 2, 'max_length' => 100]],
-    'email' => ['type' => 'email', 'options' => ['required' => true]],
     'password' => ['type' => 'password', 'options' => ['required' => true]],
     'role' => ['type' => 'string', 'options' => ['required' => true]]
 ];
@@ -63,7 +61,6 @@ if (!$validation_result['valid']) {
 
 // Use sanitized data
 $fullname = $validation_result['data']['fullname'];
-$email = $validation_result['data']['email'];
 $password = $validation_result['data']['password'];
 $role = $validation_result['data']['role'];
 
@@ -74,40 +71,205 @@ if (!$passwordValidation['valid']) {
     redirect_to('../pages/add-user.php');
 }
 
-if (!in_array($role, ['admin', 'official'])) {
+if ($confirm_password === '' || $password !== $confirm_password) {
+    $_SESSION['error_message'] = "Password confirmation does not match.";
+    redirect_to('../pages/add-user.php');
+}
+
+if (!in_array($role, ['admin', 'official'], true)) {
     $_SESSION['error_message'] = "Invalid role specified.";
     redirect_to('../pages/add-user.php');
 }
 
 // Process role selection
 if ($role === 'official') {
-    $official_position = sanitize_input($_POST['official_position'] ?? '');
+    $official_position = strtolower(sanitize_input($_POST['official_position'] ?? ''));
     if (empty($official_position)) {
         $_SESSION['error_message'] = "Please select an official position.";
         redirect_to('../pages/add-user.php');
     }
+
+    $official_role_aliases = [
+        'official' => 'barangay-officials',
+        'barangay-captain' => 'barangay-officials',
+        'barangay-secretary' => 'barangay-officials',
+        'barangay-treasurer' => 'barangay-officials',
+        'kagawad' => 'barangay-kagawad',
+    ];
+
     // Convert official role to specific official position
-    $final_role = $official_position;
+    $final_role = $official_role_aliases[$official_position] ?? $official_position;
 } else {
     $final_role = $role;
 }
 
 // Validate final role
-if (!in_array($final_role, ['admin', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'])) {
+if (!in_array($final_role, ['admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true)) {
     $_SESSION['error_message'] = "Invalid role specified.";
     redirect_to('../pages/add-user.php');
 }
 
+if ($resident_id <= 0) {
+    $_SESSION['error_message'] = "Please verify and select a valid resident record before submitting.";
+    redirect_to('../pages/add-user.php');
+}
+
+$resident_lookup_stmt = $pdo->prepare(
+    "SELECT id, email, CONCAT_WS(' ', first_name, IFNULL(middle_initial, ''), last_name) AS full_name
+     FROM residents
+     WHERE id = ?
+     LIMIT 1"
+);
+$resident_lookup_stmt->execute([$resident_id]);
+
+$resident_row = $resident_lookup_stmt->fetch(PDO::FETCH_ASSOC);
+if (!$resident_row) {
+    $_SESSION['error_message'] = "Selected resident record was not found.";
+    redirect_to('../pages/add-user.php');
+}
+
+$resident_id = (int)($resident_row['id'] ?? 0);
+$resident_email = (string)($resident_row['email'] ?? '');
+$resident_full_name = trim((string)($resident_row['full_name'] ?? ''));
+
+if ($resident_full_name !== '') {
+    $fullname = $resident_full_name;
+}
+
+if ($resident_email === '' || !filter_var($resident_email, FILTER_VALIDATE_EMAIL)) {
+    $_SESSION['error_message'] = "The matched resident does not have a valid email address on file.";
+    redirect_to('../pages/add-user.php');
+}
+
+$role_slug = strtolower((string)preg_replace('/[^a-z0-9]+/i', '', $final_role));
+if ($role_slug === '') {
+    $role_slug = 'official';
+}
+
+$linked_identity_base = 'linked.r' . $resident_id . '.' . $role_slug;
+$username = $linked_identity_base;
+$email = $linked_identity_base . '@linked.local';
+
+// Ensure the provided password is not the same as the resident's existing account password
+$resident_hash = '';
+$pwd_stmt = $pdo->prepare('SELECT u.password FROM users u JOIN residents r ON r.user_id = u.id WHERE r.id = ? LIMIT 1');
+$pwd_stmt->execute([$resident_id]);
+$resident_hash = (string)($pwd_stmt->fetchColumn() ?: '');
+if ($resident_hash === '' && $resident_email !== '') {
+    $pwd_stmt2 = $pdo->prepare('SELECT password FROM users WHERE email = ? LIMIT 1');
+    $pwd_stmt2->execute([$resident_email]);
+    $resident_hash = (string)($pwd_stmt2->fetchColumn() ?: '');
+}
+
+if ($resident_hash !== '' && password_verify($password, $resident_hash)) {
+    $_SESSION['error_message'] = "Password used is unavailable";
+    redirect_to('../pages/add-user.php');
+}
+
 $admin_cap = get_admin_user_cap();
+$admin_selection_limit = min(2, $admin_cap);
 
 function has_user_column(PDO $pdo, string $column_name): bool {
-    $stmt = $pdo->prepare("SHOW COLUMNS FROM `users` LIKE ?");
+    static $column_cache = [];
+
+    if (array_key_exists($column_name, $column_cache)) {
+        return $column_cache[$column_name];
+    }
+
+    $stmt = $pdo->prepare(
+        "SELECT COUNT(*)
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'users'
+           AND COLUMN_NAME = ?"
+    );
     $stmt->execute([$column_name]);
-    return $stmt->fetch() !== false;
+
+    $exists = ((int)$stmt->fetchColumn()) > 0;
+    $column_cache[$column_name] = $exists;
+
+    return $exists;
+}
+
+function get_users_status_active_value(PDO $pdo): ?string {
+    static $cached_active_value = null;
+    static $is_cached = false;
+
+    if ($is_cached) {
+        return $cached_active_value;
+    }
+
+    $is_cached = true;
+
+    $stmt = $pdo->prepare(
+        "SELECT DATA_TYPE, COLUMN_TYPE
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'users'
+           AND COLUMN_NAME = 'status'
+         LIMIT 1"
+    );
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$row) {
+        $cached_active_value = null;
+        return $cached_active_value;
+    }
+
+    $data_type = strtolower((string)($row['DATA_TYPE'] ?? ''));
+    $column_type = (string)($row['COLUMN_TYPE'] ?? '');
+
+    if ($data_type !== 'enum') {
+        $cached_active_value = 'active';
+        return $cached_active_value;
+    }
+
+    if (strpos($column_type, "'Active'") !== false) {
+        $cached_active_value = 'Active';
+        return $cached_active_value;
+    }
+
+    if (strpos($column_type, "'active'") !== false) {
+        $cached_active_value = 'active';
+        return $cached_active_value;
+    }
+
+    $cached_active_value = null;
+    return $cached_active_value;
 }
 
 try {
     $pdo->beginTransaction();
+
+    $existing_privileged_stmt = null;
+    if (has_user_column($pdo, 'resident_id')) {
+        $existing_privileged_stmt = $pdo->prepare(
+            "SELECT id, role
+             FROM users
+             WHERE resident_id = ?
+               AND role IN ('admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod')
+             LIMIT 1"
+        );
+        $existing_privileged_stmt->execute([$resident_id]);
+    } else {
+        $resident_linked_username_like = 'linked.r' . $resident_id . '.%';
+        $resident_linked_email_like = 'linked.r' . $resident_id . '.%@linked.local';
+        $existing_privileged_stmt = $pdo->prepare(
+            "SELECT id, role
+             FROM users
+             WHERE role IN ('admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod')
+               AND (username LIKE ? OR email LIKE ?)
+             LIMIT 1"
+        );
+        $existing_privileged_stmt->execute([$resident_linked_username_like, $resident_linked_email_like]);
+    }
+
+    if ($existing_privileged_stmt && $existing_privileged_stmt->fetch(PDO::FETCH_ASSOC)) {
+        $pdo->rollBack();
+        $_SESSION['error_message'] = "This resident already has a privileged account. Edit the existing account instead.";
+        redirect_to('../pages/add-user.php');
+    }
 
     if ($final_role === 'admin') {
         if ($admin_confirmation_password === '') {
@@ -133,30 +295,15 @@ try {
         }
 
         $admin_count = count_admin_users($pdo, true);
-        if ($admin_count >= $admin_cap) {
+        if ($admin_count >= $admin_selection_limit) {
             $pdo->rollBack();
-            $_SESSION['error_message'] = "Admin account limit reached ({$admin_cap}).";
+            $_SESSION['error_message'] = "Admin account limit reached ({$admin_selection_limit}).";
             redirect_to('../pages/add-user.php');
         }
     }
 
-    // Check if email already exists
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    if ($stmt->fetch()) {
-        $pdo->rollBack();
-        $_SESSION['error_message'] = "A user with this email already exists.";
-        redirect_to('../pages/add-user.php');
-    }
-
-    $raw_invite_token = bin2hex(random_bytes(32));
-    $invite_token_hash = hash('sha256', $raw_invite_token);
-    $invite_expires = date('Y-m-d H:i:s', strtotime('+24 hours'));
-
-    // Invite-based lifecycle hardening: never provision privileged users with an immediately usable password.
-    // A random bootstrap password is stored, and account activation happens through the expiring invite link.
-    $bootstrap_password = bin2hex(random_bytes(24));
-    $hashed_password = password_hash($bootstrap_password, PASSWORD_DEFAULT);
+    // Use the entered password for immediate account access.
+    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
     // Insert into users table
     $sql_user = "INSERT INTO users (username, fullname, email, password, role) VALUES (?, ?, ?, ?, ?)";
@@ -168,31 +315,31 @@ try {
     $set_clauses = [];
     $set_params = [];
     if (has_user_column($pdo, 'status')) {
-        $set_clauses[] = "status = ?";
-        $set_params[] = 'pending';
+        $active_status_value = get_users_status_active_value($pdo);
+        if ($active_status_value !== null) {
+            $set_clauses[] = "status = ?";
+            $set_params[] = $active_status_value;
+        }
     }
     if (has_user_column($pdo, 'email_verified')) {
         $set_clauses[] = "email_verified = ?";
-        $set_params[] = 0;
+        $set_params[] = 1;
     }
     if (has_user_column($pdo, 'password_change_required')) {
         $set_clauses[] = "password_change_required = ?";
-        $set_params[] = 1;
+        $set_params[] = 0;
     }
     if (has_user_column($pdo, 'invitation_sent_at')) {
-        $set_clauses[] = "invitation_sent_at = NOW()";
+        $set_clauses[] = "invitation_sent_at = NULL";
     }
     if (has_user_column($pdo, 'invitation_expires_at')) {
-        $set_clauses[] = "invitation_expires_at = ?";
-        $set_params[] = $invite_expires;
+        $set_clauses[] = "invitation_expires_at = NULL";
     }
     if (has_user_column($pdo, 'reset_token')) {
-        $set_clauses[] = "reset_token = ?";
-        $set_params[] = $invite_token_hash;
+        $set_clauses[] = "reset_token = NULL";
     }
     if (has_user_column($pdo, 'reset_token_expires')) {
-        $set_clauses[] = "reset_token_expires = ?";
-        $set_params[] = $invite_expires;
+        $set_clauses[] = "reset_token_expires = NULL";
     }
 
     if (!empty($set_clauses)) {
@@ -201,22 +348,16 @@ try {
         $sync_stmt->execute($set_params);
     }
 
-    // Build invitation link using same secure reset flow.
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
-    $basePath = rtrim(dirname(dirname($_SERVER['REQUEST_URI'])), '/\\');
-    $invite_link = $scheme . $_SERVER['HTTP_HOST'] . $basePath . "/reset-password.php?token=" . $raw_invite_token;
-
-    $invite_sent = false;
-    try {
-        $invite_sent = OTPEmailService::sendPasswordResetEmail($email, $fullname, $invite_link);
-    } catch (Exception $e) {
-        error_log('Invite email exception for user ID: ' . $new_user_id . ' - ' . $e->getMessage());
+    // Link user to resident if the users table has a resident_id column
+    if (has_user_column($pdo, 'resident_id') && $resident_id > 0) {
+        $link_stmt = $pdo->prepare("UPDATE users SET resident_id = ? WHERE id = ?");
+        $link_stmt->execute([$resident_id, $new_user_id]);
     }
-    
+
     $pdo->commit();
     
     // Prepare user details for logging
-    $user_details = "Username: {$username}, Full Name: {$fullname}, Email: {$email}, Role: {$final_role}, InviteSent: " . ($invite_sent ? 'Yes' : 'No') . ", InviteExpires: {$invite_expires}";
+    $user_details = "LinkedLoginEmail: {$resident_email}, Username: {$username}, Full Name: {$fullname}, AccountEmail: {$email}, Role: {$final_role}, Status: active, ActivationFlow: linked-account";
     
     // Log the user creation
     log_activity_db(
@@ -229,13 +370,13 @@ try {
         $user_details
     );
 
-    $_SESSION['success_message'] = $invite_sent
-        ? "User created. Invitation link sent; account remains pending until password setup."
-        : "User created in pending state, but invitation email failed. Use Forgot Password to resend activation.";
+    $_SESSION['success_message'] = "User created successfully. The account is active and can sign in now.";
     redirect_to('../pages/user-management.php');
 
 } catch (PDOException $e) {
-    $pdo->rollBack();
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     
     // Log the error
     log_activity_db(
@@ -249,6 +390,12 @@ try {
     );
     
     error_log("Add user failed: " . $e->getMessage());
-    $_SESSION['error_message'] = "Failed to add user due to a database error.";
+
+    $driver_error_code = isset($e->errorInfo[1]) ? (int)$e->errorInfo[1] : 0;
+    if ($driver_error_code === 1062) {
+        $_SESSION['error_message'] = "A user with this email or username already exists.";
+    } else {
+        $_SESSION['error_message'] = "Failed to add user due to a database error.";
+    }
     redirect_to('../pages/add-user.php');
 } 

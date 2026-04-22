@@ -3,12 +3,10 @@ require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 
-if (!is_logged_in() || $_SESSION['role'] !== 'admin') {
-    $_SESSION['error_message'] = 'Unauthorized.';
-    header('Location: ../pages/logs.php');
-    exit;
-}
+require_login();
+require_permission_or_redirect('system_logs', '../pages/logs.php');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ../pages/logs.php');

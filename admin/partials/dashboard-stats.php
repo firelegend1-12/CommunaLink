@@ -1,6 +1,7 @@
 <?php
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/permission_checker.php';
 
 header('Content-Type: application/json');
 
@@ -14,13 +15,7 @@ function emit_perf_headers(float $start, string $endpoint): void
 }
 
 require_login();
-
-if (!is_admin_or_official()) {
-    http_response_code(403);
-    emit_perf_headers($request_start, 'admin_dashboard_stats');
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-    exit;
-}
+require_permission_or_json('manage_incidents', 403, 'Forbidden');
 
 $stats_stmt = $pdo->query("SELECT
     (SELECT COUNT(*) FROM document_requests WHERE status = 'Pending') AS pending_doc_requests,

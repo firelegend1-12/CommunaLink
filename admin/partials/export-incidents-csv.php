@@ -5,12 +5,10 @@
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/permission_checker.php';
 
-// Check authorization
-if (!is_admin_or_official()) {
-    header("Location: ../../index.php");
-    exit();
-}
+require_login();
+require_permission_or_redirect('manage_incidents', '../pages/incident-reports.php');
 
 // Get filters from GET
 $search = isset($_GET['search']) ? $_GET['search'] : '';

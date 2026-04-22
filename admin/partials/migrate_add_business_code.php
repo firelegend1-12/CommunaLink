@@ -1,12 +1,29 @@
 <?php
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 
-require_login();
+if (PHP_SAPI !== 'cli') {
+    require_login();
 
-if (!is_admin_or_official()) {
-    http_response_code(403);
-    exit('Unauthorized');
+    if (!require_permission('all_pages')) {
+        http_response_code(403);
+        exit('Unauthorized');
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        if (!headers_sent()) {
+            header('Allow: POST');
+        }
+        http_response_code(405);
+        exit('Method not allowed');
+    }
+
+    if (!csrf_validate()) {
+        http_response_code(403);
+        exit('Invalid security token.');
+    }
 }
 
 try {

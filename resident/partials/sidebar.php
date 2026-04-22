@@ -29,16 +29,12 @@ $display_name = ucfirst(trim((string) $user_fullname));
             <span>Dashboard</span>
         </a>
         <a href="announcements.php" class="nav-link <?= $current_page === 'announcements.php' ? 'active' : '' ?>">
-            <i class="fas fa-bullhorn"></i>
-            <span>Announcements</span>
+            <i class="fas fa-clipboard-list"></i>
+            <span>Community Board</span>
         </a>
         <a href="barangay-services.php" class="nav-link <?= $current_page === 'barangay-services.php' ? 'active' : '' ?>">
             <i class="fas fa-hand-holding-heart"></i>
             <span>Barangay Services</span>
-        </a>
-        <a href="events.php" class="nav-link <?= $current_page === 'events.php' ? 'active' : '' ?>">
-            <i class="fas fa-calendar-alt"></i>
-            <span>Events</span>
         </a>
         <a href="my-reports.php" class="nav-link <?= $current_page === 'my-reports.php' ? 'active' : '' ?>">
             <i class="fas fa-file-alt"></i>
@@ -52,16 +48,13 @@ $display_name = ucfirst(trim((string) $user_fullname));
             <i class="fas fa-phone-alt"></i>
             <span>Emergency Contacts</span>
         </a>
-        <a href="chat.php" class="nav-link <?= $current_page === 'chat.php' ? 'active' : '' ?>">
-            <i class="fas fa-comments"></i>
-            <span>Live Chat</span>
-        </a>
     </nav>
     <div class="sidebar-footer">
         <a href="account.php" class="nav-link <?= $current_page === 'account.php' ? 'active' : '' ?>">
             <i class="fas fa-user-cog"></i>
             <span>My Account</span>
         </a>
+        
         <a href="../includes/logout.php" class="nav-link">
             <i class="fas fa-sign-out-alt"></i>
             <span>Logout</span>

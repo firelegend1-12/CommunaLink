@@ -6,17 +6,12 @@
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/permission_checker.php';
 
 header('Content-Type: application/json');
 
-if (!is_logged_in() || !isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    http_response_code(403);
-    echo json_encode([
-        'success' => false,
-        'error' => 'Unauthorized'
-    ]);
-    exit;
-}
+require_login();
+require_permission_or_json('user_management', 403, 'Forbidden');
 
 try {
     $admin_session_cap = function_exists('get_admin_max_concurrent') ? get_admin_max_concurrent() : 2;
@@ -31,7 +26,7 @@ try {
 
     $active_official_stmt = $pdo->query("SELECT COUNT(*) FROM active_user_sessions
                                          WHERE is_active = 1
-                                                                                     AND role IN ('official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod')
+                                           AND role IN ('barangay-officials', 'barangay-kagawad', 'barangay-tanod')
                                            AND expires_at > NOW()");
     $active_official_sessions = (int) $active_official_stmt->fetchColumn();
 

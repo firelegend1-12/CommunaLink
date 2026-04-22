@@ -1,9 +1,5 @@
 <?php
-session_start();
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] !== 'admin')) {
-    header('Location: ../../index.php');
-    exit;
-}
+require_once '../partials/admin_auth.php';
 
 include_once '../../config/database.php';
 include_once '../../includes/functions.php';
@@ -16,8 +12,8 @@ $title = "Maps";
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $title; ?> - Barangay Management System</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>Barangay Pakiad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
@@ -39,7 +35,8 @@ $title = "Maps";
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="flex h-screen overflow-hidden">
-        <?php include '../partials/sidebar.php'; ?>
+        <?php
+include '../partials/sidebar.php'; ?>
         <div class="flex flex-col flex-1 overflow-hidden">
             <header class="bg-white shadow-sm z-10">
                 <div class="px-4 sm:px-6 lg:px-8">
@@ -85,22 +82,22 @@ $title = "Maps";
     let lastOpenIncidentId = null;
     let lastIncidentDataHash = '';
     let infoWindow;
+    const BARANGAY_HALL = { lat: 10.710781570266882, lng: 122.51720404103982 };
 
     let clusterer = null;
 
     function initMap() {
-        const center = { lat: 10.710827350642523, lng: 122.51720118954563 };
         map = new google.maps.Map(document.getElementById('incident-map'), {
-            center: center,
+            center: BARANGAY_HALL,
             zoom: 14,
             mapTypeId: 'hybrid'
         });
 
         // Add a default marker for the barangay center
         new google.maps.Marker({
-            position: center,
+            position: BARANGAY_HALL,
             map: map,
-            title: 'Barangay Center'
+            title: 'Barangay Hall'
         });
 
         infoWindow = new google.maps.InfoWindow();
@@ -240,7 +237,7 @@ $title = "Maps";
     document.getElementById('date-from').onchange = () => filterReports(document.getElementById('filter-range').value);
     document.getElementById('date-to').onchange = () => filterReports(document.getElementById('filter-range').value);
     document.getElementById('center-barangay').onclick = () => {
-        map.setCenter({ lat: 10.710827350642523, lng: 122.51720118954563 });
+        map.panTo(BARANGAY_HALL);
         map.setZoom(17);
     };
 
@@ -260,16 +257,22 @@ $title = "Maps";
     }
     </script>
     <?php
-    $apiKey = function_exists('maps_api_key') ? (string) maps_api_key('') : '';
+$apiKey = function_exists('maps_api_key') ? (string) maps_api_key('') : '';
     ?>
     <!-- Marker Clusterer CDN -->
     <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
-    <?php if ($apiKey !== ''): ?>
-    <script src="https://maps.googleapis.com/maps/api/js?key=<?php echo urlencode($apiKey); ?>&callback=initMap" async defer></script>
-    <?php else: ?>
+    <?php
+if ($apiKey !== ''): ?>
+    <script src="https://maps.googleapis.com/maps/api/js?key=<?php
+echo urlencode($apiKey); ?>&callback=initMap" async defer></script>
+    <?php
+else: ?>
     <script>
         console.error('Google Maps API key is missing. Set GOOGLE_MAPS_API_KEY in environment configuration.');
     </script>
-    <?php endif; ?>
+    <?php
+endif; ?>
 </body>
 </html> 
+
+

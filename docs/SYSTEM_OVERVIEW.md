@@ -2,7 +2,7 @@
 
 ## 1. System Overview
 
-CommunaLink is a PHP + MySQL barangay management platform with role-based portals for residents and barangay staff. It centralizes resident records, business permits, document requests, incident reporting, announcements/events, notifications, and internal messaging.
+CommunaLink is a PHP + MySQL barangay management platform with role-based portals for residents and barangay staff. It centralizes resident records, business permits, document requests, incident reporting, announcements/events, and notifications.
 
 ### Architecture at a glance
 
@@ -17,7 +17,6 @@ CommunaLink is a PHP + MySQL barangay management platform with role-based portal
 - API layer (AJAX/JSON):
   - [api/incidents.php](../api/incidents.php)
   - [api/notifications.php](../api/notifications.php)
-  - [api/chat.php](../api/chat.php)
   - [api/announcements.php](../api/announcements.php)
   - [api/post-reactions.php](../api/post-reactions.php)
 - Database layer:
@@ -43,7 +42,7 @@ Canonical source is [config/init.php](../config/init.php), then additive/normali
   - password VARCHAR(255) NOT NULL
   - fullname VARCHAR(100) NOT NULL
   - email VARCHAR(100) NOT NULL
-  - role ENUM('admin','resident','barangay-captain','kagawad','barangay-secretary','barangay-treasurer','barangay-tanod') NOT NULL DEFAULT 'resident'
+  - role ENUM('admin','resident','barangay-officials','barangay-kagawad','barangay-tanod') NOT NULL DEFAULT 'resident'
   - created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   - last_login DATETIME DEFAULT NULL
 - Keys:
@@ -212,17 +211,6 @@ Canonical source is [config/init.php](../config/init.php), then additive/normali
   - PRIMARY KEY (id)
   - INDEX idx_incidents_reported_at (reported_at)
   - INDEX idx_incidents_status (status)
-
-### chat_messages
-- Fields:
-  - id INT(11) NOT NULL AUTO_INCREMENT
-  - sender_id INT(11) NOT NULL
-  - receiver_id INT(11) NOT NULL
-  - message TEXT NOT NULL
-  - sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  - is_read TINYINT(1) NOT NULL DEFAULT 0
-- Keys:
-  - PRIMARY KEY (id)
 
 ### announcements
 - Fields:
@@ -405,8 +393,6 @@ Canonical source is [config/init.php](../config/init.php), then additive/normali
 - document_requests.resident_id -> residents.id (ON DELETE CASCADE)
 - document_requests.requested_by_user_id -> users.id (ON DELETE SET NULL)
 - incidents.resident_user_id -> users.id (ON DELETE CASCADE)
-- chat_messages.sender_id -> users.id (ON DELETE CASCADE)
-- chat_messages.receiver_id -> users.id (ON DELETE CASCADE)
 - announcements.user_id -> users.id (ON DELETE CASCADE)
 - announcement_reads.announcement_id -> announcements.id (ON DELETE CASCADE)
 - announcement_reads.resident_id -> residents.id (ON DELETE CASCADE)
@@ -489,12 +475,9 @@ How it works:
   - [includes/notification_system.php](../includes/notification_system.php)
   - [api/notifications.php](../api/notifications.php)
   - [resident/partials/mark-notifications-read.php](../resident/partials/mark-notifications-read.php)
-- Chat subsystem:
-  - [api/chat.php](../api/chat.php)
-  - [resident/chat.php](../resident/chat.php)
 
 How it works:
-- System events create notification rows and optionally send emails using fallback providers; chat endpoints support message send/fetch/read-state.
+- System events create notification rows and optionally send emails using fallback providers.
 
 ### E. Scheduled and Support Operations
 
@@ -514,10 +497,8 @@ How it works:
 
 Defined in [config/permissions.php](../config/permissions.php):
 - admin
-- barangay-captain
-- kagawad
-- barangay-secretary
-- barangay-treasurer
+- barangay-officials
+- barangay-kagawad
 - barangay-tanod
 - resident
 
@@ -601,7 +582,7 @@ Defined in [config/permissions.php](../config/permissions.php):
 - Accept and process document requests and business permit transactions.
 - Receive and track incident reports with optional media and geolocation.
 - Publish announcements/events and notify users in-app and by email.
-- Support resident-admin chat and operational dashboards with logs.
+- Support operational dashboards with logs.
 - Run scheduled maintenance/automation tasks via cron scripts.
 
 ### What it explicitly prevents
@@ -616,7 +597,7 @@ Defined in [config/permissions.php](../config/permissions.php):
 - Role taxonomy and hierarchy are code-defined (custom role expansion requires code changes).
 - Session concurrency caps for admin/official roles are env-driven but hard bounded in logic.
 - Workflow states rely on fixed enum/status values in DB and handlers.
-- Some subsystems are polling-based (chat/notifications), not real-time socket architecture.
+- Some subsystems are polling-based (notifications), not real-time socket architecture.
 
 ### Missing validation or design constraints (not exhaustive)
 
@@ -702,7 +683,6 @@ Legend:
 | File | Process | Actor | Trigger | Inputs | Outputs | Tables touched |
 |---|---|---|---|---|---|---|
 | [api/announcements.php](../api/announcements.php) | Announcement feed API | resident | GET | action/filter params | JSON payload | announcements, post_reactions, users |
-| [api/chat.php](../api/chat.php) | Chat send/fetch/read API | resident/admin | AJAX GET/POST | message, peer ids, action, CSRF | JSON payload | chat_messages, users |
 | [api/csp-report.php](../api/csp-report.php) | CSP violation ingestion | system/browser | POST | CSP report body | JSON ack/status | activity_logs (or server logs) |
 | [api/incidents.php](../api/incidents.php) | Incident create/update API | resident/admin | AJAX GET/POST | incident fields, media, action, CSRF | JSON payload | incidents, notifications, users |
 | [api/notifications.php](../api/notifications.php) | Notification read/list API | resident/admin | AJAX GET/POST | action, id(s), CSRF | JSON payload | notifications |
@@ -716,7 +696,6 @@ Legend:
 | [resident/announcements.php](../resident/announcements.php) | Resident announcements feed | resident | GET | paging/filter | HTML feed | announcements, post_reactions, users |
 | [resident/barangay-services.php](../resident/barangay-services.php) | Services catalog entry point | resident | GET | N/A | HTML page | N/A/derived counts |
 | [resident/business-details.php](../resident/business-details.php) | Business application details | resident | GET | application id | HTML page | business_transactions, business_permits, residents |
-| [resident/chat.php](../resident/chat.php) | Resident chat UI | resident | GET + AJAX | peer/action/message | HTML + JSON via API | chat_messages, users |
 | [resident/dashboard.php](../resident/dashboard.php) | Resident dashboard summary | resident | GET | session user | HTML page | document_requests, incidents, announcements, notifications |
 | [resident/emergency-contacts.php](../resident/emergency-contacts.php) | Emergency contacts view | resident | GET | N/A | HTML page | N/A or config-driven |
 | [resident/events.php](../resident/events.php) | Community events listing | resident | GET | date/filter | HTML page | events/announcements (event rows) |
@@ -765,7 +744,6 @@ Legend:
 | [admin/pages/business-clearance.php](../admin/pages/business-clearance.php) | Business processing board | admin/official | GET | status/search filters | HTML page | business_transactions, business_permits, residents |
 | [admin/pages/certificate-of-indigency-template.php](../admin/pages/certificate-of-indigency-template.php) | Indigency template render | admin/official | GET | request/resident ids | HTML/template | document_requests, residents |
 | [admin/pages/certificate-of-residency-template.php](../admin/pages/certificate-of-residency-template.php) | Residency template render | admin/official | GET | request/resident ids | HTML/template | document_requests, residents |
-| [admin/pages/chat.php](../admin/pages/chat.php) | Admin chat UI | admin/official | GET + AJAX | peer/action/message | HTML + JSON via API | chat_messages, users |
 | [admin/pages/edit-resident.php](../admin/pages/edit-resident.php) | Edit resident form | admin/official | GET | resident id | HTML form | residents |
 | [admin/pages/edit-user.php](../admin/pages/edit-user.php) | Edit user form | admin | GET | user id | HTML form | users |
 | [admin/pages/events.php](../admin/pages/events.php) | Events management | admin/official | GET | search/date filters | HTML page | events/announcements |
@@ -941,17 +919,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'mark_all_read') {
   echo json_encode(['success' => true, 'updated_count' => (int) $stmt->rowCount()]);
   exit;
 }
-
-$chat_rate_limit = RateLimiter::checkRateLimit('chat_api', RateLimiter::getClientIP());
-if (!$chat_rate_limit['allowed']) {
-  http_response_code(429);
-  echo json_encode(['error' => 'Too Many Requests']);
-  exit;
-}
-
-$stmt = $pdo->prepare("INSERT INTO chat_messages (sender_id, receiver_id, message) VALUES (?, ?, ?)");
-$stmt->execute([$user_id, $receiver_id, $message_text]);
-echo json_encode(['success' => true]);
 
 ```
 
@@ -1188,11 +1155,9 @@ function get_role_hierarchy($role) {
   $hierarchy = [
     'resident' => 1,
     'barangay-tanod' => 2,
-    'barangay-treasurer' => 3,
-    'barangay-secretary' => 4,
-    'kagawad' => 5,
-    'barangay-captain' => 6,
-    'admin' => 7
+    'barangay-kagawad' => 3,
+    'barangay-officials' => 4,
+    'admin' => 5
   ];
   return $hierarchy[$role] ?? 0;
 }
@@ -1260,7 +1225,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 function is_official_role_only($role) {
-  return in_array($role, ['barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true);
+  return in_array($role, ['barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true);
 }
 
 function is_session_policy_tracked_role($role) {
@@ -1300,19 +1265,6 @@ require_once '../includes/csrf.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
-```
-
-### [api/chat.php](../api/chat.php)
-
-```php
-<?php
-header('Content-Type: application/json');
-// Use lightweight database-only bootstrap - not init.php, which runs all schema migrations on every poll
-require_once '../config/database.php';
-require_once '../includes/auth.php';
-require_once '../includes/csrf.php';
-
-if (session_status() === PHP_SESSION_NONE) {
 ```
 
 ### [api/announcements.php](../api/announcements.php)
@@ -1677,19 +1629,6 @@ require_once __DIR__ . '/functions.php';
  * where older clients may still call this endpoint briefly after deployment.
  */
 
-```
-
-### [resident/chat.php](../resident/chat.php)
-
-```php
-<?php
-session_start();
-require_once '../includes/auth.php';
-require_once '../includes/functions.php';
-
-function require_role($role) {
-    if (!is_logged_in() || $_SESSION['role'] !== $role) {
-        redirect_to('../index.php');
 ```
 
 ### [cron_check_expiring_permits.php](../cron_check_expiring_permits.php)

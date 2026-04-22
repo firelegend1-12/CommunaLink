@@ -1,14 +1,37 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Residents Management Page
  */
 
 // Include admin authentication and session management
-require_once '../partials/admin_auth.php';
-
 // Page-specific requirements
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/storage_manager.php';
+
+function admin_resident_profile_image_url(string $storedPath): string
+{
+    $path = trim($storedPath);
+    if ($path === '') {
+        return '';
+    }
+
+    if (strpos($path, 'gs://') === 0 || preg_match('#^https?://#i', $path) === 1) {
+        return StorageManager::resolvePublicUrl($path);
+    }
+
+    $normalized = ltrim(str_replace('\\', '/', $path), '/');
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (stripos($normalized, 'admin/') === 0) {
+        return app_url('/' . $normalized);
+    }
+
+    return app_url('/admin/' . $normalized);
+}
 
 // Page title
 $page_title = "Residents - CommunaLink";
@@ -35,6 +58,11 @@ try {
     $stmt->execute($params);
     $residents = $stmt->fetchAll();
 
+    foreach ($residents as &$resident_row) {
+        $resident_row['profile_image_url'] = admin_resident_profile_image_url((string)($resident_row['profile_image_path'] ?? ''));
+    }
+    unset($resident_row);
+
 } catch (PDOException $e) {
     $residents = [];
     // error_log("Residents page DB error: " . $e->getMessage());
@@ -47,9 +75,9 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?></title>
+    <title>Barangay Pakiad</title>
     <!-- Tailwind CSS CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -218,8 +246,8 @@ try {
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="flex items-center">
                                                         <div class="flex-shrink-0 h-10 w-10">
-                                                            <?php if (!empty($resident['profile_image_path'])): ?>
-                                                                <img class="h-10 w-10 rounded-xl object-cover shadow-sm" src="<?php echo htmlspecialchars('../' . $resident['profile_image_path']); ?>" alt="Profile Image" onerror="this.onerror=null; this.outerHTML='<div class=\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\'><?php echo strtoupper(substr($resident['first_name'], 0, 1) . substr($resident['last_name'], 0, 1)); ?></div>';">
+                                                            <?php if (!empty($resident['profile_image_url'])): ?>
+                                                                <img class="h-10 w-10 rounded-xl object-cover shadow-sm" src="<?php echo htmlspecialchars($resident['profile_image_url']); ?>" alt="Profile Image" onerror="this.onerror=null; this.outerHTML='<div class=\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\'><?php echo strtoupper(substr($resident['first_name'], 0, 1) . substr($resident['last_name'], 0, 1)); ?></div>';">
                                                             <?php else: ?>
                                                                 <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm">
                                                                     <?php echo strtoupper(substr($resident['first_name'], 0, 1) . substr($resident['last_name'], 0, 1)); ?>
@@ -250,44 +278,9 @@ try {
                                                     <?php endif; ?>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                    <div class="flex items-center space-x-2">
-                                                        <button @click="openView(<?php echo $resident['id']; ?>)" class="text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition" title="Quick View">
-                                                            <i class="fas fa-eye"></i>
-                                                        </button>
-                                                        
-                                                        <div class="relative inline-block text-left" x-data="{ open: false, top: 0, left: 0 }">
-                                                            <button type="button" x-ref="dropdownBtn" @click="
-                                                                open = !open;
-                                                                if (open) {
-                                                                    const rect = $refs.dropdownBtn.getBoundingClientRect();
-                                                                    top = rect.bottom + window.scrollY;
-                                                                    left = rect.left + window.scrollX;
-                                                                }
-                                                            " class="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-gray-200 focus:outline-none transition" aria-haspopup="true" aria-expanded="false">
-                                                                <i class="fas fa-ellipsis-v text-gray-400 group-hover:text-gray-600"></i>
-                                                            </button>
-                                                            <template x-teleport="body">
-                                                                <div x-show="open" @click.away="open = false" x-cloak
-                                                                     class="fixed z-50 w-48 rounded-xl shadow-xl bg-white ring-1 ring-black ring-opacity-5 overflow-hidden"
-                                                                     :style="'top: ' + top + 'px; left: ' + left + 'px; z-index: 1000;'">
-                                                                    <div class="py-1 bg-white">
-                                                                        <a href="edit-resident.php?id=<?php echo $resident['id']; ?>" class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition border-b border-gray-50">
-                                                                            <i class="fas fa-edit mr-3 text-blue-500"></i> Edit Profile
-                                                                        </a>
-                                                                        <button type="button" @click="generateId(<?php echo $resident['id']; ?>); open = false;" class="flex items-center w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition border-b border-gray-50">
-                                                                            <i class="fas fa-id-card mr-3 text-indigo-500"></i> Generate ID
-                                                                        </button>
-                                                                        <form action="../partials/delete-resident-handler.php" method="POST" onsubmit="return confirm('Are you sure you want to remove this resident?');">
-                                                                            <input type="hidden" name="resident_id" value="<?php echo $resident['id']; ?>">
-                                                                            <button type="submit" class="flex items-center w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition">
-                                                                                <i class="fas fa-trash-alt mr-3"></i> Delete Resident
-                                                                            </button>
-                                                                        </form>
-                                                                    </div>
-                                                                </div>
-                                                            </template>
-                                                        </div>
-                                                    </div>
+                                                    <button @click="openView(<?php echo $resident['id']; ?>)" class="text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition" title="Quick View">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -333,10 +326,10 @@ try {
                                 <div class="flex items-center gap-4">
                                     <template x-if="residentData && residentData.profile">
                                         <div class="h-20 w-20 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center overflow-hidden shadow-lg">
-                                            <template x-if="residentData.profile.profile_image_path">
-                                                <img :src="'../' + residentData.profile.profile_image_path" class="h-full w-full object-cover">
+                                            <template x-if="residentData.profile.profile_image_url">
+                                                <img :src="residentData.profile.profile_image_url" class="h-full w-full object-cover">
                                             </template>
-                                            <template x-if="!residentData.profile.profile_image_path">
+                                            <template x-if="!residentData.profile.profile_image_url">
                                                 <span class="text-white text-3xl font-bold" x-text="residentData.profile.first_name[0] + residentData.profile.last_name[0]"></span>
                                             </template>
                                         </div>
@@ -479,15 +472,22 @@ try {
                         </div>
 
                         <!-- Footer -->
-                        <div class="border-t border-gray-100 px-6 py-6 sm:px-8 bg-gray-50/50 flex justify-between gap-4">
+                        <div class="border-t border-gray-100 px-6 py-6 sm:px-8 bg-gray-50/50 space-y-3">
                              <template x-if="residentData">
-                                <a :href="'edit-resident.php?id=' + residentData.profile.id" class="flex-1 bg-white hover:bg-gray-50 text-gray-700 px-4 py-3 rounded-xl text-sm font-bold border border-gray-200 text-center transition shadow-sm">
-                                    <i class="fas fa-edit mr-2"></i> Edit Profile
-                                </a>
+                                <button @click="generateId(residentData.profile.id)" class="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-3 rounded-xl text-sm font-bold text-center transition shadow-md">
+                                    <i class="fas fa-id-card mr-2"></i> Generate ID
+                                </button>
                              </template>
-                            <button @click="showView = false" class="flex-1 bg-gray-800 hover:bg-gray-900 text-white px-4 py-3 rounded-xl text-sm font-bold text-center transition shadow-lg">
-                                Close Panel
-                            </button>
+                            <div class="flex justify-between gap-4">
+                                <template x-if="residentData">
+                                    <a :href="'edit-resident.php?id=' + residentData.profile.id" class="flex-1 bg-white hover:bg-gray-50 text-gray-700 px-4 py-3 rounded-xl text-sm font-bold border border-gray-200 text-center transition shadow-sm">
+                                        <i class="fas fa-edit mr-2"></i> Edit Profile
+                                    </a>
+                                </template>
+                                <button @click="showView = false" class="flex-1 bg-gray-800 hover:bg-gray-900 text-white px-4 py-3 rounded-xl text-sm font-bold text-center transition shadow-lg">
+                                    Close Panel
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -620,8 +620,8 @@ try {
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 h-10 w-10">
-                                    ${resident.profile_image_path && resident.profile_image_path !== '' ?
-                                        `<img class=\"h-10 w-10 rounded-xl object-cover shadow-sm\" src=\"../${resident.profile_image_path}\" alt=\"Profile Image\" onerror=\"this.onerror=null; this.outerHTML='<div class=\\\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\\\'>${(resident.first_name[0] + resident.last_name[0]).toUpperCase()}</div>';\">` :
+                                    ${resident.profile_image_url && resident.profile_image_url !== '' ?
+                                        `<img class=\"h-10 w-10 rounded-xl object-cover shadow-sm\" src=\"${resident.profile_image_url}\" alt=\"Profile Image\" onerror=\"this.onerror=null; this.outerHTML='<div class=\\\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\\\'>${(resident.first_name[0] + resident.last_name[0]).toUpperCase()}</div>';\">` :
                                         `<div class=\"h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\">${(resident.first_name[0] + resident.last_name[0]).toUpperCase()}</div>`
                                     }
                                 </div>
@@ -643,23 +643,9 @@ try {
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div class="flex items-center space-x-2">
-                                <button onclick="window.dispatchEvent(new CustomEvent('resident-open-view', { detail: ${resident.id} }))" class="text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition" title="Quick View">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                                <a href="edit-resident.php?id=${resident.id}" class="text-gray-700 hover:bg-gray-100 p-2 rounded-lg transition" title="Edit Profile">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                <button type="button" onclick="window.dispatchEvent(new CustomEvent('resident-generate-id', { detail: ${resident.id} }))" class="text-indigo-600 hover:bg-indigo-100 p-2 rounded-lg transition" title="Generate ID">
-                                    <i class="fas fa-id-card"></i>
-                                </button>
-                                <form action="../partials/delete-resident-handler.php" method="POST" onsubmit="return confirm('Are you sure you want to remove this resident?');" class="inline">
-                                    <input type="hidden" name="resident_id" value="${resident.id}">
-                                    <button type="submit" class="text-red-600 hover:bg-red-100 p-2 rounded-lg transition" title="Delete Resident">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                </form>
-                            </div>
+                            <button onclick="window.dispatchEvent(new CustomEvent('resident-open-view', { detail: ${resident.id} }))" class="text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition" title="Quick View">
+                                <i class="fas fa-eye"></i>
+                            </button>
                         </td>
                     </tr>
                 `).join('');
@@ -693,3 +679,4 @@ try {
     </script>
 </body>
 </html> 
+

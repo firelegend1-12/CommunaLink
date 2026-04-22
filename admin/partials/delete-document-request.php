@@ -6,20 +6,35 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 
 header('Content-Type: application/json');
 
-// Check authorization
-if (!is_admin_or_official()) {
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+require_login();
+require_permission_or_json('manage_documents', 403, 'Forbidden');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    if (!headers_sent()) {
+        header('Allow: POST');
+    }
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => 'Method not allowed']);
     exit;
 }
 
-// Get parameters from GET request
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+if (!csrf_validate()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Invalid security token.']);
+    exit;
+}
+
+// Get parameters from POST request
+$id = isset($_POST['id']) ? intval($_POST['id']) : 0;
 
 // Validate parameters
 if (empty($id)) {
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
     exit;
 }
@@ -31,6 +46,7 @@ try {
     $request_data = $stmt->fetch();
     
     if (!$request_data) {
+        http_response_code(404);
         echo json_encode(['success' => false, 'error' => 'Request not found']);
         exit;
     }
@@ -57,10 +73,13 @@ try {
         
         echo json_encode(['success' => true]);
     } else {
+        http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Failed to delete request']);
     }
     
 } catch (PDOException $e) {
-    echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+    error_log('delete-document-request failed: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Database error while deleting request']);
 }
 exit; 

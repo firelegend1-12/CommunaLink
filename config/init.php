@@ -4,6 +4,8 @@
  * Establishes a PDO connection and creates necessary tables if they don't exist.
  */
 
+require_once __DIR__ . '/../includes/functions.php';
+
 function configure_session_cookie_security() {
     if (session_status() !== PHP_SESSION_NONE) {
         return;
@@ -160,7 +162,7 @@ try {
             `password` VARCHAR(255) NOT NULL,
             `fullname` VARCHAR(100) NOT NULL,
             `email` VARCHAR(100) NOT NULL UNIQUE,
-            `role` ENUM('admin', 'resident', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod') NOT NULL DEFAULT 'resident',
+            `role` ENUM('admin', 'resident', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod') NOT NULL DEFAULT 'resident',
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
             `last_login` DATETIME DEFAULT NULL,
             PRIMARY KEY (`id`)
@@ -298,18 +300,6 @@ try {
             `admin_remarks` TEXT DEFAULT NULL,
             PRIMARY KEY (`id`),
             FOREIGN KEY (`resident_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-
-        "CREATE TABLE IF NOT EXISTS `chat_messages` (
-            `id` INT(11) NOT NULL AUTO_INCREMENT,
-            `sender_id` INT(11) NOT NULL,
-            `receiver_id` INT(11) NOT NULL,
-            `message` TEXT NOT NULL,
-            `sent_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-            `is_read` TINYINT(1) NOT NULL DEFAULT 0,
-            PRIMARY KEY (`id`),
-            FOREIGN KEY (`sender_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-            FOREIGN KEY (`receiver_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
         "CREATE TABLE IF NOT EXISTS `announcements` (
@@ -626,7 +616,7 @@ try {
     if ($stmt->rowCount() == 0) {
         // Add role and last_login columns
         $pdo->exec("ALTER TABLE `users` 
-                    ADD COLUMN `role` ENUM('admin', 'resident') NOT NULL DEFAULT 'admin' AFTER `email`,
+                ADD COLUMN `role` ENUM('admin', 'resident', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod') NOT NULL DEFAULT 'admin' AFTER `email`,
                     ADD COLUMN `last_login` DATETIME DEFAULT NULL AFTER `created_at`;");
 
         // Migrate data from old `is_admin` column if it exists
@@ -636,8 +626,16 @@ try {
             $pdo->exec("ALTER TABLE `users` DROP COLUMN `is_admin`;");
         }
     } else {
-        // If role column exists, just modify it to include 'resident'
-        $pdo->exec("ALTER TABLE `users` MODIFY `role` ENUM('admin', 'resident', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod') NOT NULL DEFAULT 'resident';");
+        // Normalize legacy role values before constraining to the consolidated enum.
+        $pdo->exec("UPDATE `users` SET `role` = 'barangay-kagawad' WHERE `role` = 'kagawad';");
+        $pdo->exec("UPDATE `users` SET `role` = 'barangay-officials' WHERE `role` IN ('official', 'barangay-captain', 'barangay-secretary', 'barangay-treasurer');");
+
+        // If role column exists, modify it to the canonical consolidated role list.
+        $pdo->exec("ALTER TABLE `users` MODIFY `role` ENUM('admin', 'resident', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod') NOT NULL DEFAULT 'resident';");
+
+        // Keep active session role labels aligned for live-session metrics and policy checks.
+        $pdo->exec("UPDATE `active_user_sessions` SET `role` = 'barangay-kagawad' WHERE `role` = 'kagawad';");
+        $pdo->exec("UPDATE `active_user_sessions` SET `role` = 'barangay-officials' WHERE `role` IN ('official', 'barangay-captain', 'barangay-secretary', 'barangay-treasurer');");
     }
     
     // Check for admin and create if it doesn't exist
@@ -857,6 +855,9 @@ try {
                 ADD COLUMN IF NOT EXISTS `title` VARCHAR(255) DEFAULT NULL AFTER `user_id`,
                 ADD COLUMN IF NOT EXISTS `type` VARCHAR(50) DEFAULT 'general' AFTER `message`,
                 ADD COLUMN IF NOT EXISTS `link` VARCHAR(255) DEFAULT NULL AFTER `type` ");
+
+    // Incident report schema migration
+    $pdo->exec("ALTER TABLE `incidents` ADD COLUMN IF NOT EXISTS `rejection_reason` TEXT DEFAULT NULL AFTER `admin_remarks`");
 
     // Add email_verified column to users table
     $pdo->exec("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `email_verified` TINYINT(1) NOT NULL DEFAULT 0 AFTER `role`");

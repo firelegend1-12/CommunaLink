@@ -19,31 +19,75 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
 
 $user_id = $_SESSION['user_id'];
 
+function normalize_resident_profile_path_for_db(string $storedPath): string
+{
+    $path = trim(str_replace('\\', '/', $storedPath));
+    if ($path === '') {
+        return '';
+    }
+
+    if (strpos($path, 'gs://') === 0 || preg_match('#^https?://#i', $path) === 1) {
+        return $path;
+    }
+
+    if (stripos($path, 'admin/') === 0) {
+        return substr($path, 6);
+    }
+
+    return ltrim($path, '/');
+}
+
+function map_upload_error_code_to_key(int $errorCode): string
+{
+    $map = [
+        UPLOAD_ERR_INI_SIZE => 'file_too_large',
+        UPLOAD_ERR_FORM_SIZE => 'file_too_large',
+        UPLOAD_ERR_PARTIAL => 'upload_failed',
+        UPLOAD_ERR_NO_FILE => 'no_file',
+        UPLOAD_ERR_NO_TMP_DIR => 'upload_failed',
+        UPLOAD_ERR_CANT_WRITE => 'upload_failed',
+        UPLOAD_ERR_EXTENSION => 'upload_failed',
+    ];
+
+    return $map[$errorCode] ?? 'upload_failed';
+}
+
 // Handle Profile Picture Update
-if (isset($_POST['update_profile_pic']) && isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] === UPLOAD_ERR_OK) {
+if (isset($_POST['update_profile_pic'])) {
+    if (!isset($_FILES['profile_image'])) {
+        redirect_to('../account.php?error=no_file');
+        exit();
+    }
+
     $file = $_FILES['profile_image'];
-    $file_extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $upload_error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($upload_error !== UPLOAD_ERR_OK) {
+        redirect_to('../account.php?error=' . map_upload_error_code_to_key($upload_error));
+        exit();
+    }
+
+    $file_extension = pathinfo((string)($file['name'] ?? ''), PATHINFO_EXTENSION);
 
     // Validate file type and size
     $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
-    if (in_array(strtolower($file_extension), $allowed_types) && $file['size'] < 5000000) { // 5MB limit
+    if (in_array(strtolower($file_extension), $allowed_types, true) && (int)$file['size'] < 5000000) { // 5MB limit
         $storage_result = StorageManager::saveUploadedFile([
-            'tmp_name' => $file['tmp_name'],
-            'extension' => strtolower($file_extension),
+            'tmp_name' => (string)$file['tmp_name'],
+            'extension' => strtolower((string)$file_extension),
         ], 'admin/images/resident-profiles', 'resident_profile_');
 
         if ($storage_result['success']) {
             // Get old image path to delete it
             $stmt_old = $pdo->prepare("SELECT profile_image_path FROM residents WHERE user_id = ?");
             $stmt_old->execute([$user_id]);
-            $old_image = $stmt_old->fetchColumn();
-            if (!empty($old_image)) {
-                StorageManager::deleteStoredPath((string) $old_image);
+            $old_image = (string)($stmt_old->fetchColumn() ?: '');
+            if ($old_image !== '') {
+                StorageManager::deleteStoredPath($old_image);
             }
 
-            // Update database with new image path
-            $stored_path = (string) ($storage_result['path'] ?? '');
-            $db_path = str_replace('admin/', '', $stored_path);
+            // Update database with normalized storage path
+            $stored_path = (string)($storage_result['path'] ?? '');
+            $db_path = normalize_resident_profile_path_for_db($stored_path);
             $stmt = $pdo->prepare("UPDATE residents SET profile_image_path = ? WHERE user_id = ?");
             $stmt->execute([$db_path, $user_id]);
             redirect_to('../account.php?success=pic_updated');

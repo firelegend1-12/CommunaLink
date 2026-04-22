@@ -81,7 +81,7 @@ function env_to_bool($value, $default = false) {
 }
 
 function is_official_role_only($role) {
-    return in_array($role, ['official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod'], true);
+    return in_array($role, ['barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true);
 }
 
 function is_admin_role($role) {
@@ -91,6 +91,10 @@ function is_admin_role($role) {
 function is_session_policy_tracked_role($role) {
     // Policy decision: session concurrency and duplicate-login auto-kick apply only to admin/official roles.
     return is_admin_role($role) || is_official_role_only($role);
+}
+
+function is_concurrency_tracked_role($role) {
+    return is_admin_role($role) || is_official_role_only($role) || $role === 'resident';
 }
 
 function is_concurrency_caps_enabled() {
@@ -125,6 +129,15 @@ function get_admin_max_concurrent() {
 
     $value = (int) env('ADMIN_MAX_CONCURRENT', 2);
     return max(1, min(100, $value));
+}
+
+function get_resident_max_concurrent() {
+    if (!function_exists('env')) {
+        require_once __DIR__ . '/../config/env_loader.php';
+    }
+
+    $value = (int) env('RESIDENT_MAX_CONCURRENT', 100);
+    return max(1, min(1000, $value));
 }
 
 function clear_expired_active_sessions($pdo) {
@@ -293,7 +306,7 @@ function release_active_sessions_for_user_role($pdo, $user_id, $role, $reason = 
 
 function register_active_session_with_caps($pdo, $user, $session_id, $session_lifetime_seconds) {
     $role = $user['role'] ?? 'resident';
-    $is_tracked_role = is_session_policy_tracked_role($role);
+    $is_tracked_role = is_concurrency_tracked_role($role);
     if (!$is_tracked_role) {
         return ['allowed' => true];
     }
@@ -335,12 +348,12 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
                     return ['allowed' => false, 'message' => "Admin concurrent login limit reached ({$cap}). Please wait for a slot to free up."];
                 }
             }
-        } elseif ($concurrency_caps_enabled) {
+                } elseif ($concurrency_caps_enabled && is_official_role_only($role)) {
             $cap = get_official_max_concurrent();
             $count_stmt = $pdo->prepare("SELECT id
                                          FROM active_user_sessions
                                          WHERE is_active = 1
-                                                                                     AND role IN ('official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod')
+                                                                                     AND role IN ('barangay-officials', 'barangay-kagawad', 'barangay-tanod')
                                            AND expires_at > NOW()
                                          FOR UPDATE");
             $count_stmt->execute();
@@ -358,6 +371,30 @@ function register_active_session_with_caps($pdo, $user, $session_id, $session_li
                     $pdo->rollBack();
                     log_concurrency_denial($pdo, $user, 'official', $cap, $active_count);
                     return ['allowed' => false, 'message' => "Official concurrent login limit reached ({$cap}). Please wait for a slot to free up."];
+                }
+            }
+        } elseif ($concurrency_caps_enabled && $role === 'resident') {
+            $cap = get_resident_max_concurrent();
+            $count_stmt = $pdo->prepare("SELECT id
+                                         FROM active_user_sessions
+                                         WHERE is_active = 1
+                                           AND role = 'resident'
+                                           AND expires_at > NOW()
+                                         FOR UPDATE");
+            $count_stmt->execute();
+            $active_count = $count_stmt->rowCount();
+
+            if ($active_count >= $cap) {
+                $released = release_active_sessions_for_user_role($pdo, $user['id'] ?? 0, 'resident');
+                if ($released > 0) {
+                    $count_stmt->execute();
+                    $active_count = $count_stmt->rowCount();
+                }
+
+                if ($active_count >= $cap) {
+                    $pdo->rollBack();
+                    log_concurrency_denial($pdo, $user, 'resident', $cap, $active_count);
+                    return ['allowed' => false, 'message' => "Resident concurrent login limit reached ({$cap}). Please wait for a slot to free up."];
                 }
             }
         }
@@ -591,6 +628,7 @@ function is_logged_in() {
         // Officials (including admin) get longer timeout (30 minutes), regular users get 5 minutes
         $user_role = $_SESSION['role'] ?? 'resident';
         $is_official = is_session_policy_tracked_role($user_role);
+        $is_concurrency_tracked = is_concurrency_tracked_role($user_role);
         
         if ($is_official) {
             $session_lifetime = (int)env('ADMIN_SESSION_LIFETIME', 30 * 60); // 30 minutes for officials
@@ -607,8 +645,8 @@ function is_logged_in() {
             global $pdo;
             if (isset($pdo) && $pdo instanceof PDO) {
                 try {
-                    if (is_session_policy_tracked_role($user_role)) {
-                        // Only enforce heartbeat for tracked roles (admin/official)
+                    if ($is_concurrency_tracked) {
+                        // Keep active sessions fresh for tracked roles.
                         // Silence all errors to prevent unexpected logouts
                         @clear_expired_active_sessions_with_audit($pdo, 'heartbeat');
                         @$heartbeat_ok = refresh_active_session_heartbeat($pdo, session_id(), $session_lifetime);
@@ -643,7 +681,7 @@ function is_logged_in() {
  */
 function is_admin_or_official() {
     if (!isset($_SESSION['role'])) return false;
-    return in_array($_SESSION['role'], ['admin', 'official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod']);
+    return in_array($_SESSION['role'], ['admin', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod'], true);
 }
 
 /**

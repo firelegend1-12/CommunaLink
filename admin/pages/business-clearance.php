@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Barangay Business Clearance Certificate
  */
@@ -44,8 +45,8 @@ $valid_until = date('F j, Y', strtotime('+1 year'));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Barangay Business Clearance - <?php echo $business_name; ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>Barangay Pakiad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {
             body { -webkit-print-color-adjust: exact; }
@@ -82,26 +83,34 @@ $valid_until = date('F j, Y', strtotime('+1 year'));
                 
                 <div class="grid grid-cols-3 gap-x-4 mb-4">
                     <p class="font-bold">Business Name:</p>
-                    <p class="col-span-2"><?php echo $business_name; ?></p>
+                    <p class="col-span-2"><?php
+echo $business_name; ?></p>
                 </div>
                 <div class="grid grid-cols-3 gap-x-4 mb-4">
                     <p class="font-bold">Owner/Proprietor:</p>
-                    <p class="col-span-2"><?php echo $owner_full_name; ?></p>
+                    <p class="col-span-2"><?php
+echo $owner_full_name; ?></p>
                 </div>
                 <div class="grid grid-cols-3 gap-x-4 mb-4">
                     <p class="font-bold">Business Address:</p>
-                    <p class="col-span-2"><?php echo $business_address; ?></p>
+                    <p class="col-span-2"><?php
+echo $business_address; ?></p>
                 </div>
                 <div class="grid grid-cols-3 gap-x-4 mb-8">
                     <p class="font-bold">Type of Business:</p>
-                    <p class="col-span-2"><?php echo $business_type; ?></p>
+                    <p class="col-span-2"><?php
+echo $business_type; ?></p>
                 </div>
 
-                <p class="mb-6">This clearance is issued upon the request of the above-named person in connection with his/her application for a Business Permit for the year <?php echo date('Y'); ?>.</p>
+                <p class="mb-6">This clearance is issued upon the request of the above-named person in connection with his/her application for a Business Permit for the year <?php
+echo date('Y'); ?>.</p>
                 
-                <p class="mb-8">This certification is valid until <span class="font-bold"><?php echo $valid_until; ?></span>.</p>
+                <p class="mb-8">This certification is valid until <span class="font-bold"><?php
+echo $valid_until; ?></span>.</p>
 
-                <p>Issued this <span class="font-bold"><?php echo date('jS'); ?></span> day of <span class="font-bold"><?php echo date('F Y'); ?></span> at the Office of the Punong Barangay, Barangay [Barangay Name], [Municipality], [Province].</p>
+                <p>Issued this <span class="font-bold"><?php
+echo date('jS'); ?></span> day of <span class="font-bold"><?php
+echo date('F Y'); ?></span> at the Office of the Punong Barangay, Barangay [Barangay Name], [Municipality], [Province].</p>
             </div>
             
             <div class="mt-20 text-right">
@@ -115,7 +124,8 @@ $valid_until = date('F j, Y', strtotime('+1 year'));
             <div class="absolute bottom-10 left-10 text-xs text-gray-400">
                 <p>Doc Stamp:</p>
                 <p>OR No.:</p>
-                <p>Date Issued: <?php echo $date_issued; ?></p>
+                <p>Date Issued: <?php
+echo $date_issued; ?></p>
             </div>
         </div>
     </div>
@@ -123,3 +133,5 @@ $valid_until = date('F j, Y', strtotime('+1 year'));
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
 </body>
 </html> 
+
+

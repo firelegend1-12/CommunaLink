@@ -5,19 +5,18 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/permission_checker.php';
 require_once '../../includes/storage_manager.php';
 
 header('Content-Type: application/json');
 
-// Check if user is logged in as an authorized official
-if (!is_admin_or_official()) {
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-    exit;
-}
+require_login();
+require_permission_or_json('manage_incidents', 403, 'Forbidden');
 
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 
 if (!$id) {
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid Incident ID']);
     exit;
 }
@@ -34,6 +33,7 @@ try {
     $incident = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$incident) {
+        http_response_code(404);
         echo json_encode(['success' => false, 'error' => 'Incident report not found']);
         exit;
     }
@@ -47,5 +47,7 @@ try {
     ]);
 
 } catch (PDOException $e) {
-    echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+    error_log('get-incident-details failed: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Database error while fetching incident details.']);
 }

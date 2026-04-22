@@ -5,18 +5,21 @@
 
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/permission_checker.php';
 
 require_login();
+require_permission_or_redirect('manage_documents', '../pages/new-certificate-of-residency.php');
 
-if (!is_admin_or_official()) {
-    $_SESSION['error_message'] = 'Unauthorized access.';
+// Check if the request method is POST
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ../pages/new-certificate-of-residency.php');
     exit();
 }
 
-// Check if the request method is POST
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if (!csrf_validate()) {
+    $_SESSION['error_message'] = 'Invalid security token. Please refresh and try again.';
     header('Location: ../pages/new-certificate-of-residency.php');
     exit();
 }

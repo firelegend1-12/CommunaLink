@@ -123,19 +123,19 @@ $page_title = "Forgot Password - CommunaLink";
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?></title>
+    <title>Barangay Pakiad</title>
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/auth.css">
-    <link rel="icon" href="assets/svg/logos.jpg" type="image/jpeg">
+    <link rel="icon" href="assets/images/barangay-logo.png" type="image/png">
 </head>
 <body>
     <div class="auth-container">
         <!-- Header -->
         <header class="auth-header">
             <div class="auth-header-left">
-                <img src="assets/svg/logos.jpg" alt="CommunaLink Logo" style="height: 50px; width: auto;">
+                <img src="assets/images/barangay-logo.png" alt="Barangay Logo" style="height: 72px; width: auto;">
             </div>
         </header>
 
@@ -198,6 +198,7 @@ $page_title = "Forgot Password - CommunaLink";
     </div>
 </body>
 </html>
+
 
 
 

@@ -1,8 +1,8 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * User Management - Modernized
  */
-require_once '../partials/admin_auth.php';
 require_once '../../includes/functions.php';
 
 // Note: Advanced User Management is typically restricted to the 'admin' role
@@ -44,7 +44,7 @@ try {
 
                 $active_official_stmt = $pdo->query("SELECT COUNT(*) FROM active_user_sessions
                                                                                          WHERE is_active = 1
-                                                                                             AND role IN ('official', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod')
+                                                                                             AND role IN ('barangay-officials', 'barangay-kagawad', 'barangay-tanod')
                                                                                              AND expires_at > NOW()");
                 $active_official_sessions = (int) $active_official_stmt->fetchColumn();
 
@@ -108,7 +108,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?> - CommunaLink</title>
+    <title>Barangay Pakiad</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
@@ -124,7 +124,7 @@ try {
         .user-row:hover .user-actions { opacity: 1; }
     </style>
 </head>
-<body class="bg-[#F8FAFC] min-h-screen text-[#1E293B]">
+<body class="bg-gray-100 min-h-screen text-[#1E293B]">
     <div class="flex h-screen overflow-hidden" x-data="{ 
         search: '',
         currentRole: '<?= $role_filter ?>'
@@ -145,7 +145,7 @@ try {
                         
                         <div class="flex items-center gap-4">
                             <a href="add-user.php" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center transition shadow-md shadow-indigo-500/20">
-                                <i class="fas fa-user-plus mr-2"></i> CREATE ACCOUNT
+                                <i class="fas fa-user-plus mr-2"></i> CREATE PRIVILEGED USER
                             </a>
                             
                             <div class="h-8 w-px bg-slate-200 mx-2"></div>
@@ -533,3 +533,4 @@ try {
     </script>
 </body>
 </html>
+

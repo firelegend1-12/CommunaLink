@@ -7,20 +7,18 @@ require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 
 require_login();
 
 header('Content-Type: application/json');
 
-if (!is_admin_or_official()) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-    exit;
-}
-
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Invalid request method']);
+    if (!headers_sent()) {
+        header('Allow: POST');
+    }
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => 'Method not allowed']);
     exit;
 }
 
@@ -40,8 +38,18 @@ if (!$id || !$type || !$status) {
     exit;
 }
 
+if ($type === 'document') {
+    require_permission_or_json('manage_documents', 403, 'Forbidden');
+} elseif ($type === 'business') {
+    require_permission_or_json('manage_businesses', 403, 'Forbidden');
+} else {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'Invalid type']);
+    exit;
+}
+
 $valid_statuses = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled'];
-if (!in_array($status, $valid_statuses)) {
+if (!in_array($status, $valid_statuses, true)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid status']);
     exit;
@@ -51,11 +59,9 @@ try {
     if ($type === 'document') {
         $stmt = $pdo->prepare("UPDATE document_requests SET status = ? WHERE id = ?");
         $stmt->execute([$status, $id]);
-    } else if ($type === 'business') {
+    } elseif ($type === 'business') {
         $stmt = $pdo->prepare("UPDATE business_transactions SET status = ? WHERE id = ?");
         $stmt->execute([$status, $id]);
-    } else {
-        throw new Exception('Invalid type');
     }
 
     // Fetch updated record to return details for row update
@@ -75,6 +81,7 @@ try {
     ]);
 
 } catch (Exception $e) {
+    error_log('ajax-update-request-status failed: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'error' => 'Failed to update status']);
 }

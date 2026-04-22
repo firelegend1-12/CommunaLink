@@ -112,7 +112,6 @@ Files exist in repository with plaintext credentials visible in commit history.
 - Files updated:
   - resident/dashboard.php
   - resident/my-reports.php
-  - resident/chat.php
   - (Others already used conditional pattern)
 
 ### Impact

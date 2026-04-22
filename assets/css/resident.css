@@ -1310,33 +1310,6 @@ button,
     }
 }
 
-/* --- Chat Page Responsive --- */
-@media (max-width: 767px) {
-    .chat-window {
-        height: calc(100vh - 140px - 70px) !important; /* account for header + bottom nav */
-        border-radius: 0 !important;
-        box-shadow: none !important;
-    }
-    .chat-header {
-        padding: 14px 16px !important;
-    }
-    .chat-header h2 {
-        font-size: 1.2rem !important;
-    }
-    .messages-area {
-        padding: 12px !important;
-    }
-    .message-input-area {
-        padding: 12px !important;
-    }
-    .message-bubble {
-        max-width: 85% !important;
-    }
-    .message-input-form input {
-        padding: 10px 14px !important;
-    }
-}
-
 /* --- Account Page Responsive --- */
 @media (max-width: 767px) {
     .account-container {

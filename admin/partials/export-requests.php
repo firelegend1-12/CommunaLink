@@ -6,13 +6,10 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/permission_checker.php';
 
 require_login();
-
-if (!is_admin_or_official()) {
-    $_SESSION['error_message'] = 'Unauthorized access.';
-    redirect_to('../pages/monitoring-of-request.php');
-}
+require_permission_or_redirect('view_monitoring_requests', '../pages/monitoring-of-request.php');
 
 // Get filter parameters
 $search_query = isset($_GET['search']) ? sanitize_input($_GET['search']) : '';
@@ -114,10 +111,9 @@ if ($type_filter === 'document') {
 
 try {
     // Fetch all matching records (no pagination for export)
-    
-    $stmt = $pdo->prepare($final_sql);
+
     $final_sql = "SELECT * FROM ({$union_query}) AS combined {$where_clause} ORDER BY {$sort_by} {$sort_dir}";
-    
+
     $stmt = $pdo->prepare($final_sql);
     $stmt->execute($exec_params);
     $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);

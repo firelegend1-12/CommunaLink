@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Barangay Clearance Printable Template (Form Replica)
  */
@@ -61,15 +62,16 @@ $punong_barangay = $_SESSION['fullname'] ?? '_________________________';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($page_title) ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>Barangay Pakiad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .no-print { display: none !important; }
             .printable-area { margin: 0; padding: 1rem; border: none; box-shadow: none; }
         }
-<?php if ($is_view_only): ?>
+<?php
+if ($is_view_only): ?>
         @media print {
             body * { visibility: hidden !important; }
             body::before {
@@ -82,7 +84,8 @@ $punong_barangay = $_SESSION['fullname'] ?? '_________________________';
                 font-weight: 700;
             }
         }
-<?php endif; ?>
+<?php
+endif; ?>
         input[readonly], textarea[readonly] {
             background-color: #f3f4f6; /* Tailwind's gray-100 */
         }
@@ -94,18 +97,22 @@ $punong_barangay = $_SESSION['fullname'] ?? '_________________________';
         <a href="monitoring-of-request.php" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded shadow">
             Back
         </a>
-<?php if (!$is_view_only): ?>
+<?php
+if (!$is_view_only): ?>
         <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow">
             Print Application
         </button>
-<?php endif; ?>
+<?php
+endif; ?>
     </div>
 
-<?php if ($is_view_only): ?>
+<?php
+if ($is_view_only): ?>
     <div class="no-print fixed top-4 right-4 z-50 bg-yellow-100 border border-yellow-300 text-yellow-900 px-3 py-2 rounded shadow text-xs font-bold uppercase tracking-wide">
         Viewing purpose only
     </div>
-<?php endif; ?>
+<?php
+endif; ?>
 
     <div class="printable-area max-w-4xl mx-auto my-8 p-8 bg-white shadow-lg">
         <div class="text-center border-b pb-4 mb-6">
@@ -206,7 +213,8 @@ $punong_barangay = $_SESSION['fullname'] ?? '_________________________';
     </div>
 
 </body>
-<?php if ($is_view_only): ?>
+<?php
+if ($is_view_only): ?>
 <script>
 document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
@@ -219,5 +227,8 @@ window.print = function() {
     alert('Printing is disabled in view-only mode.');
 };
 </script>
-<?php endif; ?>
+<?php
+endif; ?>
 </html> 
+
+

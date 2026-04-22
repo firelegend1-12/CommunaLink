@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 /**
  * Barangay Resident ID Card
  */
@@ -10,6 +11,31 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin'])) {
 }
 
 require_once '../../config/init.php';
+require_once '../../includes/functions.php';
+require_once '../../includes/storage_manager.php';
+
+function admin_resident_profile_image_url(string $storedPath): string
+{
+    $path = trim($storedPath);
+    if ($path === '') {
+        return '';
+    }
+
+    if (strpos($path, 'gs://') === 0 || preg_match('#^https?://#i', $path) === 1) {
+        return StorageManager::resolvePublicUrl($path);
+    }
+
+    $normalized = ltrim(str_replace('\\', '/', $path), '/');
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (stripos($normalized, 'admin/') === 0) {
+        return app_url('/' . $normalized);
+    }
+
+    return app_url('/admin/' . $normalized);
+}
 
 $resident_id = $_GET['id'] ?? null;
 if (!$resident_id) {
@@ -32,6 +58,7 @@ $full_name = strtoupper($resident['last_name'] . ', ' . $resident['first_name'] 
 $address = strtoupper('123 AGUSTIN STREET, BGRY PAKIAD, ILOILO CITY'); // Example address
 $qr_data = "Resident ID: {$resident['id']}\nName: {$full_name}";
 $qr_code_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' . urlencode($qr_data);
+$resident_photo_url = admin_resident_profile_image_url((string)($resident['profile_image_path'] ?? ''));
 ?>
 <div class="id-card rounded-xl shadow-lg p-2 flex flex-col relative overflow-hidden">
     <!-- Background Map -->
@@ -55,8 +82,10 @@ $qr_code_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' 
     <div class="flex-grow flex z-10">
         <!-- Left Side: Photo and Address -->
         <div class="w-1/4 flex flex-col items-center mr-2">
-            <img src="<?php echo htmlspecialchars($resident['profile_image_path'] ? '../' . $resident['profile_image_path'] : 'https://via.placeholder.com/150'); ?>" alt="Resident Photo" class="w-20 h-20 object-cover border-2 border-white shadow-md">
-            <p class="text-center mt-1 font-bold text-xxs leading-tight"><?php echo htmlspecialchars($address); ?></p>
+            <img src="<?php
+echo htmlspecialchars($resident_photo_url !== '' ? $resident_photo_url : 'https://via.placeholder.com/150'); ?>" alt="Resident Photo" class="w-20 h-20 object-cover border-2 border-white shadow-md">
+            <p class="text-center mt-1 font-bold text-xxs leading-tight"><?php
+echo htmlspecialchars($address); ?></p>
         </div>
 
         <!-- Right Side: Details -->
@@ -65,20 +94,24 @@ $qr_code_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' 
             <div class="w-3/4 pr-2 space-y-1">
                 <div>
                     <p class="text-gray-500 uppercase tracking-wider text-xxs">LAST NAME, FIRST NAME, MI.</p>
-                    <p class="font-bold text-xs"><?php echo htmlspecialchars($full_name); ?></p>
+                    <p class="font-bold text-xs"><?php
+echo htmlspecialchars($full_name); ?></p>
                 </div>
                 <div class="grid grid-cols-3 gap-x-2">
                     <div>
                         <p class="text-gray-500 uppercase text-xxs">DATE OF BIRTH</p>
-                        <p class="font-bold"><?php echo htmlspecialchars(date('m/d/Y', strtotime($resident['date_of_birth']))); ?></p>
+                        <p class="font-bold"><?php
+echo htmlspecialchars(date('m/d/Y', strtotime($resident['date_of_birth']))); ?></p>
                     </div>
                     <div>
                         <p class="text-gray-500 uppercase text-xxs">CIVIL STATUS</p>
-                        <p class="font-bold"><?php echo htmlspecialchars(strtoupper($resident['civil_status'])); ?></p>
+                        <p class="font-bold"><?php
+echo htmlspecialchars(strtoupper($resident['civil_status'])); ?></p>
                     </div>
                     <div>
                         <p class="text-gray-500 uppercase text-xxs">GENDER</p>
-                        <p class="font-bold"><?php echo htmlspecialchars(strtoupper(substr($resident['gender'], 0, 1))); ?></p>
+                        <p class="font-bold"><?php
+echo htmlspecialchars(strtoupper(substr($resident['gender'], 0, 1))); ?></p>
                     </div>
                 </div>
                 <div class="grid grid-cols-3 gap-x-2">
@@ -98,23 +131,28 @@ $qr_code_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' 
                  <div class="grid grid-cols-3 gap-x-2">
                     <div>
                         <p class="text-gray-500 uppercase text-xxs">CONTACT NO</p>
-                        <p class="font-bold"><?php echo htmlspecialchars($resident['contact_no']); ?></p>
+                        <p class="font-bold"><?php
+echo htmlspecialchars($resident['contact_no']); ?></p>
                     </div>
                     <div>
                         <p class="text-gray-500 uppercase text-xxs">ISSUED</p>
-                        <p class="font-bold"><?php echo date('m/d/y'); ?></p>
+                        <p class="font-bold"><?php
+echo date('m/d/y'); ?></p>
                     </div>
                     <div>
                         <p class="text-gray-500 uppercase text-xxs">VALID UNTIL</p>
-                        <p class="font-bold"><?php echo date('m/d/y', strtotime('+1 year')); ?></p>
+                        <p class="font-bold"><?php
+echo date('m/d/y', strtotime('+1 year')); ?></p>
                     </div>
                 </div>
             </div>
 
             <!-- QR Code -->
             <div class="w-1/4 flex items-end justify-center">
-                <img src="<?php echo $qr_code_url; ?>" alt="QR Code" class="w-16 h-16">
+                <img src="<?php
+echo $qr_code_url; ?>" alt="QR Code" class="w-16 h-16">
             </div>
         </div>
     </div>
 </div> 
+

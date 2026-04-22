@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `password` VARCHAR(255) NOT NULL,
     `fullname` VARCHAR(100) NOT NULL,
     `email` VARCHAR(100) NOT NULL UNIQUE,
-    `role` ENUM('admin', 'resident', 'barangay-captain', 'kagawad', 'barangay-secretary', 'barangay-treasurer', 'barangay-tanod') NOT NULL DEFAULT 'resident',
+    `role` ENUM('admin', 'resident', 'barangay-officials', 'barangay-kagawad', 'barangay-tanod') NOT NULL DEFAULT 'resident',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `last_login` DATETIME DEFAULT NULL,
     PRIMARY KEY (`id`)
@@ -182,26 +182,11 @@ CREATE TABLE IF NOT EXISTS `incidents` (
     `status` ENUM('Pending', 'In Progress', 'Resolved', 'Rejected') NOT NULL DEFAULT 'Pending',
     `reported_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `admin_remarks` TEXT DEFAULT NULL,
+    `rejection_reason` TEXT DEFAULT NULL,
     PRIMARY KEY (`id`),
     FOREIGN KEY (`resident_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
     INDEX `idx_incidents_reported_at` (`reported_at`),
     INDEX `idx_incidents_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Table: chat_messages
-CREATE TABLE IF NOT EXISTS `chat_messages` (
-    `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `sender_id` INT(11) NOT NULL,
-    `receiver_id` INT(11) NOT NULL,
-    `message` TEXT NOT NULL,
-    `sent_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    `is_read` TINYINT(1) NOT NULL DEFAULT 0,
-    PRIMARY KEY (`id`),
-    FOREIGN KEY (`sender_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-    FOREIGN KEY (`receiver_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-    INDEX `idx_chat_sender_id` (`sender_id`),
-    INDEX `idx_chat_receiver_id` (`receiver_id`),
-    INDEX `idx_chat_sent_at` (`sent_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table: announcements

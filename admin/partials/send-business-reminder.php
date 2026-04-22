@@ -2,17 +2,27 @@
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 require_once '../../includes/notification_system.php';
 
 header('Content-Type: application/json');
 
-if (!is_admin_or_official()) {
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+require_login();
+require_permission_or_json('manage_businesses', 403, 'Forbidden');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    if (!headers_sent()) {
+        header('Allow: POST');
+    }
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => 'Method not allowed']);
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'error' => 'Invalid request method']);
+if (!csrf_validate()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Invalid security token.']);
     exit;
 }
 
@@ -22,6 +32,7 @@ $business_name = sanitize_input(trim($_POST['business_name'] ?? 'your business')
 $expiry_date = trim($_POST['expiry_date'] ?? '');
 
 if ($resident_id <= 0 || $business_id <= 0) {
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
     exit;
 }
@@ -29,6 +40,7 @@ if ($resident_id <= 0 || $business_id <= 0) {
 $rate_identifier = ($_SESSION['user_id'] ?? 'unknown') . ':' . $resident_id;
 $limit = RateLimiter::checkRateLimit('api_calls', $rate_identifier);
 if (!$limit['allowed']) {
+    http_response_code(429);
     echo json_encode([
         'success' => false,
         'error' => $limit['message'] ?? 'Too many requests. Please try again later.'
@@ -47,6 +59,7 @@ try {
     $resident = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$resident) {
+        http_response_code(404);
         echo json_encode(['success' => false, 'error' => 'Resident not found']);
         exit;
     }
@@ -56,6 +69,7 @@ try {
     $is_business_owned_by_resident = ((int) $business_owner_stmt->fetchColumn()) > 0;
 
     if (!$is_business_owned_by_resident) {
+        http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Business record does not belong to the selected resident']);
         exit;
     }
@@ -65,6 +79,7 @@ try {
 
     $resident_user_id = (int) ($resident['user_id'] ?? 0);
     if ($resident_user_id <= 0) {
+        http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Resident account is not linked to a user profile']);
         exit;
     }
@@ -81,6 +96,7 @@ try {
     );
 
     if (!$delivery['success']) {
+        http_response_code(500);
         echo json_encode(['success' => false, 'error' => $delivery['error'] ?? 'Failed to send reminder']);
         exit;
     }
@@ -104,5 +120,6 @@ try {
     ]);
 } catch (Exception $e) {
     error_log('send-business-reminder failed: ' . $e->getMessage());
+    http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Failed to send reminder']);
 }

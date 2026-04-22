@@ -55,24 +55,16 @@ if ($user_id) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($page_title) ?> - Barangay Pakiad</title>
+    <title>Barangay Pakiad</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome 6.4.2 CDN -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="../assets/css/resident.css">
     <!-- PWA Setup -->
-    <link rel="manifest" href="/resident/manifest.json">
+    <link rel="manifest" href="<?= htmlspecialchars(app_url('/resident/manifest.json')) ?>">
     <meta name="theme-color" content="#5c67e2">
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/resident/sw.js', { scope: '/resident/' })
-                    .then(reg => console.log('Service Worker registered successfully!', reg))
-                    .catch(err => console.log('Service Worker registration failed: ', err));
-            });
-        }
-    </script>
+    <script src="../assets/js/system-worker.js" defer></script>
     <style>
         /* Inlined styles for resident pages */
         :root {
@@ -230,7 +222,7 @@ if ($user_id) {
                 <button class="hamburger-btn" id="hamburger-btn" aria-label="Open navigation menu" aria-expanded="false">
                     <i class="fas fa-bars"></i>
                 </button>
-                <div class="header-menu relative">
+                <div class="header-menu relative" style="margin-left: auto;">
                     <!-- Notification Bell -->
                     <div class="relative group" id="notif-bell-wrapper">
                         <button id="notif-bell" class="focus:outline-none">
@@ -268,9 +260,20 @@ if ($user_id) {
                         </div>
                     </div>
                     <span>Welcome, <?= htmlspecialchars($user_fullname) ?></span>
-                    <a href="account.php" class="text-blue-600 hover:text-blue-800 transition-colors duration-200" title="My Account">
-                        <i class="fas fa-user-circle"></i>
-                    </a>
+                    <div id="profile-wrapper" class="relative" style="margin-left: 12px; cursor: pointer;">
+                        <button id="profile-btn" class="focus:outline-none flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors duration-200" title="Profile Menu">
+                            <i class="fas fa-user-circle" style="font-size: 32px;"></i>
+                            <i class="fas fa-chevron-down text-[10px]"></i>
+                        </button>
+                        <!-- Profile Dropdown -->
+                        <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
+                            <div class="py-2">
+                                <a href="account.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"><i class="fas fa-user-cog w-5 text-center mr-2 text-blue-500"></i> My Account</a>
+                                <div class="border-t border-gray-100 my-1"></div>
+                                <a href="../includes/logout.php" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"><i class="fas fa-sign-out-alt w-5 text-center mr-2"></i> Logout</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </header>
             <main class="page-main"> 
@@ -319,6 +322,11 @@ if ($user_id) {
                 if (bell && dropdown) {
                     bell.addEventListener('click', function(e) {
                         e.stopPropagation();
+                        // Close profile dropdown if open
+                        const profDrop = document.getElementById('profile-dropdown');
+                        if (profDrop && !profDrop.classList.contains('hidden')) {
+                            profDrop.classList.add('hidden');
+                        }
                         dropdown.classList.toggle('hidden');
                         // Mark notifications as read via AJAX
                         if (!dropdown.classList.contains('hidden')) {
@@ -345,8 +353,55 @@ if ($user_id) {
                         }
                     });
                 }
+                
+                // Toggle profile dropdown
+                const profileBtn = document.getElementById('profile-btn');
+                const profileDropdown = document.getElementById('profile-dropdown');
+                const profileWrapper = document.getElementById('profile-wrapper');
+                if (profileBtn && profileDropdown) {
+                    profileBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        // Close notif dropdown if open
+                        if (dropdown && !dropdown.classList.contains('hidden')) {
+                            dropdown.classList.add('hidden');
+                        }
+                        profileDropdown.classList.toggle('hidden');
+                    });
+                    document.addEventListener('click', function(e) {
+                        if (profileWrapper && !profileWrapper.contains(e.target)) {
+                            profileDropdown.classList.add('hidden');
+                        }
+                    });
+                }
 
-                // Live notification polling
+                // Live notification polling + browser notification prompt
+                const initialNotificationIds = <?php echo json_encode(array_map('intval', array_column($notifications, 'id'))); ?>;
+                const knownNotificationIds = new Set((Array.isArray(initialNotificationIds) ? initialNotificationIds : []).map(function(id) {
+                    return String(id);
+                }));
+
+                const browserPromptKey = 'communalink_browser_notif_prompted_v1';
+                const browserEnabledKey = 'communalink_browser_notif_enabled_v1';
+                const defaultBrowserNotifLink = <?php echo json_encode(app_url('/resident/notifications.php')); ?>;
+                const defaultBrowserNotifIcon = <?php echo json_encode(app_url('/assets/images/barangay-logo.png')); ?>;
+                let browserNotificationsEnabled = false;
+
+                function getStoredPreference(key) {
+                    try {
+                        return window.localStorage.getItem(key);
+                    } catch (error) {
+                        return null;
+                    }
+                }
+
+                function setStoredPreference(key, value) {
+                    try {
+                        window.localStorage.setItem(key, value);
+                    } catch (error) {
+                        // Ignore storage write failures (private mode / browser policy).
+                    }
+                }
+
                 function escapeHtml(value) {
                     return String(value || '')
                         .replace(/&/g, '&amp;')
@@ -375,29 +430,140 @@ if ($user_id) {
                     return /^[A-Za-z0-9_\-\/.]+(?:\?[A-Za-z0-9_\-\.=&%]*)?$/.test(link) ? link : '';
                 }
 
-                function updateNotifications(notifications) {
-                    let unread = notifications.filter(n => n.is_read == 0).length;
-                    // Update badge
-                    let badge = bell.querySelector('span');
-                    if (unread > 0) {
-                        if (!badge) {
-                            badge = document.createElement('span');
-                            badge.className = 'absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5 font-bold animate-pulse';
-                            bell.appendChild(badge);
-                        }
-                        badge.textContent = unread;
-                        badge.style.display = '';
-                    } else if (badge) {
-                        badge.style.display = 'none';
+                function syncBrowserNotificationFlag() {
+                    if (!('Notification' in window)) {
+                        browserNotificationsEnabled = false;
+                        return;
                     }
-                    // Update dropdown
+
+                    const storedEnabled = getStoredPreference(browserEnabledKey);
+                    const hasPermission = Notification.permission === 'granted';
+                    browserNotificationsEnabled = hasPermission && storedEnabled !== '0';
+
+                    if (hasPermission && storedEnabled !== '1') {
+                        setStoredPreference(browserEnabledKey, '1');
+                    }
+
+                    if (Notification.permission !== 'default') {
+                        setStoredPreference(browserPromptKey, '1');
+                    }
+                }
+
+                function maybePromptBrowserNotifications() {
+                    if (!('Notification' in window)) {
+                        return;
+                    }
+
+                    syncBrowserNotificationFlag();
+
+                    if (Notification.permission !== 'default') {
+                        return;
+                    }
+
+                    if (getStoredPreference(browserPromptKey) === '1') {
+                        return;
+                    }
+
+                    window.setTimeout(function() {
+                        const wantsBrowserNotifications = window.confirm('Enable browser notifications for new barangay announcements and alerts?');
+                        setStoredPreference(browserPromptKey, '1');
+
+                        if (!wantsBrowserNotifications) {
+                            setStoredPreference(browserEnabledKey, '0');
+                            syncBrowserNotificationFlag();
+                            return;
+                        }
+
+                        Notification.requestPermission().then(function(permission) {
+                            if (permission === 'granted') {
+                                setStoredPreference(browserEnabledKey, '1');
+                            } else {
+                                setStoredPreference(browserEnabledKey, '0');
+                            }
+                            syncBrowserNotificationFlag();
+                        }).catch(function() {
+                            setStoredPreference(browserEnabledKey, '0');
+                            syncBrowserNotificationFlag();
+                        });
+                    }, 1200);
+                }
+
+                function showBrowserNotification(notif) {
+                    syncBrowserNotificationFlag();
+                    if (!browserNotificationsEnabled || !('Notification' in window) || Notification.permission !== 'granted') {
+                        return;
+                    }
+
+                    const title = (notif && notif.title) ? String(notif.title) : 'New Barangay Alert';
+                    const message = (notif && notif.message) ? String(notif.message) : 'You have a new notification.';
+                    const targetLink = sanitizeNotificationLink((notif && notif.link) ? notif.link : '') || defaultBrowserNotifLink;
+
+                    const options = {
+                        body: message,
+                        icon: defaultBrowserNotifIcon,
+                        badge: defaultBrowserNotifIcon,
+                        tag: 'communalink-resident-' + String(notif && notif.id ? notif.id : Date.now()),
+                        data: {
+                            link: targetLink
+                        }
+                    };
+
+                    const fallbackShow = function() {
+                        try {
+                            const browserNotification = new Notification(title, options);
+                            browserNotification.onclick = function() {
+                                window.focus();
+                                window.location.href = targetLink;
+                            };
+                        } catch (error) {
+                            // Browser blocked direct Notification constructor.
+                        }
+                    };
+
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.ready
+                            .then(function(registration) {
+                                if (registration && typeof registration.showNotification === 'function') {
+                                    return registration.showNotification(title, options);
+                                }
+                                fallbackShow();
+                                return null;
+                            })
+                            .catch(function() {
+                                fallbackShow();
+                            });
+                        return;
+                    }
+
+                    fallbackShow();
+                }
+
+                function updateNotifications(notifications) {
+                    const safeNotifications = Array.isArray(notifications) ? notifications : [];
+                    const unread = safeNotifications.filter(function(n) { return n.is_read == 0; }).length;
+
+                    if (bell) {
+                        let badge = bell.querySelector('span');
+                        if (unread > 0) {
+                            if (!badge) {
+                                badge = document.createElement('span');
+                                badge.className = 'absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5 font-bold animate-pulse';
+                                bell.appendChild(badge);
+                            }
+                            badge.textContent = unread;
+                            badge.style.display = '';
+                        } else if (badge) {
+                            badge.style.display = 'none';
+                        }
+                    }
+
                     let dropdownList = document.querySelector('#notif-dropdown ul');
                     if (dropdownList) {
                         dropdownList.innerHTML = '';
-                        if (notifications.length === 0) {
+                        if (safeNotifications.length === 0) {
                             dropdownList.innerHTML = '<li class="p-4 text-gray-500 text-center">No notifications</li>';
                         } else {
-                            notifications.forEach(function(notif) {
+                            safeNotifications.forEach(function(notif) {
                                 let li = document.createElement('li');
                                 li.className = 'px-4 py-3 border-b last:border-b-0 ' + (notif.is_read == 0 ? 'bg-blue-50' : '');
                                 const safeLink = sanitizeNotificationLink(notif.link);
@@ -424,14 +590,38 @@ if ($user_id) {
                         }
                     }
                 }
-                setInterval(function() {
+
+                function pollLiveNotifications() {
                     fetch('../resident/partials/fetch-live-updates.php')
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.notifications) {
-                                updateNotifications(data.notifications);
-                            }
+                        .then(function(res) { return res.json(); })
+                        .then(function(data) {
+                            const notifications = Array.isArray(data.notifications) ? data.notifications : [];
+                            const newUnreadNotifications = [];
+
+                            notifications.forEach(function(notif) {
+                                const notifId = String(notif.id || '');
+                                if (!notifId) {
+                                    return;
+                                }
+
+                                if (!knownNotificationIds.has(notifId)) {
+                                    knownNotificationIds.add(notifId);
+                                    if (String(notif.is_read) === '0') {
+                                        newUnreadNotifications.push(notif);
+                                    }
+                                }
+                            });
+
+                            updateNotifications(notifications);
+                            newUnreadNotifications.forEach(showBrowserNotification);
+                        })
+                        .catch(function() {
+                            // Keep silent during transient network failures.
                         });
-                }, 5000);
+                }
+
+                maybePromptBrowserNotifications();
+                pollLiveNotifications();
+                setInterval(pollLiveNotifications, 5000);
             });
             </script> 

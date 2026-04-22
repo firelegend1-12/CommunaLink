@@ -1,9 +1,20 @@
 <?php
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
+require_once '../../includes/permission_checker.php';
 
-if (!is_admin_or_official()) {
-    $_SESSION['error_message'] = 'Unauthorized.';
+require_login();
+require_permission_or_redirect('system_logs', '../pages/logs.php');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    $_SESSION['error_message'] = 'Invalid request method.';
+    header('Location: ../pages/logs.php');
+    exit;
+}
+
+if (!csrf_validate()) {
+    $_SESSION['error_message'] = 'Invalid security token. Please refresh and try again.';
     header('Location: ../pages/logs.php');
     exit;
 }

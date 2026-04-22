@@ -1,4 +1,5 @@
 <?php
+require_once '../partials/admin_auth.php';
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
@@ -6,7 +7,7 @@ require_once '../../includes/permission_checker.php';
 
 require_login();
 
-// Check manage_incidents permission (admin, barangay-captain, kagawad, barangay-tanod)
+// Check manage_incidents permission (admin, barangay-officials, barangay-kagawad, barangay-tanod)
 if (!require_permission('manage_incidents')) {
     if (isset($_SESSION['role']) && $_SESSION['role'] === 'resident') {
         redirect_to('../../resident/dashboard.php');
@@ -90,14 +91,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($page_title) ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>Barangay Pakiad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="flex h-screen overflow-hidden">
-        <?php include '../partials/sidebar.php'; ?>
+        <?php
+include '../partials/sidebar.php'; ?>
         <div class="flex flex-col flex-1 overflow-hidden">
             <header class="bg-white shadow-sm z-10">
                 <div class="px-4 sm:px-6 lg:px-8">
@@ -107,9 +109,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <!-- User Dropdown -->
                         <div x-data="{ open: false }" class="relative">
                             <button @click="open = !open" class="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 focus:outline-none">
-                                <span><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
+                                <span><?php
+echo htmlspecialchars($_SESSION['fullname']); ?></span>
                                 <div class="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-white">
-                                    <?php echo substr($_SESSION['fullname'], 0, 1); ?>
+                                    <?php
+echo substr($_SESSION['fullname'], 0, 1); ?>
                                 </div>
                             </button>
                             <div x-show="open" @click.away="open = false" x-cloak
@@ -139,11 +143,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </header>
             <main class="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
-                <?php if ($error_message): ?>
+                <?php
+if ($error_message): ?>
                     <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
                         <span class="block sm:inline"><?= htmlspecialchars($error_message) ?></span>
                     </div>
-                <?php endif; ?>
+                <?php
+endif; ?>
                 
                 <div class="bg-white rounded-lg shadow">
                     <div class="px-6 py-4 border-b border-gray-200">
@@ -200,3 +206,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </body>
 </html> 
+
+

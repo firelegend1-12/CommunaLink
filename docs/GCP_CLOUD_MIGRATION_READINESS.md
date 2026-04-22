@@ -93,7 +93,7 @@ Added variables:
 
 ### Phase E: Cutover
 1. Deploy to staging Cloud Run service.
-2. Run smoke tests (login, register, upload, notifications, chat).
+2. Run smoke tests (login, register, upload, notifications, incidents).
 3. Configure custom domain + managed SSL.
 4. Shift traffic gradually and monitor logs/errors.
 5. Keep rollback deployment revision available.
