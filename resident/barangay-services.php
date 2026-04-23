@@ -359,19 +359,6 @@ require_once 'partials/header.php';
 </div>
 
 <div class="services-grid">
-    <div class="service-card red" onclick="window.location.href='report-incident.php';" style="cursor: pointer;">
-        <div class="service-icon">
-            <i class="fas fa-exclamation-triangle"></i>
-        </div>
-        <div class="service-title">
-            <h3>Report Incident</h3>
-            <div class="service-subtitle">Emergency or issue reporting</div>
-        </div>
-        <p class="service-description">
-            Report emergencies, crimes, safety hazards, or any community issues that need attention.
-        </p>
-    </div>
-    
     <div class="service-card blue" onclick="window.location.href='my-reports.php';" style="cursor: pointer;">
         <div class="service-icon">
             <i class="fas fa-file-alt"></i>
@@ -398,47 +385,7 @@ require_once 'partials/header.php';
         </p>
     </div>
     
-    <div class="service-card purple">
-        <div class="service-icon">
-            <i class="fas fa-calendar-alt"></i>
-        </div>
-        <div class="service-title">
-            <h3>Barangay Events</h3>
-            <div class="service-subtitle">Community activities</div>
-        </div>
-        <p class="service-description">
-            Stay updated with upcoming events, activities, and community programs.
-        </p>
-    </div>
-    
-    <div class="service-card orange" onclick="window.location.href='#incident-map';" style="cursor: pointer;">
-        <div class="service-icon">
-            <i class="fas fa-map-marked-alt"></i>
-        </div>
-        <div class="service-title">
-            <h3>Incident Map</h3>
-            <div class="service-subtitle">View incident locations</div>
-        </div>
-        <p class="service-description">
-            View a map of reported incidents in the barangay and submit new reports.
-        </p>
-    </div>
-    
-    <div class="service-card indigo" onclick="window.location.href='notifications.php';" style="cursor: pointer;">
-        <div class="service-icon">
-            <i class="fas fa-bell"></i>
-        </div>
-        <div class="service-title">
-            <h3>Notifications</h3>
-            <div class="service-subtitle">Important updates</div>
-        </div>
-        <p class="service-description">
-            View the latest alerts and updates related to your requests, reports, and announcements.
-        </p>
-        <div style="text-align: center; margin-top: 10px;">
-            <div class="action-button">View Alerts</div>
-        </div>
-    </div>
+
 </div>
 
 <div class="document-services">
