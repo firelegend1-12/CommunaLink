@@ -31,30 +31,14 @@ try {
         exit;
     }
 
-    // Mirror the exact JSON structure the admin handler uses
+    // Store only the fields that match the SVG certificate
     $details = [
-        'application_type' => sanitize_input($_POST['application_type'] ?? 'New'),
-        'clearance_no' => '', // Admin fills this
-        'clearance_date' => '', // Admin fills this
-        'precinct_no' => sanitize_input($_POST['precinct_no'] ?? ''),
-        'resident_since' => sanitize_input($_POST['resident_since'] ?? ''),
-        'company_name' => sanitize_input($_POST['company_name'] ?? ''),
-        'references' => [
-            ['name' => sanitize_input($_POST['reference_1'] ?? '')],
-            ['name' => sanitize_input($_POST['reference_2'] ?? '')]
-        ],
-        'reference_tel_no' => sanitize_input($_POST['reference_tel_no'] ?? ''),
-        'ctc' => [
-            'no' => sanitize_input($_POST['ctc_no'] ?? ''),
-            'issued_at' => sanitize_input($_POST['ctc_issued_at'] ?? ''),
-            'issued_on' => sanitize_input($_POST['ctc_issued_on'] ?? ''),
-        ],
-        'fees' => [
-            'clearance_fee' => null,
-            'or_no' => '',
-            'or_date' => '',
-        ],
-        'remarks' => '' // Admin remarks
+        'applicant_name' => sanitize_input($_POST['applicant_name'] ?? ''),
+        'age'            => sanitize_input($_POST['age'] ?? ''),
+        'purpose'          => $purpose,
+        'day_issued'       => sanitize_input($_POST['day_issued'] ?? date('jS')),
+        'month_issued'     => sanitize_input($_POST['month_issued'] ?? date('F')),
+        'year_issued'      => date('Y')
     ];
 
     $sql = "INSERT INTO document_requests (resident_id, document_type, purpose, details, requested_by_user_id, status) 

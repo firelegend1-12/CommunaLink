@@ -1,7 +1,9 @@
 <?php
 require_once '../partials/admin_auth.php';
 /**
- * Printable Certificate of Residency Template
+ * Business Permit Application — Read-Only View Template
+ * Displays a pending business permit application submitted by a resident.
+ * This is NOT the final permit; the official permit is generated via generate-business-permit.php after approval.
  */
 
 require_once '../../config/init.php';
@@ -9,64 +11,39 @@ require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
 require_login();
+
+$page_title = 'Business Permit Application';
 $is_view_only = isset($_GET['view_only']) && $_GET['view_only'] === '1';
 
-// Check if an ID is provided in the URL
-if (!isset($_GET['id'])) {
-    $_SESSION['error_message'] = "No request ID specified.";
-    header("Location: monitoring-of-request.php");
-    exit();
+if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+    $_SESSION['error_message'] = "Invalid transaction ID.";
+    redirect_to('monitoring-of-request.php');
 }
-
-$request_id = $_GET['id'];
+$transaction_id = (int) $_GET['id'];
 
 try {
-    // Fetch the document request from the database
-    $stmt = $pdo->prepare("SELECT * FROM document_requests WHERE id = ? AND document_type = 'Certificate of Residency'");
-    $stmt->execute([$request_id]);
-    $request = $stmt->fetch(PDO::FETCH_ASSOC);
+    $sql = "SELECT bt.*, r.first_name, r.last_name, r.address as resident_address
+            FROM business_transactions bt
+            JOIN residents r ON bt.resident_id = r.id
+            WHERE bt.id = ?
+              AND bt.transaction_type IN ('New Permit', 'Renewal')
+              AND (bt.remarks IS NULL OR bt.remarks != 'Barangay Business Clearance')";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$transaction_id]);
+    $transaction = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$request) {
-        $_SESSION['error_message'] = "Certificate of Residency request not found.";
-        header("Location: monitoring-of-request.php");
-        exit();
+    if (!$transaction) {
+        $_SESSION['error_message'] = "Business permit application not found.";
+        redirect_to('monitoring-of-request.php');
     }
-
-    if (!$is_view_only && (($request['payment_status'] ?? 'Unpaid') !== 'Paid')) {
-        $_SESSION['error_message'] = "Printing is only allowed after payment is completed.";
-        header("Location: monitoring-of-request.php");
-        exit();
-    }
-
-    // Decode the JSON details
-    $details = json_decode($request['details'], true);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        throw new Exception("Failed to decode JSON details: " . json_last_error_msg());
-    }
-
-    // Format the date (prefer new fields, fallback to issued_on)
-    if (!empty($details['day_issued']) && !empty($details['month_issued']) && !empty($details['year_issued'])) {
-        $day = $details['day_issued'];
-        $month = $details['month_issued'];
-        $year = $details['year_issued'];
-    } else {
-        $issued_val = (!empty($details['issued_on'])) ? $details['issued_on'] : date('Y-m-d');
-        $date_issued = new DateTime($issued_val);
-        $day = $date_issued->format('jS');
-        $month = $date_issued->format('F');
-        $year = $date_issued->format('Y');
-    }
-    $has_new_format = !empty($details['duration']) || !empty($details['age']);
-
-} catch (Exception $e) {
-    error_log($e->getMessage());
-    $_SESSION['error_message'] = "An error occurred while fetching the certificate data.";
-    header("Location: monitoring-of-request.php");
-    exit();
+} catch (PDOException $e) {
+    $_SESSION['error_message'] = "Database error: " . $e->getMessage();
+    redirect_to('monitoring-of-request.php');
 }
 
-$page_title = "Print Certificate of Residency";
-
+$owner_name = htmlspecialchars(($transaction['first_name'] ?? '') . ' ' . ($transaction['last_name'] ?? ''));
+$application_date = date('F j, Y', strtotime($transaction['application_date'] ?? 'now'));
+$status = htmlspecialchars($transaction['status'] ?? 'Pending');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -80,9 +57,9 @@ $page_title = "Print Certificate of Residency";
         @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .no-print { display: none !important; }
+            .printable-area { margin: 0; padding: 1rem; border: none; box-shadow: none; }
         }
-<?php
-if ($is_view_only): ?>
+<?php if ($is_view_only): ?>
         @media print {
             body * { visibility: hidden !important; }
             body::before {
@@ -95,84 +72,85 @@ if ($is_view_only): ?>
                 font-weight: 700;
             }
         }
-<?php
-endif; ?>
-        .certificate-body { font-family: 'Times New Roman', Times, serif; }
-        .placeholder-logo {
-            width: 80px;
-            height: 80px;
-            border: 2px dashed #ccc;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #999;
-            font-size: 0.8rem;
-            text-align: center;
+<?php endif; ?>
+        .certificate-body {
+            font-family: 'Times New Roman', Times, serif;
         }
-        .underline-dotted { border-bottom: 1px dotted #000; padding: 0 0.25rem; font-weight: bold; }
     </style>
 </head>
 <body class="bg-gray-200">
-
     <div class="max-w-4xl mx-auto my-10 p-4">
-        <div class="no-print text-center mb-6">
-<?php
-if (!$is_view_only): ?>
-            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md shadow-md">
-                <i class="fas fa-print mr-2"></i> Print Certificate
-            </button>
-<?php
-endif; ?>
-            <a href="monitoring-of-request.php" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md shadow-md">
+        <div class="no-print text-center mb-4 space-x-2">
+            <a href="monitoring-of-request.php" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md inline-block">
                 <i class="fas fa-arrow-left mr-2"></i> Back to Monitoring
             </a>
+            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md inline-block">
+                <i class="fas fa-print mr-2"></i> Print Application
+            </button>
         </div>
-<?php
-if ($is_view_only): ?>
+<?php if ($is_view_only): ?>
         <div class="no-print text-center mb-4">
             <span class="inline-block bg-yellow-100 border border-yellow-300 text-yellow-900 px-3 py-2 rounded text-xs font-bold uppercase tracking-wide">Viewing purpose only</span>
         </div>
-<?php
-endif; ?>
-        
+<?php endif; ?>
+
         <div class="printable-area max-w-4xl mx-auto my-8 p-8 bg-white shadow-lg overflow-auto" style="text-align: center;">
             <?php
-            $svg_path = '../../Certificate of Residency.svg';
+            $app_date_obj = new DateTime($transaction['application_date'] ?? 'now');
+            $day = $app_date_obj->format('jS');
+            $month = $app_date_obj->format('F');
+            $punong_barangay = $_SESSION['fullname'] ?? '';
+            $svg_path = '../../Barangay Business Permit.svg';
             $svg = file_get_contents($svg_path);
             if ($svg !== false) {
                 $svg = str_replace(
-                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="206.88924',
-                    '<text id="field-name" xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="206.88924',
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 298.6829)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.182291" x="144 152.66407',
+                    '<text id="field-name" xml:space="preserve" transform="matrix(.75 0 0 .75 72 298.6829)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.182291" x="144 152.66407',
                     $svg
                 );
                 $svg = str_replace(
-                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="341.8 ',
-                    '<text id="field-age" xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="341.8 ',
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 315.87394)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.182291" x="144 152.66407',
+                    '<text id="field-owner" xml:space="preserve" transform="matrix(.75 0 0 .75 72 315.87394)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.182291" x="144 152.66407',
                     $svg
                 );
                 $svg = str_replace(
-                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 348.10835)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="570.0187',
-                    '<text id="field-duration" xml:space="preserve" transform="matrix(.75 0 0 .75 72 348.10835)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="570.0187',
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 333.06498)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.182291" x="171.54647 180.21053',
+                    '<text id="field-type" xml:space="preserve" transform="matrix(.75 0 0 .75 72 333.06498)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.182291" x="171.54647 180.21053',
                     $svg
                 );
                 $svg = str_replace(
-                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 482.6469)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="126.018939',
-                    '<text id="field-day" xml:space="preserve" transform="matrix(.75 0 0 .75 72 482.6469)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="126.018939',
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 350.256)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.778668" x="67.89957 79.45729',
+                    '<text id="field-location" xml:space="preserve" transform="matrix(.75 0 0 .75 72 350.256)" font-size="17.333334" font-family="Times New Roman" font-weight="bold"><tspan y="16.778668" x="67.89957 79.45729',
                     $svg
                 );
                 $svg = str_replace(
-                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 482.6469)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="211.76277',
-                    '<text id="field-month" xml:space="preserve" transform="matrix(.75 0 0 .75 72 482.6469)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="211.76277',
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 392.25056)" font-size="17.333334" font-family="Times New Roman"><tspan y="36.113935" x="188.63808 197.30214',
+                    '<text id="field-name2" xml:space="preserve" transform="matrix(.75 0 0 .75 72 392.25056)" font-size="17.333334" font-family="Times New Roman"><tspan y="36.113935" x="188.63808 197.30214',
                     $svg
                 );
                 $svg = str_replace(
-                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 482.6469)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="303.31086 312.94795 322.58503 332.2221">2026</tspan></text>',
-                    '<text id="field-year" xml:space="preserve" transform="matrix(.75 0 0 .75 72 482.6469)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="303.31086 312.94795 322.58503 332.2221">2026</tspan></text>',
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 392.25056)" font-size="17.333334" font-family="Times New Roman"><tspan y="36.113935" x="473.09687 481.76094',
+                    '<text id="field-owner2" xml:space="preserve" transform="matrix(.75 0 0 .75 72 392.25056)" font-size="17.333334" font-family="Times New Roman"><tspan y="36.113935" x="473.09687 481.76094',
+                    $svg
+                );
+                $svg = str_replace(
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 392.25056)" font-size="17.333334" font-family="Times New Roman"><tspan y="56.045576" x="16.837403 25.501465',
+                    '<text id="field-location2" xml:space="preserve" transform="matrix(.75 0 0 .75 72 392.25056)" font-size="17.333334" font-family="Times New Roman"><tspan y="56.045576" x="16.837403 25.501465',
+                    $svg
+                );
+                $svg = str_replace(
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 511.8404)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="124.0475 132.71157',
+                    '<text id="field-day" xml:space="preserve" transform="matrix(.75 0 0 .75 72 511.8404)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="124.0475 132.71157',
+                    $svg
+                );
+                $svg = str_replace(
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 511.8404)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="211.15349 219.81755',
+                    '<text id="field-month" xml:space="preserve" transform="matrix(.75 0 0 .75 72 511.8404)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="211.15349 219.81755',
                     $svg
                 );
                 echo '<div style="display:inline-block;">' . $svg . '</div>';
             } else {
-                echo '<p class="text-red-500 text-center py-8">Error: Could not load certificate template.</p>';
+                echo '<p class="text-red-500 text-center py-8">Error: Could not load permit template.</p>';
             }
             ?>
         </div>
@@ -180,12 +158,15 @@ endif; ?>
 <script>
 (function() {
     const values = {
-        'field-name': <?= json_encode($details['applicant_name'] ?? '') ?>,
-        'field-age': <?= json_encode($details['age'] ?? '') ?>,
-        'field-duration': <?= json_encode($details['duration'] ?? '') ?>,
+        'field-name': <?= json_encode($transaction['business_name'] ?? '') ?>,
+        'field-owner': <?= json_encode($transaction['owner_name'] ?? $owner_name) ?>,
+        'field-type': <?= json_encode($transaction['business_type'] ?? '') ?>,
+        'field-location': <?= json_encode($transaction['address'] ?? '') ?>,
+        'field-name2': <?= json_encode($transaction['business_name'] ?? '') ?>,
+        'field-owner2': <?= json_encode($transaction['owner_name'] ?? $owner_name) ?>,
+        'field-location2': <?= json_encode($transaction['address'] ?? '') ?>,
         'field-day': <?= json_encode($day) ?>,
-        'field-month': <?= json_encode($month) ?>,
-        'field-year': <?= json_encode($year) ?>
+        'field-month': <?= json_encode($month) ?>
     };
 
     function getFieldValue(id) {
@@ -274,19 +255,19 @@ endif; ?>
         let parent = null;
         svg.querySelectorAll('text').forEach(function(t) {
             const transform = t.getAttribute('transform') || '';
-            if (transform.indexOf('544.68417') !== -1) {
+            if (transform.indexOf('541.73788') !== -1) {
                 if (!parent) parent = t.parentElement;
                 t.style.visibility = 'hidden';
             }
         });
         if (!parent) return;
         const newText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        newText.setAttribute('transform', 'matrix(.75 0 0 .75 72 544.68417)');
+        newText.setAttribute('transform', 'matrix(.75 0 0 .75 72 541.73788)');
         newText.setAttribute('font-size', '14.666667');
         newText.setAttribute('font-family', 'Arial');
         newText.setAttribute('font-weight', 'bold');
         const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-        tspan.setAttribute('x', '254.59516');
+        tspan.setAttribute('x', '234.23886');
         tspan.setAttribute('y', '13.757161');
         tspan.textContent = name;
         newText.appendChild(tspan);
@@ -296,15 +277,14 @@ endif; ?>
     document.addEventListener('DOMContentLoaded', function() {
         setTimeout(function() {
             recomputeLayout();
-            updateSignature(<?= json_encode($_SESSION['fullname'] ?? '') ?>);
+            updateSignature(<?= json_encode($punong_barangay) ?>);
         }, 100);
     });
 })();
 </script>
     </div>
 </body>
-<?php
-if ($is_view_only): ?>
+<?php if ($is_view_only): ?>
 <script>
 document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
@@ -312,13 +292,9 @@ document.addEventListener('keydown', function(e) {
         alert('Printing is disabled in view-only mode.');
     }
 });
-
 window.print = function() {
     alert('Printing is disabled in view-only mode.');
 };
 </script>
-<?php
-endif; ?>
-</html> 
-
-
+<?php endif; ?>
+</html>

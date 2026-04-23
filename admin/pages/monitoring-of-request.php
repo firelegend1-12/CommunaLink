@@ -100,7 +100,7 @@ try {
         FROM document_requests dr 
         LEFT JOIN residents r ON dr.resident_id = r.id
     ) UNION ALL (
-        SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
+        SELECT bt.id, r.first_name, r.last_name, CASE WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance' ELSE bt.transaction_type END as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
         JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
         bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason 
         FROM business_transactions bt 
@@ -116,7 +116,7 @@ try {
         )";
     } else if ($type_filter === 'business') {
         $union_query = "(
-            SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
+            SELECT bt.id, r.first_name, r.last_name, CASE WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance' ELSE bt.transaction_type END as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
             JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
             bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason 
             FROM business_transactions bt 
@@ -1064,10 +1064,16 @@ endif; ?>
                                     'Barangay Clearance': 'barangay-clearance-template.php',
                                     'Certificate of Residency': 'certificate-of-residency-template.php',
                                     'Certificate of Indigency': 'certificate-of-indigency-template.php',
+                                    'Certificate of Indigency (Special)': 'certificate-of-indigency-special-template.php',
                                     'business': 'business-clearance-template.php'
                                  };
-                                 const templateFile = selectedReq.type === 'business' ? templates['business'] : (templates[selectedReq.docType] || 'barangay-clearance-template.php');
-                                            window.open(templateFile + '?id=' + selectedReq.id, '_blank');" :class="selectedReq.paymentStatus === 'Paid' ? 'w-full bg-gray-100 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-200 transition font-bold uppercase tracking-widest text-xs flex items-center justify-center' : 'w-full bg-gray-100 text-gray-400 px-4 py-3 rounded-lg opacity-70 cursor-not-allowed font-bold uppercase tracking-widest text-xs flex items-center justify-center'">
+                                 let templateFile;
+                                 if (selectedReq.type === 'business') {
+                                     templateFile = (selectedReq.docType === 'Business Clearance') ? templates['business'] : 'business-permit-application-template.php';
+                                 } else {
+                                     templateFile = templates[selectedReq.docType] || 'barangay-clearance-template.php';
+                                 }
+                                 window.open(templateFile + '?id=' + selectedReq.id, '_blank');" :class="selectedReq.paymentStatus === 'Paid' ? 'w-full bg-gray-100 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-200 transition font-bold uppercase tracking-widest text-xs flex items-center justify-center' : 'w-full bg-gray-100 text-gray-400 px-4 py-3 rounded-lg opacity-70 cursor-not-allowed font-bold uppercase tracking-widest text-xs flex items-center justify-center'">
                                     <i class="fas fa-print mr-2"></i>Print Certificate / Clearance
                                  </button>
                                             <p x-show="selectedReq.paymentStatus !== 'Paid'" class="text-[11px] text-red-600 font-semibold text-center">Payment required before printing.</p>
@@ -1077,9 +1083,15 @@ endif; ?>
                                                 'Barangay Clearance': 'barangay-clearance-template.php',
                                                 'Certificate of Residency': 'certificate-of-residency-template.php',
                                                 'Certificate of Indigency': 'certificate-of-indigency-template.php',
+                                                'Certificate of Indigency (Special)': 'certificate-of-indigency-special-template.php',
                                                 'business': 'business-clearance-template.php'
                                             };
-                                            const templateFile = selectedReq.type === 'business' ? templates['business'] : (templates[selectedReq.docType] || 'barangay-clearance-template.php');
+                                            let templateFile;
+                                            if (selectedReq.type === 'business') {
+                                                templateFile = (selectedReq.docType === 'Business Clearance') ? templates['business'] : 'business-permit-application-template.php';
+                                            } else {
+                                                templateFile = templates[selectedReq.docType] || 'barangay-clearance-template.php';
+                                            }
                                             window.open(templateFile + '?id=' + selectedReq.id + '&view_only=1', '_blank');
                                             viewPanelOpen = false;" class="w-full bg-gray-50 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-100 transition font-bold uppercase tracking-widest text-xs border border-gray-200">
                                     <i class="fas fa-expand mr-2"></i>View Full Details

@@ -174,7 +174,7 @@ try {
                                          if (xCoords.length === 0) return;
                                          const firstX = xCoords[0];
                                          const lastX = xCoords[xCoords.length - 1];
-                                         const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 9.64;
+                                        const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
                                          const blankWidth = (lastX - firstX) + charWidth;
                                          let actualWidth = 0;
                                          try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
@@ -234,7 +234,7 @@ try {
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Relation to Patient / Deceased</label>
                                     <input type="text" x-model="formRelation" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="e.g. son, daughter, spouse">
@@ -247,12 +247,11 @@ try {
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
                                     <input type="text" x-model="formMonth" class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2" placeholder="Month">
                                 </div>
-                            </div>
-
-                            <div>
-                                <button @click="printCertificate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition">
-                                    <i class="fas fa-print mr-2"></i> Print Certificate
-                                </button>
+                                <div class="flex items-end">
+                                    <button @click="printCertificate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition">
+                                        <i class="fas fa-print mr-2"></i> Print Certificate
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

@@ -48,19 +48,33 @@ require_once 'partials/header.php';
 // Generate Requirements Checklist
 $requirements = [];
 $doc_type = $req['document_type'];
-if (stripos($doc_type, 'Business') !== false) {
+$raw_doc_type = strtolower($doc_type);
+
+if ($raw_doc_type === 'barangay business clearance') {
+    $requirements = [
+        "Community Tax Certificate (Cedula)",
+        "Valid Identification Card"
+    ];
+} elseif (stripos($raw_doc_type, 'business permit') !== false || stripos($raw_doc_type, 'new permit') !== false || stripos($raw_doc_type, 'renewal') !== false) {
     $requirements = [
         "Community Tax Certificate (Cedula)",
         "DTI / SEC / CDA Registration",
         "Contract of Lease or TCT of Property",
-        "Sketch of Business Location"
+        "Sketch of Business Location",
+        "Health / Sanitary Permit (if applicable)"
     ];
-} elseif (stripos($doc_type, 'Indigency') !== false) {
+} elseif ($raw_doc_type === 'certificate of indigency (special)') {
+    $requirements = [
+        "Valid Government ID",
+        "Medical Certificate or Death Certificate (as applicable)",
+        "Proof of Financial Need"
+    ];
+} elseif (stripos($raw_doc_type, 'indigency') !== false) {
     $requirements = [
         "Valid Government ID",
         "Proof of No Property (if applicable)"
     ];
-} elseif (stripos($doc_type, 'Residency') !== false) {
+} elseif (stripos($raw_doc_type, 'residency') !== false) {
     $requirements = [
         "Valid Government ID (address matching the barangay)",
         "Recent Utility Bill (water/electricity)"
@@ -72,6 +86,64 @@ if (stripos($doc_type, 'Business') !== false) {
         "Valid Identification Card"
     ];
 }
+
+// Helper: recursively flatten details into label => value pairs
+function flatten_details(array $arr, string $prefix = ''): array {
+    $label_map = [
+        'applicant_name'     => 'Applicant Name',
+        'age'                => 'Age',
+        'duration'           => 'Years of Residency / Since',
+        'recipient_name'     => 'Recipient Name',
+        'civil_status'       => 'Civil Status',
+        'day_issued'         => 'Day Issued',
+        'month_issued'       => 'Month Issued',
+        'year_issued'        => 'Year Issued',
+        'requester_name'     => 'Requester Name',
+        'relation'           => 'Relation to Patient/Deceased',
+        'beneficiary_name'   => 'Beneficiary Name',
+        'case_type'          => 'Case Type',
+        'purpose'            => 'Purpose',
+        'business_name'      => 'Business Name',
+        'business_type'      => 'Business Type',
+        'owner_name'         => 'Owner Name',
+        'address'            => 'Address',
+        'monthly_income'     => 'Monthly Income',
+        'length_of_residence'=> 'Length of Residence',
+        'application_type'   => 'Application Type',
+        'precinct_no'        => 'Precinct No.',
+        'resident_since'     => 'Resident Since',
+        'company_name'       => 'Company / School Name',
+        'reference_tel_no'   => 'Reference Tel. No.',
+        'additional_notes'   => 'Additional Notes',
+        'remarks'            => 'Remarks',
+        'ctc'                => 'Community Tax Certificate (CTC)',
+        'no'                 => 'CTC Number',
+        'issued_at'          => 'Issued At',
+        'on'                 => 'Issued On',
+        'amount'             => 'Amount',
+        'fees'               => 'Fees',
+        'clearance_fee'      => 'Clearance Fee',
+        'certification_fee'  => 'Certification Fee',
+        'total'              => 'Total',
+        'references'         => 'References',
+        'name'               => 'Name',
+        'tel_no'             => 'Tel. No.',
+    ];
+
+    $out = [];
+    foreach ($arr as $key => $val) {
+        $label = $label_map[$key] ?? ucwords(str_replace('_', ' ', $key));
+        $full_label = $prefix ? ($prefix . ' — ' . $label) : $label;
+        if (is_array($val)) {
+            $out = array_merge($out, flatten_details($val, $full_label));
+        } elseif (is_string($val) && trim($val) !== '') {
+            $out[$full_label] = $val;
+        }
+    }
+    return $out;
+}
+
+$flat_details = flatten_details($details);
 ?>
 
 <div class="max-w-4xl mx-auto px-4 py-8">
@@ -122,22 +194,13 @@ if (stripos($doc_type, 'Business') !== false) {
                             </div>
                         <?php endif; ?>
 
-                        <!-- Render dynamic fields if present -->
-                        <?php foreach(['business_name' => 'Business Name', 'monthly_income' => 'Monthly Income', 'length_of_residence' => 'Length of Residence'] as $key => $label): ?>
-                            <?php if(!empty($details[$key])): ?>
-                                <div>
-                                    <span class="text-xs text-gray-400 uppercase font-bold tracking-wider"><?= $label ?></span>
-                                    <p class="text-gray-800 font-medium"><?= htmlspecialchars($details[$key]) ?></p>
-                                </div>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-
-                        <?php if(!empty($details['additional_notes'])): ?>
+                        <!-- Render all submitted JSON detail fields -->
+                        <?php foreach($flat_details as $label => $value): ?>
                             <div>
-                                <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Additional Notes</span>
-                                <p class="text-gray-600 text-sm italic"><?= nl2br(htmlspecialchars($details['additional_notes'])) ?></p>
+                                <span class="text-xs text-gray-400 uppercase font-bold tracking-wider"><?= htmlspecialchars($label) ?></span>
+                                <p class="text-gray-800 font-medium"><?= nl2br(htmlspecialchars($value)) ?></p>
                             </div>
-                        <?php endif; ?>
+                        <?php endforeach; ?>
                     </div>
                 </div>
 

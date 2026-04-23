@@ -45,7 +45,8 @@ if (!$permit) {
     $permit = $stmtPermit->fetch(PDO::FETCH_ASSOC);
 }
 
-$page_title = "Business Permit Details";
+$is_business_clearance = (($trans['remarks'] ?? '') === 'Barangay Business Clearance');
+$page_title = $is_business_clearance ? "Barangay Business Clearance Details" : "Business Permit Details";
 $status = $trans['status'] ?? 'Pending';
 $date_applied = date('F j, Y', strtotime($trans['application_date']));
 
@@ -70,6 +71,7 @@ require_once 'partials/header.php';
             <div>
                 <h1 class="text-2xl font-bold mb-1"><?= htmlspecialchars($trans['business_name']) ?></h1>
                 <p class="opacity-80 text-sm"><i class="far fa-clock mr-1"></i> Applied on <?= $date_applied ?></p>
+                <p class="opacity-80 text-xs mt-1 uppercase tracking-wider"><?= htmlspecialchars($is_business_clearance ? 'Barangay Business Clearance' : ($trans['transaction_type'] ?? 'Business Permit')) ?></p>
             </div>
              <span class="px-4 py-1.5 rounded-full text-sm font-bold bg-white/20 border border-white/30 backdrop-blur-sm shadow-sm uppercase tracking-wider">
                 <?= htmlspecialchars($status) ?>
@@ -128,7 +130,7 @@ require_once 'partials/header.php';
                         </div>
                         <div>
                             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Transaction Type</span>
-                            <p class="text-gray-800 font-medium"><?= htmlspecialchars($trans['transaction_type'] ?? 'Permit Application') ?></p>
+                            <p class="text-gray-800 font-medium"><?= htmlspecialchars($is_business_clearance ? 'Business Clearance' : ($trans['transaction_type'] ?? 'Permit Application')) ?></p>
                         </div>
                         <div>
                             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Business Address</span>
@@ -157,14 +159,16 @@ require_once 'partials/header.php';
                                 <i class="far fa-check-circle text-indigo-600 mt-1 mr-3"></i>
                                 <span class="leading-tight font-medium">Original Receipt of Payment</span>
                             </li>
+                            <?php if (!$is_business_clearance): ?>
                             <li class="flex items-start text-gray-700">
                                 <i class="far fa-check-circle text-indigo-600 mt-1 mr-3"></i>
                                 <span class="leading-tight font-medium">DTI/SEC Registration (Original for verification)</span>
                             </li>
+                            <?php endif; ?>
                         </ul>
                         
                         <div class="mt-6 pt-4 border-t border-indigo-100 text-xs text-gray-500 italic">
-                            Claim your permit at the Barangay Hall, Monday to Friday, 8:00 AM - 5:00 PM.
+                            Claim your <?= htmlspecialchars($is_business_clearance ? 'clearance' : 'permit') ?> at the Barangay Hall, Monday to Friday, 8:00 AM - 5:00 PM.
                         </div>
                     </div>
                 </div>
@@ -174,7 +178,7 @@ require_once 'partials/header.php';
             <div class="mt-10 bg-gray-50 border border-gray-200 rounded-xl p-6">
                 <h3 class="text-lg font-bold text-gray-800 mb-2"><i class="fas fa-comment-dots text-gray-600 mr-2"></i>Official Remarks</h3>
                 <p class="text-gray-600 italic text-sm">
-                    <?php if(empty($trans['remarks'])): ?>
+                    <?php if(empty($trans['remarks']) || ($is_business_clearance && $trans['remarks'] === 'Barangay Business Clearance')): ?>
                         Your application is currently being evaluated. Official remarks will appear here once processed.
                     <?php else: ?>
                         <?= htmlspecialchars($trans['remarks']) ?>

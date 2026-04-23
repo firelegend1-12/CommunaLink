@@ -40,31 +40,33 @@ try {
 
     $resident_id = $resolved_resident_id;
     $applicant_name = sanitize_input($_POST['applicant_name'] ?? '');
-    $property_owner = sanitize_input($_POST['property_owner'] ?? '');
-    $sitio = sanitize_input($_POST['sitio'] ?? '');
-    $district = sanitize_input($_POST['district'] ?? '');
-    $status = isset($_POST['status']) ? (array)$_POST['status'] : [];
-    
-    // Provide a default issued_on so the admin handler schema is exactly matched
-    $issued_on = date('Y-m-d');
-    
-    if (!$resident_id || empty($property_owner) || empty($sitio) || empty($district)) {
+    $age = sanitize_input($_POST['age'] ?? '');
+    $duration = sanitize_input($_POST['duration'] ?? '');
+    $day_issued = sanitize_input($_POST['day_issued'] ?? date('j'));
+    $month_issued = sanitize_input($_POST['month_issued'] ?? date('F'));
+    $year_issued = sanitize_input($_POST['year_issued'] ?? date('Y'));
+
+    if (!$resident_id || empty($applicant_name) || empty($duration)) {
         echo json_encode(['success' => false, 'error' => 'Please fill in all required fields.']);
         exit;
     }
 
-    // Mirror the exact JSON structure the admin handler uses
+    // Store the new simplified format while keeping legacy-compatible keys for any older templates.
     $details = [
         'applicant_name' => $applicant_name,
-        'property_owner' => $property_owner,
-        'sitio' => $sitio,
-        'district' => $district,
-        'status' => $status,
-        'issued_on' => '' // Actually admin can rewrite this on print
+        'age' => $age,
+        'duration' => $duration,
+        'day_issued' => $day_issued,
+        'month_issued' => $month_issued,
+        'year_issued' => $year_issued,
+        'property_owner' => '',
+        'sitio' => '',
+        'district' => '',
+        'status' => [],
+        'issued_on' => ''
     ];
 
-    // Admin handler uses a specific string for purpose
-    $purpose = "iKonek Electrification Program";
+    $purpose = "Requesting for Certificate of Residency";
 
     $sql = "INSERT INTO document_requests (resident_id, document_type, purpose, details, requested_by_user_id, status) 
             VALUES (?, 'Certificate of Residency', ?, ?, ?, 'Pending')";

@@ -123,57 +123,166 @@ if ($is_view_only): ?>
         </div>
 <?php
 endif; ?>
-        <div id="certificate" class="printable-area bg-white p-12 border-4 border-blue-800 certificate-body relative">
-            <div class="text-center">
-                <p class="text-lg">Republic of the Philippines</p>
-                <p class="text-lg">Province of Iloilo</p>
-                <p class="text-lg">Municipality of Oton</p>
-                <h1 class="text-3xl font-bold text-blue-800 mt-2">BARANGAY PAKIAD</h1>
-                <p class="mt-4 text-sm">OFFICE OF THE PUNONG BARANGAY</p>
-            </div>
-            
-            <h2 class="text-center text-4xl font-bold my-10">BARANGAY BUSINESS CLEARANCE</h2>
-            
-            <div class="text-lg leading-relaxed">
-                <p class="mb-6">This clearance is hereby granted to:</p>
-                
-                <div class="grid grid-cols-3 gap-x-4 mb-4">
-                    <p class="font-bold">Business Name:</p>
-                    <p class="col-span-2"><span class="placeholder"><?= htmlspecialchars($transaction['business_name']) ?></span></p>
-                </div>
-                <div class="grid grid-cols-3 gap-x-4 mb-4">
-                    <p class="font-bold">Owner/Proprietor:</p>
-                    <p class="col-span-2"><span class="placeholder"><?= htmlspecialchars($transaction['owner_name']) ?></span></p>
-                </div>
-                <div class="grid grid-cols-3 gap-x-4 mb-4">
-                    <p class="font-bold">Business Address:</p>
-                    <p class="col-span-2"><span class="placeholder"><?= htmlspecialchars($transaction['address']) ?></span></p>
-                </div>
-                <div class="grid grid-cols-3 gap-x-4 mb-8">
-                    <p class="font-bold">Type of Business:</p>
-                    <p class="col-span-2"><span class="placeholder"><?= htmlspecialchars($transaction['business_type']) ?></span></p>
-                </div>
-
-                <p class="mb-6">This clearance is issued upon the request of the above-named person in connection with his/her application for a Business Permit for the year <span class="font-bold"><?= $year ?></span>.</p>
-                
-                <p class="mb-8">This certification is valid until <span class="font-bold placeholder"><?= $valid_until ?></span>.</p>
-
-                <p>Issued this <span class="font-bold placeholder"><?= $day_issued ?></span> day of <span class="font-bold placeholder"><?= $month_issued ?></span> at the Office of the Punong Barangay, Barangay Pakiad, Oton, Iloilo.</p>
-            </div>
-            
-            <div class="mt-20 text-right">
-                <div class="inline-block text-center">
-                    <p class="font-bold text-lg uppercase border-b-2 border-black pb-1 px-8"><?= htmlspecialchars($punong_barangay) ?></p>
-                    <p class="pt-1">Punong Barangay</p>
-                </div>
-            </div>
-            
-            <div class="absolute bottom-10 left-10 text-xs text-gray-400">
-                <p>Doc Stamp: <span class="placeholder"></span></p>
-                <p>OR No.: <span class="placeholder"><?= htmlspecialchars($transaction['official_receipt_no'] ?? '') ?></span></p>
-                <p>Date Issued: <span class="placeholder"><?= date('m/d/Y') ?></span></p>
-            </div>
+        <div class="printable-area max-w-4xl mx-auto my-8 p-8 bg-white shadow-lg overflow-auto" style="text-align: center;">
+            <?php
+            $svg_path = '../../Barangay Business Clearance.svg';
+            $svg = file_get_contents($svg_path);
+            if ($svg !== false) {
+                $svg = str_replace(
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="46.079755" x="188.63808',
+                    '<text id="field-business-name" xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="46.079755" x="188.63808',
+                    $svg
+                );
+                $svg = str_replace(
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="46.079755" x="473.09687',
+                    '<text id="field-owner" xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="46.079755" x="473.09687',
+                    $svg
+                );
+                $svg = str_replace(
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="75.97721" x="16.837403',
+                    '<text id="field-location" xml:space="preserve" transform="matrix(.75 0 0 .75 72 278.84709)" font-size="17.333334" font-family="Times New Roman"><tspan y="75.97721" x="16.837403',
+                    $svg
+                );
+                $svg = str_replace(
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 458.2318)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="124.0475',
+                    '<text id="field-day" xml:space="preserve" transform="matrix(.75 0 0 .75 72 458.2318)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="124.0475',
+                    $svg
+                );
+                $svg = str_replace(
+                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 458.2318)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="211.15349',
+                    '<text id="field-month" xml:space="preserve" transform="matrix(.75 0 0 .75 72 458.2318)" font-size="17.333334" font-family="Times New Roman"><tspan y="16.182291" x="211.15349',
+                    $svg
+                );
+                echo '<div style="display:inline-block;">' . $svg . '</div>';
+            } else {
+                echo '<p class="text-red-500 text-center py-8">Error: Could not load certificate template.</p>';
+            }
+            ?>
         </div>
+
+<script>
+(function() {
+    const values = {
+        'field-business-name': <?= json_encode($transaction['business_name'] ?? '') ?>,
+        'field-owner': <?= json_encode($transaction['owner_name'] ?? '') ?>,
+        'field-location': <?= json_encode($transaction['address'] ?? '') ?>,
+        'field-day': <?= json_encode($day_issued) ?>,
+        'field-month': <?= json_encode($month_issued) ?>
+    };
+
+    function getFieldValue(id) {
+        return values[id] || '';
+    }
+
+    function recomputeLayout() {
+        document.querySelectorAll('svg text').forEach(function(el) {
+            if (!el.dataset.origTransform && el.hasAttribute('transform')) {
+                el.dataset.origTransform = el.getAttribute('transform');
+            }
+        });
+
+        Object.keys(values).forEach(function(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const tspan = el.querySelector('tspan');
+            if (!tspan) return;
+            if (!tspan.dataset.origText) {
+                tspan.dataset.origText = tspan.textContent;
+            }
+            if (!tspan.dataset.origX) {
+                tspan.dataset.origX = tspan.getAttribute('x') || '0';
+            }
+            const value = getFieldValue(id);
+            const firstX = tspan.dataset.origX.split(/\s+/)[0];
+            if (!value || String(value).trim() === '') {
+                tspan.textContent = tspan.dataset.origText;
+                tspan.setAttribute('x', tspan.dataset.origX);
+            } else {
+                const m = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
+                const prefix = m ? m[1] : '';
+                const suffix = m ? m[3] : '';
+                tspan.textContent = prefix + String(value) + suffix;
+                tspan.setAttribute('x', firstX);
+            }
+        });
+
+        document.querySelectorAll('svg text[data-orig-transform]').forEach(function(el) {
+            el.setAttribute('transform', el.dataset.origTransform);
+        });
+
+        requestAnimationFrame(function() {
+            Object.keys(values).forEach(function(id) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const tspan = el.querySelector('tspan');
+                if (!tspan || !tspan.dataset.origX) return;
+                const value = getFieldValue(id);
+                if (!value || String(value).trim() === '') return;
+                const xCoords = tspan.dataset.origX.split(/\s+/).map(parseFloat).filter(function(n) { return !isNaN(n); });
+                if (xCoords.length === 0) return;
+                const firstX = xCoords[0];
+                const lastX = xCoords[xCoords.length - 1];
+                const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
+                const blankWidth = (lastX - firstX) + charWidth;
+                let actualWidth = 0;
+                try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
+                const shift = blankWidth - actualWidth;
+                if (Math.abs(shift) <= 0.5) return;
+                const origLineTransform = el.dataset.origTransform || el.getAttribute('transform');
+                const lineY = tspan.getAttribute('y');
+                const parent = el.parentElement;
+                if (!parent) return;
+                Array.from(parent.querySelectorAll('text')).forEach(function(t) {
+                    if (t === el) return;
+                    const ts = t.querySelector('tspan');
+                    if (!ts) return;
+                    const tBaseTransform = t.dataset.origTransform || t.getAttribute('transform') || '';
+                    if (tBaseTransform !== origLineTransform) return;
+                    if (ts.getAttribute('y') !== lineY) return;
+                    const tOrigX = ts.dataset.origX || ts.getAttribute('x') || '0';
+                    const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
+                    if (isNaN(tFirstX) || tFirstX <= firstX) return;
+                    const currentTransform = t.getAttribute('transform') || tBaseTransform;
+                    t.setAttribute('transform', currentTransform + ' translate(' + (-shift) + ' 0)');
+                });
+            });
+        });
+    }
+
+    function updateSignature(name) {
+        if (!name) return;
+        const svg = document.querySelector('svg');
+        if (!svg) return;
+        let parent = null;
+        svg.querySelectorAll('text').forEach(function(t) {
+            const transform = t.getAttribute('transform') || '';
+            if (transform.indexOf('515.037') !== -1) {
+                if (!parent) parent = t.parentElement;
+                t.style.visibility = 'hidden';
+            }
+        });
+        if (!parent) return;
+        const newText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        newText.setAttribute('transform', 'matrix(.75 0 0 .75 72 515.037)');
+        newText.setAttribute('font-size', '14.666667');
+        newText.setAttribute('font-family', 'Arial');
+        newText.setAttribute('font-weight', 'bold');
+        const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+        tspan.setAttribute('x', '254.59516');
+        tspan.setAttribute('y', '13.757161');
+        tspan.textContent = name;
+        newText.appendChild(tspan);
+        parent.appendChild(newText);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            recomputeLayout();
+            updateSignature(<?= json_encode($punong_barangay) ?>);
+        }, 100);
+    });
+})();
+</script>
     </div>
 </body>
 <?php

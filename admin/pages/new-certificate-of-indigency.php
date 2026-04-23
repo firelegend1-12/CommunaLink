@@ -182,7 +182,7 @@ display_flash_messages(); ?>
                                          if (xCoords.length === 0) return;
                                          const firstX = xCoords[0];
                                          const lastX = xCoords[xCoords.length - 1];
-                                         const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 9.64;
+                                         const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
                                          const blankWidth = (lastX - firstX) + charWidth;
                                          let actualWidth = 0;
                                          try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}

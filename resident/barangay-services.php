@@ -227,6 +227,25 @@ require_once 'partials/header.php';
         border-left: 5px solid #8b5cf6;
     }
     
+    .document-card.teal {
+        background-color: #f0fdfa;
+        border-left: 5px solid #14b8a6;
+    }
+    
+    .document-card.amber {
+        background-color: #fffbeb;
+        border-left: 5px solid #f59e0b;
+    }
+    
+    .document-card.rose {
+        background-color: #fff1f2;
+        border-left: 5px solid #f43f5e;
+    }
+    
+    .document-card.teal .document-icon i { color: #14b8a6; }
+    .document-card.amber .document-icon i { color: #f59e0b; }
+    .document-card.rose .document-icon i { color: #f43f5e; }
+    
     .document-icon {
         display: flex;
         align-items: center;
@@ -453,6 +472,18 @@ require_once 'partials/header.php';
             <p class="document-info">Processing Time: 1 business day</p>
             <a href="new-certificate-of-indigency.php" class="action-button" style="margin-top:10px;">Request</a>
         </div>
+        <!-- Certificate of Indigency (Special) -->
+        <div class="document-card rose">
+            <div class="document-icon">
+                <i class="fas fa-notes-medical"></i>
+                <h3 class="document-title">Cert. of Indigency (Special)</h3>
+            </div>
+            <p class="document-description">
+                For medical/burial assistance of a patient or deceased family member.
+            </p>
+            <p class="document-info">Processing Time: 1 business day</p>
+            <a href="new-certificate-of-indigency-special.php" class="action-button" style="margin-top:10px; background-color:#f43f5e;">Request</a>
+        </div>
         <!-- Certificate of Residency -->
         <div class="document-card purple">
             <div class="document-icon">
@@ -477,7 +508,19 @@ require_once 'partials/header.php';
             <p class="document-info">Processing Time: 3-5 business days</p>
             <a href="new-barangay-business-clearance.php" class="action-button" style="margin-top:10px;">Request</a>
         </div>
+        <!-- Barangay Business Permit -->
+        <div class="document-card amber">
+            <div class="document-icon">
+                <i class="fas fa-stamp"></i>
+                <h3 class="document-title">Barangay Business Permit</h3>
+            </div>
+            <p class="document-description">
+                Official permit to legally operate your business in the barangay.
+            </p>
+            <p class="document-info">Processing Time: 3-5 business days</p>
+            <a href="new-barangay-business-permit.php" class="action-button" style="margin-top:10px; background-color:#f59e0b;">Request</a>
+        </div>
     </div>
 </div>
 
-<?php require_once 'partials/footer.php'; ?> 
+<?php require_once 'partials/footer.php'; ?>

@@ -4,20 +4,19 @@ require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
+header('Content-Type: application/json');
+
 if (!is_logged_in() || $_SESSION['role'] !== 'resident') {
-    header('Content-Type: application/json');
     echo json_encode(['success' => false, 'error' => 'Unauthorized']);
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Content-Type: application/json');
     echo json_encode(['success' => false, 'error' => 'Invalid request']);
     exit;
 }
 
 if (!csrf_validate()) {
-    header('Content-Type: application/json');
     echo json_encode(['success' => false, 'error' => 'Invalid security token. Please refresh and try again.']);
     exit;
 }
@@ -38,40 +37,40 @@ try {
         exit;
     }
 
-    $resident_id = $resolved_resident_id;
-    
-    if (!$resident_id) {
-        echo json_encode(['success' => false, 'error' => 'Invalid resident profile.']);
+    $resident_id       = $resolved_resident_id;
+    $owner_name        = sanitize_input($_POST['owner_name'] ?? '');
+    $business_name     = sanitize_input($_POST['business_name'] ?? '');
+    $business_type     = sanitize_input($_POST['business_type'] ?? '');
+    $business_address  = sanitize_input($_POST['business_address'] ?? '');
+    $application_type  = sanitize_input($_POST['application_type'] ?? 'New');
+    $remarks           = sanitize_input($_POST['remarks'] ?? '');
+
+    if ($business_name === '' || $business_type === '' || $business_address === '') {
+        echo json_encode(['success' => false, 'error' => 'Please complete all required fields.']);
         exit;
     }
 
-    // Store only the fields that match the SVG certificate
-    $details = [
-        'applicant_name' => sanitize_input($_POST['applicant_name'] ?? ''),
-        'age'            => sanitize_input($_POST['age'] ?? ''),
-        'day_issued'     => sanitize_input($_POST['day_issued'] ?? date('jS')),
-        'month_issued'   => sanitize_input($_POST['month_issued'] ?? date('F')),
-        'year_issued'    => date('Y')
-    ];
+    $transaction_type = ($application_type === 'Renewal') ? 'Renewal' : 'New Permit';
 
-    $purpose = "Requesting for Certificate of Indigency";
-
-    $sql = "INSERT INTO document_requests (resident_id, document_type, purpose, details, requested_by_user_id, status) 
-            VALUES (?, 'Certificate of Indigency', ?, ?, ?, 'Pending')";
-    
+    // Insert into business_transactions so it appears in admin's monitoring page.
+    $sql = "INSERT INTO business_transactions
+                (resident_id, permit_id, business_name, business_type, owner_name, address, transaction_type, status, remarks)
+            VALUES (?, NULL, ?, ?, ?, ?, ?, 'Pending', ?)";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
-        $resident_id, 
-        $purpose, 
-        json_encode($details), 
-        $_SESSION['user_id']
+        $resident_id,
+        $business_name,
+        $business_type,
+        $owner_name,
+        $business_address,
+        $transaction_type,
+        $remarks,
     ]);
 
-    log_activity('Document Request', "New Certificate of Indigency requested natively by resident.", $_SESSION['user_id']);
+    log_activity('Document Request', "New Barangay Business Permit ({$transaction_type}) requested natively by resident.", $_SESSION['user_id']);
 
     echo json_encode(['success' => true]);
-
 } catch (PDOException $e) {
-    error_log("Indigency Request Error: " . $e->getMessage());
+    error_log("Business Permit Request Error: " . $e->getMessage());
     echo json_encode(['success' => false, 'error' => 'A database error occurred.']);
 }

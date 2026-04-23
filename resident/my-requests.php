@@ -164,6 +164,9 @@ function renderRequestsTable(docRequests, bizRequests) {
             if (["Approved","Completed","Ready for Pickup"].includes(status)) badgeClass = 'approved';
             else if (["Rejected","Cancelled"].includes(status)) badgeClass = 'rejected';
             else if (["Processing"].includes(status)) badgeClass = 'processing';
+            const businessLabel = req.remarks === 'Barangay Business Clearance'
+                ? 'Business Clearance'
+                : (req.transaction_type || 'Business Transaction');
             
             cards += `<div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition cursor-pointer group" onclick="window.location.href='business-details.php?id=${req.id}'">
                 <div>
@@ -171,7 +174,7 @@ function renderRequestsTable(docRequests, bizRequests) {
                         <h3 class="font-bold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors">${escapeHTML(req.business_name)}</h3>
                         <span class="text-[10px] font-extrabold px-2 py-1 rounded-md whitespace-nowrap mobile-card-badge ${badgeClass} uppercase tracking-tight">${escapeHTML(status)}</span>
                     </div>
-                    <div class="text-xs text-gray-500 mb-3 line-clamp-1">${escapeHTML(req.transaction_type || 'Business Transaction')} ${req.remarks ? ' - ' + escapeHTML(req.remarks) : ''}</div>
+                    <div class="text-xs text-gray-500 mb-3 line-clamp-1">${escapeHTML(businessLabel)}${req.remarks && req.remarks !== 'Barangay Business Clearance' ? ' - ' + escapeHTML(req.remarks) : ''}</div>
                 </div>
                 ${renderTimeline(status)}
                 <div class="flex items-center justify-between text-[10px] text-gray-400 mt-5 pt-3 border-t border-gray-50">
