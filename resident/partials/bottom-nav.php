@@ -8,7 +8,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <i class="fas fa-home"></i>
         <span>Home</span>
     </a>
-    <a href="my-requests.php" class="bottom-nav-item <?= $current_page === 'my-requests.php' ? 'active' : '' ?>">
+    <a href="my-requests.php" class="bottom-nav-item <?= in_array($current_page, ['my-requests.php', 'my-document-requests.php']) ? 'active' : '' ?>">
         <i class="fas fa-file-invoice"></i>
         <span>Requests</span>
     </a>

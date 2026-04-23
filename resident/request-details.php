@@ -220,6 +220,16 @@ $flat_details = flatten_details($details);
                         </ul>
                     </div>
 
+                    <!-- Admin Notes -->
+                    <div class="mt-6 bg-yellow-50 rounded-xl border border-yellow-200 p-5">
+                        <h4 class="font-bold text-yellow-800 mb-2"><i class="fas fa-sticky-note mr-2"></i>Admin Notes</h4>
+                        <?php if(!empty($req['admin_notes'])): ?>
+                            <p class="text-gray-800"><?= nl2br(htmlspecialchars($req['admin_notes'])) ?></p>
+                        <?php else: ?>
+                            <p class="text-gray-500 italic text-sm">No admin notes added yet.</p>
+                        <?php endif; ?>
+                    </div>
+
                     <?php if (intval($req['price']) > 0): ?>
                         <div class="mt-6 bg-yellow-50 rounded-xl border border-yellow-200 p-5 flex items-center justify-between">
                             <div>
@@ -259,11 +269,13 @@ document.addEventListener('DOMContentLoaded', () => {
 function renderTimeline(status) {
     let activeStep = 1;
     let isRejected = false;
+    let isCancelled = false;
     
     let normalizeStatus = status.toLowerCase();
-    if (["approved", "ready for pickup", "completed", "ready"].includes(normalizeStatus)) activeStep = 3;
-    else if (["processing", "under review"].includes(normalizeStatus)) activeStep = 2;
-    else if (["rejected", "cancelled"].includes(normalizeStatus)) { activeStep = 3; isRejected = true; }
+    if (["approved"].includes(normalizeStatus)) activeStep = 2;
+    else if (["completed"].includes(normalizeStatus)) activeStep = 3;
+    else if (["rejected"].includes(normalizeStatus)) { activeStep = 2; isRejected = true; }
+    else if (["cancelled"].includes(normalizeStatus)) { activeStep = 1; isCancelled = true; }
     
     let color = isRejected ? 'text-red-500 border-red-500 bg-red-50' : 'text-teal-600 border-teal-600 bg-teal-50';
     
@@ -275,21 +287,21 @@ function renderTimeline(status) {
             
             <div class="flex flex-col items-center">
                 <div class="w-10 h-10 md:w-12 md:h-12 rounded-full border-4 ${activeStep >= 1 ? color : 'border-gray-300 bg-gray-50 text-gray-400'} flex items-center justify-center text-sm md:text-base font-bold shadow-md z-10 transition-colors duration-500 bg-white">
-                    ${activeStep > 1 && !isRejected ? '<i class="fas fa-check text-teal-600"></i>' : '1'}
+                    ${activeStep > 1 && !isRejected && !isCancelled ? '<i class="fas fa-check text-teal-600"></i>' : (isCancelled ? '<i class="fas fa-times text-red-600"></i>' : '1')}
                 </div>
-                <span class="text-xs md:text-sm mt-2 font-bold ${activeStep >= 1 ? (isRejected ? 'text-red-600' : 'text-teal-800') : 'text-gray-400'} uppercase tracking-wide">Submitted</span>
+                <span class="text-xs md:text-sm mt-2 font-bold ${activeStep >= 1 ? (isRejected || isCancelled ? 'text-red-600' : 'text-teal-800') : 'text-gray-400'} uppercase tracking-wide">${isCancelled ? 'Cancelled' : 'Submitted'}</span>
             </div>
             <div class="flex flex-col items-center">
                 <div class="w-10 h-10 md:w-12 md:h-12 rounded-full border-4 ${activeStep >= 2 ? color : 'border-gray-200 bg-gray-50 text-gray-400'} flex items-center justify-center text-sm md:text-base font-bold shadow-md z-10 transition-colors duration-500 delay-300 bg-white">
-                    ${activeStep > 2 && !isRejected ? '<i class="fas fa-check text-teal-600"></i>' : '2'}
+                    ${activeStep > 2 && !isRejected ? '<i class="fas fa-check text-teal-600"></i>' : (isRejected ? '<i class="fas fa-times text-red-600"></i>' : '2')}
                 </div>
-                <span class="text-xs md:text-sm mt-2 font-bold ${activeStep >= 2 ? (isRejected ? 'text-red-600' : 'text-teal-800') : 'text-gray-400'} uppercase tracking-wide">Processing</span>
+                <span class="text-xs md:text-sm mt-2 font-bold ${activeStep >= 2 ? (isRejected ? 'text-red-600' : 'text-teal-800') : 'text-gray-400'} uppercase tracking-wide">${isRejected ? 'Rejected' : 'Approved'}</span>
             </div>
             <div class="flex flex-col items-center">
                 <div class="w-10 h-10 md:w-12 md:h-12 rounded-full border-4 ${activeStep >= 3 ? color : 'border-gray-200 bg-gray-50 text-gray-400'} flex items-center justify-center text-sm md:text-base font-bold shadow-md z-10 transition-colors duration-500 delay-700 bg-white">
-                    ${isRejected ? '<i class="fas fa-times text-red-600"></i>' : (activeStep >= 3 ? '<i class="fas fa-check text-teal-600"></i>' : '3')}
+                    ${activeStep >= 3 ? '<i class="fas fa-check text-teal-600"></i>' : '3'}
                 </div>
-                <span class="text-xs md:text-sm mt-2 font-bold ${activeStep >= 3 ? (isRejected ? 'text-red-600' : 'text-teal-800') : 'text-gray-400'} uppercase tracking-wide">${isRejected ? 'Rejected' : 'Ready'}</span>
+                <span class="text-xs md:text-sm mt-2 font-bold ${activeStep >= 3 ? 'text-teal-800' : 'text-gray-400'} uppercase tracking-wide">Completed</span>
             </div>
         </div>
     </div>`;

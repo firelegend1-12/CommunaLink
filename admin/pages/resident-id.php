@@ -4,7 +4,6 @@ require_once '../partials/admin_auth.php';
  * Barangay Resident ID Card
  */
 
-session_start();
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin'])) {
     header('Location: ../../index.php');
     exit;

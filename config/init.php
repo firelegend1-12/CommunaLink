@@ -277,7 +277,7 @@ try {
             `purpose` TEXT NOT NULL,
             `details` JSON,
             `date_requested` DATETIME DEFAULT CURRENT_TIMESTAMP,
-            `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending',
+            `status` ENUM('Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending',
             `price` DECIMAL(10, 2) DEFAULT NULL,
             `remarks` TEXT DEFAULT NULL,
             `requested_by_user_id` INT(11) NULL,
@@ -471,7 +471,7 @@ try {
         'document_type' => "ADD COLUMN `document_type` VARCHAR(255) NOT NULL AFTER `resident_id`",
         'purpose' => "ADD COLUMN `purpose` TEXT NOT NULL AFTER `document_type`",
         'details' => "ADD COLUMN `details` JSON AFTER `purpose`",
-        'status' => "ADD COLUMN `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending' AFTER `date_requested`",
+        'status' => "ADD COLUMN `status` ENUM('Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending' AFTER `date_requested`",
         'price' => "ADD COLUMN `price` DECIMAL(10, 2) DEFAULT NULL AFTER `status`",
         'remarks' => "ADD COLUMN `remarks` TEXT DEFAULT NULL AFTER `price`",
         'requested_by_user_id' => "ADD COLUMN `requested_by_user_id` INT(11) NULL AFTER `remarks`"
@@ -496,8 +496,19 @@ try {
         if ($stmt && $stmt->rowCount() > 0) {
             $column_info = $stmt->fetch();
             $type = $column_info['Type'] ?? '';
-            if (strpos($type, 'Cancelled') === false) {
-                $pdo->exec("ALTER TABLE `document_requests` MODIFY `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending';");
+            $expected_statuses = ['Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled'];
+            $has_all_expected = true;
+            foreach ($expected_statuses as $expected) {
+                if (strpos($type, $expected) === false) {
+                    $has_all_expected = false;
+                    break;
+                }
+            }
+            // If any unexpected old status exists (Processing/Ready for Pickup) or expected status missing, migrate data then update ENUM
+            if (!$has_all_expected || strpos($type, 'Processing') !== false || strpos($type, 'Ready for Pickup') !== false) {
+                // First migrate old statuses to new simplified flow
+                $pdo->exec("UPDATE `document_requests` SET `status` = 'Approved' WHERE `status` IN ('Processing', 'Ready for Pickup');");
+                $pdo->exec("ALTER TABLE `document_requests` MODIFY `status` ENUM('Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending';");
             }
         }
     } catch (Exception $e) {
@@ -505,22 +516,39 @@ try {
     }
 
     // --- Schema Migration for business_transactions ---
-    // Add PROCESSING and READY FOR PICKUP status to business_transactions if they don't exist
+    // Simplify status enum and migrate old statuses
     try {
         $stmt = $pdo->query("SHOW COLUMNS FROM `business_transactions` LIKE 'status'");
         if ($stmt && $stmt->rowCount() > 0) {
             $column_info = $stmt->fetch();
             $type = $column_info['Type'] ?? '';
-            $needs_update = false;
-            if (strpos($type, 'PROCESSING') === false) {
-                $needs_update = true;
+            $has_approved = strpos($type, 'APPROVED') !== false;
+            $has_processing = strpos($type, 'PROCESSING') !== false || strpos($type, 'Ready for Pickup') !== false;
+            if (!$has_approved || $has_processing) {
+                // Migrate old statuses to new simplified flow
+                $pdo->exec("UPDATE `business_transactions` SET `status` = 'APPROVED' WHERE `status` IN ('PROCESSING', 'READY FOR PICKUP', 'PENDING') AND `status` NOT IN ('APPROVED', 'COMPLETED', 'REJECTED');");
+                $pdo->exec("ALTER TABLE `business_transactions` MODIFY `status` ENUM('PENDING', 'APPROVED', 'COMPLETED', 'REJECTED') NOT NULL DEFAULT 'PENDING';");
             }
-            if (strpos($type, 'READY FOR PICKUP') === false) {
-                $needs_update = true;
-            }
-            if ($needs_update) {
-                $pdo->exec("ALTER TABLE `business_transactions` MODIFY `status` ENUM('PENDING', 'PROCESSING', 'READY FOR PICKUP', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING';");
-            }
+        }
+    } catch (Exception $e) {
+        // Ignore errors if table doesn't exist yet
+    }
+
+    // --- Schema Migration: Add admin_notes column to document_requests ---
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM `document_requests` LIKE 'admin_notes'");
+        if ($stmt && $stmt->rowCount() == 0) {
+            $pdo->exec("ALTER TABLE `document_requests` ADD COLUMN `admin_notes` TEXT DEFAULT NULL AFTER `remarks`;");
+        }
+    } catch (Exception $e) {
+        // Ignore errors if table doesn't exist yet
+    }
+
+    // --- Schema Migration: Add admin_notes column to business_transactions ---
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM `business_transactions` LIKE 'admin_notes'");
+        if ($stmt && $stmt->rowCount() == 0) {
+            $pdo->exec("ALTER TABLE `business_transactions` ADD COLUMN `admin_notes` TEXT DEFAULT NULL AFTER `status`;");
         }
     } catch (Exception $e) {
         // Ignore errors if table doesn't exist yet

@@ -40,6 +40,10 @@ $display_name = ucfirst(trim((string) $user_fullname));
             <i class="fas fa-file-alt"></i>
             <span>My Reports</span>
         </a>
+        <a href="my-document-requests.php" class="nav-link <?= $current_page === 'my-document-requests.php' ? 'active' : '' ?>">
+            <i class="fas fa-file-invoice"></i>
+            <span>My Document Requests</span>
+        </a>
         <a href="report-incident.php" class="nav-link <?= $current_page === 'report-incident.php' ? 'active' : '' ?>">
             <i class="fas fa-exclamation-triangle"></i>
             <span>Report Incident</span>

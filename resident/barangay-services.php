@@ -372,6 +372,19 @@ require_once 'partials/header.php';
         </p>
     </div>
     
+    <div class="service-card purple" onclick="window.location.href='my-document-requests.php';" style="cursor: pointer;">
+        <div class="service-icon">
+            <i class="fas fa-file-invoice"></i>
+        </div>
+        <div class="service-title">
+            <h3>My Document Requests</h3>
+            <div class="service-subtitle">Track your document requests</div>
+        </div>
+        <p class="service-description">
+            View the status of your submitted document requests, timelines, and admin notes.
+        </p>
+    </div>
+
     <div class="service-card green" onclick="window.location.href='emergency-contacts.php';" style="cursor: pointer;">
         <div class="service-icon">
             <i class="fas fa-phone-alt"></i>
@@ -384,7 +397,6 @@ require_once 'partials/header.php';
             Access emergency numbers, barangay contacts, and government service hotlines.
         </p>
     </div>
-    
 
 </div>
 

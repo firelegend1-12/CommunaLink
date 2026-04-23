@@ -41,7 +41,7 @@ if (empty($id) || empty($status)) {
     exit;
 }
 
-$allowed_statuses = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled'];
+$allowed_statuses = ['Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled'];
 if (!in_array($status, $allowed_statuses, true)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid status value']);

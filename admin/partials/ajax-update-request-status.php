@@ -48,7 +48,7 @@ if ($type === 'document') {
     exit;
 }
 
-$valid_statuses = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled'];
+$valid_statuses = ['Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled'];
 if (!in_array($status, $valid_statuses, true)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid status']);

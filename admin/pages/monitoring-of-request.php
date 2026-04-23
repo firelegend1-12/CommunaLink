@@ -38,7 +38,7 @@ try {
     $total_count = 0;
     
     // Validate filter values
-    $valid_statuses = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled'];
+    $valid_statuses = ['Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled'];
     $valid_payments = ['Paid', 'Unpaid'];
     $valid_sort_columns = ['date_requested', 'status', 'payment_status', 'first_name', 'last_name'];
     $valid_date_modes = ['request', 'payment'];
@@ -96,13 +96,13 @@ try {
     
     // Base UNION query (without filters)
     $union_query = "(
-        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason 
+        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
         FROM document_requests dr 
         LEFT JOIN residents r ON dr.resident_id = r.id
     ) UNION ALL (
         SELECT bt.id, r.first_name, r.last_name, CASE WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance' ELSE bt.transaction_type END as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
         JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
-        bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason 
+        bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason, bt.admin_notes
         FROM business_transactions bt 
         LEFT JOIN residents r ON bt.resident_id = r.id
     )";
@@ -110,7 +110,7 @@ try {
     // Apply type filter by modifying the union query
     if ($type_filter === 'document') {
         $union_query = "(
-            SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason 
+            SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
             FROM document_requests dr 
             LEFT JOIN residents r ON dr.resident_id = r.id
         )";
@@ -118,7 +118,7 @@ try {
         $union_query = "(
             SELECT bt.id, r.first_name, r.last_name, CASE WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance' ELSE bt.transaction_type END as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
             JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
-            bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason 
+            bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason, bt.admin_notes
             FROM business_transactions bt 
             LEFT JOIN residents r ON bt.resident_id = r.id
         )";
@@ -212,16 +212,16 @@ try {
     $q_today->execute([$start_of_day, $end_of_day, $start_of_day, $end_of_day]);
     $stats['today_queue'] = $q_today->fetchColumn();
 
-    // 2. Active Workload (Pending + Processing)
+    // 2. Active Workload (Pending + Approved)
     $q_workload = $pdo->query("SELECT 
-        (SELECT COUNT(*) FROM document_requests WHERE status IN ('Pending', 'Processing')) + 
-        (SELECT COUNT(*) FROM business_transactions WHERE status IN ('Pending', 'Processing')) as total");
+        (SELECT COUNT(*) FROM document_requests WHERE status IN ('Pending', 'Approved')) + 
+        (SELECT COUNT(*) FROM business_transactions WHERE status IN ('PENDING', 'APPROVED')) as total");
     $stats['workload'] = $q_workload->fetchColumn();
 
-    // 3. Ready for Pickup
+    // 3. Approved (Ready for Pickup)
     $q_ready = $pdo->query("SELECT 
-        (SELECT COUNT(*) FROM document_requests WHERE status = 'Ready for Pickup') + 
-        (SELECT COUNT(*) FROM business_transactions WHERE status = 'Ready for Pickup') as total");
+        (SELECT COUNT(*) FROM document_requests WHERE status = 'Approved') + 
+        (SELECT COUNT(*) FROM business_transactions WHERE status = 'APPROVED') as total");
     $stats['ready'] = $q_ready->fetchColumn();
 
     // 4. Daily Revenue (Paid today)
@@ -259,7 +259,7 @@ foreach ($requests as $summary_req) {
     } else {
         $page_unpaid++;
     }
-    if ($status_state === 'Ready for Pickup') {
+    if ($status_state === 'Approved') {
         $page_ready++;
     }
 }
@@ -351,6 +351,54 @@ foreach ($requests as $summary_req) {
             } catch (e) {
                 showToast('Failed to process cash payment.', 'error');
             }
+        },
+        async approveRequest() {
+            if (!this.selectedReq || this.selectedReq.status !== 'Pending') return;
+            const formData = new FormData();
+            formData.append('id', this.selectedReq.id);
+            formData.append('status', 'Approved');
+            formData.append('csrf_token', MONITORING_CSRF_TOKEN);
+            try {
+                const response = await fetch('../partials/update-document-request-status.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    showToast(data.error || 'Failed to approve request.', 'error');
+                    return;
+                }
+                this.selectedReq.status = 'Approved';
+                showToast('Request approved successfully.');
+            } catch (e) {
+                showToast('Failed to approve request.', 'error');
+            }
+        },
+        async saveAdminNotes() {
+            if (!this.selectedReq) return;
+            const notes = this.selectedReq.adminNotesInput || '';
+            const formData = new FormData();
+            formData.append('id', this.selectedReq.id);
+            formData.append('type', this.selectedReq.type);
+            formData.append('admin_notes', notes);
+            formData.append('csrf_token', MONITORING_CSRF_TOKEN);
+            try {
+                const response = await fetch('../partials/save-admin-notes.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    showToast(data.error || 'Failed to save admin notes.', 'error');
+                    return;
+                }
+                this.selectedReq.adminNotes = notes;
+                showToast('Admin notes saved successfully.');
+            } catch (e) {
+                showToast('Failed to save admin notes.', 'error');
+            }
         }
     }">
         <?php
@@ -387,7 +435,7 @@ echo date('Y-m-d'); ?>&payment=" class="bg-white rounded-2xl shadow-sm border bo
                         </div>
                     </a>
                     <!-- Workload Card -->
-                    <a href="?page=1&status=Pending,Processing&type=&date_from=&date_to=&payment=" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center space-x-4 hover:shadow-md hover:border-amber-200 transition cursor-pointer">
+                    <a href="?page=1&status=Pending,Approved&type=&date_from=&date_to=&payment=" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center space-x-4 hover:shadow-md hover:border-amber-200 transition cursor-pointer">
                         <div class="bg-amber-50 p-3 rounded-xl"><i class="fas fa-clock text-amber-600 text-xl w-6 text-center"></i></div>
                         <div>
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Workload</p>
@@ -395,7 +443,7 @@ echo date('Y-m-d'); ?>&payment=" class="bg-white rounded-2xl shadow-sm border bo
                         </div>
                     </a>
                     <!-- Ready Card -->
-                    <a href="?page=1&status=Ready%20for%20Pickup&type=&date_from=&date_to=&payment=" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center space-x-4 hover:shadow-md hover:border-green-200 transition cursor-pointer">
+                    <a href="?page=1&status=Approved&type=&date_from=&date_to=&payment=" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center space-x-4 hover:shadow-md hover:border-green-200 transition cursor-pointer">
                         <div class="bg-green-50 p-3 rounded-xl"><i class="fas fa-check-double text-green-600 text-xl w-6 text-center"></i></div>
                         <div>
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ready</p>
@@ -461,8 +509,7 @@ echo number_format($page_ready); ?></p>
                                             <select id="bulkStatusSelect" class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                                                 <option value="">Set status...</option>
                                                 <option value="Pending">Pending</option>
-                                                <option value="Processing">Processing</option>
-                                                <option value="Ready for Pickup">Ready for Pickup</option>
+                                                <option value="Approved">Approved</option>
                                                 <option value="Completed">Completed</option>
                                                 <option value="Rejected">Rejected</option>
                                                 <option value="Cancelled">Cancelled</option>
@@ -485,10 +532,8 @@ echo number_format($page_ready); ?></p>
                                             <option value="">All Statuses</option>
                                             <option value="Pending" <?php
 echo $status_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
-                                            <option value="Processing" <?php
-echo $status_filter === 'Processing' ? 'selected' : ''; ?>>Processing</option>
-                                            <option value="Ready for Pickup" <?php
-echo $status_filter === 'Ready for Pickup' ? 'selected' : ''; ?>>Ready for Pickup</option>
+                                            <option value="Approved" <?php
+echo $status_filter === 'Approved' ? 'selected' : ''; ?>>Approved</option>
                                             <option value="Completed" <?php
 echo $status_filter === 'Completed' ? 'selected' : ''; ?>>Completed</option>
                                             <option value="Rejected" <?php
@@ -712,13 +757,8 @@ foreach ($requests as $req):
 
                                                     // Unified status logic
                                                     switch($status) {
-                                                        case 'Processing':
+                                                        case 'Approved':
                                                             $status_bg = 'bg-blue-100 text-blue-800';
-                                                            break;
-                                                        case 'Ready for Pickup':
-                                                        case 'Ready':
-                                                            $status_bg = 'bg-blue-100 text-blue-800';
-                                                            $status_text = 'Ready for Pickup';
                                                             break;
                                                         case 'Completed':
                                                             $status_bg = 'bg-green-100 text-green-800';
@@ -760,6 +800,8 @@ foreach ($requests as $req):
                                                         'changeValue' => null,
                                                         'isPaying' => false,
                                                         'cancellationReason' => $cancellation_reason,
+                                                        'adminNotes' => $req['admin_notes'] ?? null,
+                                                        'adminNotesInput' => $req['admin_notes'] ?? '',
                                                         'details' => $req['details'] ? json_decode($req['details'], true) : null,
                                                     ];
                                                 ?>
@@ -813,17 +855,6 @@ echo htmlspecialchars($req['document_type']); ?>">
 echo htmlspecialchars(json_encode($quick_view_payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8'); ?>)" class="inline-flex items-center justify-center w-8 h-8 rounded text-blue-600 hover:bg-blue-50 focus:outline-none" title="Quick View">
                                                                     <i class="fas fa-eye text-sm"></i>
                                                                 </button>
-
-                                                                <?php
-if ($status === 'Processing'): ?>
-                                                                    <button type="button" onclick="changeRequestStatus('<?php
-echo $req['id']; ?>', '<?php
-echo $req['request_type']; ?>', 'Ready for Pickup')" class="inline-flex items-center justify-center w-8 h-8 rounded text-green-600 hover:bg-green-50 focus:outline-none" title="Mark Ready">
-                                                                        <i class="fas fa-check text-xs"></i>
-                                                                    </button>
-                                                                <?php
-endif; ?>
-                                                                
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -1035,6 +1066,11 @@ endif; ?>
                                  <i class="fas fa-bolt mr-2"></i>QUICK ACTIONS
                               </h3>
                               <div class="space-y-2">
+                                            <!-- Approve Request (if Pending) -->
+                                            <button x-show="selectedReq.status === 'Pending'" @click="approveRequest()" class="w-full bg-green-600 text-white px-4 py-3 rounded-lg shadow hover:bg-green-700 transition font-bold uppercase tracking-widest text-xs">
+                                                <i class="fas fa-check mr-2"></i>Approve Request
+                                            </button>
+
                                             <!-- Cancel Request (if Pending) -->
                                             <button x-show="selectedReq.status === 'Pending'" @click="cancelRequest(selectedReq.id, selectedReq.type); viewPanelOpen = false;" class="w-full bg-red-600 text-white px-4 py-3 rounded-lg shadow hover:bg-red-700 transition font-bold uppercase tracking-widest text-xs">
                                                 <i class="fas fa-ban mr-2"></i>Cancel Request
@@ -1096,6 +1132,15 @@ endif; ?>
                                             viewPanelOpen = false;" class="w-full bg-gray-50 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-100 transition font-bold uppercase tracking-widest text-xs border border-gray-200">
                                     <i class="fas fa-expand mr-2"></i>View Full Details
                                  </button>
+
+                                            <!-- Admin Notes -->
+                                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-2">
+                                                <p class="text-xs font-bold text-yellow-800 uppercase tracking-wider mb-2"><i class="fas fa-sticky-note mr-1"></i>Admin Notes for Resident</p>
+                                                <textarea x-model="selectedReq.adminNotesInput" :placeholder="selectedReq.adminNotes ? '' : 'Enter notes for the resident...'" class="w-full px-3 py-2 text-sm border border-yellow-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none" rows="3"></textarea>
+                                                <button type="button" @click="saveAdminNotes()" class="w-full mt-2 bg-yellow-600 text-white px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-yellow-700">
+                                                    <i class="fas fa-save mr-1"></i>Save Notes
+                                                </button>
+                                            </div>
                               </div>
                            </div>
                         </div>
@@ -1293,64 +1338,6 @@ echo json_encode($monitoring_csrf_token); ?>;
             }
         });
     });
-
-    function changeRequestStatus(id, type, status) {
-        confirmModal(`Set status to <strong>${status}</strong>?`, () => {
-        
-        const formData = new FormData();
-        formData.append('id', id);
-        formData.append('type', type);
-        formData.append('status', status);
-        formData.append('csrf_token', MONITORING_CSRF_TOKEN);
-
-        fetch('../partials/ajax-update-request-status.php', {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Update row status badge without reload
-                    const row = document.getElementById(`request-row-${type}-${id}`);
-                    if (row) {
-                        const statusCell = row.querySelector('.status-badge');
-                        if (statusCell) {
-                            statusCell.textContent = status;
-                            statusCell.className = 'status-badge ' + getStatusBgClass(status);
-                        }
-                        row.style.backgroundColor = '#f0fdf4';
-                        setTimeout(() => row.style.backgroundColor = '', 600);
-                    }
-                    showToast('Status updated to ' + status + '.');
-                } else {
-                    showToast('Failed to update status: ' + (data.error || 'Unknown error'), 'error');
-                }
-            })
-            .catch((error) => {
-                console.error('Error:', error);
-                showToast('Failed to update status. Please try again.', 'error');
-            });
-        }); // end confirmModal
-    }
-
-    function getStatusBgClass(status) {
-        switch(status) {
-            case 'Processing':
-                return 'bg-blue-100 text-blue-800';
-            case 'Ready for Pickup':
-            case 'Ready':
-                return 'bg-blue-100 text-blue-800';
-            case 'Completed':
-                return 'bg-green-100 text-green-800';
-            case 'Rejected':
-                return 'bg-red-100 text-red-800';
-            case 'Cancelled':
-                return 'bg-gray-100 text-gray-800';
-            default:
-                return 'bg-yellow-100 text-yellow-800';
-        }
-    }
 
     function updateRowPaymentBadge(id, type, orNumber) {
         const row = document.getElementById(`request-row-${type}-${id}`);

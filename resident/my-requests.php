@@ -76,12 +76,13 @@ document.addEventListener('DOMContentLoaded', function() {
 function renderTimeline(status) {
     let activeStep = 1;
     let isRejected = false;
+    let isCancelled = false;
     
     let normalizeStatus = status.toLowerCase();
-    if (["approved", "ready for pickup", "ready", "completed"].includes(normalizeStatus)) activeStep = 3;
-    if (normalizeStatus === "completed") activeStep = 4;
-    else if (normalizeStatus === "processing") activeStep = 2;
-    else if (["rejected", "cancelled"].includes(normalizeStatus)) { activeStep = 4; isRejected = true; }
+    if (["approved"].includes(normalizeStatus)) activeStep = 2;
+    else if (["completed"].includes(normalizeStatus)) activeStep = 3;
+    else if (["rejected"].includes(normalizeStatus)) { activeStep = 2; isRejected = true; }
+    else if (["cancelled"].includes(normalizeStatus)) { activeStep = 1; isCancelled = true; }
     
     let color = isRejected ? 'text-red-500 border-red-500 bg-red-50' : 'text-blue-600 border-blue-600 bg-blue-50';
     
@@ -89,31 +90,25 @@ function renderTimeline(status) {
     <div class="mt-6 px-1">
         <div class="flex items-center justify-between relative">
             <div class="absolute left-0 top-3 transform -translate-y-1/2 w-full h-1 bg-gray-100 -z-10 rounded-full"></div>
-            <div class="absolute left-0 top-3 transform -translate-y-1/2 h-1 ${isRejected ? 'bg-red-500' : 'bg-blue-600'} -z-10 transition-all rounded-full" style="width: ${(activeStep - 1) * 33.3}%"></div>
+            <div class="absolute left-0 top-3 transform -translate-y-1/2 h-1 ${isRejected ? 'bg-red-500' : 'bg-blue-600'} -z-10 transition-all rounded-full" style="width: ${(activeStep - 1) * 50}%"></div>
             
-            <div class="flex flex-col items-center w-1/4">
+            <div class="flex flex-col items-center w-1/3">
                 <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 1 ? color : 'border-gray-300 bg-white'} flex items-center justify-center text-[10px] font-bold ring-4 ring-white z-10">
-                    ${activeStep > 1 && !isRejected ? '<i class="fas fa-check"></i>' : '1'}
+                    ${activeStep > 1 && !isRejected && !isCancelled ? '<i class="fas fa-check"></i>' : (isCancelled ? '<i class="fas fa-times"></i>' : '1')}
                 </div>
-                <span class="text-[9px] mt-2 font-bold uppercase tracking-tighter w-full text-center leading-none ${activeStep >= 1 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Submitted</span>
+                <span class="text-[9px] mt-2 font-bold uppercase tracking-tighter w-full text-center leading-none ${activeStep >= 1 ? (isRejected || isCancelled ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">${isCancelled ? 'Cancelled' : 'Submitted'}</span>
             </div>
-            <div class="flex flex-col items-center w-1/4">
+            <div class="flex flex-col items-center w-1/3">
                 <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 2 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-[10px] font-bold ring-4 ring-white z-10">
-                    ${activeStep > 2 && !isRejected ? '<i class="fas fa-check"></i>' : '2'}
+                    ${activeStep > 2 && !isRejected ? '<i class="fas fa-check"></i>' : (isRejected ? '<i class="fas fa-times"></i>' : '2')}
                 </div>
-                <span class="text-[9px] mt-2 font-bold uppercase tracking-tighter w-full text-center leading-none ${activeStep >= 2 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Processing</span>
+                <span class="text-[9px] mt-2 font-bold uppercase tracking-tighter w-full text-center leading-none ${activeStep >= 2 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">${isRejected ? 'Rejected' : 'Approved'}</span>
             </div>
-            <div class="flex flex-col items-center w-1/4">
+            <div class="flex flex-col items-center w-1/3">
                 <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 3 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-[10px] font-bold ring-4 ring-white z-10">
-                    ${activeStep > 3 && !isRejected ? '<i class="fas fa-check"></i>' : '3'}
+                    ${activeStep >= 3 ? '<i class="fas fa-check"></i>' : '3'}
                 </div>
-                <span class="text-[9px] mt-2 font-bold uppercase tracking-tighter w-full text-center leading-none ${activeStep >= 3 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Ready</span>
-            </div>
-            <div class="flex flex-col items-center w-1/4">
-                <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 4 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-[10px] font-bold ring-4 ring-white z-10">
-                    ${isRejected ? '<i class="fas fa-times text-red-500"></i>' : (activeStep >= 4 ? '<i class="fas fa-check"></i>' : '4')}
-                </div>
-                <span class="text-[9px] mt-2 font-bold uppercase tracking-tighter w-full text-center leading-none ${activeStep >= 4 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">${isRejected ? 'Rejected' : 'Done'}</span>
+                <span class="text-[9px] mt-2 font-bold uppercase tracking-tighter w-full text-center leading-none ${activeStep >= 3 ? 'text-blue-700' : 'text-gray-400'}">Completed</span>
             </div>
         </div>
     </div>`;
@@ -134,9 +129,8 @@ function renderRequestsTable(docRequests, bizRequests) {
         docRequests.forEach(function(req) {
             let status = req.status || 'Pending';
             let badgeClass = 'pending';
-            if (["Approved","Ready for Pickup","Completed"].includes(status)) badgeClass = 'approved';
+            if (["Approved","Completed"].includes(status)) badgeClass = 'approved';
             else if (['Rejected', 'Cancelled'].includes(status)) badgeClass = 'rejected';
-            else if (status === 'Processing') badgeClass = 'processing';
             
             cards += `<div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition cursor-pointer group" onclick="window.location.href='request-details.php?id=${req.id}'">
                 <div>
@@ -161,9 +155,8 @@ function renderRequestsTable(docRequests, bizRequests) {
         bizRequests.forEach(function(req) {
             let status = req.status || 'Pending';
             let badgeClass = 'pending';
-            if (["Approved","Completed","Ready for Pickup"].includes(status)) badgeClass = 'approved';
+            if (["Approved","Completed"].includes(status)) badgeClass = 'approved';
             else if (["Rejected","Cancelled"].includes(status)) badgeClass = 'rejected';
-            else if (["Processing"].includes(status)) badgeClass = 'processing';
             const businessLabel = req.remarks === 'Barangay Business Clearance'
                 ? 'Business Clearance'
                 : (req.transaction_type || 'Business Transaction');

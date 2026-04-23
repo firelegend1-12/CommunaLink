@@ -84,35 +84,38 @@ require_once 'partials/header.php';
                 <?php
                 $activeStep = 1;
                 $isRejected = false;
+                $isCancelled = false;
                 $normalizeStatus = strtolower($status);
-                if (in_array($normalizeStatus, ["approved", "ready for pickup", "completed", "ready"])) $activeStep = 3;
-                if ($normalizeStatus === "completed") $activeStep = 4;
-                else if ($normalizeStatus === "processing") $activeStep = 2;
-                else if (in_array($normalizeStatus, ["rejected", "cancelled"])) { $activeStep = 4; $isRejected = true; }
+                if ($normalizeStatus === "approved") $activeStep = 2;
+                else if ($normalizeStatus === "completed") $activeStep = 3;
+                else if (in_array($normalizeStatus, ["rejected"])) { $activeStep = 2; $isRejected = true; }
+                else if (in_array($normalizeStatus, ["cancelled"])) { $activeStep = 1; $isCancelled = true; }
                 
                 $color = $isRejected ? 'text-red-500 border-red-500 bg-red-50' : 'text-blue-600 border-blue-600 bg-blue-50';
                 $lineColor = $isRejected ? 'bg-red-500' : 'bg-blue-600';
+                $steps = ["Submitted", "Approved", "Completed"];
                 ?>
-                <div class="w-full px-2 pt-4">
+                <div class="w-full px-4 md:px-12 pt-4">
                     <div class="flex items-center justify-between relative">
-                        <div class="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1.5 bg-gray-100 rounded-full -z-10"></div>
-                        <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-1.5 <?= $lineColor ?> rounded-full -z-10 transition-all duration-1000" style="width: <?= ($activeStep - 1) * 33.3 ?>%"></div>
+                        <div class="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1.5 bg-gray-200 rounded-full -z-10"></div>
+                        <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-1.5 <?= $lineColor ?> rounded-full -z-10 transition-all duration-1000" style="width: <?= ($activeStep - 1) * 50 ?>"></div>
                         
-                        <?php 
-                        $steps = ["Submitted", "Processing", "Ready", $isRejected ? "Rejected" : "Completed"];
-                        for($i=1; $i<=4; $i++): 
+                        <?php for($i=1; $i<=3; $i++): 
                             $stepActive = $activeStep >= $i;
                             $dotColor = $stepActive ? $color : 'border-gray-200 bg-gray-50 text-gray-400';
                         ?>
-                        <div class="flex flex-col items-center w-1/4">
+                        <div class="flex flex-col items-center w-1/3">
                             <div class="w-10 h-10 md:w-12 md:h-12 rounded-full border-4 <?= $dotColor ?> flex items-center justify-center text-sm md:text-base font-bold shadow-md z-10 bg-white">
                                 <?php 
-                                if($isRejected && $i === 4) echo '<i class="fas fa-times text-red-600"></i>';
-                                elseif($activeStep > $i && !$isRejected) echo '<i class="fas fa-check text-blue-600"></i>';
+                                if ($isCancelled && $i === 1) echo '<i class="fas fa-times text-red-600"></i>';
+                                elseif ($isRejected && $i === 2) echo '<i class="fas fa-times text-red-600"></i>';
+                                elseif ($activeStep > $i && !$isRejected) echo '<i class="fas fa-check text-blue-600"></i>';
                                 else echo $i;
                                 ?>
                             </div>
-                            <span class="text-[10px] md:text-xs mt-2 font-bold <?= $stepActive ? ($isRejected ? 'text-red-600' : 'text-blue-800') : 'text-gray-400' ?> uppercase tracking-tighter text-center"><?= $steps[$i-1] ?></span>
+                            <span class="text-xs md:text-xs mt-2 font-bold <?= $stepActive ? ($isRejected || $isCancelled ? 'text-red-600' : 'text-blue-800') : 'text-gray-400' ?> uppercase tracking-tighter text-center">
+                                <?php if ($isCancelled && $i === 1) echo 'Cancelled'; else echo $steps[$i-1]; ?>
+                            </span>
                         </div>
                         <?php endfor; ?>
                     </div>
@@ -172,6 +175,18 @@ require_once 'partials/header.php';
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Admin Notes -->
+            <div class="mt-10 bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+                <h3 class="text-lg font-bold text-yellow-800 mb-2"><i class="fas fa-sticky-note text-yellow-600 mr-2"></i>Admin Notes</h3>
+                <p class="text-gray-800 text-sm">
+                    <?php if(!empty($trans['admin_notes'])): ?>
+                        <?= nl2br(htmlspecialchars($trans['admin_notes'])) ?>
+                    <?php else: ?>
+                        <span class="text-gray-500 italic">No admin notes added yet.</span>
+                    <?php endif; ?>
+                </p>
             </div>
 
             <!-- Official Remarks -->

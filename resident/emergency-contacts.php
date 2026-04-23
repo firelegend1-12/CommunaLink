@@ -197,33 +197,36 @@ require_once 'partials/header.php';
             <div class="info-card red">
                 <i class="fas fa-fire-extinguisher info-icon"></i>
                 <div class="info-content">
-                    <h3>Fire Department</h3>
-                    <p><a href="tel:911">911</a></p>
-                    <span class="subtext">National Emergency Hotline</span>
+                    <h3>Fire Department (BFP Iloilo)</h3>
+                    <p><a href="tel:0333373011">(033) 337-3011</a></p>
+                    <p style="font-size: 0.9rem; margin-top: 2px;"><a href="tel:0333374989">(033) 337-4989</a></p>
+                    <span class="subtext">Globe: <a href="tel:09359180727">0935-918-0727</a> | Smart: <a href="tel:09473869950">0947-386-9950</a> | TNT: <a href="tel:09639421215">0963-942-1215</a></span>
                 </div>
             </div>
             <div class="info-card blue">
                 <i class="fas fa-shield-alt info-icon"></i>
                 <div class="info-content">
-                    <h3>Police Station</h3>
-                    <p><a href="tel:911">911</a></p>
-                    <span class="subtext">National Emergency Hotline</span>
+                    <h3>Police Station (ICPO)</h3>
+                    <p><a href="tel:0333370400">(033) 337-0400</a></p>
+                    <p style="font-size: 0.9rem; margin-top: 2px;"><a href="tel:166">166</a> (Direct Hotline)</p>
+                    <span class="subtext">Mobile: <a href="tel:09083770194">0908-377-0194</a></span>
                 </div>
             </div>
             <div class="info-card green">
                 <i class="fas fa-ambulance info-icon"></i>
                 <div class="info-content">
-                    <h3>Medical Emergency</h3>
-                    <p><a href="tel:911">911</a></p>
-                    <span class="subtext">National Emergency Hotline</span>
+                    <h3>Medical Emergency & Rescue (ICER)</h3>
+                    <p><a href="tel:0333332333">(033) 333-2333</a></p>
+                    <p style="font-size: 0.9rem; margin-top: 2px;"><a href="tel:0333351554">(033) 335-1554</a> | <a href="tel:0333333333">(033) 333-3333</a></p>
+                    <span class="subtext">Smart: <a href="tel:09190661554">0919-066-1554</a> | COC: <a href="tel:09190662333">0919-066-2333</a></span>
                 </div>
             </div>
             <div class="info-card purple">
-                <i class="fas fa-life-ring info-icon"></i>
+                <i class="fas fa-heartbeat info-icon"></i>
                 <div class="info-content">
-                    <h3>Rescue Services</h3>
-                    <p><a href="tel:911">911</a></p>
-                    <span class="subtext">National Emergency Hotline</span>
+                    <h3>Philippine Red Cross (Iloilo)</h3>
+                    <p><a href="tel:0333375950">(033) 337-5950</a></p>
+                    <span class="subtext">Blood bank, first aid, disaster response</span>
                 </div>
             </div>
         </div>
@@ -236,62 +239,36 @@ require_once 'partials/header.php';
             <h2>Barangay Office Contacts</h2>
         </div>
         <div class="section-grid">
-            <div class="info-card blue">
-                <i class="fas fa-user-tie info-icon"></i>
-                <div class="info-content">
-                    <h3>Barangay Captain</h3>
-                    <p><a href="tel:+639123456789">+63 912 345 6789</a></p>
-                    <span class="subtext">Barangay Captain</span>
-                </div>
-            </div>
-            <div class="info-card green">
-                <i class="fas fa-phone-alt info-icon"></i>
-                <div class="info-content">
-                    <h3>Barangay Office</h3>
-                    <p><a href="tel:+63281234567">+63 2 8123 4567</a></p>
-                    <span class="subtext">Main Office Line</span>
-                </div>
-            </div>
             <div class="info-card amber">
                 <i class="fas fa-envelope info-icon"></i>
                 <div class="info-content">
                     <h3>Email Address</h3>
-                    <p style="font-size: 1rem;"><a href="mailto:info@barangaypakiad.gov.ph">info@barangaypakiad.gov.ph</a></p>
-                    <span class="subtext">General Inquiries</span>
+                    <p style="font-size: 1rem;"><a href="mailto:brgypakiad2023@gmail.com">brgypakiad2023@gmail.com</a></p>
+                    <span class="subtext">Barangay Pakiad</span>
+                </div>
+            </div>
+            <div class="info-card green">
+                <i class="fas fa-mobile-alt info-icon"></i>
+                <div class="info-content">
+                    <h3>Barangay Office (Mobile)</h3>
+                    <p><a href="tel:09943692152">0994 369 2152</a></p>
+                    <span class="subtext">Direct hotline</span>
+                </div>
+            </div>
+            <div class="info-card blue">
+                <i class="fas fa-phone-alt info-icon"></i>
+                <div class="info-content">
+                    <h3>Barangay Office (Landline)</h3>
+                    <p><a href="tel:3326539">332 65 39</a></p>
+                    <span class="subtext">Office landline</span>
                 </div>
             </div>
             <div class="info-card purple">
                 <i class="fas fa-map-marker-alt info-icon"></i>
                 <div class="info-content">
                     <h3>Office Address</h3>
-                    <p style="font-size: 1rem;">Barangay Hall, Pakiad Road</p>
-                    <span class="subtext">Oton Iloilo</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Government Services Section -->
-    <div class="contact-section government-section">
-        <div class="section-header">
-            <i class="fas fa-university"></i>
-            <h2>Government Services</h2>
-        </div>
-        <div class="section-grid">
-            <div class="info-card gray">
-                <i class="fas fa-file-alt info-icon"></i>
-                <div class="info-content">
-                    <h3>Document Requests</h3>
-                    <p><a href="tel:+63281234568">+63 2 8123 4568</a></p>
-                    <span class="subtext">Barangay Clearance, Certificates</span>
-                </div>
-            </div>
-            <div class="info-card gray">
-                <i class="fas fa-users info-icon"></i>
-                <div class="info-content">
-                    <h3>Social Services</h3>
-                    <p><a href="tel:+63281234569">+63 2 8123 4569</a></p>
-                    <span class="subtext">Assistance Programs</span>
+                    <p style="font-size: 1rem;">Barangay Hall, Pakiad</p>
+                    <span class="subtext">Oton, Iloilo</span>
                 </div>
             </div>
         </div>

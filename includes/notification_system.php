@@ -107,13 +107,44 @@ if (!class_exists('NotificationSystem')) {
 
             $title = 'Request Update: ' . $document_type;
             $message = 'Your request for ' . $document_type . ' has been updated to: ' . $status . '. ';
-            if ($status === 'Ready for Pickup') {
-                $message .= 'Please visit the Barangay Hall to claim your document.';
+            if ($status === 'Approved') {
+                $message .= 'Please proceed to the Barangay Hall for receiving and checkout.';
             } elseif ($status === 'Rejected') {
                 $message .= 'Please contact the office for more details.';
             }
 
-            return create_notification($pdo, $recipient_user_id, $title, $message, 'request_status', $link);
+            // Create in-app notification
+            $notification_created = create_notification($pdo, $recipient_user_id, $title, $message, 'request_status', $link);
+
+            // Send email for Approved or Rejected status
+            if ($status === 'Approved' || $status === 'Rejected') {
+                try {
+                    $stmt = $pdo->prepare("SELECT email, fullname FROM users WHERE id = ? LIMIT 1");
+                    $stmt->execute([$recipient_user_id]);
+                    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($user && !empty($user['email'])) {
+                        $email_body = '<p>Dear ' . htmlspecialchars($user['fullname'] ?: 'Resident') . ',</p>'
+                            . '<p>Your request for <strong>' . htmlspecialchars($document_type) . '</strong> has been <strong>' . htmlspecialchars($status) . '</strong>.</p>';
+                        if ($status === 'Approved') {
+                            $email_body .= '<p>Please proceed to the Barangay Hall for receiving and checkout.</p>';
+                        } elseif ($status === 'Rejected') {
+                            $email_body .= '<p>Please contact the office for more details.</p>';
+                        }
+                        $email_body .= '<p>Thank you.<br>CommunaLink Barangay Office</p>';
+
+                        self::send_email_with_fallback(
+                            $user['email'],
+                            $user['fullname'] ?: 'Resident',
+                            $title,
+                            $email_body
+                        );
+                    }
+                } catch (Exception $e) {
+                    error_log('Failed to send email notification for document status: ' . $e->getMessage());
+                }
+            }
+
+            return $notification_created;
         }
 
         /**

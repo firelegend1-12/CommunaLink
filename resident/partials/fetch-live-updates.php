@@ -15,12 +15,12 @@ $stmt->execute([$user_id]);
 $notifications = $stmt->fetchAll();
 
 // Fetch document requests
-$stmt = $pdo->prepare('SELECT id, document_type, purpose, date_requested, status, remarks, details FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC');
+$stmt = $pdo->prepare('SELECT id, document_type, purpose, date_requested, status, remarks, admin_notes, details FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC');
 $stmt->execute([$resident_id]);
 $doc_requests = $stmt->fetchAll();
 
 // Fetch business transactions
-$stmt = $pdo->prepare('SELECT id, business_name, business_type, transaction_type, application_date, status, remarks FROM business_transactions WHERE resident_id = ? ORDER BY application_date DESC');
+$stmt = $pdo->prepare('SELECT id, business_name, business_type, transaction_type, application_date, status, remarks, admin_notes FROM business_transactions WHERE resident_id = ? ORDER BY application_date DESC');
 $stmt->execute([$resident_id]);
 $biz_requests = $stmt->fetchAll();
 
