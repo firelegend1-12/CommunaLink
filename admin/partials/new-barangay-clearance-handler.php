@@ -43,8 +43,12 @@ try {
     $remarks = sanitize_input($_POST['remarks']);
     
     // Validate required fields
-    if (!$resident_id || !$purpose) {
+    if (!$resident_id || empty($purpose)) {
         $_SESSION['error_message'] = "Applicant and purpose are required.";
+        redirect_to('../pages/new-barangay-clearance.php');
+    }
+    if (empty($clearance_no) || empty($clearance_date)) {
+        $_SESSION['error_message'] = "Clearance number and date are required.";
         redirect_to('../pages/new-barangay-clearance.php');
     }
 

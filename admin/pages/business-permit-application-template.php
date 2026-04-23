@@ -44,6 +44,14 @@ try {
 $owner_name = htmlspecialchars(($transaction['first_name'] ?? '') . ' ' . ($transaction['last_name'] ?? ''));
 $application_date = date('F j, Y', strtotime($transaction['application_date'] ?? 'now'));
 $status = htmlspecialchars($transaction['status'] ?? 'Pending');
+
+// Data completeness check
+$missing_fields = [];
+if (empty($transaction['business_name'])) $missing_fields[] = 'Business Name';
+if (empty($transaction['business_type'])) $missing_fields[] = 'Business Type';
+if (empty($transaction['first_name']) && empty($transaction['last_name'])) $missing_fields[] = 'Owner Name';
+if (empty($transaction['application_date'])) $missing_fields[] = 'Application Date';
+$has_missing_data = !empty($missing_fields);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -88,6 +96,13 @@ $status = htmlspecialchars($transaction['status'] ?? 'Pending');
                 <i class="fas fa-print mr-2"></i> Print Application
             </button>
         </div>
+<?php if ($has_missing_data): ?>
+        <div class="no-print text-center mb-4">
+            <div class="inline-block bg-red-100 border border-red-300 text-red-800 px-4 py-3 rounded shadow max-w-2xl">
+                <strong><i class="fas fa-exclamation-triangle mr-2"></i>Incomplete Data Warning:</strong> The following fields are missing in the database: <strong><?php echo implode(', ', $missing_fields); ?></strong>. Please verify the transaction details before printing.
+            </div>
+        </div>
+<?php endif; ?>
 <?php if ($is_view_only): ?>
         <div class="no-print text-center mb-4">
             <span class="inline-block bg-yellow-100 border border-yellow-300 text-yellow-900 px-3 py-2 rounded text-xs font-bold uppercase tracking-wide">Viewing purpose only</span>

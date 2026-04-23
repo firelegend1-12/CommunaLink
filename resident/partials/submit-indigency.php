@@ -39,16 +39,23 @@ try {
     }
 
     $resident_id = $resolved_resident_id;
-    
+
     if (!$resident_id) {
         echo json_encode(['success' => false, 'error' => 'Invalid resident profile.']);
         exit;
     }
 
+    $applicant_name = sanitize_input($_POST['applicant_name'] ?? '');
+    $age = sanitize_input($_POST['age'] ?? '');
+    if (empty($applicant_name) || empty($age)) {
+        echo json_encode(['success' => false, 'error' => 'Applicant name and age are required.']);
+        exit;
+    }
+
     // Store only the fields that match the SVG certificate
     $details = [
-        'applicant_name' => sanitize_input($_POST['applicant_name'] ?? ''),
-        'age'            => sanitize_input($_POST['age'] ?? ''),
+        'applicant_name' => $applicant_name,
+        'age'            => $age,
         'day_issued'     => sanitize_input($_POST['day_issued'] ?? date('jS')),
         'month_issued'   => sanitize_input($_POST['month_issued'] ?? date('F')),
         'year_issued'    => date('Y')

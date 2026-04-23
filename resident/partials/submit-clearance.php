@@ -25,16 +25,22 @@ if (!csrf_validate()) {
 try {
     $resident_id = filter_input(INPUT_POST, 'resident_id', FILTER_VALIDATE_INT);
     $purpose = sanitize_input($_POST['purpose'] ?? '');
-    
+    $applicant_name = sanitize_input($_POST['applicant_name'] ?? '');
+    $age = sanitize_input($_POST['age'] ?? '');
+
     if (!$resident_id || empty($purpose)) {
         echo json_encode(['success' => false, 'error' => 'Purpose is required.']);
+        exit;
+    }
+    if (empty($applicant_name) || empty($age)) {
+        echo json_encode(['success' => false, 'error' => 'Applicant name and age are required.']);
         exit;
     }
 
     // Store only the fields that match the SVG certificate
     $details = [
-        'applicant_name' => sanitize_input($_POST['applicant_name'] ?? ''),
-        'age'            => sanitize_input($_POST['age'] ?? ''),
+        'applicant_name' => $applicant_name,
+        'age'            => $age,
         'purpose'          => $purpose,
         'day_issued'       => sanitize_input($_POST['day_issued'] ?? date('jS')),
         'month_issued'     => sanitize_input($_POST['month_issued'] ?? date('F')),

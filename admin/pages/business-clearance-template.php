@@ -59,6 +59,14 @@ $valid_until = 'December 31, ' . $year;
 $day_issued = date('jS');
 $month_issued = date('F');
 
+// Data completeness check
+$missing_fields = [];
+if (empty($transaction['business_name'])) $missing_fields[] = 'Business Name';
+if (empty($transaction['owner_name'])) $missing_fields[] = 'Owner Name';
+if (empty($transaction['address'])) $missing_fields[] = 'Address';
+if (empty($transaction['business_type'])) $missing_fields[] = 'Business Type';
+$has_missing_data = !empty($missing_fields);
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -116,6 +124,15 @@ if (!$is_view_only): ?>
 <?php
 endif; ?>
         </div>
+
+<?php if ($has_missing_data): ?>
+    <div class="no-print text-center mb-4">
+        <div class="inline-block bg-red-100 border border-red-300 text-red-800 px-4 py-3 rounded shadow max-w-2xl">
+            <strong><i class="fas fa-exclamation-triangle mr-2"></i>Incomplete Data Warning:</strong> The following fields are missing in the database: <strong><?php echo implode(', ', $missing_fields); ?></strong>. Please verify the transaction details before printing.
+        </div>
+    </div>
+<?php endif; ?>
+
 <?php
 if ($is_view_only): ?>
         <div class="no-print text-center mb-4">

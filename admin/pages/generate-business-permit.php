@@ -49,6 +49,14 @@ try {
     exit;
 }
 
+// Data completeness check
+$missing_fields = [];
+if (empty($transaction['business_name'])) $missing_fields[] = 'Business Name';
+if (empty($transaction['business_type'])) $missing_fields[] = 'Business Type';
+if (empty($transaction['first_name']) && empty($transaction['last_name'])) $missing_fields[] = 'Owner Name';
+if (empty($transaction['address'])) $missing_fields[] = 'Address';
+$has_missing_data = !empty($missing_fields);
+
 // Handle permit generation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
     try {
@@ -234,6 +242,12 @@ unset($_SESSION['error_message']); ?>
                     <?php
 endif; ?>
 
+                    <?php if ($has_missing_data): ?>
+                        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-md no-print">
+                            <p><strong><i class="fas fa-exclamation-triangle mr-2"></i>Incomplete Data Warning:</strong> The following fields are missing in the database: <strong><?php echo implode(', ', $missing_fields); ?></strong>. Please verify the transaction details before printing.</p>
+                        </div>
+                    <?php endif; ?>
+
                     <!-- Action Buttons -->
                     <div class="flex justify-between items-center mb-6 no-print">
                         <div class="flex space-x-4">
@@ -333,7 +347,7 @@ echo htmlspecialchars($transaction['official_receipt_no'] ?? 'N/A'); ?></p>
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700">Capital:</label>
-                                            <p class="text-gray-900 font-bold">â‚±<?php
+                                            <p class="text-gray-900 font-bold">&#8369;<?php
 echo number_format($transaction['capital'] ?? 0, 2); ?></p>
                                         </div>
                                     </div>

@@ -35,6 +35,10 @@ try {
         $_SESSION['error_message'] = "Please select a recipient for the certificate.";
         redirect_to('../pages/new-certificate-of-indigency.php');
     }
+    if (empty($recipient_name) || empty($civil_status) || empty($day_issued) || empty($month_issued)) {
+        $_SESSION['error_message'] = "Please fill in all required fields (recipient name, civil status, day, and month).";
+        redirect_to('../pages/new-certificate-of-indigency.php');
+    }
 
     // Prepare details for storage (JSON format)
     $details = json_encode([

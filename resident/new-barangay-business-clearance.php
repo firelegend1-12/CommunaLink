@@ -266,6 +266,24 @@ require_once 'partials/header.php';
 document.getElementById('business-form').addEventListener('submit', function(e) {
     e.preventDefault();
     const btn = document.getElementById('submit-btn');
+
+    // Client-side validation
+    const requiredFields = this.querySelectorAll('input[required], select[required], textarea[required]');
+    let firstInvalid = null;
+    requiredFields.forEach(function(field) {
+        if (!field.value || field.value.trim() === '') {
+            field.classList.add('border-red-500');
+            if (!firstInvalid) firstInvalid = field;
+        } else {
+            field.classList.remove('border-red-500');
+        }
+    });
+    if (firstInvalid) {
+        firstInvalid.focus();
+        residentShowToast('Please fill in all required fields.', 'error');
+        return;
+    }
+
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
 

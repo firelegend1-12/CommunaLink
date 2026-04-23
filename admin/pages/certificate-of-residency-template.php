@@ -65,6 +65,21 @@ try {
     exit();
 }
 
+// Data completeness check
+$missing_fields = [];
+if ($has_new_format) {
+    if (empty($details['applicant_name'])) $missing_fields[] = 'Applicant Name';
+    if (empty($details['age'])) $missing_fields[] = 'Age';
+    if (empty($details['duration'])) $missing_fields[] = 'Duration of Residency';
+} else {
+    if (empty($request['first_name']) && empty($request['last_name'])) $missing_fields[] = 'Applicant Name';
+    if (empty($request['date_of_birth'])) $missing_fields[] = 'Age (Date of Birth)';
+    if (empty($details['duration'])) $missing_fields[] = 'Duration of Residency';
+}
+if (empty($day)) $missing_fields[] = 'Day';
+if (empty($month)) $missing_fields[] = 'Month';
+$has_missing_data = !empty($missing_fields);
+
 $page_title = "Print Certificate of Residency";
 
 ?>
@@ -127,6 +142,13 @@ endif; ?>
                 <i class="fas fa-arrow-left mr-2"></i> Back to Monitoring
             </a>
         </div>
+<?php if ($has_missing_data): ?>
+        <div class="no-print text-center mb-4">
+            <div class="inline-block bg-red-100 border border-red-300 text-red-800 px-4 py-3 rounded shadow max-w-2xl">
+                <strong><i class="fas fa-exclamation-triangle mr-2"></i>Incomplete Data Warning:</strong> The following fields are missing in the database: <strong><?php echo implode(', ', $missing_fields); ?></strong>. Please verify the resident profile or request details before printing.
+            </div>
+        </div>
+<?php endif; ?>
 <?php
 if ($is_view_only): ?>
         <div class="no-print text-center mb-4">

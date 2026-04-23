@@ -79,6 +79,16 @@ if ($has_new_format) {
     $month = date('F');
     $year = date('Y');
 }
+
+// Data completeness check
+$missing_fields = [];
+if (empty($applicant_name)) $missing_fields[] = 'Applicant Name';
+if (empty($age) || $age === 'N/A') $missing_fields[] = 'Age';
+if (empty($purpose)) $missing_fields[] = 'Purpose';
+if (empty($day)) $missing_fields[] = 'Day';
+if (empty($month)) $missing_fields[] = 'Month';
+$has_missing_data = !empty($missing_fields);
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -128,6 +138,12 @@ if (!$is_view_only): ?>
 <?php
 endif; ?>
     </div>
+
+<?php if ($has_missing_data): ?>
+    <div class="no-print fixed top-16 left-4 right-4 z-40 bg-red-100 border border-red-300 text-red-800 px-4 py-3 rounded shadow max-w-4xl mx-auto">
+        <strong><i class="fas fa-exclamation-triangle mr-2"></i>Incomplete Data Warning:</strong> The following fields are missing in the database: <strong><?php echo implode(', ', $missing_fields); ?></strong>. Please verify the resident profile or request details before printing.
+    </div>
+<?php endif; ?>
 
 <?php
 if ($is_view_only): ?>

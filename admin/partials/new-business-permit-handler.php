@@ -38,6 +38,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception("A resident must be selected.");
         }
 
+        // Validate core business fields
+        if (empty($data['date_of_application']) || empty($data['taxpayer_address']) || empty($data['business_trade_name']) || empty($data['main_line_business'])) {
+            throw new Exception("Date of application, taxpayer address, business trade name, and main line of business are required.");
+        }
+
         $stmt_find = $pdo->prepare("SELECT CONCAT(first_name, ' ', last_name) as full_name, address FROM residents WHERE id = ?");
         $stmt_find->execute([$resident_id]);
         $resident = $stmt_find->fetch(PDO::FETCH_ASSOC);

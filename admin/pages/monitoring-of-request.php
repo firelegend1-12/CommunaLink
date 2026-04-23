@@ -409,7 +409,7 @@ echo date('Y-m-d'); ?>&payment=Paid&date_mode=payment" class="bg-white rounded-2
                         <div class="bg-indigo-50 p-3 rounded-xl"><i class="fas fa-coins text-indigo-600 text-xl w-6 text-center"></i></div>
                         <div>
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Revenue Today</p>
-                            <h4 class="text-2xl font-black text-gray-900">â‚±<?= number_format($stats['revenue'], 2) ?></h4>
+                            <h4 class="text-2xl font-black text-gray-900">&#8369;<?= number_format($stats['revenue'], 2) ?></h4>
                         </div>
                     </a>
                 </div>
@@ -1047,10 +1047,10 @@ endif; ?>
                                                 </button>
 
                                                 <div x-show="selectedReq.isPaying" class="space-y-2">
-                                                    <p class="text-xs font-semibold text-amber-800">Amount Due: <span class="font-black" x-text="'â‚±' + Number(selectedReq.amountDue || 0).toFixed(2)"></span></p>
+                                                    <p class="text-xs font-semibold text-amber-800">Amount Due: <span class="font-black" x-text="'\u20B1' + Number(selectedReq.amountDue || 0).toFixed(2)"></span></p>
                                                     <input type="number" min="0" step="0.01" x-model="selectedReq.cashInput" placeholder="Enter cash amount" class="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
                                                     <p class="text-xs text-gray-700" x-show="selectedReq.cashInput !== ''">
-                                                        Change: <span class="font-bold" x-text="'â‚±' + Math.max(Number(selectedReq.cashInput || 0) - Number(selectedReq.amountDue || 0), 0).toFixed(2)"></span>
+                                                        Change: <span class="font-bold" x-text="'\u20B1' + Math.max(Number(selectedReq.cashInput || 0) - Number(selectedReq.amountDue || 0), 0).toFixed(2)"></span>
                                                     </p>
                                                     <div class="grid grid-cols-2 gap-2">
                                                         <button type="button" @click="submitCashPayment()" class="bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-green-700">Confirm Payment</button>
@@ -1073,7 +1073,7 @@ endif; ?>
                                  } else {
                                      templateFile = templates[selectedReq.docType] || 'barangay-clearance-template.php';
                                  }
-                                 window.open(templateFile + '?id=' + selectedReq.id, '_blank');" :class="selectedReq.paymentStatus === 'Paid' ? 'w-full bg-gray-100 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-200 transition font-bold uppercase tracking-widest text-xs flex items-center justify-center' : 'w-full bg-gray-100 text-gray-400 px-4 py-3 rounded-lg opacity-70 cursor-not-allowed font-bold uppercase tracking-widest text-xs flex items-center justify-center'">
+                                 window.location.href = templateFile + '?id=' + selectedReq.id;" :class="selectedReq.paymentStatus === 'Paid' ? 'w-full bg-gray-100 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-200 transition font-bold uppercase tracking-widest text-xs flex items-center justify-center' : 'w-full bg-gray-100 text-gray-400 px-4 py-3 rounded-lg opacity-70 cursor-not-allowed font-bold uppercase tracking-widest text-xs flex items-center justify-center'">
                                     <i class="fas fa-print mr-2"></i>Print Certificate / Clearance
                                  </button>
                                             <p x-show="selectedReq.paymentStatus !== 'Paid'" class="text-[11px] text-red-600 font-semibold text-center">Payment required before printing.</p>
@@ -1092,7 +1092,7 @@ endif; ?>
                                             } else {
                                                 templateFile = templates[selectedReq.docType] || 'barangay-clearance-template.php';
                                             }
-                                            window.open(templateFile + '?id=' + selectedReq.id + '&view_only=1', '_blank');
+                                            window.location.href = templateFile + '?id=' + selectedReq.id + '&view_only=1';
                                             viewPanelOpen = false;" class="w-full bg-gray-50 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-100 transition font-bold uppercase tracking-widest text-xs border border-gray-200">
                                     <i class="fas fa-expand mr-2"></i>View Full Details
                                  </button>
