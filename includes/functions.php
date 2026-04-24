@@ -175,6 +175,95 @@ function app_url($path = '') {
 }
 
 /**
+ * Default resident avatar (SVG data URI) when no profile_image_path is set.
+ *
+ * @return string
+ */
+function resident_default_profile_avatar_data_uri(): string
+{
+    return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%235c67e2'/%3E%3Ccircle cx='100' cy='75' r='40' fill='%23fff' opacity='0.9'/%3E%3Cellipse cx='100' cy='170' rx='60' ry='50' fill='%23fff' opacity='0.9'/%3E%3C/svg%3E";
+}
+
+/**
+ * Resolve a stored residents.profile_image_path value to a browser-usable URL.
+ *
+ * @param string $storedPath Value from database (relative, admin/..., gs://, or absolute URL)
+ * @return string Public URL or empty string if invalid
+ */
+function resident_profile_image_url(string $storedPath): string
+{
+    $path = trim($storedPath);
+    if ($path === '') {
+        return '';
+    }
+
+    if (strpos($path, 'gs://') === 0 || preg_match('#^https?://#i', $path) === 1) {
+        require_once __DIR__ . '/storage_manager.php';
+        return StorageManager::resolvePublicUrl($path);
+    }
+
+    $normalized = ltrim(str_replace('\\', '/', $path), '/');
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (stripos($normalized, 'admin/') === 0) {
+        return app_url('/' . $normalized);
+    }
+
+    return app_url('/admin/' . $normalized);
+}
+
+/**
+ * Strip spaces and common separators from raw phone input (does not validate).
+ *
+ * @param string $raw User input
+ * @return string Compact string for further parsing
+ */
+function normalize_ph_mobile_input(string $raw): string
+{
+    $s = trim($raw);
+    return preg_replace('/[\s\-\u{00A0}]+/u', '', $s);
+}
+
+/**
+ * Whether the value is a canonical Philippines mobile: +639 plus 9 digits.
+ *
+ * @param string $normalized Already compact (e.g. from normalize_ph_mobile_input)
+ * @return bool
+ */
+function is_valid_ph_mobile_contact(string $normalized): bool
+{
+    return $normalized !== '' && preg_match('/^\+639\d{9}$/', $normalized) === 1;
+}
+
+/**
+ * Normalize registration contact to +639XXXXXXXXX, or null if not a valid PH mobile pattern.
+ * Accepts +639XXXXXXXXX, 09XXXXXXXXX, or 639XXXXXXXXX (no plus).
+ *
+ * @param string $raw Posted contact_no
+ * @return string|null Canonical form or null
+ */
+function normalize_ph_mobile_for_registration(string $raw): ?string
+{
+    $s = normalize_ph_mobile_input($raw);
+    if ($s === '') {
+        return null;
+    }
+    if (preg_match('/^\+639\d{9}$/', $s) === 1) {
+        return $s;
+    }
+    if (preg_match('/^09\d{9}$/', $s) === 1) {
+        return '+63' . substr($s, 1);
+    }
+    if (preg_match('/^639\d{9}$/', $s) === 1) {
+        return '+' . $s;
+    }
+
+    return null;
+}
+
+/**
  * Get the configured maximum number of admin users.
  * Defaults to 5 and is bounded to a sensible range.
  *

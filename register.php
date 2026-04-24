@@ -222,11 +222,12 @@ if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {
                             <h3><i class="fas fa-address-book"></i> Contact & Address Information</h3>
                             
                             <div class="form-group">
-                                <label for="contact_no">Contact Number</label>
+                                <label for="contact_no">Contact Number <span class="required">*</span></label>
                                 <div class="input-wrapper">
                                     <i class="fas fa-phone input-icon"></i>
-                                    <input id="contact_no" name="contact_no" type="tel" placeholder="09XX XXX XXXX">
+                                    <input id="contact_no" name="contact_no" type="tel" inputmode="tel" autocomplete="tel" required placeholder="+639171234567" title="Philippines mobile: +639 and 9 digits, or 09XXXXXXXXX">
                                 </div>
+                                <small id="contactNoHelp" style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.25rem; display: block;">Use international format +63, or local 09&hellip; (will be saved as +639&hellip;).</small>
                             </div>
 
                             <div class="form-group">
@@ -269,7 +270,7 @@ if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {
         </main>
     </div>
 
-    <script src="assets/js/register.min.js?v=<?= filemtime('assets/js/register.min.js') ?>" defer></script>
+    <script src="assets/js/register.js?v=<?= filemtime('assets/js/register.js') ?>" defer></script>
     
     <script>
         // Password requirements validation
@@ -416,7 +417,7 @@ if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {
             if (nextBtn) nextBtn.addEventListener('click', () => setTimeout(scheduleSave, 260));
             if (prevBtn) prevBtn.addEventListener('click', () => setTimeout(scheduleSave, 260));
 
-            // Restore on DOM ready (after register.min.js has initialized steps)
+            // Restore on DOM ready (after register.js has initialized steps)
             document.addEventListener('DOMContentLoaded', function(){
                 loadSaved();
                 // small nudge to update progress UI

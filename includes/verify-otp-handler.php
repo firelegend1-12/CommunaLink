@@ -72,6 +72,15 @@ if ($result === false) {
 // OTP verified! $result contains the registration data
 $data = $result;
 
+$contact_canonical = normalize_ph_mobile_for_registration((string) ($data['contact_no'] ?? ''));
+if ($contact_canonical === null) {
+    unset($_SESSION['otp_email'], $_SESSION['otp_fullname'], $_SESSION['otp_dev_code']);
+    $_SESSION['error_message'] = 'Registration could not be completed due to invalid contact data. Please register again.';
+    header('Location: ../register.php');
+    exit;
+}
+$data['contact_no'] = $contact_canonical;
+
 try {
     $pdo->beginTransaction();
 

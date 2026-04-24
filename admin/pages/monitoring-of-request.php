@@ -354,9 +354,11 @@ foreach ($requests as $summary_req) {
         },
         async approveRequest() {
             if (!this.selectedReq || this.selectedReq.status !== 'Pending') return;
+            const isPaid = this.selectedReq.paymentStatus === 'Paid';
+            const targetStatus = isPaid ? 'Completed' : 'Approved';
             const formData = new FormData();
             formData.append('id', this.selectedReq.id);
-            formData.append('status', 'Approved');
+            formData.append('status', targetStatus);
             formData.append('csrf_token', MONITORING_CSRF_TOKEN);
             try {
                 const response = await fetch('../partials/update-document-request-status.php', {
@@ -366,13 +368,26 @@ foreach ($requests as $summary_req) {
                 });
                 const data = await response.json();
                 if (!data.success) {
-                    showToast(data.error || 'Failed to approve request.', 'error');
+                    showToast(data.error || 'Failed to update request status.', 'error');
                     return;
                 }
-                this.selectedReq.status = 'Approved';
-                showToast('Request approved successfully.');
+                this.selectedReq.status = targetStatus;
+                const row = document.getElementById(`request-row-${this.selectedReq.type}-${this.selectedReq.id}`);
+                if (row) {
+                    const statusCell = row.querySelector('.status-badge');
+                    if (statusCell) {
+                        statusCell.textContent = targetStatus;
+                        const bgClass = targetStatus === 'Completed' ? 'bg-green-100 text-green-800' :
+                                        targetStatus === 'Approved' ? 'bg-blue-100 text-blue-800' :
+                                        'bg-yellow-100 text-yellow-800';
+                        statusCell.className = 'status-badge ' + bgClass;
+                    }
+                    row.style.backgroundColor = isPaid ? '#f0fdf4' : '#eff6ff';
+                    setTimeout(() => row.style.backgroundColor = '', 600);
+                }
+                showToast(isPaid ? 'Request auto-completed (already paid).' : 'Request approved successfully.');
             } catch (e) {
-                showToast('Failed to approve request.', 'error');
+                showToast('Failed to update request status.', 'error');
             }
         },
         async saveAdminNotes() {

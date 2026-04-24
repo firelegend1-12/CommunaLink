@@ -182,10 +182,6 @@ require_once 'partials/header.php';
     }
 </style>
 
-<a href="dashboard.php" class="back-button">
-    <i class="fas fa-arrow-left"></i> Back to Dashboard
-</a>
-
 <div class="contact-container">
     <!-- Emergency Numbers Section -->
     <div class="contact-section emergency-section">

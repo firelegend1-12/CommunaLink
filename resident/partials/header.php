@@ -38,6 +38,7 @@ function sanitize_notification_link_server($raw_link) {
 // Fetch unread notifications count and latest notifications
 $notifications = [];
 $unread_count = 0;
+$resident_profile_avatar_src = resident_default_profile_avatar_data_uri();
 if ($user_id) {
     require_once '../config/database.php';
     $stmt = $pdo->prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 10');
@@ -46,6 +47,17 @@ if ($user_id) {
     $unread_count = 0;
     foreach ($notifications as $notif) {
         if (!$notif['is_read']) $unread_count++;
+    }
+
+    $stmtProfile = $pdo->prepare('SELECT profile_image_path FROM residents WHERE user_id = ? LIMIT 1');
+    $stmtProfile->execute([$user_id]);
+    $profileRow = $stmtProfile->fetch(PDO::FETCH_ASSOC);
+    $rawProfilePath = isset($profileRow['profile_image_path']) ? trim((string) $profileRow['profile_image_path']) : '';
+    if ($rawProfilePath !== '') {
+        $resolved = resident_profile_image_url($rawProfilePath);
+        if ($resolved !== '') {
+            $resident_profile_avatar_src = $resolved;
+        }
     }
 }
 
@@ -111,6 +123,25 @@ if ($user_id) {
 
         .sidebar-profile { padding: 25px 20px; display: flex; align-items: center; background-color: #f9faff; }
         .profile-icon { font-size: 38px; color: var(--accent-blue); margin-right: 15px; }
+        .resident-profile-thumb {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 15px;
+            flex-shrink: 0;
+            background-color: var(--accent-blue);
+            display: block;
+        }
+        .header-profile-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            display: block;
+            flex-shrink: 0;
+            background-color: #e8eaf6;
+        }
         .profile-info .profile-name { font-weight: 600; color: var(--text-primary); display: block; }
         .profile-info .profile-role { font-size: 0.9rem; color: var(--text-secondary); }
         
@@ -144,7 +175,7 @@ if ($user_id) {
         }
         .header-menu { display: flex; align-items: center; color: var(--text-secondary); }
         .header-menu .fa-bell { font-size: 20px; margin-right: 25px; cursor: pointer; }
-        .header-menu .fa-user-circle { font-size: 24px; margin-left: 8px; color: var(--accent-blue); }
+        .header-menu .header-profile-avatar { margin-left: 8px; }
         
         .page-main {
             flex-grow: 1;
@@ -208,6 +239,35 @@ if ($user_id) {
                 z-index: 100;
             }
         }
+
+        /* --- Global Back Button --- */
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: white;
+            color: var(--text-primary);
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: all 0.2s ease;
+            border: 1px solid var(--border-color);
+            font-size: 0.9rem;
+        }
+        .back-button:hover {
+            background-color: #f8f9fa;
+        }
+        .back-button i {
+            margin-right: 8px;
+        }
+        @media (max-width: 767px) {
+            .back-button {
+                padding: 8px 14px;
+                font-size: 0.85rem;
+                margin-bottom: 16px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -262,7 +322,7 @@ if ($user_id) {
                     <span>Welcome, <?= htmlspecialchars($user_fullname) ?></span>
                     <div id="profile-wrapper" class="relative" style="margin-left: 12px; cursor: pointer;">
                         <button id="profile-btn" class="focus:outline-none flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors duration-200" title="Profile Menu">
-                            <i class="fas fa-user-circle" style="font-size: 32px;"></i>
+                            <img src="<?= htmlspecialchars($resident_profile_avatar_src, ENT_QUOTES, 'UTF-8') ?>" alt="" class="header-profile-avatar" width="32" height="32">
                             <i class="fas fa-chevron-down text-[10px]"></i>
                         </button>
                         <!-- Profile Dropdown -->
@@ -276,7 +336,12 @@ if ($user_id) {
                     </div>
                 </div>
             </header>
-            <main class="page-main"> 
+            <main class="page-main">
+                <?php if (basename($_SERVER['PHP_SELF']) !== 'dashboard.php'): ?>
+                <a href="dashboard.php" class="back-button">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+                <?php endif; ?> 
             <script>
             document.addEventListener('DOMContentLoaded', function() {
                 // --- Off-Canvas Sidebar Toggle ---

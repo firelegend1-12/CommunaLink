@@ -349,10 +349,6 @@ require_once 'partials/header.php';
     }
 </style>
 
-<a href="dashboard.php" class="back-button">
-    <i class="fas fa-arrow-left"></i> Back to Dashboard
-</a>
-
 <div class="services-banner">
     <h1><i class="fas fa-hand-holding-heart"></i> Barangay Services</h1>
     <p>Access all available services and information for residents</p>

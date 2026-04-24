@@ -17,7 +17,7 @@ $display_name = ucfirst(trim((string) $user_fullname));
         </div>
     </div>
     <div class="sidebar-profile">
-        <i class="fas fa-user-circle profile-icon"></i>
+        <img src="<?= htmlspecialchars($resident_profile_avatar_src, ENT_QUOTES, 'UTF-8') ?>" alt="" class="resident-profile-thumb" width="38" height="38">
         <div class="profile-info">
             <span class="profile-name"><?= htmlspecialchars($display_name) ?></span>
             <span class="profile-role">Resident</span>

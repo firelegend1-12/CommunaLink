@@ -36,7 +36,6 @@ $civil_status = sanitize_input($_POST['civil_status']);
 $voter_status = sanitize_input($_POST['voter_status']);
 
 // Contact Information
-$contact_no = sanitize_input($_POST['contact_no']);
 $address = sanitize_input($_POST['address']);
 
 // Validate required fields
@@ -50,6 +49,13 @@ if (empty($first_name) || empty($last_name) || empty($gender) || empty($date_of_
     $_SESSION['error_message'] = "All required personal information fields must be filled.";
     redirect_to('../register.php');
 }
+
+$contact_canonical = normalize_ph_mobile_for_registration((string) ($_POST['contact_no'] ?? ''));
+if ($contact_canonical === null) {
+    $_SESSION['error_message'] = 'Please enter a valid Philippine mobile number starting with +63 (e.g. +639171234567, or 09171234567).';
+    redirect_to('../register.php');
+}
+$contact_no = sanitize_input($contact_canonical);
 
 // Validate password
 if (strlen($password) < 8) {

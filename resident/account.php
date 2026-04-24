@@ -1,32 +1,8 @@
 <?php
 require_once '../config/database.php';
-require_once '../includes/storage_manager.php';
 $page_title = "My Account";
 require_once 'partials/header.php';
 $security_csrf_token = csrf_token();
-
-function resident_profile_image_url(string $storedPath): string
-{
-    $path = trim($storedPath);
-    if ($path === '') {
-        return '';
-    }
-
-    if (strpos($path, 'gs://') === 0 || preg_match('#^https?://#i', $path) === 1) {
-        return StorageManager::resolvePublicUrl($path);
-    }
-
-    $normalized = ltrim(str_replace('\\', '/', $path), '/');
-    if ($normalized === '') {
-        return '';
-    }
-
-    if (stripos($normalized, 'admin/') === 0) {
-        return app_url('/' . $normalized);
-    }
-
-    return app_url('/admin/' . $normalized);
-}
 
 // user_id is from header session
 $user_id = $_SESSION['user_id'];
@@ -382,7 +358,7 @@ try {
             <?php echo csrf_field(); ?>
             <div class="profile-picture-container">
                 <?php
-                    $defaultAvatar = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%235c67e2'/%3E%3Ccircle cx='100' cy='75' r='40' fill='%23fff' opacity='0.9'/%3E%3Cellipse cx='100' cy='170' rx='60' ry='50' fill='%23fff' opacity='0.9'/%3E%3C/svg%3E";
+                    $defaultAvatar = resident_default_profile_avatar_data_uri();
                     $profileImageUrl = !empty($resident['profile_image_path']) ? resident_profile_image_url((string)$resident['profile_image_path']) : '';
                     $profileSrc = $profileImageUrl !== '' ? htmlspecialchars($profileImageUrl, ENT_QUOTES, 'UTF-8') : $defaultAvatar;
                 ?>
