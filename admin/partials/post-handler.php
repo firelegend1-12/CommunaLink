@@ -35,6 +35,57 @@ function nullable_input($value) {
 }
 
 /**
+ * Auto-save a draft when validation or processing fails so the user doesn't lose work.
+ */
+function auto_save_draft($pdo, $user_id, array $data) {
+    try {
+        $image_path = null;
+        if (!empty($data['image']) && is_array($data['image']) && ($data['image']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $file = $data['image'];
+            if (($file['error'] ?? UPLOAD_ERR_OK) === UPLOAD_ERR_OK && is_uploaded_file($file['tmp_name'])) {
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mime = $finfo->file($file['tmp_name']);
+                $allowed_mimes = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif'];
+                if (isset($allowed_mimes[$mime]) && ($file['size'] ?? 0) <= 5 * 1024 * 1024) {
+                    $ext = $allowed_mimes[$mime];
+                    $upload_dir = __DIR__ . '/../images/announcements';
+                    if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
+                    $filename = 'post_draft_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                    $dest = $upload_dir . '/' . $filename;
+                    if (move_uploaded_file($file['tmp_name'], $dest)) {
+                        $image_path = 'images/announcements/' . $filename;
+                    }
+                }
+            }
+        }
+
+        $sql = "INSERT INTO announcements (user_id, title, content, image_path, status, priority, target_audience, publish_date, expiry_date, is_event, event_date, event_time, event_location, event_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            $user_id,
+            $data['title'] ?? '',
+            $data['content'] ?? '',
+            $image_path,
+            'draft',
+            $data['priority'] ?? 'normal',
+            $data['target_audience'] ?? 'all',
+            $data['publish_date'] ?? date('Y-m-d H:i:s'),
+            $data['expiry_date'] ?? null,
+            $data['is_event'] ?? 0,
+            $data['event_date'] ?? null,
+            $data['event_time'] ?? null,
+            $data['event_location'] ?? null,
+            $data['event_type'] ?? null,
+        ]);
+        return (int)$pdo->lastInsertId();
+    } catch (Exception $e) {
+        error_log('auto_save_draft failed: ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
  * Handles image uploads for posts
  */
 function upload_post_image($file) {
@@ -115,13 +166,47 @@ if (isset($_POST['add_post'])) {
     $event_type = $is_event ? nullable_input($_POST['event_type'] ?? '') : null;
 
     if ($is_event && empty($event_date)) {
+        $draft_id = auto_save_draft($pdo, $user_id, [
+            'title' => $title,
+            'content' => $content,
+            'priority' => $priority,
+            'target_audience' => $target_audience,
+            'publish_date' => $publish_date,
+            'expiry_date' => $expiry_date,
+            'is_event' => $is_event,
+            'event_date' => $event_date,
+            'event_time' => $event_time,
+            'event_location' => $event_location,
+            'event_type' => $event_type,
+            'image' => $_FILES['image'] ?? null,
+        ]);
         $_SESSION['error_message'] = "Event date is required when posting an event.";
+        if ($draft_id) {
+            $_SESSION['error_message'] .= " Your post has been saved as a draft so you don't lose it.";
+        }
         header('Location: ../pages/announcements.php');
         exit;
     }
 
     if (empty($title) || empty($content)) {
+        $draft_id = auto_save_draft($pdo, $user_id, [
+            'title' => $title,
+            'content' => $content,
+            'priority' => $priority,
+            'target_audience' => $target_audience,
+            'publish_date' => $publish_date,
+            'expiry_date' => $expiry_date,
+            'is_event' => $is_event,
+            'event_date' => $event_date,
+            'event_time' => $event_time,
+            'event_location' => $event_location,
+            'event_type' => $event_type,
+            'image' => $_FILES['image'] ?? null,
+        ]);
         $_SESSION['error_message'] = "Title and content are required.";
+        if ($draft_id) {
+            $_SESSION['error_message'] .= " Your post has been saved as a draft so you don't lose it.";
+        }
         header('Location: ../pages/announcements.php');
         exit;
     }
@@ -140,9 +225,10 @@ if (isset($_POST['add_post'])) {
         log_activity_db($pdo, 'add', $type_label, $post_id, "Added new $type_label", null, "Title: $title");
 
         $broadcast_result = null;
+        $broadcast_queued = false;
         $is_live_now = ($status === 'active') && ($publish_date === null || strtotime((string)$publish_date) <= time());
         if ($is_live_now) {
-            $broadcast_result = NotificationSystem::notify_public_post($pdo, [
+            $broadcast_result = NotificationSystem::enqueue_public_post($pdo, [
                 'title' => $title,
                 'content' => $content,
                 'target_audience' => $target_audience,
@@ -151,19 +237,38 @@ if (isset($_POST['add_post'])) {
                 'event_time' => $event_time,
                 'event_location' => $event_location,
             ]);
+            $broadcast_queued = !empty($broadcast_result['success']);
 
-            if (!$broadcast_result['success']) {
-                error_log('Post broadcast notification failed: ' . (string)($broadcast_result['error'] ?? 'unknown error'));
+            if (!$broadcast_queued) {
+                error_log('Post broadcast enqueue failed: ' . (string)($broadcast_result['error'] ?? 'unknown error'));
             }
         }
 
         $_SESSION['announcement_success_message'] = ucfirst($type_label) . " posted successfully.";
-        if (is_array($broadcast_result) && !empty($broadcast_result['success'])) {
-            $_SESSION['announcement_success_message'] .= ' Sent in-app alerts to ' . (int)$broadcast_result['notification_created']
-                . ' resident(s) and email notifications to ' . (int)$broadcast_result['email_sent'] . '.';
+        if ($is_live_now && $broadcast_queued) {
+            $_SESSION['announcement_success_message'] .= ' Broadcast notifications were queued and will be delivered shortly.';
+        } elseif ($is_live_now && is_array($broadcast_result) && empty($broadcast_result['success'])) {
+            $_SESSION['announcement_success_message'] .= ' Broadcast queueing failed; check server logs.';
         }
     } catch (Exception $e) {
+        $draft_id = auto_save_draft($pdo, $user_id, [
+            'title' => $title ?? '',
+            'content' => $content ?? '',
+            'priority' => $priority ?? 'normal',
+            'target_audience' => $target_audience ?? 'all',
+            'publish_date' => $publish_date ?? date('Y-m-d H:i:s'),
+            'expiry_date' => $expiry_date ?? null,
+            'is_event' => $is_event ?? 0,
+            'event_date' => $event_date ?? null,
+            'event_time' => $event_time ?? null,
+            'event_location' => $event_location ?? null,
+            'event_type' => $event_type ?? null,
+            'image' => $_FILES['image'] ?? null,
+        ]);
         $_SESSION['error_message'] = $e->getMessage();
+        if ($draft_id) {
+            $_SESSION['error_message'] .= " Your post has been saved as a draft so you don't lose it.";
+        }
     }
     
     header('Location: ../pages/announcements.php');

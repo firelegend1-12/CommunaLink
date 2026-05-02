@@ -25,6 +25,9 @@ try {
     if ($status_filter) {
         $sql .= " AND a.status = ?";
         $params[] = $status_filter;
+        if ($status_filter === 'active') {
+            $sql .= " AND (a.expiry_date IS NULL OR a.expiry_date > NOW())";
+        }
     }
 
     if ($priority_filter) {
@@ -80,7 +83,11 @@ try {
         isEvent: false,
         isScheduled: false,
         editingPost: null,
-        postToDelete: null
+        postToDelete: null,
+        isDirty: false,
+        showDraftConfirm: false,
+        resetAddForm() { this.isDirty = false; this.isEvent = false; this.isScheduled = false; document.getElementById('addPostForm').reset(); },
+        closeAddModal() { if (this.isDirty) { this.showDraftConfirm = true; } else { this.showAddModal = false; } }
     }">
         <!-- Sidebar Navigation -->
         <?php include '../partials/sidebar.php'; ?>
@@ -221,6 +228,10 @@ try {
                                 <option value="announcements.php?priority=urgent" <?php echo $priority_filter === 'urgent' ? 'selected' : ''; ?>>URGENT ONLY</option>
                                 <option value="announcements.php?priority=normal" <?php echo $priority_filter === 'normal' ? 'selected' : ''; ?>>NORMAL ONLY</option>
                             </select>
+                            <button id="btn-process-queue" onclick="processQueue()" class="bg-white border border-slate-200 text-slate-700 hover:text-indigo-600 hover:border-indigo-200 text-xs font-bold py-2 px-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm flex items-center">
+                                <i class="fas fa-paper-plane mr-2"></i> Process Pending Broadcasts
+                            </button>
+                            <span id="queue-status" class="text-xs font-bold text-slate-400 ml-2"></span>
                         </div>
                     </div>
 
@@ -376,15 +387,15 @@ try {
     <!-- Add Modal -->
     <div x-show="showAddModal" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-            <div x-show="showAddModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm shadow-2xl transition-opacity" @click="showAddModal = false"></div>
+            <div x-show="showAddModal && !showDraftConfirm" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm shadow-2xl transition-opacity" @click="closeAddModal()"></div>
             
             <div x-show="showAddModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full border border-white/20">
-                <form action="../partials/post-handler.php" method="POST" enctype="multipart/form-data">
+                <form id="addPostForm" action="../partials/post-handler.php" method="POST" enctype="multipart/form-data" @input="isDirty = true" @change="isDirty = true">
                     <?php echo csrf_field(); ?>
                     <div class="px-6 pt-6 pb-4 sm:px-8">
                         <div class="flex items-center justify-between mb-6">
                             <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest" x-text="isEvent ? 'Schedule New Event' : 'New Announcement'"></h3>
-                            <button type="button" @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 transition p-2 bg-slate-100 rounded-xl"><i class="fas fa-times"></i></button>
+                            <button type="button" @click="closeAddModal()" class="text-slate-400 hover:text-slate-600 transition p-2 bg-slate-100 rounded-xl"><i class="fas fa-times"></i></button>
                         </div>
                         
                         <div class="space-y-6">
@@ -506,10 +517,35 @@ try {
                     </div>
                     
                     <div class="px-8 py-6 bg-slate-50/80 border-t border-slate-100 flex justify-end gap-3 rounded-b-3xl">
-                        <button type="button" @click="showAddModal = false" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-500 hover:bg-white transition">Cancel</button>
+                        <button type="button" @click="closeAddModal()" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-500 hover:bg-white transition">Cancel</button>
+                        <button type="button" @click="saveDraftInline()" id="btn-save-draft" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition transform active:scale-95">
+                            <i class="fas fa-save mr-1"></i> Save Draft
+                        </button>
                         <button type="submit" name="add_post" class="px-6 py-3 rounded-2xl text-xs font-black uppercase text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition transform active:scale-95" x-text="isEvent ? 'Publish Event' : 'Post Announcement'"></button>
                     </div>
                 </form>
+
+                <!-- Unsaved Changes Confirmation -->
+                <div x-show="showDraftConfirm" x-transition class="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm rounded-3xl" @click.away="showDraftConfirm = false">
+                    <div class="bg-white rounded-2xl shadow-2xl p-6 w-80 border border-slate-100">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 text-sm"><i class="fas fa-exclamation-triangle"></i></div>
+                            <h4 class="text-sm font-black text-slate-900">Unsaved Changes</h4>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-5">You have unsaved changes. Would you like to save a draft before closing?</p>
+                        <div class="flex flex-col gap-2">
+                            <button type="button" @click="saveDraftInline(); showDraftConfirm = false; showAddModal = false; resetAddForm();" class="w-full px-4 py-2.5 rounded-xl text-xs font-black uppercase text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-md">
+                                <i class="fas fa-save mr-1"></i> Save Draft & Close
+                            </button>
+                            <button type="button" @click="showDraftConfirm = false; showAddModal = false; resetAddForm();" class="w-full px-4 py-2.5 rounded-xl text-xs font-black uppercase text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition">
+                                <i class="fas fa-trash-alt mr-1"></i> Discard Changes
+                            </button>
+                            <button type="button" @click="showDraftConfirm = false" class="w-full px-4 py-2.5 rounded-xl text-xs font-black uppercase text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition">
+                                Keep Editing
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -693,8 +729,93 @@ try {
                 alert.classList.add('opacity-0', 'transition-opacity', 'duration-1000');
                 setTimeout(() => alert.remove(), 1000);
             }, 4000);
+
+            // Auto-trigger queue processing in the background after a successful post
+            fetch('../api/process-queue.php', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                keepalive: true
+            }).catch(() => {});
         }
     });
+
+    async function processQueue() {
+        const btn = document.getElementById('btn-process-queue');
+        const status = document.getElementById('queue-status');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing...'; }
+        try {
+            const res = await fetch('../api/process-queue.php', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await res.json();
+            if (data && data.success) {
+                const msg = 'Processed ' + (data.completed || 0) + ' broadcast(s). ' + (data.remaining || 0) + ' remaining.';
+                if (status) { status.textContent = msg; status.className = 'text-xs font-bold text-emerald-600 ml-2'; }
+            } else {
+                const err = data && data.error ? data.error : 'Queue processing failed.';
+                if (status) { status.textContent = err; status.className = 'text-xs font-bold text-rose-600 ml-2'; }
+            }
+        } catch (e) {
+            if (status) { status.textContent = 'Network error.'; status.className = 'text-xs font-bold text-rose-600 ml-2'; }
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i> Process Pending Broadcasts'; }
+        }
+    }
+
+    async function saveDraftInline() {
+        const btn = document.getElementById('btn-save-draft');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...'; }
+        try {
+            const form = document.getElementById('addPostForm');
+            const formData = new FormData(form);
+            const res = await fetch('../api/save-draft.php', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+            const data = await res.json();
+            if (data && data.success) {
+                // Show a temporary toast inline
+                const existing = document.getElementById('draft-save-toast');
+                if (existing) existing.remove();
+                const toast = document.createElement('div');
+                toast.id = 'draft-save-toast';
+                toast.className = 'fixed bottom-6 right-6 z-[60] bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl shadow-lg text-xs font-bold flex items-center';
+                toast.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Draft saved!';
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+                // Mark clean so closing doesn't re-prompt
+                const alpineEl = document.querySelector('[x-data]');
+                if (alpineEl && window.Alpine && window.Alpine.$data) {
+                    const scope = window.Alpine.$data(alpineEl);
+                    if (scope && typeof scope.isDirty !== 'undefined') {
+                        scope.isDirty = false;
+                    }
+                }
+            } else {
+                const existing = document.getElementById('draft-save-toast');
+                if (existing) existing.remove();
+                const toast = document.createElement('div');
+                toast.id = 'draft-save-toast';
+                toast.className = 'fixed bottom-6 right-6 z-[60] bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl shadow-lg text-xs font-bold flex items-center';
+                toast.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i> ' + (data.error || 'Save failed.');
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 4000);
+            }
+        } catch (e) {
+            const existing = document.getElementById('draft-save-toast');
+            if (existing) existing.remove();
+            const toast = document.createElement('div');
+            toast.id = 'draft-save-toast';
+            toast.className = 'fixed bottom-6 right-6 z-[60] bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl shadow-lg text-xs font-bold flex items-center';
+            toast.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i> Network error saving draft.';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save mr-1"></i> Save Draft'; }
+        }
+    }
     </script>
 </body>
 </html>

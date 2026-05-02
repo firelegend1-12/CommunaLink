@@ -37,15 +37,14 @@ $active_cases = $stmt->fetchColumn();
 $stmt = $pdo->query("SELECT COUNT(*) FROM incidents WHERE reported_at >= NOW() - INTERVAL 1 DAY");
 $trending_today = $stmt->fetchColumn();
 
-// 4. Resolution Rate (Current Month)
+// 4. Resolution Rate (All Time)
 $stmt = $pdo->query("SELECT 
     COUNT(CASE WHEN status = 'Resolved' THEN 1 END) as resolved,
     COUNT(*) as total
-    FROM incidents 
-    WHERE MONTH(reported_at) = MONTH(CURRENT_DATE()) AND YEAR(reported_at) = YEAR(CURRENT_DATE())");
-$current_month_stats = $stmt->fetch();
-$resolution_rate = ($current_month_stats['total'] > 0) 
-    ? round(($current_month_stats['resolved'] / $current_month_stats['total']) * 100) 
+    FROM incidents");
+$all_time_stats = $stmt->fetch();
+$resolution_rate = ($all_time_stats['total'] > 0) 
+    ? round(($all_time_stats['resolved'] / $all_time_stats['total']) * 100) 
     : 0;
 
 // 5. Critical Alerts (Most frequent type this month)
@@ -193,7 +192,7 @@ unset($_SESSION['success_message']); endif; ?>
                                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Resolution Rate</p>
                                 <div class="flex items-end gap-1">
                                     <h3 class="text-3xl font-black text-slate-900 leading-none" x-text="stats.resolution_rate + '%'"></h3>
-                                    <span class="text-[10px] font-bold text-slate-400 mb-0.5">mtd</span>
+                                    <span class="text-[10px] font-bold text-slate-400 mb-0.5">all time</span>
                                 </div>
                                 <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden border border-slate-50">
                                     <div class="bg-emerald-500 h-full rounded-full transition-all duration-500" :style="'width: ' + stats.resolution_rate + '%'"></div>
@@ -254,7 +253,7 @@ echo $critical_type; ?></h3>
                             <!-- Status Filter -->
                             <div class="flex flex-wrap bg-slate-200/50 p-1 rounded-xl border border-slate-200 gap-1">
                                 <button @click="statusFilter = 'All'" :class="statusFilter === 'All' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">ALL</button>
-                                <button @click="statusFilter = 'Pending'" :class="statusFilter === 'Pending' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'" class="px-4 py-2 rounded-lg text-sm font-bold transition">PENDING</button>
+                                <button @click="statusFilter = 'Pending'" :class="statusFilter === 'Pending' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">PENDING</button>
                                 <button @click="statusFilter = 'Resolved'" :class="statusFilter === 'Resolved' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">RESOLVED</button>
                                 <button @click="statusFilter = 'Rejected'" :class="statusFilter === 'Rejected' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">REJECTED</button>
                             </div>
@@ -268,15 +267,15 @@ echo $critical_type; ?></h3>
 
                     <!-- Modern Table -->
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-slate-100">
+                        <table class="min-w-full table-fixed divide-y divide-slate-100">
                             <thead>
                                 <tr class="bg-slate-50/30">
-                                    <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Incident</th>
-                                    <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Reporter</th>
-                                    <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Location</th>
-                                     <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Date Reported</th>
-                                    <th class="px-6 py-4 text-center text-xs font-black text-slate-500 uppercase tracking-widest">Status</th>
-                                    <th class="px-6 py-4 text-center text-xs font-black text-slate-500 uppercase tracking-widest">Action</th>
+                                    <th class="w-[28%] px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Incident</th>
+                                    <th class="w-[14%] px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Reporter</th>
+                                    <th class="w-[22%] px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Location</th>
+                                     <th class="w-[14%] px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Date Reported</th>
+                                    <th class="w-[12%] px-6 py-4 text-center text-xs font-black text-slate-500 uppercase tracking-widest">Status</th>
+                                    <th class="w-[10%] px-6 py-4 text-center text-xs font-black text-slate-500 uppercase tracking-widest">Action</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-50">

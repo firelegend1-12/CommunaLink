@@ -8,6 +8,7 @@ require_once '../partials/admin_auth.php';
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/csrf.php';
 
 // Check if user is logged in
 require_login();
@@ -478,6 +479,28 @@ echo $resident['updated_at'] ? date('M d, Y h:i A', strtotime($resident['updated
                                             </div>
                                         </div>
                                     </div>
+
+                                    <!-- QR Token Management -->
+                                    <div class="mt-6">
+                                        <h3 class="text-lg font-medium text-gray-900 mb-4">ID Card QR Security</h3>
+                                        <div class="bg-gray-50 rounded-md p-4 border border-gray-200">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <p class="text-sm font-medium text-gray-700">QR Token Status</p>
+                                                    <p class="text-xs text-gray-500 mt-1">
+                                                        <?php echo $resident['qr_token'] ? 'Token active. Invalidating regenerates a new QR code.' : 'No token assigned.'; ?>
+                                                    </p>
+                                                </div>
+                                                <button type="button" id="regenerateQrBtn"
+                                                        data-resident-id="<?php echo (int)$resident['id']; ?>"
+                                                        data-csrf="<?php echo htmlspecialchars(csrf_token()); ?>"
+                                                        class="px-4 py-2 bg-amber-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500">
+                                                    Regenerate Token
+                                                </button>
+                                            </div>
+                                            <div id="qrRegenMessage" class="mt-2 text-sm hidden"></div>
+                                        </div>
+                                    </div>
                                 </div>
                                 
                                 <!-- Action Buttons -->
@@ -521,6 +544,48 @@ endif; ?>
             setTimeout(() => {
                 alert.style.display = 'none';
             }, 3000);
+        }
+
+        const regenBtn = document.getElementById('regenerateQrBtn');
+        if (regenBtn) {
+            regenBtn.addEventListener('click', function() {
+                if (!confirm('Regenerating the QR token will invalidate any previously printed ID cards. Continue?')) {
+                    return;
+                }
+                const residentId = regenBtn.dataset.residentId;
+                const csrf = regenBtn.dataset.csrf;
+                const msg = document.getElementById('qrRegenMessage');
+                regenBtn.disabled = true;
+                regenBtn.textContent = 'Regenerating...';
+                msg.className = 'mt-2 text-sm text-gray-500';
+                msg.textContent = 'Please wait...';
+                msg.classList.remove('hidden');
+
+                fetch('partials/regenerate-qr-token.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'resident_id=' + encodeURIComponent(residentId) + '&csrf_token=' + encodeURIComponent(csrf)
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        msg.className = 'mt-2 text-sm text-green-700';
+                        msg.textContent = 'Token regenerated successfully. ID cards must be reprinted.';
+                        regenBtn.textContent = 'Regenerated';
+                    } else {
+                        msg.className = 'mt-2 text-sm text-red-700';
+                        msg.textContent = data.error || 'Failed to regenerate token.';
+                        regenBtn.disabled = false;
+                        regenBtn.textContent = 'Regenerate Token';
+                    }
+                })
+                .catch(err => {
+                    msg.className = 'mt-2 text-sm text-red-700';
+                    msg.textContent = 'Network error. Please try again.';
+                    regenBtn.disabled = false;
+                    regenBtn.textContent = 'Regenerate Token';
+                });
+            });
         }
     });
     </script>

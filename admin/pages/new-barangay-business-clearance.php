@@ -38,18 +38,28 @@ try {
         .printable-area { text-align: center; }
         .printable-area svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
 
-        @page { size: auto; margin: 0; }
+        @page { size: A4 portrait; margin: 10mm; }
 
         @media print {
             .print\:hidden { display: none !important; }
-            html, body { background: white !important; margin: 0 !important; padding: 0 !important; width: 100% !important; height: auto !important; }
+            html, body { background: white !important; margin: 0 !important; padding: 0 !important; }
             .no-print, header, .sidebar, nav, .flex.h-screen > :first-child { display: none !important; }
             .flex.h-screen { display: block !important; height: auto !important; overflow: visible !important; }
             .flex-col.flex-1 { display: block !important; overflow: visible !important; }
             main { padding: 0 !important; overflow: visible !important; }
-            .max-w-4xl { max-width: 100% !important; margin: 0 auto !important; padding: 0 !important; }
-            .bg-white.rounded-lg { box-shadow: none !important; padding: 0 !important; }
-            .printable-area { box-shadow: none !important; margin: 0 auto !important; padding: 1cm !important; }
+            .max-w-4xl { width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+            .bg-white.rounded-lg { box-shadow: none !important; border: none !important; padding: 0 !important; }
+            .printable-area {
+                width: 190mm !important;
+                max-width: 190mm !important;
+                min-height: 277mm !important;
+                box-sizing: border-box !important;
+                box-shadow: none !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+            .printable-area svg { width: 100% !important; max-width: 100% !important; height: auto !important; }
         }
     </style>
 </head>
@@ -104,7 +114,14 @@ try {
                              formLocation: "",
                              formDay: new Date().getDate().toString(),
                              formMonth: new Date().toLocaleDateString("en-US", { month: "long" }),
-                             fieldIds: ["field-business-name", "field-owner", "field-location", "field-day", "field-month"],
+                             layoutRafId: null,
+                             fieldMap: {
+                                 "field-business-name": "formBusinessName",
+                                 "field-owner": "formOwner",
+                                 "field-location": "formLocation",
+                                 "field-day": "formDay",
+                                 "field-month": "formMonth"
+                             },
                              init() {
                                  this.$watch("formBusinessName", () => this.recomputeLayout());
                                  this.$watch("formOwner", () => this.recomputeLayout());
@@ -123,23 +140,24 @@ try {
                                          this.formLocation = resident.address;
                                      }
                                  }
+                                 this.$nextTick(() => this.recomputeLayout());
                              },
                              getFieldValue(id) {
-                                 if (id === "field-business-name") return this.formBusinessName;
-                                 if (id === "field-owner") return this.formOwner;
-                                 if (id === "field-location") return this.formLocation;
-                                 if (id === "field-day") return this.formDay;
-                                 if (id === "field-month") return this.formMonth;
-                                 return "";
+                                 const key = this.fieldMap[id];
+                                 return key ? this[key] : "";
                              },
                              recomputeLayout() {
+                                 if (this.layoutRafId) {
+                                     cancelAnimationFrame(this.layoutRafId);
+                                     this.layoutRafId = null;
+                                 }
                                  document.querySelectorAll("svg text").forEach(el => {
                                      if (!el.dataset.origTransform && el.hasAttribute("transform")) {
                                          el.dataset.origTransform = el.getAttribute("transform");
                                      }
                                  });
-                                 // Step 1: set text content + reset x on each field, preserving trailing punctuation
-                                 this.fieldIds.forEach(id => {
+                                 const fieldIds = Object.keys(this.fieldMap);
+                                 fieldIds.forEach(id => {
                                      const el = document.getElementById(id);
                                      if (!el) return;
                                      const tspan = el.querySelector("tspan");
@@ -156,18 +174,18 @@ try {
                                          tspan.textContent = tspan.dataset.origText;
                                          tspan.setAttribute("x", tspan.dataset.origX);
                                      } else {
-                                         const suffix = tspan.dataset.origText.replace(/^[_\s]+/, "");
-                                         tspan.textContent = String(value) + suffix;
+                                         const m = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
+                                         const prefix = m ? m[1] : "";
+                                         const suffix = m ? m[3] : "";
+                                         tspan.textContent = prefix + String(value) + suffix;
                                          tspan.setAttribute("x", firstX);
                                      }
                                  });
-                                 // Step 2: reset every shifted text element back to original transform
                                  document.querySelectorAll("svg text[data-orig-transform]").forEach(el => {
                                      el.setAttribute("transform", el.dataset.origTransform);
                                  });
-                                 // Step 3: measure and shift after browser renders
-                                 requestAnimationFrame(() => {
-                                     this.fieldIds.forEach(id => {
+                                 this.layoutRafId = requestAnimationFrame(() => {
+                                     fieldIds.forEach(id => {
                                          const el = document.getElementById(id);
                                          if (!el) return;
                                          const tspan = el.querySelector("tspan");
@@ -183,7 +201,7 @@ try {
                                          let actualWidth = 0;
                                          try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
                                          const shift = blankWidth - actualWidth;
-                                         if (shift <= 0.5) return;
+                                         if (Math.abs(shift) <= 0.5) return;
                                          const origLineTransform = el.dataset.origTransform || el.getAttribute("transform");
                                          const lineY = tspan.getAttribute("y");
                                          const parent = el.parentElement;
@@ -202,11 +220,12 @@ try {
                                              t.setAttribute("transform", currentTransform + " translate(" + (-shift) + " 0)");
                                          });
                                      });
+                                     this.layoutRafId = null;
                                  });
                              },
                              printCertificate() {
                                 if (!this.formBusinessName || !this.formBusinessName.trim() || !this.formOwner || !this.formOwner.trim() || !this.formLocation || !this.formLocation.trim() || !this.formDay || !this.formDay.trim() || !this.formMonth || !this.formMonth.trim()) {
-                                    alert('Please fill in all required fields before printing.');
+                                    alert("Please fill in all required fields before printing.");
                                     return;
                                 }
                                 window.print();

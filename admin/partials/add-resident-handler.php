@@ -275,6 +275,7 @@ function generateResidentId($pdo) {
 }
 
 $id_number = generateResidentId($pdo);
+$qr_token = bin2hex(random_bytes(24)); // 48-byte hex token
 
 try {
     $pdo->beginTransaction();
@@ -305,14 +306,14 @@ try {
     $user_id = (int) $pdo->lastInsertId();
 
     // Prepare SQL statement
-    $sql = "INSERT INTO residents (first_name, middle_initial, last_name, gender, date_of_birth, place_of_birth, age, religion, citizenship, email, contact_no, address, civil_status, id_number, voter_status, user_id, profile_image_path, signature_path) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO residents (first_name, middle_initial, last_name, gender, date_of_birth, place_of_birth, age, religion, citizenship, email, contact_no, address, civil_status, id_number, qr_token, voter_status, user_id, profile_image_path, signature_path) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $pdo->prepare($sql);
     
     // Execute the statement with an array of values
     $stmt->execute([
-        $first_name, $middle_initial, $last_name, $gender, $date_of_birth, $place_of_birth, $age, $religion, $citizenship, $email, $contact_no, $address, $civil_status, $id_number, $voter_status, $user_id, $profile_image_path, $signature_path
+        $first_name, $middle_initial, $last_name, $gender, $date_of_birth, $place_of_birth, $age, $religion, $citizenship, $email, $contact_no, $address, $civil_status, $id_number, $qr_token, $voter_status, $user_id, $profile_image_path, $signature_path
     ]);
 
     // Success

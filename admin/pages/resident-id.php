@@ -12,6 +12,7 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin'])) {
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/storage_manager.php';
+require_once '../../includes/qr_generator.php';
 
 function admin_resident_profile_image_url(string $storedPath): string
 {
@@ -55,8 +56,17 @@ try {
 
 $full_name = strtoupper($resident['last_name'] . ', ' . $resident['first_name'] . ' ' . $resident['middle_initial'] . '.');
 $address = strtoupper('123 AGUSTIN STREET, BGRY PAKIAD, ILOILO CITY'); // Example address
-$qr_data = "Resident ID: {$resident['id']}\nName: {$full_name}";
-$qr_code_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' . urlencode($qr_data);
+
+// Ensure resident has a secure QR token
+if (empty($resident['qr_token'])) {
+    $newToken = bin2hex(random_bytes(24));
+    $upd = $pdo->prepare("UPDATE residents SET qr_token = ? WHERE id = ?");
+    $upd->execute([$newToken, $resident['id']]);
+    $resident['qr_token'] = $newToken;
+}
+
+$verify_url = app_url('/resident/verify-qr.php?t=' . urlencode($resident['qr_token']));
+$qr_code_datauri = generate_qr_datauri($verify_url, 150);
 $resident_photo_url = admin_resident_profile_image_url((string)($resident['profile_image_path'] ?? ''));
 ?>
 <div class="id-card rounded-xl shadow-lg p-2 flex flex-col relative overflow-hidden">
@@ -149,7 +159,7 @@ echo date('m/d/y', strtotime('+1 year')); ?></p>
             <!-- QR Code -->
             <div class="w-1/4 flex items-end justify-center">
                 <img src="<?php
-echo $qr_code_url; ?>" alt="QR Code" class="w-16 h-16">
+echo htmlspecialchars($qr_code_datauri); ?>" alt="QR Code" class="w-16 h-16">
             </div>
         </div>
     </div>

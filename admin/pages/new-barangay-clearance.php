@@ -37,18 +37,28 @@ try {
         .printable-area { text-align: center; }
         .printable-area svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
 
-        @page { size: auto; margin: 0; }
+        @page { size: A4 portrait; margin: 10mm; }
 
         @media print {
             .print\:hidden { display: none !important; }
-            html, body { background: white !important; margin: 0 !important; padding: 0 !important; width: 100% !important; height: auto !important; }
+            html, body { background: white !important; margin: 0 !important; padding: 0 !important; }
             .no-print, header, .sidebar, nav, .flex.h-screen > :first-child { display: none !important; }
             .flex.h-screen { display: block !important; height: auto !important; overflow: visible !important; }
             .flex-col.flex-1 { display: block !important; overflow: visible !important; }
             main { padding: 0 !important; overflow: visible !important; }
-            .max-w-4xl { max-width: 100% !important; margin: 0 auto !important; padding: 0 !important; }
-            .bg-white.rounded-lg { box-shadow: none !important; padding: 0 !important; }
-            .printable-area { box-shadow: none !important; margin: 0 auto !important; padding: 1cm !important; }
+            .max-w-4xl { width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+            .bg-white.rounded-lg { box-shadow: none !important; border: none !important; padding: 0 !important; }
+            .printable-area {
+                width: 190mm !important;
+                max-width: 190mm !important;
+                min-height: 277mm !important;
+                box-sizing: border-box !important;
+                box-shadow: none !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+            .printable-area svg { width: 100% !important; max-width: 100% !important; height: auto !important; }
         }
     </style>
 </head>
@@ -109,7 +119,14 @@ display_flash_messages(); ?>
                              formPurpose: "",
                              formDay: new Date().getDate().toString(),
                              formMonth: new Date().toLocaleDateString("en-US", { month: "long" }),
-                             fieldIds: ["field-name", "field-age", "field-purpose", "field-day", "field-month"],
+                             layoutRafId: null,
+                             fieldMap: {
+                                 "field-name": "formName",
+                                 "field-age": "formAge",
+                                 "field-purpose": "formPurpose",
+                                 "field-day": "formDay",
+                                 "field-month": "formMonth"
+                             },
                              init() {
                                  this.$watch("formName", () => this.recomputeLayout());
                                  this.$watch("formAge", () => this.recomputeLayout());
@@ -126,29 +143,29 @@ display_flash_messages(); ?>
                                      this.formName = resident.full_name || "";
                                      if (resident.date_of_birth) {
                                          const bd = new Date(resident.date_of_birth);
-                                         this.formAge = new Date().getFullYear() - bd.getFullYear();
+                                         this.formAge = String(new Date().getFullYear() - bd.getFullYear());
                                      } else {
                                          this.formAge = "";
                                      }
                                  }
+                                 this.$nextTick(() => this.recomputeLayout());
                              },
                              getFieldValue(id) {
-                                 if (id === "field-name") return this.formName;
-                                 if (id === "field-age") return this.formAge;
-                                 if (id === "field-purpose") return this.formPurpose;
-                                 if (id === "field-day") return this.formDay;
-                                 if (id === "field-month") return this.formMonth;
-                                 return "";
+                                 const key = this.fieldMap[id];
+                                 return key ? this[key] : "";
                              },
                              recomputeLayout() {
-                                 // Pre-save original transforms for all text elements (once)
+                                 if (this.layoutRafId) {
+                                     cancelAnimationFrame(this.layoutRafId);
+                                     this.layoutRafId = null;
+                                 }
                                  document.querySelectorAll("svg text").forEach(el => {
                                      if (!el.dataset.origTransform && el.hasAttribute("transform")) {
                                          el.dataset.origTransform = el.getAttribute("transform");
                                      }
                                  });
-                                 // Step 1: set text content + reset x on each field
-                                 this.fieldIds.forEach(id => {
+                                 const fieldIds = Object.keys(this.fieldMap);
+                                 fieldIds.forEach(id => {
                                      const el = document.getElementById(id);
                                      if (!el) return;
                                      const tspan = el.querySelector("tspan");
@@ -156,23 +173,32 @@ display_flash_messages(); ?>
                                      if (!tspan.dataset.origX) {
                                          tspan.dataset.origX = tspan.getAttribute("x") || "0";
                                      }
+                                     if (!tspan.dataset.origText) {
+                                         tspan.dataset.origText = tspan.textContent;
+                                     }
+                                     const value = this.getFieldValue(id);
                                      const firstX = tspan.dataset.origX.split(/\s+/)[0];
-                                     tspan.textContent = this.getFieldValue(id) || "";
-                                     tspan.setAttribute("x", firstX);
+                                     if (!value || String(value).trim() === "") {
+                                         tspan.textContent = tspan.dataset.origText;
+                                         tspan.setAttribute("x", tspan.dataset.origX);
+                                     } else {
+                                         const m = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
+                                         const prefix = m ? m[1] : "";
+                                         const suffix = m ? m[3] : "";
+                                         tspan.textContent = prefix + String(value) + suffix;
+                                         tspan.setAttribute("x", firstX);
+                                     }
                                  });
-                                 // Step 2: reset every shifted text element back to its original transform
                                  document.querySelectorAll("svg text[data-orig-transform]").forEach(el => {
                                      el.setAttribute("transform", el.dataset.origTransform);
                                  });
-                                 // Step 3: after browser re-renders, measure and shift
-                                 requestAnimationFrame(() => {
-                                     this.fieldIds.forEach(id => {
+                                 this.layoutRafId = requestAnimationFrame(() => {
+                                     fieldIds.forEach(id => {
                                          const el = document.getElementById(id);
                                          if (!el) return;
                                          const tspan = el.querySelector("tspan");
                                          if (!tspan || !tspan.dataset.origX) return;
                                          const value = this.getFieldValue(id);
-                                         // Skip shifting entirely when field is empty - keep original layout
                                          if (!value || String(value).trim() === "") return;
                                          const xCoords = tspan.dataset.origX.split(/\s+/).map(parseFloat).filter(n => !isNaN(n));
                                          if (xCoords.length === 0) return;
@@ -183,10 +209,9 @@ display_flash_messages(); ?>
                                          let actualWidth = 0;
                                          try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
                                          const shift = blankWidth - actualWidth;
-                                         if (shift <= 0.5) return;
+                                         if (Math.abs(shift) <= 0.5) return;
                                          const origLineTransform = el.dataset.origTransform || el.getAttribute("transform");
                                          const lineY = tspan.getAttribute("y");
-                                         // Find all same-line siblings by original x position (not DOM order)
                                          const parent = el.parentElement;
                                          if (!parent) return;
                                          Array.from(parent.querySelectorAll("text")).forEach(t => {
@@ -196,7 +221,6 @@ display_flash_messages(); ?>
                                              const tBaseTransform = t.dataset.origTransform || t.getAttribute("transform") || "";
                                              if (tBaseTransform !== origLineTransform) return;
                                              if (ts.getAttribute("y") !== lineY) return;
-                                             // Only shift elements whose original x is to the right of this field
                                              const tOrigX = ts.dataset.origX || ts.getAttribute("x") || "0";
                                              const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
                                              if (isNaN(tFirstX) || tFirstX <= firstX) return;
@@ -204,11 +228,12 @@ display_flash_messages(); ?>
                                              t.setAttribute("transform", currentTransform + " translate(" + (-shift) + " 0)");
                                          });
                                      });
+                                     this.layoutRafId = null;
                                  });
                              },
                              printCertificate() {
                                 if (!this.formName || !this.formName.trim() || !this.formAge || !this.formAge.trim() || !this.formPurpose || !this.formPurpose.trim() || !this.formDay || !this.formDay.trim() || !this.formMonth || !this.formMonth.trim()) {
-                                    alert('Please fill in all required fields before printing.');
+                                    alert("Please fill in all required fields before printing.");
                                     return;
                                 }
                                 window.print();

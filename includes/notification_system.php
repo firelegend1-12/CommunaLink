@@ -369,7 +369,233 @@ if (!class_exists('NotificationSystem')) {
         }
 
         /**
-         * Resolve resident recipients for announcement/event broadcasts.
+         * Enqueue public post broadcast for asynchronous processing.
+         *
+         * @param PDO $pdo
+         * @param array $post_data
+         * @return array{success:bool,error:?string,queue_id:int}
+         */
+        public static function enqueue_public_post($pdo, array $post_data) {
+            $title = trim((string)($post_data['title'] ?? ''));
+            if ($title === '') {
+                return [
+                    'success' => false,
+                    'error' => 'Missing post title.',
+                    'queue_id' => 0,
+                ];
+            }
+
+            $payload = [
+                'title' => $title,
+                'content' => trim((string)($post_data['content'] ?? '')),
+                'target_audience' => trim((string)($post_data['target_audience'] ?? 'all')),
+                'is_event' => !empty($post_data['is_event']) ? 1 : 0,
+                'event_date' => trim((string)($post_data['event_date'] ?? '')),
+                'event_time' => trim((string)($post_data['event_time'] ?? '')),
+                'event_location' => trim((string)($post_data['event_location'] ?? '')),
+            ];
+
+            $encoded_payload = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($encoded_payload === false) {
+                return [
+                    'success' => false,
+                    'error' => 'Failed to encode broadcast payload.',
+                    'queue_id' => 0,
+                ];
+            }
+
+            try {
+                $stmt = $pdo->prepare(
+                    "INSERT INTO public_post_dispatch_queue (payload_json, status, attempts, max_attempts, available_at, created_at, updated_at)
+                     VALUES (?, 'pending', 0, 5, NOW(), NOW(), NOW())"
+                );
+                $stmt->execute([$encoded_payload]);
+
+                return [
+                    'success' => true,
+                    'error' => null,
+                    'queue_id' => (int)$pdo->lastInsertId(),
+                ];
+            } catch (PDOException $e) {
+                error_log('NotificationSystem enqueue_public_post failed: ' . $e->getMessage());
+                return [
+                    'success' => false,
+                    'error' => 'Unable to queue post broadcast.',
+                    'queue_id' => 0,
+                ];
+            }
+        }
+
+        /**
+         * Process queued public post broadcast jobs.
+         *
+         * @param PDO $pdo
+         * @param int $limit
+         * @return array{success:bool,error:?string,processed:int,completed:int,failed:int,requeued:int,remaining:int}
+         */
+        public static function process_public_post_queue($pdo, $limit = 10) {
+            $limit = max(1, min(100, (int)$limit));
+            $processed = 0;
+            $completed = 0;
+            $failed = 0;
+            $requeued = 0;
+
+            for ($i = 0; $i < $limit; $i++) {
+                $job = null;
+
+                try {
+                    $select = $pdo->prepare(
+                        "SELECT id, payload_json, attempts, max_attempts
+                         FROM public_post_dispatch_queue
+                         WHERE status = 'pending'
+                           AND available_at <= NOW()
+                         ORDER BY id ASC
+                         LIMIT 1"
+                    );
+                    $select->execute();
+                    $job = $select->fetch(PDO::FETCH_ASSOC) ?: null;
+                } catch (PDOException $e) {
+                    error_log('NotificationSystem process_public_post_queue select failed: ' . $e->getMessage());
+                    break;
+                }
+
+                if (!$job) {
+                    break;
+                }
+
+                $job_id = (int)($job['id'] ?? 0);
+                if ($job_id <= 0) {
+                    break;
+                }
+
+                try {
+                    $claim = $pdo->prepare(
+                        "UPDATE public_post_dispatch_queue
+                         SET status = 'processing',
+                             attempts = attempts + 1,
+                             locked_at = NOW(),
+                             updated_at = NOW(),
+                             last_error = NULL
+                         WHERE id = ?
+                           AND status = 'pending'"
+                    );
+                    $claim->execute([$job_id]);
+                    if ($claim->rowCount() !== 1) {
+                        continue;
+                    }
+                } catch (PDOException $e) {
+                    error_log('NotificationSystem process_public_post_queue claim failed: ' . $e->getMessage());
+                    continue;
+                }
+
+                $processed++;
+                $attempt_no = ((int)($job['attempts'] ?? 0)) + 1;
+                $max_attempts = max(1, (int)($job['max_attempts'] ?? 5));
+
+                $payload = json_decode((string)($job['payload_json'] ?? ''), true);
+                if (!is_array($payload)) {
+                    self::mark_public_post_job_failed($pdo, $job_id, 'invalid_payload_json');
+                    $failed++;
+                    continue;
+                }
+
+                $result = self::notify_public_post($pdo, $payload);
+                if (!empty($result['success'])) {
+                    self::mark_public_post_job_completed($pdo, $job_id);
+                    $completed++;
+                    continue;
+                }
+
+                $error_message = trim((string)($result['error'] ?? 'broadcast_failed'));
+                if ($attempt_no >= $max_attempts) {
+                    self::mark_public_post_job_failed($pdo, $job_id, $error_message);
+                    $failed++;
+                } else {
+                    $delay_minutes = min(30, max(1, $attempt_no * 2));
+                    self::requeue_public_post_job($pdo, $job_id, $error_message, $delay_minutes);
+                    $requeued++;
+                }
+            }
+
+            $remaining = 0;
+            try {
+                $remaining_stmt = $pdo->query(
+                    "SELECT COUNT(*)
+                     FROM public_post_dispatch_queue
+                     WHERE status = 'pending'
+                       AND available_at <= NOW()"
+                );
+                $remaining = (int)$remaining_stmt->fetchColumn();
+            } catch (PDOException $e) {
+                error_log('NotificationSystem process_public_post_queue count failed: ' . $e->getMessage());
+            }
+
+            return [
+                'success' => true,
+                'error' => null,
+                'processed' => $processed,
+                'completed' => $completed,
+                'failed' => $failed,
+                'requeued' => $requeued,
+                'remaining' => $remaining,
+            ];
+        }
+
+        private static function mark_public_post_job_completed($pdo, $job_id) {
+            try {
+                $stmt = $pdo->prepare(
+                    "UPDATE public_post_dispatch_queue
+                     SET status = 'completed',
+                         completed_at = NOW(),
+                         locked_at = NULL,
+                         updated_at = NOW(),
+                         last_error = NULL
+                     WHERE id = ?"
+                );
+                $stmt->execute([(int)$job_id]);
+            } catch (PDOException $e) {
+                error_log('NotificationSystem mark_public_post_job_completed failed: ' . $e->getMessage());
+            }
+        }
+
+        private static function mark_public_post_job_failed($pdo, $job_id, $error_message) {
+            try {
+                $stmt = $pdo->prepare(
+                    "UPDATE public_post_dispatch_queue
+                     SET status = 'failed',
+                         failed_at = NOW(),
+                         locked_at = NULL,
+                         updated_at = NOW(),
+                         last_error = ?
+                     WHERE id = ?"
+                );
+                $stmt->execute([substr((string)$error_message, 0, 1000), (int)$job_id]);
+            } catch (PDOException $e) {
+                error_log('NotificationSystem mark_public_post_job_failed failed: ' . $e->getMessage());
+            }
+        }
+
+        private static function requeue_public_post_job($pdo, $job_id, $error_message, $delay_minutes) {
+            $delay_minutes = max(1, min(60, (int)$delay_minutes));
+
+            try {
+                $stmt = $pdo->prepare(
+                    "UPDATE public_post_dispatch_queue
+                     SET status = 'pending',
+                         locked_at = NULL,
+                         updated_at = NOW(),
+                         available_at = DATE_ADD(NOW(), INTERVAL {$delay_minutes} MINUTE),
+                         last_error = ?
+                     WHERE id = ?"
+                );
+                $stmt->execute([substr((string)$error_message, 0, 1000), (int)$job_id]);
+            } catch (PDOException $e) {
+                error_log('NotificationSystem requeue_public_post_job failed: ' . $e->getMessage());
+            }
+        }
+
+        /**
+         * Resolve recipients for announcement/event broadcasts.
          *
          * @param PDO $pdo
          * @param string $target_audience
@@ -379,10 +605,10 @@ if (!class_exists('NotificationSystem')) {
             $target_audience = trim((string)$target_audience);
             $params = [];
 
-            $join_clauses = '';
+            $join_clauses = ' LEFT JOIN residents r ON r.user_id = u.id ';
             $where_clauses = [
-                "u.role = 'resident'",
-                "r.user_id IS NOT NULL"
+                "u.email IS NOT NULL",
+                "TRIM(u.email) <> ''"
             ];
 
             if (self::table_column_exists($pdo, 'users', 'status')) {
@@ -390,18 +616,21 @@ if (!class_exists('NotificationSystem')) {
             }
 
             if ($target_audience === 'business') {
+                $where_clauses[] = 'r.id IS NOT NULL';
                 $join_clauses .= ' INNER JOIN businesses b ON b.resident_id = r.id ';
                 if (self::table_column_exists($pdo, 'businesses', 'status')) {
                     $where_clauses[] = "(b.status IS NULL OR LOWER(b.status) <> 'inactive')";
                 }
-            } elseif ($target_audience !== '' && !in_array($target_audience, ['all', 'residents'], true)) {
+            } elseif ($target_audience === 'residents') {
+                $where_clauses[] = 'r.id IS NOT NULL';
+            } elseif ($target_audience !== '' && $target_audience !== 'all') {
+                $where_clauses[] = 'r.id IS NOT NULL';
                 $where_clauses[] = 'LOWER(TRIM(r.address)) = LOWER(TRIM(?))';
                 $params[] = $target_audience;
             }
 
             $sql = "SELECT DISTINCT u.id AS user_id, u.fullname, u.email
                     FROM users u
-                    INNER JOIN residents r ON r.user_id = u.id
                     {$join_clauses}
                     WHERE " . implode(' AND ', $where_clauses) . "
                     ORDER BY u.id ASC";
@@ -484,7 +713,7 @@ if (!class_exists('NotificationSystem')) {
         }
 
         /**
-         * Send email using Mailgun -> SendGrid -> native mail fallback.
+         * Send email using Mailgun -> SendGrid -> SMTP -> native mail fallback.
          *
          * @param string $to
          * @param string $name
@@ -502,6 +731,10 @@ if (!class_exists('NotificationSystem')) {
             }
 
             if (self::send_sendgrid_email($to, $name, $subject, $html_message)) {
+                return true;
+            }
+
+            if (self::send_smtp_email($to, $name, $subject, $html_message)) {
                 return true;
             }
 
@@ -604,10 +837,111 @@ if (!class_exists('NotificationSystem')) {
             return true;
         }
 
+        private static function has_valid_smtp_credentials($username, $password) {
+            $username = trim((string) $username);
+            $password = trim((string) $password);
+
+            if ($username === '' || $password === '') {
+                return false;
+            }
+
+            $invalid_usernames = ['your-email@gmail.com', 'example@gmail.com', 'your-email@example.com'];
+            $invalid_passwords = ['your-app-password-here', 'your-16-character-app-password', 'changeme'];
+
+            return !in_array(strtolower($username), $invalid_usernames, true)
+                && !in_array(strtolower($password), $invalid_passwords, true);
+        }
+
+        private static function smtp_encryption_mode() {
+            $secure = strtolower(trim((string) (defined('EMAIL_SMTP_SECURE') ? EMAIL_SMTP_SECURE : 'ssl')));
+
+            if ($secure === 'tls' || $secure === 'starttls') {
+                return \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            }
+
+            if ($secure === '' || $secure === 'none' || $secure === 'off' || $secure === 'false' || $secure === '0') {
+                return false;
+            }
+
+            return \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+        }
+
+        private static function send_smtp_email($to, $name, $subject, $html_message) {
+            $to = trim((string) $to);
+            if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+                return false;
+            }
+
+            if (!file_exists(__DIR__ . '/../vendor/autoload.php')) {
+                return false;
+            }
+
+            require_once __DIR__ . '/../vendor/autoload.php';
+
+            if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
+                error_log('NotificationSystem SMTP transport unavailable: PHPMailer is not installed.');
+                return false;
+            }
+
+            $smtp_host = defined('EMAIL_SMTP_HOST') ? trim((string) EMAIL_SMTP_HOST) : 'smtp.gmail.com';
+            $smtp_port = defined('EMAIL_SMTP_PORT') ? (int) EMAIL_SMTP_PORT : 465;
+            $smtp_username = defined('EMAIL_SMTP_USERNAME') ? trim((string) EMAIL_SMTP_USERNAME) : '';
+            $smtp_password = defined('EMAIL_SMTP_PASSWORD') ? trim((string) EMAIL_SMTP_PASSWORD) : '';
+
+            if (!self::has_valid_smtp_credentials($smtp_username, $smtp_password)) {
+                return false;
+            }
+
+            $from_email = defined('EMAIL_FROM_EMAIL') && trim((string) EMAIL_FROM_EMAIL) !== ''
+                ? trim((string) EMAIL_FROM_EMAIL)
+                : $smtp_username;
+            $from_name = defined('EMAIL_FROM_NAME') && trim((string) EMAIL_FROM_NAME) !== ''
+                ? trim((string) EMAIL_FROM_NAME)
+                : 'CommunaLink';
+
+            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+
+            try {
+                $mail->isSMTP();
+                $mail->Host = $smtp_host;
+                $mail->SMTPAuth = true;
+                $mail->Username = $smtp_username;
+                $mail->Password = $smtp_password;
+                $mail->SMTPSecure = self::smtp_encryption_mode();
+                $mail->Port = $smtp_port;
+                $mail->Timeout = 20;
+                $mail->CharSet = 'UTF-8';
+
+                $mail->setFrom($from_email, $from_name);
+                $mail->addAddress($to, trim((string) $name));
+
+                $mail->isHTML(true);
+                $mail->Subject = (string) $subject;
+                $mail->Body = (string) $html_message;
+                $mail->AltBody = trim(strip_tags((string) $html_message));
+
+                return $mail->send();
+            } catch (\Throwable $e) {
+                $error_detail = method_exists($mail, 'getError') ? (string) $mail->getError() : '';
+                if ($error_detail === '' && property_exists($mail, 'ErrorInfo')) {
+                    $error_detail = (string) $mail->ErrorInfo;
+                }
+                error_log('NotificationSystem SMTP transport error: ' . ($error_detail !== '' ? $error_detail : $e->getMessage()));
+                return false;
+            }
+        }
+
         private static function send_native_email($to, $subject, $html_message) {
+            $from_email = defined('EMAIL_FROM_EMAIL') && trim((string) EMAIL_FROM_EMAIL) !== ''
+                ? trim((string) EMAIL_FROM_EMAIL)
+                : 'noreply@communalink.local';
+            $from_name = defined('EMAIL_FROM_NAME') && trim((string) EMAIL_FROM_NAME) !== ''
+                ? trim((string) EMAIL_FROM_NAME)
+                : 'CommunaLink';
+
             $headers = "MIME-Version: 1.0\r\n";
             $headers .= "Content-type:text/html;charset=UTF-8\r\n";
-            $headers .= "From: CommunaLink <noreply@communalink.local>\r\n";
+            $headers .= "From: " . $from_name . " <" . $from_email . ">\r\n";
 
             return (bool) @mail($to, $subject, $html_message, $headers);
         }

@@ -31,21 +31,17 @@ unset($incident);
 $stats_stmt = $pdo->query("SELECT
     SUM(CASE WHEN status IN ('Pending', 'In Progress') THEN 1 ELSE 0 END) AS active_cases,
     SUM(CASE WHEN reported_at >= NOW() - INTERVAL 1 DAY THEN 1 ELSE 0 END) AS trending_today,
-    SUM(CASE WHEN reported_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-              AND reported_at < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
-              AND status = 'Resolved' THEN 1 ELSE 0 END) AS resolved_this_month,
-    SUM(CASE WHEN reported_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-              AND reported_at < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
-             THEN 1 ELSE 0 END) AS total_this_month
+    SUM(CASE WHEN status = 'Resolved' THEN 1 ELSE 0 END) AS resolved_all_time,
+    COUNT(*) AS total_all_time
     FROM incidents");
 $stats_row = $stats_stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-$monthly_total = (int)($stats_row['total_this_month'] ?? 0);
-$monthly_resolved = (int)($stats_row['resolved_this_month'] ?? 0);
+$all_time_total = (int)($stats_row['total_all_time'] ?? 0);
+$all_time_resolved = (int)($stats_row['resolved_all_time'] ?? 0);
 
 $stats = [
     'active_cases' => (int)($stats_row['active_cases'] ?? 0),
     'trending_today' => (int)($stats_row['trending_today'] ?? 0),
-    'resolution_rate' => $monthly_total > 0 ? (int)round(($monthly_resolved / $monthly_total) * 100) : 0
+    'resolution_rate' => $all_time_total > 0 ? (int)round(($all_time_resolved / $all_time_total) * 100) : 0
 ];
 
 emit_perf_headers($request_start, 'admin_fetch_live_incidents');
