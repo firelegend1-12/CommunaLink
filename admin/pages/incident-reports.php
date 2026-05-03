@@ -659,30 +659,57 @@ echo $critical_type; ?></h3>
                                                  </div>
                                              </div>
  
-                                             <!-- Admin Remarks Editor: Refined -->
-                                             <div class="group/section">
-                                                 <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2 mb-4 group-hover/section:text-indigo-500 transition-colors">ADMIN NOTES</h3>
-                                                 <div class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/50 shadow-sm relative group/remarks">
-                                                     <textarea 
-                                                         x-model="viewData.admin_remarks" 
-                                                         placeholder="Enter investigation notes..."
-                                                         class="w-full bg-transparent border-none focus:ring-0 text-[11px] font-medium text-slate-700 min-h-[120px] resize-none p-0"
-                                                         @input="remarksChanged = true"
-                                                     ></textarea>
-                                                     <div class="mt-3 flex flex-col gap-2">
+                                             <!-- Admin Remarks Editor: Author-Scoped -->
+                                           <div class="group/section">
+                                                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2 mb-4 group-hover/section:text-indigo-500 transition-colors">ADMIN NOTES</h3>
+                                                <div class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/50 shadow-sm relative group/remarks">
+                                                    <p class="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2">Official Remarks (Shared / Resident-visible)</p>
+                                                    <textarea
+                                                        x-model="viewData.official_remarks"
+                                                        placeholder="Enter official resolution remarks shown to residents..."
+                                                        class="w-full bg-white/70 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-400 text-[11px] font-medium text-slate-700 min-h-[78px] resize-none p-2"
+                                                        @input="remarksChanged = true"
+                                                    ></textarea>
+
+                                                    <div class="mt-3 border-t border-indigo-100 pt-3"></div>
+                                                    <p class="text-[9px] font-bold text-indigo-600 uppercase tracking-widest mb-2">My Note (Only editable by your account)</p>
+                                                    <textarea 
+                                                        x-model="viewData.admin_note" 
+                                                        placeholder="Enter your incident handling note..."
+                                                        class="w-full bg-transparent border-none focus:ring-0 text-[11px] font-medium text-slate-700 min-h-[120px] resize-none p-0"
+                                                        @input="remarksChanged = true"
+                                                    ></textarea>
+                                                    <div class="mt-3 flex flex-col gap-2">
                                                          <button 
                                                              x-show="remarksChanged" 
                                                              @click="saveRemarks" 
                                                              class="w-full bg-indigo-600 text-white text-[10px] font-black uppercase py-1.5 rounded-lg shadow-md hover:bg-indigo-700 transition"
                                                              :disabled="isSavingRemarks"
                                                          >
-                                                             <template x-if="!isSavingRemarks"><span><i class="fas fa-save mr-1.5"></i> Save</span></template>
-                                                             <template x-if="isSavingRemarks"><span><i class="fas fa-spinner fa-spin mr-1.5"></i> ...</span></template>
-                                                         </button>
-                                                         <p class="text-[8px] text-slate-400 text-center font-bold">Confidential internal remarks.</p>
-                                                     </div>
-                                                 </div>
-                                             </div>
+                                                            <template x-if="!isSavingRemarks"><span><i class="fas fa-save mr-1.5"></i> Save</span></template>
+                                                            <template x-if="isSavingRemarks"><span><i class="fas fa-spinner fa-spin mr-1.5"></i> ...</span></template>
+                                                        </button>
+                                                        <p class="text-[8px] text-slate-400 text-center font-bold">Confidential internal remarks. Other responders can only read your saved note.</p>
+                                                    </div>
+
+                                                    <div class="mt-4 border-t border-indigo-100 pt-3">
+                                                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Team Notes (Read-only)</p>
+                                                        <div x-show="Array.isArray(viewData.team_notes) && viewData.team_notes.length > 0" class="max-h-44 overflow-y-auto space-y-2 pr-1">
+                                                            <template x-for="note in viewData.team_notes" :key="`${note.author_user_id}-${note.updated_at}`">
+                                                                <div class="rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
+                                                                    <div class="flex items-center justify-between gap-2">
+                                                                        <p class="text-[10px] font-black text-slate-700 uppercase tracking-wide" x-text="note.author_name || 'Unknown User'"></p>
+                                                                        <span x-show="note.is_author" class="text-[8px] font-black uppercase text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded">You</span>
+                                                                    </div>
+                                                                    <p class="text-[10px] text-slate-500 mb-1" x-text="formatDate(note.updated_at) + ' ' + formatTime(note.updated_at)"></p>
+                                                                    <p class="text-[11px] text-slate-700 whitespace-pre-line" x-text="note.note_text"></p>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                        <p x-show="!Array.isArray(viewData.team_notes) || viewData.team_notes.length === 0" class="text-[10px] text-slate-400 italic">No notes saved yet by responders.</p>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -897,6 +924,15 @@ echo $resolution_rate; ?>
                         const result = await response.json();
                         if (result.success) {
                             this.viewData = result.data;
+                            if (typeof this.viewData.official_remarks !== 'string') {
+                                this.viewData.official_remarks = typeof this.viewData.admin_remarks === 'string' ? this.viewData.admin_remarks : '';
+                            }
+                            if (typeof this.viewData.admin_note !== 'string') {
+                                this.viewData.admin_note = '';
+                            }
+                            if (!Array.isArray(this.viewData.team_notes)) {
+                                this.viewData.team_notes = [];
+                            }
                         } else {
                             adminShowToast(result.error || 'Failed to load details.', 'error');
                             this.showView = false;
@@ -1011,7 +1047,8 @@ echo $resolution_rate; ?>
                     try {
                         const formData = new FormData();
                         formData.append('id', this.viewData.id);
-                        formData.append('remarks', this.viewData.admin_remarks || '');
+                        formData.append('remarks', this.viewData.admin_note || '');
+                        formData.append('official_remarks', this.viewData.official_remarks || '');
                         formData.append('csrf_token', INCIDENT_CSRF_TOKEN);
 
                         const response = await fetch('../partials/update-incident-remarks.php', {
@@ -1021,9 +1058,8 @@ echo $resolution_rate; ?>
                         const result = await response.json();
                         if (result.success) {
                             this.remarksChanged = false;
-                            // Optionally refresh reports to sync the data
                             this.fetchReports(true);
-                            adminShowToast('Remarks saved successfully.', 'success');
+                            adminShowToast(result.message || 'Your note was saved successfully.', 'success');
                         } else {
                             adminShowToast(result.error || 'Failed to save remarks', 'error');
                         }
