@@ -1,13 +1,64 @@
 <?php
-require_once '../config/database.php';
+require_once '../config/init.php';
 
-$token = isset($_GET['t']) ? preg_replace('/[^a-f0-9]/i', '', $_GET['t']) : '';
+function is_valid_qr_token_format(string $token): bool
+{
+    return preg_match('/\A(?:[a-f0-9]{48}|[a-f0-9]{64})\z/i', $token) === 1;
+}
 
+$clientIp = RateLimiter::getClientIP();
+$rateLimitStatus = RateLimiter::checkRateLimit('qr_verify', $clientIp);
+$isRateLimited = !$rateLimitStatus['allowed'];
+
+$token = strtolower(trim((string)($_GET['t'] ?? '')));
 $resident = null;
-if (strlen($token) >= 32) {
-    $stmt = $pdo->prepare("SELECT id, first_name, middle_initial, last_name, profile_image_path, id_number, created_at FROM residents WHERE qr_token = ? LIMIT 1");
+$failureReason = null;
+
+if ($isRateLimited) {
+    $failureReason = 'rate_limited';
+} elseif (!is_valid_qr_token_format($token)) {
+    $failureReason = 'invalid_token_format';
+} else {
+    $stmt = $pdo->prepare("SELECT id, first_name, middle_initial, last_name, profile_image_path, id_number, created_at, qr_token_expires_at FROM residents WHERE qr_token = ? LIMIT 1");
     $stmt->execute([$token]);
-    $resident = $stmt->fetch(PDO::FETCH_ASSOC);
+    $resident = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+    if (!$resident) {
+        $failureReason = 'token_not_found';
+    } else {
+        $expiresAt = (string)($resident['qr_token_expires_at'] ?? '');
+        $isExpired = ($expiresAt !== '' && strtotime($expiresAt) !== false && strtotime($expiresAt) <= time());
+        if ($isExpired) {
+            $resident = null;
+            $failureReason = 'token_expired';
+        }
+    }
+}
+
+RateLimiter::recordAttempt('qr_verify', $clientIp, $resident !== null);
+
+if ($token !== '' || $isRateLimited) {
+    try {
+        $scanStmt = $pdo->prepare("INSERT INTO resident_qr_scans (resident_id, token_fingerprint, is_valid, failure_reason, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?)");
+        $scanStmt->execute([
+            $resident['id'] ?? null,
+            $token !== '' ? hash('sha256', $token) : null,
+            $resident ? 1 : 0,
+            $failureReason,
+            $clientIp,
+            substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255)
+        ]);
+    } catch (Throwable $e) {
+        error_log('verify-qr scan log failed: ' . $e->getMessage());
+    }
+}
+
+$errorTitle = 'Invalid or Expired QR Code';
+$errorMessage = 'This resident ID could not be verified. The QR code may be expired, revoked, or does not exist in our records.';
+if ($failureReason === 'rate_limited') {
+    $minutes = max(1, (int)ceil(($rateLimitStatus['lockout_remaining'] ?? 60) / 60));
+    $errorTitle = 'Too Many Verification Attempts';
+    $errorMessage = 'Please wait ' . $minutes . ' minute(s) before trying again.';
 }
 ?>
 <!DOCTYPE html>
@@ -67,8 +118,8 @@ if (strlen($token) >= 32) {
     <div class="card">
         <div class="error">
             <div class="error-icon">&#9888;</div>
-            <h2>Invalid or Expired QR Code</h2>
-            <p>This resident ID could not be verified. The QR code may be expired, revoked, or does not exist in our records.</p>
+            <h2><?php echo htmlspecialchars($errorTitle); ?></h2>
+            <p><?php echo htmlspecialchars($errorMessage); ?></p>
         </div>
     </div>
 <?php endif; ?>

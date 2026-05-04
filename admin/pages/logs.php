@@ -32,6 +32,7 @@ $date_from = isset($_GET['date_from']) ? trim($_GET['date_from']) : '';
 $date_to = isset($_GET['date_to']) ? trim($_GET['date_to']) : '';
 $quick_filter = isset($_GET['quick_filter']) ? trim($_GET['quick_filter']) : '';
 $export_preset = isset($_GET['export_preset']) ? trim($_GET['export_preset']) : '';
+$view = isset($_GET['view']) && $_GET['view'] === 'archive' ? 'archive' : 'hot';
 
 if ($export_preset === 'daily_ops') {
     $date_from = date('Y-m-d');
@@ -103,17 +104,25 @@ switch ($quick_filter) {
 
 $where_sql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
+$table = $view === 'archive' ? 'activity_logs_archive' : 'activity_logs';
+
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     header('Content-Type: text/csv');
-    header('Content-Disposition: attachment;filename="activity_logs.csv"');
+    $filename = $view === 'archive' ? 'activity_logs_archive.csv' : 'activity_logs.csv';
+    header('Content-Disposition: attachment;filename="' . $filename . '"');
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['Date/Time', 'Severity', 'User', 'Action', 'Target', 'Request ID', 'Session ID', 'IP Address', 'User Agent', 'Details', 'Old Value', 'New Value']);
+    $headers = ['Date/Time', 'Severity', 'User', 'Action', 'Target', 'Request ID', 'Session ID', 'IP Address', 'User Agent', 'Details', 'Old Value', 'New Value'];
+    if ($view === 'archive') {
+        $headers[] = 'Archived At';
+        $headers[] = 'Batch ID';
+    }
+    fputcsv($out, $headers);
 
-    $stmt = $pdo->prepare("SELECT * FROM activity_logs $where_sql ORDER BY created_at DESC");
+    $stmt = $pdo->prepare("SELECT * FROM {$table} {$where_sql} ORDER BY created_at DESC");
     $stmt->execute($params);
 
     while ($log = $stmt->fetch()) {
-        fputcsv($out, [
+        $row = [
             $log['created_at'],
             strtoupper($log['severity'] ?? 'info'),
             $log['username'],
@@ -126,29 +135,37 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             $log['details'],
             $log['old_value'],
             $log['new_value'],
-        ]);
+        ];
+        if ($view === 'archive') {
+            $row[] = $log['archived_at'] ?? '';
+            $row[] = $log['archive_batch_id'] ?? '';
+        }
+        fputcsv($out, $row);
     }
 
     fclose($out);
     exit;
 }
 
-$count_stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_logs $where_sql");
-$count_stmt->execute($params);
-$total_logs = (int) $count_stmt->fetchColumn();
+$hot_logs_count_stmt = $pdo->query('SELECT COUNT(*) FROM activity_logs');
+$hot_logs_count = (int) $hot_logs_count_stmt->fetchColumn();
 
 $archive_count_stmt = $pdo->query('SELECT COUNT(*) FROM activity_logs_archive');
 $archive_logs_count = (int) $archive_count_stmt->fetchColumn();
 
+$count_stmt = $pdo->prepare("SELECT COUNT(*) FROM {$table} {$where_sql}");
+$count_stmt->execute($params);
+$total_logs = (int) $count_stmt->fetchColumn();
+
 $latest_archive_stmt = $pdo->query('SELECT batch_id, entry_count, created_at FROM activity_log_archive_batches ORDER BY id DESC LIMIT 1');
 $latest_archive_batch = $latest_archive_stmt ? $latest_archive_stmt->fetch(PDO::FETCH_ASSOC) : null;
 
-$stmt = $pdo->prepare("SELECT * FROM activity_logs $where_sql ORDER BY created_at DESC LIMIT $per_page OFFSET $offset");
+$stmt = $pdo->prepare("SELECT * FROM {$table} {$where_sql} ORDER BY created_at DESC LIMIT {$per_page} OFFSET {$offset}");
 $stmt->execute($params);
 $logs = $stmt->fetchAll();
 
-$users = $pdo->query('SELECT DISTINCT username FROM activity_logs ORDER BY username')->fetchAll(PDO::FETCH_COLUMN);
-$actions = $pdo->query('SELECT DISTINCT action FROM activity_logs ORDER BY action')->fetchAll(PDO::FETCH_COLUMN);
+$users = $pdo->query("SELECT DISTINCT username FROM {$table} ORDER BY username")->fetchAll(PDO::FETCH_COLUMN);
+$actions = $pdo->query("SELECT DISTINCT action FROM {$table} ORDER BY action")->fetchAll(PDO::FETCH_COLUMN);
 $base_query = $_GET;
 
 $page_title = 'System Logs';
@@ -172,7 +189,7 @@ include '../partials/sidebar.php'; ?>
                 <div class="flex items-center justify-between h-16">
                     <h1 class="text-2xl font-semibold text-gray-800">System Logs</h1>
                     <div class="flex items-center space-x-4">
-                        <span class="text-sm text-gray-600">Total Logs: <?php
+                        <span class="text-sm text-gray-600"><?php echo $view === 'archive' ? 'Archived Logs' : 'Total Logs'; ?>: <?php
 echo number_format($total_logs); ?></span>
                     </div>
                 </div>
@@ -330,18 +347,18 @@ echo htmlspecialchars($date_to); ?>">
                 </form>
 
                 <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                    <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['view' => 'hot', 'page' => 1])); ?>" class="block bg-slate-50 border <?php echo $view === 'hot' ? 'border-slate-400 ring-1 ring-slate-300' : 'border-slate-200'; ?> rounded-lg p-4 hover:bg-slate-100 transition">
                         <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Hot Logs</p>
                         <p class="text-2xl font-black text-slate-800"><?php
-echo number_format($total_logs); ?></p>
+echo number_format($hot_logs_count); ?></p>
                         <p class="text-xs text-slate-500 mt-1">Active logs in primary table</p>
-                    </div>
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    </a>
+                    <a href="<?php echo htmlspecialchars(build_logs_url($base_query, ['view' => 'archive', 'page' => 1])); ?>" class="block bg-blue-50 border <?php echo $view === 'archive' ? 'border-blue-400 ring-1 ring-blue-300' : 'border-blue-200'; ?> rounded-lg p-4 hover:bg-blue-100 transition">
                         <p class="text-xs uppercase tracking-wider text-blue-600 font-semibold">Archived Logs</p>
                         <p class="text-2xl font-black text-blue-800"><?php
 echo number_format($archive_logs_count); ?></p>
                         <p class="text-xs text-blue-600 mt-1">Historical logs in archive table</p>
-                    </div>
+                    </a>
                     <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
                         <p class="text-xs uppercase tracking-wider text-amber-600 font-semibold">Last Archive Batch</p>
                         <p class="text-sm font-black text-amber-800"><?php
@@ -440,7 +457,8 @@ $old_val = (string) ($log['old_value'] ?? '');
                                         if (strlen($old_val) > 60) {
                                             $short = htmlspecialchars(mb_substr($old_val, 0, 60)) . '...';
                                             $full = htmlspecialchars($old_val);
-                                            $id = 'oldval-' . $log['id'];
+                                            $logId = (int) ($log['source_log_id'] ?? $log['id'] ?? 0);
+                                            $id = 'oldval-' . $logId;
                                             echo "<span>{$short}</span> <a href=\"#\" class=\"text-blue-600 underline view-all-link\" data-modal='modal-{$id}'>View All</a>";
                                             echo "<div id='modal-{$id}' class='hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50'>
                                                     <div class='bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative'>
@@ -460,7 +478,8 @@ $new_val = (string) ($log['new_value'] ?? '');
                                         if (strlen($new_val) > 60) {
                                             $short = htmlspecialchars(mb_substr($new_val, 0, 60)) . '...';
                                             $full = htmlspecialchars($new_val);
-                                            $id = 'newval-' . $log['id'];
+                                            $logId = (int) ($log['source_log_id'] ?? $log['id'] ?? 0);
+                                            $id = 'newval-' . $logId;
                                             echo "<span>{$short}</span> <a href=\"#\" class=\"text-blue-600 underline view-all-link\" data-modal='modal-{$id}'>View All</a>";
                                             echo "<div id='modal-{$id}' class='hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50'>
                                                     <div class='bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative'>
@@ -476,8 +495,9 @@ $new_val = (string) ($log['new_value'] ?? '');
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm">
                                         <?php
-$drawerPayload = [
-                                            'id' => (int) ($log['id'] ?? 0),
+$logId = (int) ($log['source_log_id'] ?? $log['id'] ?? 0);
+                                        $drawerPayload = [
+                                            'id' => $logId,
                                             'created_at' => (string) ($log['created_at'] ?? ''),
                                             'severity' => (string) ($log['severity'] ?? 'info'),
                                             'username' => (string) ($log['username'] ?? ''),
@@ -493,6 +513,8 @@ $drawerPayload = [
                                             'new_value' => (string) ($log['new_value'] ?? ''),
                                             'prev_hash' => (string) ($log['prev_hash'] ?? ''),
                                             'log_hash' => (string) ($log['log_hash'] ?? ''),
+                                            'archived_at' => (string) ($log['archived_at'] ?? ''),
+                                            'archive_batch_id' => (string) ($log['archive_batch_id'] ?? ''),
                                         ];
                                         ?>
                                         <button
@@ -586,6 +608,12 @@ endif; ?>
                 <p class="text-xs uppercase tracking-wider text-amber-700 font-semibold mb-2">Tamper-Evidence Chain</p>
                 <p><span class="text-amber-700">Previous Hash:</span> <span id="drawer-prev-hash" class="font-mono break-all"></span></p>
                 <p><span class="text-amber-700">Current Hash:</span> <span id="drawer-log-hash" class="font-mono break-all"></span></p>
+            </div>
+
+            <div id="drawer-archive-section" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p class="text-xs uppercase tracking-wider text-blue-700 font-semibold mb-2">Archive Metadata</p>
+                <p><span class="text-blue-700">Archived At:</span> <span id="drawer-archived-at" class="font-mono"></span></p>
+                <p><span class="text-blue-700">Batch ID:</span> <span id="drawer-archive-batch-id" class="font-mono break-all"></span></p>
             </div>
 
             <div class="bg-white border border-slate-200 rounded-lg p-3">
@@ -709,6 +737,17 @@ document.addEventListener('DOMContentLoaded', function() {
             fillText('drawer-user-agent', data.user_agent);
             fillText('drawer-prev-hash', data.prev_hash);
             fillText('drawer-log-hash', data.log_hash);
+            fillText('drawer-archived-at', data.archived_at);
+            fillText('drawer-archive-batch-id', data.archive_batch_id);
+
+            var archiveSection = document.getElementById('drawer-archive-section');
+            if (archiveSection) {
+                if (data.archived_at || data.archive_batch_id) {
+                    archiveSection.classList.remove('hidden');
+                } else {
+                    archiveSection.classList.add('hidden');
+                }
+            }
 
             var detailsEl = document.getElementById('drawer-details');
             var oldEl = document.getElementById('drawer-old');

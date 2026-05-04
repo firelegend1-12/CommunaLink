@@ -156,10 +156,6 @@ $flat_details = flatten_details($details);
             <button class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg font-semibold border border-red-200 transition-colors shadow-sm" onclick="cancelDocumentRequest(<?= (int) $req['id'] ?>)">
                 <i class="fas fa-times-circle mr-1"></i> Cancel Request
             </button>
-        <?php else: ?>
-            <button class="bg-gray-100 text-gray-700 hover:bg-gray-200 px-4 py-2 rounded-lg font-semibold border border-gray-300 transition-colors shadow-sm" onclick="window.print()">
-                <i class="fas fa-print mr-1"></i> Print Copy
-            </button>
         <?php endif; ?>
     </div>
 

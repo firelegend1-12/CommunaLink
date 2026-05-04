@@ -14,6 +14,11 @@ require_once '../../includes/functions.php';
 require_once '../../includes/storage_manager.php';
 require_once '../../includes/qr_generator.php';
 
+function is_valid_qr_token_format(string $token): bool
+{
+    return preg_match('/\A(?:[a-f0-9]{48}|[a-f0-9]{64})\z/i', $token) === 1;
+}
+
 function admin_resident_profile_image_url(string $storedPath): string
 {
     $path = trim($storedPath);
@@ -58,11 +63,23 @@ $full_name = strtoupper($resident['last_name'] . ', ' . $resident['first_name'] 
 $address = strtoupper('123 AGUSTIN STREET, BGRY PAKIAD, ILOILO CITY'); // Example address
 
 // Ensure resident has a secure QR token
-if (empty($resident['qr_token'])) {
-    $newToken = bin2hex(random_bytes(24));
-    $upd = $pdo->prepare("UPDATE residents SET qr_token = ? WHERE id = ?");
-    $upd->execute([$newToken, $resident['id']]);
+$existingToken = (string)($resident['qr_token'] ?? '');
+$expiresAt = (string)($resident['qr_token_expires_at'] ?? '');
+$isExpired = ($expiresAt !== '' && strtotime($expiresAt) !== false && strtotime($expiresAt) <= time());
+$needsRotation = ($existingToken === '' || !is_valid_qr_token_format($existingToken) || $isExpired);
+
+if ($needsRotation) {
+    $newToken = bin2hex(random_bytes(32));
+    $newExpiry = date('Y-m-d H:i:s', strtotime('+1 year'));
+    $upd = $pdo->prepare("UPDATE residents SET qr_token = ?, qr_token_expires_at = ? WHERE id = ?");
+    $upd->execute([$newToken, $newExpiry, $resident['id']]);
     $resident['qr_token'] = $newToken;
+    $resident['qr_token_expires_at'] = $newExpiry;
+} elseif ($expiresAt === '') {
+    $newExpiry = date('Y-m-d H:i:s', strtotime('+1 year'));
+    $upd = $pdo->prepare("UPDATE residents SET qr_token_expires_at = ? WHERE id = ?");
+    $upd->execute([$newExpiry, $resident['id']]);
+    $resident['qr_token_expires_at'] = $newExpiry;
 }
 
 $verify_url = app_url('/resident/verify-qr.php?t=' . urlencode($resident['qr_token']));

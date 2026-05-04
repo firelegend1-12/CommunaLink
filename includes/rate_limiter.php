@@ -43,6 +43,11 @@ class RateLimiter {
             'max_attempts' => 3600,
             'window_minutes' => 60,
             'lockout_minutes' => 15
+        ],
+        'qr_verify' => [
+            'max_attempts' => 60,
+            'window_minutes' => 15,
+            'lockout_minutes' => 15
         ]
     ];
     

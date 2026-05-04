@@ -23,6 +23,7 @@ if (!require_permission('manage_incidents')) {
 
 $page_title = "Incident Reports";
 $incident_csrf_token = csrf_token();
+$current_user_id = $_SESSION['user_id'] ?? 0;
 
 // Fetch counts for cards
 // 1. Total Reports
@@ -659,54 +660,85 @@ echo $critical_type; ?></h3>
                                                  </div>
                                              </div>
  
-                                             <!-- Admin Remarks Editor: Author-Scoped -->
-                                           <div class="group/section">
+                                             <!-- Admin Notes Thread -->
+                                            <div class="group/section">
                                                 <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2 mb-4 group-hover/section:text-indigo-500 transition-colors">ADMIN NOTES</h3>
-                                                <div class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/50 shadow-sm relative group/remarks">
-                                                    <p class="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2">Official Remarks (Shared / Resident-visible)</p>
-                                                    <textarea
-                                                        x-model="viewData.official_remarks"
-                                                        placeholder="Enter official resolution remarks shown to residents..."
-                                                        class="w-full bg-white/70 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-400 text-[11px] font-medium text-slate-700 min-h-[78px] resize-none p-2"
-                                                        @input="remarksChanged = true"
-                                                    ></textarea>
-
-                                                    <div class="mt-3 border-t border-indigo-100 pt-3"></div>
-                                                    <p class="text-[9px] font-bold text-indigo-600 uppercase tracking-widest mb-2">My Note (Only editable by your account)</p>
-                                                    <textarea 
-                                                        x-model="viewData.admin_note" 
-                                                        placeholder="Enter your incident handling note..."
-                                                        class="w-full bg-transparent border-none focus:ring-0 text-[11px] font-medium text-slate-700 min-h-[120px] resize-none p-0"
-                                                        @input="remarksChanged = true"
-                                                    ></textarea>
-                                                    <div class="mt-3 flex flex-col gap-2">
-                                                         <button 
-                                                             x-show="remarksChanged" 
-                                                             @click="saveRemarks" 
-                                                             class="w-full bg-indigo-600 text-white text-[10px] font-black uppercase py-1.5 rounded-lg shadow-md hover:bg-indigo-700 transition"
-                                                             :disabled="isSavingRemarks"
-                                                         >
-                                                            <template x-if="!isSavingRemarks"><span><i class="fas fa-save mr-1.5"></i> Save</span></template>
-                                                            <template x-if="isSavingRemarks"><span><i class="fas fa-spinner fa-spin mr-1.5"></i> ...</span></template>
-                                                        </button>
-                                                        <p class="text-[8px] text-slate-400 text-center font-bold">Confidential internal remarks. Other responders can only read your saved note.</p>
-                                                    </div>
-
-                                                    <div class="mt-4 border-t border-indigo-100 pt-3">
-                                                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Team Notes (Read-only)</p>
-                                                        <div x-show="Array.isArray(viewData.team_notes) && viewData.team_notes.length > 0" class="max-h-44 overflow-y-auto space-y-2 pr-1">
-                                                            <template x-for="note in viewData.team_notes" :key="`${note.author_user_id}-${note.updated_at}`">
-                                                                <div class="rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
-                                                                    <div class="flex items-center justify-between gap-2">
-                                                                        <p class="text-[10px] font-black text-slate-700 uppercase tracking-wide" x-text="note.author_name || 'Unknown User'"></p>
-                                                                        <span x-show="note.is_author" class="text-[8px] font-black uppercase text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded">You</span>
-                                                                    </div>
-                                                                    <p class="text-[10px] text-slate-500 mb-1" x-text="formatDate(note.updated_at) + ' ' + formatTime(note.updated_at)"></p>
-                                                                    <p class="text-[11px] text-slate-700 whitespace-pre-line" x-text="note.note_text"></p>
-                                                                </div>
-                                                            </template>
+                                                <div class="space-y-3">
+                                                    <!-- Notes list -->
+                                                    <template x-if="notes.length === 0">
+                                                        <div class="text-center py-4">
+                                                            <p class="text-[11px] text-slate-400 font-medium">No admin notes yet.</p>
                                                         </div>
-                                                        <p x-show="!Array.isArray(viewData.team_notes) || viewData.team_notes.length === 0" class="text-[10px] text-slate-400 italic">No notes saved yet by responders.</p>
+                                                    </template>
+                                                    <template x-for="note in notes" :key="note.id">
+                                                        <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100/50">
+                                                            <div class="flex items-start justify-between mb-1">
+                                                                <div class="flex items-center gap-2">
+                                                                    <div class="w-6 h-6 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center" x-text="note.user_name ? note.user_name.charAt(0).toUpperCase() : 'U'"></div>
+                                                                    <div>
+                                                                        <p class="text-[11px] font-bold text-slate-700" x-text="note.user_name || 'Unknown'"></p>
+                                                                        <p class="text-[9px] text-slate-400">
+                                                                            <span x-text="note.user_role || 'Staff'"></span>
+                                                                            <span class="mx-1">&middot;</span>
+                                                                            <span x-text="new Date(note.created_at).toLocaleString()"></span>
+                                                                            <span x-show="note.updated_at !== note.created_at" class="text-amber-500 font-medium"> (edited)</span>
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="flex gap-1" x-show="note.is_owner || note.is_admin">
+                                                                    <button 
+                                                                        x-show="note.is_owner"
+                                                                        @click="startEditNote(note)"
+                                                                        class="text-[10px] text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded hover:bg-indigo-100 transition"
+                                                                    >
+                                                                        <i class="fas fa-edit"></i>
+                                                                    </button>
+                                                                    <button 
+                                                                        @click="deleteNote(note.id)"
+                                                                        class="text-[10px] text-red-600 hover:text-red-800 font-medium px-2 py-1 rounded hover:bg-red-50 transition"
+                                                                    >
+                                                                        <i class="fas fa-trash-alt"></i>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <!-- View mode -->
+                                                            <p x-show="editingNoteId !== note.id" class="text-[11px] text-slate-700 whitespace-pre-wrap" x-text="note.note"></p>
+                                                            <!-- Edit mode -->
+                                                            <div x-show="editingNoteId === note.id" class="mt-1">
+                                                                <textarea 
+                                                                    x-model="editingNoteText" 
+                                                                    class="w-full bg-white border border-indigo-200 rounded-lg focus:ring-1 focus:ring-indigo-500 text-[11px] font-medium text-slate-700 min-h-[60px] resize-none p-2"
+                                                                ></textarea>
+                                                                <div class="flex gap-2 mt-2">
+                                                                    <button 
+                                                                        @click="saveEditNote(note.id)" 
+                                                                        class="px-3 py-1 bg-indigo-600 text-white text-[10px] font-bold rounded hover:bg-indigo-700 transition"
+                                                                    >Save</button>
+                                                                    <button 
+                                                                        @click="cancelEditNote()" 
+                                                                        class="px-3 py-1 bg-slate-200 text-slate-700 text-[10px] font-bold rounded hover:bg-slate-300 transition"
+                                                                    >Cancel</button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                    <!-- Add new note -->
+                                                    <div class="bg-white p-3 rounded-xl border border-slate-200">
+                                                        <textarea 
+                                                            x-model="noteText" 
+                                                            placeholder="Add a note..."
+                                                            class="w-full bg-transparent border-none focus:ring-0 text-[11px] font-medium text-slate-700 min-h-[60px] resize-none p-0"
+                                                        ></textarea>
+                                                        <div class="flex justify-end mt-2">
+                                                            <button 
+                                                                @click="addNote" 
+                                                                class="px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-lg shadow-md hover:bg-indigo-700 transition"
+                                                                :disabled="isAddingNote || noteText.trim() === ''"
+                                                            >
+                                                                <span x-show="!isAddingNote">Post Note</span>
+                                                                <span x-show="isAddingNote"><i class="fas fa-spinner fa-spin mr-1"></i>Posting...</span>
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -770,9 +802,13 @@ echo $critical_type; ?></h3>
     </div>
 
     <script>
-        const INCIDENT_CSRF_TOKEN = <?php echo json_encode($incident_csrf_token); ?>;
+        const INCIDENT_CSRF_TOKEN = '<?php echo htmlspecialchars($incident_csrf_token); ?>';
+        const CURRENT_USER_ID = <?php echo (int)$current_user_id; ?>;
+    </script>
 
-        function adminShowToast(message, type = 'info') {
+    <script>
+
+    function adminShowToast(message, type = 'info') {
             const existing = document.getElementById('admin-toast-container');
             const container = existing || (() => {
                 const el = document.createElement('div');
@@ -826,9 +862,14 @@ echo $critical_type; ?></h3>
                 loadingView: false,
                 viewData: null,
                 pollingInterval: null,
-                remarksChanged: false,
+                currentUserId: CURRENT_USER_ID,
+                notes: [],
+                isAddingNote: false,
                 isSavingRemarks: false,
                 isSavingStatus: false,
+                noteText: '',
+                editingNoteId: null,
+                editingNoteText: '',
                 dateFrom: '',
                 dateTo: '',
                 showRejectionModal: false,
@@ -924,15 +965,6 @@ echo $resolution_rate; ?>
                         const result = await response.json();
                         if (result.success) {
                             this.viewData = result.data;
-                            if (typeof this.viewData.official_remarks !== 'string') {
-                                this.viewData.official_remarks = typeof this.viewData.admin_remarks === 'string' ? this.viewData.admin_remarks : '';
-                            }
-                            if (typeof this.viewData.admin_note !== 'string') {
-                                this.viewData.admin_note = '';
-                            }
-                            if (!Array.isArray(this.viewData.team_notes)) {
-                                this.viewData.team_notes = [];
-                            }
                         } else {
                             adminShowToast(result.error || 'Failed to load details.', 'error');
                             this.showView = false;
@@ -1041,33 +1073,105 @@ echo $resolution_rate; ?>
                     }
                 },
 
-                async saveRemarks() {
-                    if (!this.viewData || !this.remarksChanged) return;
-                    this.isSavingRemarks = true;
+                async loadNotes(incidentId) {
+                    try {
+                        const response = await fetch(`../partials/get-incident-notes.php?id=${incidentId}`);
+                        const result = await response.json();
+                        if (result.success) {
+                            this.notes = result.notes;
+                        }
+                    } catch (error) {
+                        console.error('Error loading notes:', error);
+                    }
+                },
+
+                async addNote() {
+                    if (!this.viewData || !this.noteText.trim()) return;
+                    this.isAddingNote = true;
                     try {
                         const formData = new FormData();
-                        formData.append('id', this.viewData.id);
-                        formData.append('remarks', this.viewData.admin_note || '');
-                        formData.append('official_remarks', this.viewData.official_remarks || '');
+                        formData.append('incident_id', this.viewData.id);
+                        formData.append('note', this.noteText.trim());
                         formData.append('csrf_token', INCIDENT_CSRF_TOKEN);
 
-                        const response = await fetch('../partials/update-incident-remarks.php', {
+                        const response = await fetch('../partials/add-incident-note.php', {
                             method: 'POST',
                             body: formData
                         });
                         const result = await response.json();
                         if (result.success) {
-                            this.remarksChanged = false;
-                            this.fetchReports(true);
-                            adminShowToast(result.message || 'Your note was saved successfully.', 'success');
+                            this.noteText = '';
+                            await this.loadNotes(this.viewData.id);
+                            adminShowToast('Note added successfully.', 'success');
                         } else {
-                            adminShowToast(result.error || 'Failed to save remarks', 'error');
+                            adminShowToast(result.error || 'Failed to add note', 'error');
                         }
                     } catch (error) {
-                        console.error('Error saving remarks:', error);
-                        adminShowToast('An error occurred while saving remarks.', 'error');
+                        console.error('Error adding note:', error);
+                        adminShowToast('An error occurred while adding note.', 'error');
                     } finally {
-                        this.isSavingRemarks = false;
+                        this.isAddingNote = false;
+                    }
+                },
+
+                startEditNote(note) {
+                    this.editingNoteId = note.id;
+                    this.editingNoteText = note.note;
+                },
+
+                cancelEditNote() {
+                    this.editingNoteId = null;
+                    this.editingNoteText = '';
+                },
+
+                async saveEditNote(noteId) {
+                    if (!this.editingNoteText.trim()) return;
+                    try {
+                        const formData = new FormData();
+                        formData.append('note_id', noteId);
+                        formData.append('note', this.editingNoteText.trim());
+                        formData.append('csrf_token', INCIDENT_CSRF_TOKEN);
+
+                        const response = await fetch('../partials/edit-incident-note.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            this.editingNoteId = null;
+                            this.editingNoteText = '';
+                            await this.loadNotes(this.viewData.id);
+                            adminShowToast('Note updated successfully.', 'success');
+                        } else {
+                            adminShowToast(result.error || 'Failed to update note', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error updating note:', error);
+                        adminShowToast('An error occurred while updating note.', 'error');
+                    }
+                },
+
+                async deleteNote(noteId) {
+                    if (!confirm('Delete this note?')) return;
+                    try {
+                        const formData = new FormData();
+                        formData.append('note_id', noteId);
+                        formData.append('csrf_token', INCIDENT_CSRF_TOKEN);
+
+                        const response = await fetch('../partials/delete-incident-note.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            await this.loadNotes(this.viewData.id);
+                            adminShowToast('Note deleted successfully.', 'success');
+                        } else {
+                            adminShowToast(result.error || 'Failed to delete note', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting note:', error);
+                        adminShowToast('An error occurred while deleting note.', 'error');
                     }
                 },
 

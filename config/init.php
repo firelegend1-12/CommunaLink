@@ -187,12 +187,29 @@ try {
             `profile_image_path` VARCHAR(255) DEFAULT NULL,
             `id_number` VARCHAR(50) UNIQUE DEFAULT NULL,
             `qr_token` VARCHAR(64) UNIQUE DEFAULT NULL,
+            `qr_token_expires_at` DATETIME DEFAULT NULL,
             `voter_status` ENUM('Yes', 'No') NOT NULL DEFAULT 'No',
             `user_id` INT(11) DEFAULT NULL,
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
             `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`),
             FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS `resident_qr_scans` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `resident_id` INT(11) DEFAULT NULL,
+            `token_fingerprint` CHAR(64) DEFAULT NULL,
+            `is_valid` TINYINT(1) NOT NULL DEFAULT 0,
+            `failure_reason` VARCHAR(100) DEFAULT NULL,
+            `ip_address` VARCHAR(45) DEFAULT NULL,
+            `user_agent` VARCHAR(255) DEFAULT NULL,
+            `scanned_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `idx_resident_qr_scans_resident` (`resident_id`),
+            KEY `idx_resident_qr_scans_scanned_at` (`scanned_at`),
+            KEY `idx_resident_qr_scans_valid` (`is_valid`),
+            CONSTRAINT `fk_resident_qr_scans_resident` FOREIGN KEY (`resident_id`) REFERENCES `residents`(`id`) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
         "CREATE TABLE IF NOT EXISTS `businesses` (
@@ -301,21 +318,6 @@ try {
             `admin_remarks` TEXT DEFAULT NULL,
             PRIMARY KEY (`id`),
             FOREIGN KEY (`resident_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-
-        "CREATE TABLE IF NOT EXISTS `incident_admin_notes` (
-            `id` INT(11) NOT NULL AUTO_INCREMENT,
-            `incident_id` INT(11) NOT NULL,
-            `author_user_id` INT(11) NOT NULL,
-            `note_text` TEXT DEFAULT NULL,
-            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-            `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (`id`),
-            UNIQUE KEY `uniq_incident_note_author` (`incident_id`, `author_user_id`),
-            KEY `idx_incident_admin_notes_incident` (`incident_id`),
-            KEY `idx_incident_admin_notes_author` (`author_user_id`),
-            CONSTRAINT `fk_incident_admin_notes_incident` FOREIGN KEY (`incident_id`) REFERENCES `incidents`(`id`) ON DELETE CASCADE,
-            CONSTRAINT `fk_incident_admin_notes_author` FOREIGN KEY (`author_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
         "CREATE TABLE IF NOT EXISTS `announcements` (
@@ -484,7 +486,8 @@ try {
     // --- Schema Migration for residents table ---
     $resident_columns = [
         'occupation' => "ADD COLUMN `occupation` VARCHAR(100) DEFAULT NULL AFTER `civil_status`",
-        'user_id' => "ADD COLUMN `user_id` INT(11) DEFAULT NULL AFTER `voter_status`"
+        'user_id' => "ADD COLUMN `user_id` INT(11) DEFAULT NULL AFTER `voter_status`",
+        'qr_token_expires_at' => "ADD COLUMN `qr_token_expires_at` DATETIME DEFAULT NULL AFTER `qr_token`"
     ];
 
     foreach ($resident_columns as $column => $alter_statement) {
