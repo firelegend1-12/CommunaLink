@@ -26,8 +26,8 @@ class OTPEmailService {
             return false;
         }
 
-        $invalidUsernames = ['your-email@gmail.com', 'example@gmail.com', 'your-email@example.com'];
-        $invalidPasswords = ['your-app-password-here', 'your-16-character-app-password', 'changeme'];
+        $invalidUsernames = ['your-email@gmail.com', 'example@gmail.com', 'your-email@example.com', 'your_email_username'];
+        $invalidPasswords = ['your-app-password-here', 'your-16-character-app-password', 'changeme', 'set_via_secret_manager'];
 
         return !in_array(strtolower($username), $invalidUsernames, true)
             && !in_array(strtolower($password), $invalidPasswords, true);

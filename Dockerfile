@@ -26,6 +26,7 @@ ENV APP_DEBUG=false
 ENV AUTO_CREATE_DATABASE=false
 ENV AUTO_DB_SCHEMA_SYNC=false
 ENV SESSION_SAVE_PATH=/tmp/communalink-sessions
+ENV SESSION_DRIVER=db
 
 RUN sed -ri -e 's!80!8080!g' /etc/apache2/ports.conf /etc/apache2/sites-available/*.conf
 

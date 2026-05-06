@@ -53,6 +53,10 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/database.php'; // This file should instantiate $pdo
+require_once __DIR__ . '/../includes/session_manager.php';
+if (isset($pdo) && $pdo instanceof PDO) {
+    ensure_session_storage($pdo);
+}
 require_once __DIR__ . '/../includes/csrf.php'; // CSRF protection
 require_once __DIR__ . '/../includes/password_security.php'; // Password security
 require_once __DIR__ . '/../includes/rate_limiter.php'; // Rate limiting
@@ -459,6 +463,14 @@ try {
             CONSTRAINT `fk_active_sessions_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
+        "CREATE TABLE IF NOT EXISTS `php_sessions` (
+            `session_id` VARCHAR(128) NOT NULL,
+            `session_data` MEDIUMBLOB NOT NULL,
+            `last_activity` INT(10) UNSIGNED NOT NULL,
+            PRIMARY KEY (`session_id`),
+            KEY `idx_php_sessions_last_activity` (`last_activity`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
         "CREATE TABLE IF NOT EXISTS `public_post_dispatch_queue` (
             `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             `payload_json` LONGTEXT NOT NULL,
@@ -809,6 +821,14 @@ try {
         KEY `idx_active_sessions_role_active_expires` (`role`, `is_active`, `expires_at`),
         KEY `idx_active_sessions_user_active` (`user_id`, `is_active`),
         CONSTRAINT `fk_active_sessions_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `php_sessions` (
+        `session_id` VARCHAR(128) NOT NULL,
+        `session_data` MEDIUMBLOB NOT NULL,
+        `last_activity` INT(10) UNSIGNED NOT NULL,
+        PRIMARY KEY (`session_id`),
+        KEY `idx_php_sessions_last_activity` (`last_activity`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
     // --- Schema Migration for activity_logs: prev_hash ---

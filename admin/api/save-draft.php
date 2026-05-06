@@ -6,6 +6,12 @@
 
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../includes/storage_manager.php';
+require_once __DIR__ . '/../../includes/session_manager.php';
+
+if (isset($pdo) && $pdo instanceof PDO) {
+    ensure_session_storage($pdo);
+}
 
 session_start();
 
@@ -71,13 +77,17 @@ if (!empty($_FILES['image']) && is_array($_FILES['image']) && ($_FILES['image'][
         $mime = $finfo->file($file['tmp_name']);
         $allowed_mimes = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif'];
         if (isset($allowed_mimes[$mime]) && ($file['size'] ?? 0) <= 5 * 1024 * 1024) {
-            $ext = $allowed_mimes[$mime];
-            $upload_dir = __DIR__ . '/../../admin/images/announcements';
-            if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
-            $filename = 'post_draft_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-            $dest = $upload_dir . '/' . $filename;
-            if (move_uploaded_file($file['tmp_name'], $dest)) {
-                $image_path = 'images/announcements/' . $filename;
+            $storage_result = StorageManager::saveUploadedFile([
+                'tmp_name' => $file['tmp_name'],
+                'extension' => $allowed_mimes[$mime],
+            ], 'admin/images/announcements', 'post_draft_');
+            if (!empty($storage_result['success'])) {
+                $stored_path = (string) ($storage_result['path'] ?? '');
+                if (strpos($stored_path, 'admin/') === 0) {
+                    $image_path = substr($stored_path, 6);
+                } else {
+                    $image_path = $stored_path;
+                }
             }
         }
     }

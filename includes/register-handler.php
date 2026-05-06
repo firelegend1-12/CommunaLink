@@ -14,7 +14,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Only process POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    redirect_to('../register.php');
+    redirect_to(app_url('/register.php'));
 }
 
 // Sanitize and validate form inputs
@@ -41,49 +41,49 @@ $address = sanitize_input($_POST['address']);
 // Validate required fields
 if (empty($fullname) || empty($email) || empty($password) || empty($confirm_password)) {
     $_SESSION['error_message'] = "All required fields must be filled.";
-    redirect_to('../register.php');
+    redirect_to(app_url('/register.php'));
 }
 
 if (empty($first_name) || empty($last_name) || empty($gender) || empty($date_of_birth) || 
     empty($place_of_birth) || empty($citizenship) || empty($civil_status) || empty($voter_status) || empty($address)) {
     $_SESSION['error_message'] = "All required personal information fields must be filled.";
-    redirect_to('../register.php');
+    redirect_to(app_url('/register.php'));
 }
 
 $contact_canonical = normalize_ph_mobile_for_registration((string) ($_POST['contact_no'] ?? ''));
 if ($contact_canonical === null) {
     $_SESSION['error_message'] = 'Please enter a valid Philippine mobile number starting with +63 (e.g. +639171234567, or 09171234567).';
-    redirect_to('../register.php');
+    redirect_to(app_url('/register.php'));
 }
 $contact_no = sanitize_input($contact_canonical);
 
 // Validate password
 if (strlen($password) < 8) {
     $_SESSION['error_message'] = "Password must be at least 8 characters long.";
-    redirect_to('../register.php');
+    redirect_to(app_url('/register.php'));
 }
 
 // Check for at least one number
 if (!preg_match('/[0-9]/', $password)) {
     $_SESSION['error_message'] = "Password must contain at least one number (0-9).";
-    redirect_to('../register.php');
+    redirect_to(app_url('/register.php'));
 }
 
 // Check for at least one special character
 if (!preg_match('/[!@#$%^&*()_+\-=\[\]{};:\'",.<>?\/\\|`~]/', $password)) {
     $_SESSION['error_message'] = "Password must contain at least one special character (!@#$%^&*).";
-    redirect_to('../register.php');
+    redirect_to(app_url('/register.php'));
 }
 
 if ($password !== $confirm_password) {
     $_SESSION['error_message'] = "Passwords do not match.";
-    redirect_to('../register.php');
+    redirect_to(app_url('/register.php'));
 }
 
 // Validate email format
 if (!$email) {
     $_SESSION['error_message'] = "Please enter a valid email address.";
-    redirect_to('../register.php');
+    redirect_to(app_url('/register.php'));
 }
 
 // Calculate age from date of birth
@@ -94,7 +94,7 @@ $age = $today->diff($birth_date)->y;
 // Validate age (must be at least 18 for registration)
 if ($age < 18) {
     $_SESSION['error_message'] = "You must be at least 18 years old to register.";
-    redirect_to('../register.php');
+    redirect_to(app_url('/register.php'));
 }
 
 try {
@@ -103,7 +103,7 @@ try {
     $stmt->execute([$email]);
     if ($stmt->fetch()) {
         $_SESSION['error_message'] = "An account with this email already exists.";
-        redirect_to('../register.php');
+        redirect_to(app_url('/register.php'));
     }
 
     // Cleanup expired OTPs
@@ -135,7 +135,7 @@ try {
     // Store OTP in database
     if (!OTPEmailService::storeOTP($pdo, $email, $otpCode, $registrationData)) {
         $_SESSION['error_message'] = "Failed to process verification. Please try again.";
-        redirect_to('../register.php');
+        redirect_to(app_url('/register.php'));
     }
 
     // Send OTP email
@@ -158,8 +158,8 @@ try {
             $_SESSION['otp_success'] = 'Email delivery is unavailable. Using temporary development OTP code.';
             $_SESSION['otp_dev_code'] = $otpCode;
         } else {
-            $_SESSION['error_message'] = "Failed to send verification email. Please check your email address or try again later.";
-            redirect_to('../register.php');
+            $_SESSION['error_message'] = "Email verification is temporarily unavailable. Please try again later.";
+            redirect_to(app_url('/register.php'));
         }
     }
 
@@ -168,10 +168,10 @@ try {
     $_SESSION['otp_fullname'] = $fullname;
 
     // Redirect to OTP verification page
-    redirect_to('../verify-otp.php');
+    redirect_to(app_url('/verify-otp.php'));
 
 } catch (PDOException $e) {
     error_log("Registration OTP failed: " . $e->getMessage());
     $_SESSION['error_message'] = "Registration failed due to a server error. Please try again.";
-    redirect_to('../register.php');
+    redirect_to(app_url('/register.php'));
 } 

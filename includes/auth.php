@@ -7,6 +7,7 @@
 // Include necessary files
 if (defined('AUTH_LIGHTWEIGHT_BOOTSTRAP') && AUTH_LIGHTWEIGHT_BOOTSTRAP === true) {
     require_once __DIR__ . '/../config/database.php';
+    require_once __DIR__ . '/session_manager.php';
     require_once __DIR__ . '/rate_limiter.php';
 
     if (!function_exists('configure_session_cookie_security')) {
@@ -58,10 +59,15 @@ require_once __DIR__ . '/functions.php';
 
 // Fallback session start for direct execution paths that bypass init bootstrap.
 if (session_status() === PHP_SESSION_NONE) {
+    if (function_exists('ensure_session_storage') && isset($pdo) && $pdo instanceof PDO) {
+        ensure_session_storage($pdo);
+    }
     if (function_exists('configure_session_cookie_security')) {
         configure_session_cookie_security();
     }
     session_start();
+} elseif (function_exists('ensure_session_storage') && isset($pdo) && $pdo instanceof PDO) {
+    ensure_session_storage($pdo);
 }
 
 function env_to_bool($value, $default = false) {

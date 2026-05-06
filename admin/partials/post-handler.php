@@ -2,7 +2,6 @@
 /**
  * Unified Post Handler - Handles both Announcements and Events
  */
-session_start();
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
@@ -47,13 +46,17 @@ function auto_save_draft($pdo, $user_id, array $data) {
                 $mime = $finfo->file($file['tmp_name']);
                 $allowed_mimes = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif'];
                 if (isset($allowed_mimes[$mime]) && ($file['size'] ?? 0) <= 5 * 1024 * 1024) {
-                    $ext = $allowed_mimes[$mime];
-                    $upload_dir = __DIR__ . '/../images/announcements';
-                    if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
-                    $filename = 'post_draft_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-                    $dest = $upload_dir . '/' . $filename;
-                    if (move_uploaded_file($file['tmp_name'], $dest)) {
-                        $image_path = 'images/announcements/' . $filename;
+                    $storage_result = StorageManager::saveUploadedFile([
+                        'tmp_name' => $file['tmp_name'],
+                        'extension' => $allowed_mimes[$mime],
+                    ], 'admin/images/announcements', 'post_draft_');
+                    if (!empty($storage_result['success'])) {
+                        $stored_path = (string) ($storage_result['path'] ?? '');
+                        if (strpos($stored_path, 'admin/') === 0) {
+                            $image_path = substr($stored_path, 6);
+                        } else {
+                            $image_path = $stored_path;
+                        }
                     }
                 }
             }
