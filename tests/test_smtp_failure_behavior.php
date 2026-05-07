@@ -190,7 +190,7 @@ $testCases = [
     ['YOUR_EMAIL_USERNAME',    'SET_VIA_SECRET_MANAGER', false, 'app.yaml placeholder username (NOW DETECTED)'],
     ['YOUR_FROM_EMAIL',        'SET_VIA_SECRET_MANAGER', false, 'app.yaml from-email placeholder (password detected)'],
     ['your-email@gmail.com',   'your-app-password-here', false, 'known invalid username + password'],
-    ['real@gmail.com',         'abcd1234efgh5678',       true,  'valid-looking credentials'],
+    ['real@gmail.com',         'abcd1234efgh5678',       true,  'valid-looking credentials'], // gitleaks:allow
     ['',                       'somepassword',            false, 'empty username'],
     ['someuser@gmail.com',     '',                        false, 'empty password'],
 ];

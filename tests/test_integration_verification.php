@@ -223,7 +223,7 @@ test_section('Task 5.2 — Valid-Looking SMTP Credentials (Success Path Intact)'
 test_case('5.2.A. hasValidSmtpCredentials() returns true for valid-looking credentials');
 
 $validUsername = 'barangay.communalink@gmail.com';
-$validPassword = 'abcd1234efgh5678';  // 16-char app password (not a placeholder)
+$validPassword = 'abcd1234efgh5678';  // gitleaks:allow (16-char app password, not a placeholder)
 
 $credentialsValidReal = hasValidSmtpCredentials_integration($validUsername, $validPassword);
 
