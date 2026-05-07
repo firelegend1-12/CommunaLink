@@ -245,7 +245,7 @@ echo old_value($form_data, 'date_of_birth'); ?>" class="mt-1 block w-full px-3 p
                                 </div>
                                 <div>
                                     <label for="place_of_birth" class="block text-sm font-medium text-gray-700">Place of Birth</label>
-                                    <input type="text" name="place_of_birth" id="place_of_birth" required minlength="3" maxlength="255" pattern="^[A-Za-z0-9\s\-.,'#/()]+$" title="Place of Birth must include only letters, numbers, and valid punctuation." value="<?php
+                                    <input type="text" name="place_of_birth" id="place_of_birth" required minlength="3" maxlength="255" title="Place of Birth must include letters and may contain numbers or valid punctuation." value="<?php
 echo old_value($form_data, 'place_of_birth'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g. Pakiad, Oton">
                                 </div>
                                 <div>
@@ -498,8 +498,8 @@ echo (($form_data['voter_status'] ?? '') === 'No') ? 'selected' : ''; ?>>No</opt
                 return;
             }
 
-            const validPlace = /^[A-Za-z0-9\s\-\.,'#/()]+$/.test(placeOfBirthField.value);
-            placeOfBirthField.setCustomValidity(validPlace ? '' : 'Place of Birth must include only letters, numbers, and valid punctuation.');
+            const validPlace = /^(?=.*[A-Za-z])[A-Za-z0-9\s\-\.,'#/()]+$/.test(placeOfBirthField.value);
+            placeOfBirthField.setCustomValidity(validPlace ? '' : 'Place of Birth must include letters and may contain numbers or valid punctuation.');
         }
 
         passwordField.addEventListener('input', updatePasswordRequirements);
