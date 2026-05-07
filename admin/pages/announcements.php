@@ -722,6 +722,8 @@ try {
     </div>
 
     <script>
+    const ANNOUNCEMENTS_CSRF_TOKEN = <?php echo json_encode(csrf_token()); ?>;
+
     document.addEventListener('DOMContentLoaded', function() {
         const alert = document.getElementById('announcement-success-alert');
         if (alert) {
@@ -734,6 +736,7 @@ try {
             fetch('../api/process-queue.php', {
                 method: 'POST',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams({ csrf_token: ANNOUNCEMENTS_CSRF_TOKEN }),
                 keepalive: true
             }).catch(() => {});
         }
@@ -746,7 +749,8 @@ try {
         try {
             const res = await fetch('../api/process-queue.php', {
                 method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams({ csrf_token: ANNOUNCEMENTS_CSRF_TOKEN })
             });
             const data = await res.json();
             if (data && data.success) {

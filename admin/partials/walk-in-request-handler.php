@@ -49,7 +49,7 @@ try {
         $request_id,
         "Created walk-in request for resident ID {$resident_id} - {$document_type}",
         null,
-        "status: Processing"
+        "status: Pending"
     );
     $_SESSION['success_message'] = "New walk-in request has been successfully created.";
 

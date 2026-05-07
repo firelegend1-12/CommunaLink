@@ -245,8 +245,8 @@ echo old_value($form_data, 'date_of_birth'); ?>" class="mt-1 block w-full px-3 p
                                 </div>
                                 <div>
                                     <label for="place_of_birth" class="block text-sm font-medium text-gray-700">Place of Birth</label>
-                                    <input type="text" name="place_of_birth" id="place_of_birth" required minlength="3" maxlength="255" pattern="^(?=.*[A-Za-z])(?=.*[0-9])[A-Za-z0-9\s\-\.,'#/()]+$" title="Place of Birth must include both letters and numbers." value="<?php
-echo old_value($form_data, 'place_of_birth'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g. Pakiad 1, Oton">
+                                    <input type="text" name="place_of_birth" id="place_of_birth" required minlength="3" maxlength="255" pattern="^[A-Za-z0-9\s\-.,'#/()]+$" title="Place of Birth must include only letters, numbers, and valid punctuation." value="<?php
+echo old_value($form_data, 'place_of_birth'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g. Pakiad, Oton">
                                 </div>
                                 <div>
                                     <label for="age" class="block text-sm font-medium text-gray-700">Age</label>
@@ -441,7 +441,7 @@ echo (($form_data['voter_status'] ?? '') === 'No') ? 'selected' : ''; ?>>No</opt
             const password = passwordField.value;
             const lengthMet = password.length >= 8;
             const numberMet = /[0-9]/.test(password);
-            const specialMet = /[!@#$%^&*()_+\-=[\]{};:'",.<>?/\\|`~]/.test(password);
+            const specialMet = /[!@#$%^&*()_+\-=[\]{};:'",.<>?/\\|~]/.test(password);
 
             reqLength.className = lengthMet ? 'text-green-500 flex items-center gap-1' : 'text-red-500 flex items-center gap-1';
             reqLength.querySelector('i').className = lengthMet ? 'fas fa-check w-4 text-center' : 'fas fa-times w-4 text-center';
@@ -498,8 +498,8 @@ echo (($form_data['voter_status'] ?? '') === 'No') ? 'selected' : ''; ?>>No</opt
                 return;
             }
 
-            const validPlace = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9\s\-\.,'#/()]+$/.test(placeOfBirthField.value);
-            placeOfBirthField.setCustomValidity(validPlace ? '' : 'Place of Birth must include both letters and numbers.');
+            const validPlace = /^[A-Za-z0-9\s\-\.,'#/()]+$/.test(placeOfBirthField.value);
+            placeOfBirthField.setCustomValidity(validPlace ? '' : 'Place of Birth must include only letters, numbers, and valid punctuation.');
         }
 
         passwordField.addEventListener('input', updatePasswordRequirements);

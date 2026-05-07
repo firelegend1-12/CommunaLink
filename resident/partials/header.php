@@ -7,6 +7,10 @@ require_once '../includes/functions.php';
 
 require_role('resident');
 
+if (function_exists('apply_page_security_headers')) {
+    apply_page_security_headers('public');
+}
+
 $page_title = $page_title ?? "Resident Portal"; // Allow pages to set their own title
 $user_fullname = $_SESSION['fullname'] ?? 'Resident';
 $user_id = $_SESSION['user_id'] ?? null;

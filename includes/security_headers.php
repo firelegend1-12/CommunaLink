@@ -16,11 +16,11 @@ class SecurityHeaders {
     private static $headers = [
         'content_security_policy' => [
             'default-src' => ["'self'"],
-            'script-src' => ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
+            'script-src' => ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://cdn.tailwindcss.com', 'https://unpkg.com'],
             'style-src' => ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com'],
             'font-src' => ["'self'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com', 'data:'],
             'img-src' => ["'self'", 'data:', 'https:'],
-            'connect-src' => ["'self'"],
+            'connect-src' => ["'self'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://cdn.tailwindcss.com', 'https://unpkg.com'],
             'frame-src' => ["'none'"],
             'object-src' => ["'none'"],
             'base-uri' => ["'self'"],
@@ -363,11 +363,11 @@ class SecurityHeaders {
         // Relaxed CSP for public pages
         $public_csp = [
             'default-src' => ["'self'"],
-            'script-src' => ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
+            'script-src' => ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://cdn.tailwindcss.com', 'https://unpkg.com'],
             'style-src' => ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com'],
             'font-src' => ["'self'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com', 'data:'],
             'img-src' => ["'self'", 'data:', 'https:'],
-            'connect-src' => ["'self'"],
+            'connect-src' => ["'self'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://cdn.tailwindcss.com', 'https://unpkg.com'],
             'frame-src' => ["'self'"],
             'object-src' => ["'none'"],
             'base-uri' => ["'self'"],

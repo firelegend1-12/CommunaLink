@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/dev_guard.php';
 /**
  * Diagnostic Script: Clear Active User Sessions
  * 

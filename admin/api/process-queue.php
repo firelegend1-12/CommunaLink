@@ -4,23 +4,26 @@
  * Processes pending public_post_dispatch_queue jobs inline.
  */
 
-require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../config/init.php';
+require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/csrf.php';
+require_once __DIR__ . '/../../includes/permission_checker.php';
 require_once __DIR__ . '/../../includes/notification_system.php';
 
-session_start();
+header('Content-Type: application/json');
 
-// Verify active admin session
-if (empty($_SESSION['role']) || strtolower((string)$_SESSION['role']) !== 'admin') {
-    http_response_code(403);
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'error' => 'Unauthorized.']);
-    exit;
-}
+require_login();
+require_permission_or_json('manage_announcements', 403, 'Forbidden');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    header('Content-Type: application/json');
     echo json_encode(['success' => false, 'error' => 'Method not allowed.']);
+    exit;
+}
+
+if (!csrf_validate()) {
+    http_response_code(419);
+    echo json_encode(['success' => false, 'error' => 'Invalid security token.']);
     exit;
 }
 
@@ -32,7 +35,6 @@ $limit = max(1, min(100, (int)$limit));
 
 $result = NotificationSystem::process_public_post_queue($pdo, $limit);
 
-header('Content-Type: application/json');
 echo json_encode([
     'success' => !empty($result['success']),
     'error' => $result['error'] ?? null,

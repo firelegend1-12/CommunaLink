@@ -109,7 +109,7 @@ $citizenship = trim((string)($_POST['citizenship'] ?? ''));
 $email = trim((string)($_POST['email'] ?? ''));
 $password = (string)($_POST['password'] ?? '');
 $contact_no = trim((string)($_POST['contact_no'] ?? ''));
-$contact_no = preg_replace('/[\s\-.()]/', '', $contact_no);
+$contact_no = (string)preg_replace('/[\s\-.()]/', '', $contact_no);
 $address = trim((string)($_POST['address'] ?? ''));
 $civil_status = trim((string)($_POST['civil_status'] ?? ''));
 $voter_status = trim((string)($_POST['voter_status'] ?? ''));
@@ -257,7 +257,7 @@ function generateResidentId($pdo) {
     $current_year = date('Y'); // This ensures ID is based on the year when resident is added
     
     // Get the last ID number for this year
-    $stmt = $pdo->prepare("SELECT id_number FROM residents WHERE id_number LIKE ? ORDER BY id_number DESC LIMIT 1");
+    $stmt = $pdo->prepare("SELECT id_number FROM residents WHERE id_number LIKE ? ORDER BY id_number DESC LIMIT 1 FOR UPDATE");
     $stmt->execute(["BR-{$current_year}-%"]);
     $last_id = $stmt->fetchColumn();
     
@@ -275,11 +275,12 @@ function generateResidentId($pdo) {
     return sprintf("BR-%s-%04d", $current_year, $new_number);
 }
 
-$id_number = generateResidentId($pdo);
+$id_number = '';
 $qr_token = bin2hex(random_bytes(24)); // 48-byte hex token
 
 try {
     $pdo->beginTransaction();
+    $id_number = generateResidentId($pdo);
 
     // Check for duplicate account/resident email before inserting
     $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");

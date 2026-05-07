@@ -32,7 +32,7 @@ try {
         LEFT JOIN residents r ON bt.resident_id = r.id
         LEFT JOIN users u ON bt.approved_by = u.id
         LEFT JOIN business_permits bp ON bt.permit_id = bp.id
-        WHERE bt.id = ? AND bt.status = 'APPROVED'
+        WHERE bt.id = ? AND bt.status = 'Approved'
     ");
     $stmt->execute([$transaction_id]);
     $transaction = $stmt->fetch();

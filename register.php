@@ -55,6 +55,7 @@ if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {
                     ?>
 
                     <form action="<?= htmlspecialchars(app_url('/includes/register-handler.php')) ?>" method="POST" id="registrationForm">
+                        <?php echo csrf_field(); ?>
 
                         
                         <!-- Step 1: Account Information -->

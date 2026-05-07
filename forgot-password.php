@@ -46,38 +46,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if (empty($email_err)) {
             try {
                 // Check if email exists in users table
-                $stmt = $pdo->prepare("SELECT id, username, fullname, reset_token, reset_token_expires FROM users WHERE email = ?");
+                $stmt = $pdo->prepare("SELECT id, username, fullname FROM users WHERE email = ?");
                 $stmt->execute([$email]);
                 $user = $stmt->fetch();
                 
                 if ($user) {
-                    $existing_token = trim((string) ($user['reset_token'] ?? ''));
-                    $existing_expires = trim((string) ($user['reset_token_expires'] ?? ''));
+                    $reset_token = bin2hex(random_bytes(32));
+                    $reset_token_hash = hash('sha256', $reset_token);
+                    $reset_expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
-                    // Reuse an existing unexpired token to avoid invalidating links when users request twice.
-                    $can_reuse = false;
-                    if ($existing_token !== '' && $existing_expires !== '') {
-                        $expiry_ts = strtotime($existing_expires);
-                        $can_reuse = ($expiry_ts !== false && $expiry_ts > time());
-                    }
-
-                    if ($can_reuse) {
-                        $reset_token = $existing_token;
-                    } else {
-                        // Generate reset token
-                        $reset_token = bin2hex(random_bytes(32));
-                        $reset_expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
-
-                        // Store reset token as-is to match the exact emailed link token.
-                        // reset-password.php keeps backward compatibility with legacy hashed tokens.
-                        $stmt = $pdo->prepare("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?");
-                        $stmt->execute([$reset_token, $reset_expires, $user['id']]);
-                    }
+                    $stmt = $pdo->prepare("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?");
+                    $stmt->execute([$reset_token_hash, $reset_expires, $user['id']]);
                     
                     // Create reset link
-                    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
-                    $basePath = rtrim(dirname($_SERVER['REQUEST_URI']), '/\\');
-                    $reset_link = $scheme . $_SERVER['HTTP_HOST'] . $basePath . "/reset-password.php?token=" . $reset_token;
+                    $reset_path = '/reset-password.php?token=' . urlencode($reset_token);
+                    $configured_app_url = rtrim((string) env('APP_URL', ''), '/');
+                    $reset_link = $configured_app_url !== '' ? $configured_app_url . $reset_path : app_url($reset_path);
 
                     // Try to send email using PHPMailer Gmail SMTP
                     $email_sent = false;

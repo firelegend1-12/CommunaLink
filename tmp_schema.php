@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/dev_guard.php';
 require_once 'config/database.php';
 function getDesc($pdo, $table) {
     $stmt = $pdo->query("DESCRIBE $table");

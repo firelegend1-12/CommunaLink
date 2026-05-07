@@ -1,0 +1,10 @@
+node_modules
+vendor
+uploads
+storage
+logs
+cache
+dist
+build
+tmp
+.git

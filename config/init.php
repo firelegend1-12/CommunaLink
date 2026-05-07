@@ -239,7 +239,7 @@ try {
             `owner_name` VARCHAR(255) NOT NULL,
             `address` TEXT NOT NULL,
             `transaction_type` ENUM('New Permit', 'Renewal') NOT NULL,
-            `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Approved', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending',
+            `status` ENUM('Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending',
             `application_date` DATETIME DEFAULT CURRENT_TIMESTAMP,
             `processed_date` DATETIME DEFAULT NULL,
             `remarks` TEXT DEFAULT NULL,
@@ -571,12 +571,25 @@ try {
         if ($stmt && $stmt->rowCount() > 0) {
             $column_info = $stmt->fetch();
             $type = $column_info['Type'] ?? '';
-            $has_approved = strpos($type, 'APPROVED') !== false;
-            $has_processing = strpos($type, 'PROCESSING') !== false || strpos($type, 'Ready for Pickup') !== false;
-            if (!$has_approved || $has_processing) {
-                // Migrate old statuses to new simplified flow
-                $pdo->exec("UPDATE `business_transactions` SET `status` = 'APPROVED' WHERE `status` IN ('PROCESSING', 'READY FOR PICKUP', 'PENDING') AND `status` NOT IN ('APPROVED', 'COMPLETED', 'REJECTED');");
-                $pdo->exec("ALTER TABLE `business_transactions` MODIFY `status` ENUM('PENDING', 'APPROVED', 'COMPLETED', 'REJECTED') NOT NULL DEFAULT 'PENDING';");
+            $expected_statuses = ['Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled'];
+            $has_all_expected = true;
+            foreach ($expected_statuses as $expected) {
+                if (strpos($type, $expected) === false) {
+                    $has_all_expected = false;
+                    break;
+                }
+            }
+            $has_legacy = strpos($type, 'PENDING') !== false
+                || strpos($type, 'APPROVED') !== false
+                || strpos($type, 'PROCESSING') !== false
+                || strpos($type, 'READY FOR PICKUP') !== false
+                || strpos($type, 'Processing') !== false
+                || strpos($type, 'Ready for Pickup') !== false;
+
+            if (!$has_all_expected || $has_legacy) {
+                $pdo->exec("ALTER TABLE `business_transactions` MODIFY `status` ENUM('Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled', 'Processing', 'Ready for Pickup', 'PENDING', 'APPROVED', 'COMPLETED', 'REJECTED', 'CANCELLED', 'PROCESSING', 'READY FOR PICKUP') NOT NULL DEFAULT 'Pending';");
+                $pdo->exec("UPDATE `business_transactions` SET `status` = CASE UPPER(`status`) WHEN 'PENDING' THEN 'Pending' WHEN 'PROCESSING' THEN 'Approved' WHEN 'READY FOR PICKUP' THEN 'Approved' WHEN 'APPROVED' THEN 'Approved' WHEN 'COMPLETED' THEN 'Completed' WHEN 'REJECTED' THEN 'Rejected' WHEN 'CANCELLED' THEN 'Cancelled' ELSE `status` END;");
+                $pdo->exec("ALTER TABLE `business_transactions` MODIFY `status` ENUM('Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending';");
             }
         }
     } catch (Exception $e) {
@@ -898,14 +911,18 @@ try {
     $performance_indexes = [
         ['table' => 'incidents', 'name' => 'idx_incidents_reported_at', 'columns' => 'reported_at'],
         ['table' => 'incidents', 'name' => 'idx_incidents_status', 'columns' => 'status'],
+        ['table' => 'incidents', 'name' => 'idx_incidents_resident_reported', 'columns' => 'resident_user_id, reported_at'],
         ['table' => 'document_requests', 'name' => 'idx_docreq_date_requested', 'columns' => 'date_requested'],
         ['table' => 'document_requests', 'name' => 'idx_docreq_status', 'columns' => 'status'],
+        ['table' => 'document_requests', 'name' => 'idx_document_requests_requested_date', 'columns' => 'requested_by_user_id, date_requested'],
         ['table' => 'announcements', 'name' => 'idx_announcements_created_at', 'columns' => 'created_at'],
         ['table' => 'announcements', 'name' => 'idx_announcements_status_dates', 'columns' => 'status, publish_date, expiry_date, created_at'],
         ['table' => 'residents', 'name' => 'idx_residents_name', 'columns' => 'last_name, first_name'],
         ['table' => 'business_transactions', 'name' => 'idx_biztrans_status', 'columns' => 'status'],
+        ['table' => 'business_transactions', 'name' => 'idx_business_transactions_resident_application', 'columns' => 'resident_id, application_date'],
         ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_resident', 'columns' => 'resident_id'],
         ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_announcement', 'columns' => 'announcement_id'],
+        ['table' => 'notifications', 'name' => 'idx_notifications_user_read_created', 'columns' => 'user_id, is_read, created_at'],
         // Monitoring of Request Page Optimization Indexes
         ['table' => 'document_requests', 'name' => 'idx_docreq_payment_status', 'columns' => 'payment_status'],
         ['table' => 'document_requests', 'name' => 'idx_docreq_resident_id', 'columns' => 'resident_id'],

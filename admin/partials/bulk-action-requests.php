@@ -39,7 +39,7 @@ if (empty($ids) || empty($action)) {
     exit;
 }
 
-$valid_statuses = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled'];
+$valid_statuses = ['Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled'];
 $valid_actions = ['bulk_status', 'bulk_delete'];
 
 if (!in_array($action, $valid_actions)) {

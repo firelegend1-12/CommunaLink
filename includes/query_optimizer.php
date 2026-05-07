@@ -134,7 +134,7 @@ class QueryOptimizer {
      */
     private static function optimizeQueryString($query) {
         // Remove unnecessary whitespace
-        $query = preg_replace('/\s+/', ' ', trim($query));
+        $query = (string)preg_replace('/\s+/', ' ', trim($query));
         
         // Convert to uppercase for consistency
         $query = strtoupper($query);

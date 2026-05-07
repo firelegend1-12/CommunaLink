@@ -215,13 +215,13 @@ try {
     // 2. Active Workload (Pending + Approved)
     $q_workload = $pdo->query("SELECT 
         (SELECT COUNT(*) FROM document_requests WHERE status IN ('Pending', 'Approved')) + 
-        (SELECT COUNT(*) FROM business_transactions WHERE status IN ('PENDING', 'APPROVED')) as total");
+        (SELECT COUNT(*) FROM business_transactions WHERE status IN ('Pending', 'Approved')) as total");
     $stats['workload'] = $q_workload->fetchColumn();
 
     // 3. Approved (Ready for Pickup)
     $q_ready = $pdo->query("SELECT 
         (SELECT COUNT(*) FROM document_requests WHERE status = 'Approved') + 
-        (SELECT COUNT(*) FROM business_transactions WHERE status = 'APPROVED') as total");
+        (SELECT COUNT(*) FROM business_transactions WHERE status = 'Approved') as total");
     $stats['ready'] = $q_ready->fetchColumn();
 
     // 4. Daily Revenue (Paid today)
@@ -797,7 +797,7 @@ foreach ($requests as $req):
 
                                                     $cancellation_reason = trim((string)($req['cancellation_reason'] ?? ''));
                                                     if ($cancellation_reason !== '') {
-                                                        $cancellation_reason = preg_replace('/^Cancelled\s+by\s+(admin|resident)\s*:\s*/i', '', $cancellation_reason);
+                                                        $cancellation_reason = (string)preg_replace('/^Cancelled\s+by\s+(admin|resident)\s*:\s*/i', '', $cancellation_reason);
                                                     }
 
                                                     $quick_view_payload = [

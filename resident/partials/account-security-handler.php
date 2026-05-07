@@ -123,7 +123,7 @@ switch ($action) {
         if ($type === 'email') $_SESSION['account_change_new_email'] = $new_email;
         if ($type === 'password') $_SESSION['account_change_new_password'] = password_hash($newPasswordPlain, PASSWORD_DEFAULT);
 
-        $masked = preg_replace('/(?<=.{2}).(?=.*@)/', '*', $otpTarget);
+        $masked = (string)preg_replace('/(?<=.{2}).(?=.*@)/', '*', $otpTarget);
         echo json_encode(['success' => true, 'message' => "Verification code sent to {$masked}."]);
         exit;
 

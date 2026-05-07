@@ -17,6 +17,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect_to(app_url('/register.php'));
 }
 
+if (!csrf_validate()) {
+    $_SESSION['error_message'] = 'Invalid security token. Please refresh and try again.';
+    redirect_to(app_url('/register.php'));
+}
+
 // Sanitize and validate form inputs
 $fullname = sanitize_input($_POST['fullname']);
 $email = filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL) ? sanitize_input($_POST['email']) : null;

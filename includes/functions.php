@@ -7,13 +7,16 @@
 /**
  * Sanitize user input to prevent XSS attacks
  *
- * @param string $data Input to sanitize
+ * @param string|null $data Input to sanitize
  * @return string Sanitized input
  */
 function sanitize_input($data) {
+    if ($data === null) {
+        return '';
+    }
     $data = trim($data);
     $data = stripslashes($data);
-    $data = htmlspecialchars($data);
+    $data = htmlspecialchars($data, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     return $data;
 }
 

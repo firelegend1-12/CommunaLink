@@ -4,36 +4,31 @@
  * Inserts an announcement row with status='draft'.
  */
 
-require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../config/init.php';
+require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/csrf.php';
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../includes/permission_checker.php';
 require_once __DIR__ . '/../../includes/storage_manager.php';
-require_once __DIR__ . '/../../includes/session_manager.php';
 
-if (isset($pdo) && $pdo instanceof PDO) {
-    ensure_session_storage($pdo);
-}
+header('Content-Type: application/json');
 
-session_start();
-
-if (empty($_SESSION['role']) || strtolower((string)$_SESSION['role']) !== 'admin') {
-    http_response_code(403);
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'error' => 'Unauthorized.']);
-    exit;
-}
+require_login();
+require_permission_or_json('manage_announcements', 403, 'Forbidden');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    header('Content-Type: application/json');
     echo json_encode(['success' => false, 'error' => 'Method not allowed.']);
     exit;
 }
 
-$user_id = $_SESSION['user_id'];
-
-function sanitize_input($value) {
-    return htmlspecialchars(trim((string) $value), ENT_QUOTES, 'UTF-8');
+if (!csrf_validate()) {
+    http_response_code(419);
+    echo json_encode(['success' => false, 'error' => 'Invalid security token.']);
+    exit;
 }
+
+$user_id = (int) $_SESSION['user_id'];
 
 function nullable_input($value) {
     $normalized = sanitize_input((string) $value);
@@ -116,7 +111,6 @@ try {
 
     $post_id = $pdo->lastInsertId();
 
-    header('Content-Type: application/json');
     echo json_encode([
         'success' => true,
         'post_id' => (int)$post_id,
@@ -124,6 +118,5 @@ try {
     ]);
 } catch (Exception $e) {
     http_response_code(500);
-    header('Content-Type: application/json');
     echo json_encode(['success' => false, 'error' => 'Unable to save draft: ' . $e->getMessage()]);
 }

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/dev_guard.php';
 /**
  * Environment Setup Script
  * Run this once to create your .env file from .env.example

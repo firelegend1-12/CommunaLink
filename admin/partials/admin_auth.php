@@ -14,6 +14,10 @@ require_once __DIR__ . '/../../includes/permission_checker.php';
 // First, ensure they are logged in at all
 require_login();
 
+if (function_exists('apply_page_security_headers')) {
+    apply_page_security_headers('admin');
+}
+
 // Define authorized roles for the admin section
 $authorized_roles = [
     'admin',

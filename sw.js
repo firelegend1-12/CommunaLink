@@ -1,4 +1,4 @@
-const CACHE_NAME = 'communalink-system-v1';
+const CACHE_NAME = 'communalink-system-v2';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.php',
@@ -44,10 +44,14 @@ self.addEventListener('fetch', (event) => {
                 }
                 return networkResponse;
             }).catch(() => {
-                // Return cached fallback if network fails
+                return cachedResponse || new Response('Offline', {
+                    status: 503,
+                    statusText: 'Service Unavailable',
+                    headers: { 'Content-Type': 'text/plain' }
+                });
             });
 
-            return fetchPromise.catch(() => cachedResponse);
+            return fetchPromise;
         })
     );
 });

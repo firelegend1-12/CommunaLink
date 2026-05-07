@@ -24,7 +24,7 @@ $payment_filter = isset($_GET['payment']) ? sanitize_input($_GET['payment']) : '
 $sort_by = isset($_GET['sort']) ? sanitize_input($_GET['sort']) : 'date_requested';
 $sort_dir = isset($_GET['dir']) ? sanitize_input($_GET['dir']) : 'DESC';
 
-$valid_statuses = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled'];
+$valid_statuses = ['Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled'];
 $valid_payments = ['Paid', 'Unpaid'];
 $valid_sort_columns = ['date_requested', 'status', 'payment_status', 'first_name', 'last_name'];
 $valid_date_modes = ['request', 'payment'];

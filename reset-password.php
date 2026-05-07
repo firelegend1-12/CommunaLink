@@ -26,7 +26,7 @@ $success_message = "";
 
 // Get token from URL and normalize it for email-client-safe validation.
 $raw_token = isset($_GET['token']) ? trim((string) $_GET['token']) : '';
-$token = strtolower((string) preg_replace('/[^a-f0-9]/i', '', $raw_token));
+$token = strtolower((string)preg_replace('/[^a-f0-9]/i', '', $raw_token));
 
 if (empty($token) || strlen($token) !== 64) {
     $token_error = "Invalid reset link. Please request a new password reset, then use the latest reset email link.";
@@ -127,7 +127,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $token_valid) {
                 }
 
                 $params[] = (int) $user['id'];
-                $stmt = $pdo->prepare("UPDATE users SET " . implode(', ', $set_clauses) . " WHERE id = ? AND reset_token_expires > NOW()");
+                $params[] = $token_hash;
+                $params[] = $token;
+                $stmt = $pdo->prepare("UPDATE users SET " . implode(', ', $set_clauses) . " WHERE id = ? AND (reset_token = ? OR reset_token = ?) AND reset_token_expires > NOW()");
                 $stmt->execute($params);
                 
                 if ($stmt->rowCount() > 0) {

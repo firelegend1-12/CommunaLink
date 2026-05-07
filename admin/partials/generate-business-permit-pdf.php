@@ -20,7 +20,7 @@ try {
                            FROM business_transactions bt
                            LEFT JOIN residents r ON bt.resident_id = r.id
                            LEFT JOIN users u ON bt.approved_by = u.id
-                           WHERE bt.id = ? AND bt.status = 'APPROVED' LIMIT 1");
+                           WHERE bt.id = ? AND bt.status = 'Approved' LIMIT 1");
     $stmt->execute([$transaction_id]);
     $transaction = $stmt->fetch(PDO::FETCH_ASSOC);
 

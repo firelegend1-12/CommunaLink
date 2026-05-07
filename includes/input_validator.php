@@ -153,7 +153,7 @@ class InputValidator {
         $result = ['valid' => false, 'value' => $input, 'errors' => [], 'sanitized' => null];
         
         // Remove all non-digit characters except +
-        $clean = preg_replace('/[^\d+]/', '', $input);
+        $clean = (string)preg_replace('/[^\d+]/', '', $input);
         
         if (!preg_match(self::$patterns['phone'], $clean)) {
             $result['errors'][] = "Invalid phone number format. Use Philippine mobile format (e.g., 09123456789).";
@@ -568,7 +568,7 @@ class InputValidator {
         $filename = basename($filename);
         
         // Remove or replace dangerous characters
-        $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
+        $filename = (string)preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
         
         // Ensure it's not empty
         if (empty($filename)) {
@@ -589,7 +589,7 @@ class InputValidator {
         $input = htmlspecialchars($input, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         
         // Remove excessive whitespace
-        $input = preg_replace('/\s+/', ' ', trim($input));
+        $input = (string)preg_replace('/\s+/', ' ', trim($input));
         
         return $input;
     }

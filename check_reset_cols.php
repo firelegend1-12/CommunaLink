@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/dev_guard.php';
 require_once 'config/database.php';
 require_once 'config/init.php';
 $stmt = $pdo->query('DESCRIBE users');

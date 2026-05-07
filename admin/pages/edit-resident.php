@@ -21,6 +21,12 @@ $success_message = '';
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $resident_id = filter_input(INPUT_POST, 'resident_id', FILTER_VALIDATE_INT);
+    if (!csrf_validate()) {
+        $error_message = "Invalid security token. Please refresh and try again.";
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $error_message === '') {
     $first_name = sanitize_input($_POST['first_name']);
     $middle_initial = sanitize_input($_POST['middle_initial']);
     $last_name = sanitize_input($_POST['last_name']);
@@ -257,6 +263,7 @@ if ($resident): ?>
                     <div class="max-w-4xl mx-auto">
                         <div class="bg-white rounded-lg shadow p-6">
                             <form method="POST" action="edit-resident.php">
+                                <?php echo csrf_field(); ?>
                                 <input type="hidden" name="resident_id" value="<?php
 echo htmlspecialchars($resident['id']); ?>">
                                 

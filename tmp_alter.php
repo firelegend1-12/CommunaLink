@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/dev_guard.php';
 require_once 'config/database.php';
 try {
     $pdo->exec("ALTER TABLE business_transactions ADD COLUMN IF NOT EXISTS permit_id INT(11) AFTER resident_id");
