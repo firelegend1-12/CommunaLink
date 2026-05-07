@@ -1484,7 +1484,7 @@ echo json_encode($monitoring_csrf_token); ?>;
         const msg   = document.getElementById('toastMessage');
         const isErr = type === 'error';
         toast.className = `fixed bottom-6 right-6 z-[9999] flex items-center space-x-3 px-5 py-3 rounded-xl shadow-2xl transition-all duration-300 max-w-sm ${isErr ? 'bg-red-600' : 'bg-green-600'} text-white`;
-        icon.textContent  = isErr ? 'âœ•' : 'âœ“';
+        icon.textContent  = isErr ? '\u2715' : '\u2713';
         msg.textContent   = message;
         toast.style.opacity = '1';
         toast.style.transform = 'translateY(0)';

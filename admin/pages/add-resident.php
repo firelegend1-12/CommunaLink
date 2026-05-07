@@ -317,15 +317,15 @@ echo old_value($form_data, 'email'); ?>" class="mt-1 block w-full px-3 py-2 bg-w
                                         <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
                                         <input type="password" name="password" id="password" required minlength="8" autocomplete="new-password" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Minimum 8 characters">
                                         <div class="mt-2 text-xs space-y-1">
-                                            <div id="req-length" class="text-red-500">âœ“ Password must be at least 8 characters</div>
-                                            <div id="req-number" class="text-red-500">âœ“ Password must contain at least one number (0-9)</div>
-                                            <div id="req-special" class="text-red-500">âœ“ Password must contain at least one special character (!@#$%^&*)</div>
+                                            <div id="req-length" class="text-red-500">&#10003; Password must be at least 8 characters</div>
+                                            <div id="req-number" class="text-red-500">&#10003; Password must contain at least one number (0-9)</div>
+                                            <div id="req-special" class="text-red-500">&#10003; Password must contain at least one special character (!@#$%^&*)</div>
                                         </div>
                                     </div>
                                 </div>
                                 <div>
                                     <label for="contact_no" class="block text-sm font-medium text-gray-700">Contact Number</label>
-                                    <input type="tel" name="contact_no" id="contact_no" required inputmode="tel" autocomplete="tel" pattern="^(\\+?63|0)9\\d{9}$" minlength="11" maxlength="13" value="<?php
+                                    <input type="tel" name="contact_no" id="contact_no" required inputmode="tel" autocomplete="tel" pattern="^(\+?63|0)9\d{9}$" minlength="11" maxlength="13" value="<?php
 echo old_value($form_data, 'contact_no'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="09123456789">
                                 </div>
                                 <div class="md:col-span-2">
