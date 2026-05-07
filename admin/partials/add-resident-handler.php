@@ -109,6 +109,7 @@ $citizenship = trim((string)($_POST['citizenship'] ?? ''));
 $email = trim((string)($_POST['email'] ?? ''));
 $password = (string)($_POST['password'] ?? '');
 $contact_no = trim((string)($_POST['contact_no'] ?? ''));
+$contact_no = preg_replace('/[\s\-.()]/', '', $contact_no);
 $address = trim((string)($_POST['address'] ?? ''));
 $civil_status = trim((string)($_POST['civil_status'] ?? ''));
 $voter_status = trim((string)($_POST['voter_status'] ?? ''));

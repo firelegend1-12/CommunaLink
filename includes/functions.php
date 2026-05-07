@@ -223,7 +223,11 @@ function resident_profile_image_url(string $storedPath): string
 function normalize_ph_mobile_input(string $raw): string
 {
     $s = trim($raw);
-    return preg_replace('/[\s\-\u{00A0}]+/u', '', $s);
+    // Remove spaces, hyphens, and non-breaking spaces (U+00A0)
+    // Using \x{00A0} instead of \u{00A0} for PCRE2 compatibility
+    $result = preg_replace('/[\s\-\x{00A0}]+/u', '', $s);
+    // Ensure we always return a string (preg_replace can return null on error)
+    return $result !== null ? $result : '';
 }
 
 /**

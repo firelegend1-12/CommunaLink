@@ -317,15 +317,15 @@ echo old_value($form_data, 'email'); ?>" class="mt-1 block w-full px-3 py-2 bg-w
                                         <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
                                         <input type="password" name="password" id="password" required minlength="8" autocomplete="new-password" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Minimum 8 characters">
                                         <div class="mt-2 text-xs space-y-1">
-                                            <div id="req-length" class="text-red-500">&#10003; Password must be at least 8 characters</div>
-                                            <div id="req-number" class="text-red-500">&#10003; Password must contain at least one number (0-9)</div>
-                                            <div id="req-special" class="text-red-500">&#10003; Password must contain at least one special character (!@#$%^&*)</div>
+                                            <div id="req-length" class="text-red-500 flex items-center gap-1"><i class="fas fa-times w-4 text-center"></i><span>Password must be at least 8 characters</span></div>
+                                            <div id="req-number" class="text-red-500 flex items-center gap-1"><i class="fas fa-times w-4 text-center"></i><span>Password must contain at least one number (0-9)</span></div>
+                                            <div id="req-special" class="text-red-500 flex items-center gap-1"><i class="fas fa-times w-4 text-center"></i><span>Password must contain at least one special character (!@#$%^&*)</span></div>
                                         </div>
                                     </div>
                                 </div>
                                 <div>
                                     <label for="contact_no" class="block text-sm font-medium text-gray-700">Contact Number</label>
-                                    <input type="tel" name="contact_no" id="contact_no" required inputmode="tel" autocomplete="tel" pattern="^(\+?63|0)9\d{9}$" minlength="11" maxlength="13" value="<?php
+                                    <input type="tel" name="contact_no" id="contact_no" required inputmode="tel" autocomplete="tel" pattern="^(\+?63|0)9[0-9]{9}$" minlength="11" maxlength="13" value="<?php
 echo old_value($form_data, 'contact_no'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="09123456789">
                                 </div>
                                 <div class="md:col-span-2">
@@ -439,16 +439,24 @@ echo (($form_data['voter_status'] ?? '') === 'No') ? 'selected' : ''; ?>>No</opt
 
         function updatePasswordRequirements() {
             const password = passwordField.value;
+            const lengthMet = password.length >= 8;
+            const numberMet = /[0-9]/.test(password);
+            const specialMet = /[!@#$%^&*()_+\-=[\]{};:'",.<>?/\\|`~]/.test(password);
 
-            reqLength.style.color = password.length >= 8 ? '#22c55e' : '#ef4444';
-            reqNumber.style.color = /[0-9]/.test(password) ? '#22c55e' : '#ef4444';
-            reqSpecial.style.color = /[!@#$%^&*()_+\-=[\]{};:'",.<>?/\\|`~]/.test(password) ? '#22c55e' : '#ef4444';
+            reqLength.className = lengthMet ? 'text-green-500 flex items-center gap-1' : 'text-red-500 flex items-center gap-1';
+            reqLength.querySelector('i').className = lengthMet ? 'fas fa-check w-4 text-center' : 'fas fa-times w-4 text-center';
 
-            if (password.length < 8) {
+            reqNumber.className = numberMet ? 'text-green-500 flex items-center gap-1' : 'text-red-500 flex items-center gap-1';
+            reqNumber.querySelector('i').className = numberMet ? 'fas fa-check w-4 text-center' : 'fas fa-times w-4 text-center';
+
+            reqSpecial.className = specialMet ? 'text-green-500 flex items-center gap-1' : 'text-red-500 flex items-center gap-1';
+            reqSpecial.querySelector('i').className = specialMet ? 'fas fa-check w-4 text-center' : 'fas fa-times w-4 text-center';
+
+            if (!lengthMet) {
                 passwordField.setCustomValidity('Password must be at least 8 characters long.');
-            } else if (!/[0-9]/.test(password)) {
+            } else if (!numberMet) {
                 passwordField.setCustomValidity('Password must contain at least one number (0-9).');
-            } else if (!/[!@#$%^&*()_+\-=[\]{};:'",.<>?/\\|`~]/.test(password)) {
+            } else if (!specialMet) {
                 passwordField.setCustomValidity('Password must contain at least one special character (!@#$%^&*).');
             } else {
                 passwordField.setCustomValidity('');
@@ -479,7 +487,8 @@ echo (($form_data['voter_status'] ?? '') === 'No') ? 'selected' : ''; ?>>No</opt
                 return;
             }
 
-            const validPhone = /^(\+?63|0)9\d{9}$/.test(contactField.value);
+            const cleaned = contactField.value.replace(/[\s\-.()]/g, '');
+            const validPhone = /^(\+?63|0)9[0-9]{9}$/.test(cleaned);
             contactField.setCustomValidity(validPhone ? '' : 'Enter a valid Philippine mobile number (e.g. 09123456789).');
         }
 
