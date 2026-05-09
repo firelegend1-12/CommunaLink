@@ -344,6 +344,12 @@ body {
   color: #86efac; /* green-300 */
 }
 
+.alert-info {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-left: 4px solid #3b82f6;
+  color: #bfdbfe; /* blue-200 */
+}
+
 .alert-warning {
   background-color: rgba(245, 158, 11, 0.12); /* amber-500 @ 12% */
   border-left: 4px solid #f59e0b; /* amber-500 */

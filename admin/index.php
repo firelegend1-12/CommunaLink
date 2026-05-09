@@ -15,11 +15,28 @@ require_once '../includes/csrf.php';
 
 // Page title
 $page_title = "Dashboard - CommunaLink";
-$permit_check_csrf_token = csrf_token();
-$can_run_permit_check = require_permission('financial_management');
 
 // Initialize cache manager (Using file driver for Free Tier compatibility)
 init_cache_manager(['cache_dir' => '../cache/']);
+
+function parse_dashboard_date($value) {
+    if (!is_string($value) || trim($value) === '') {
+        return null;
+    }
+    $value = trim($value);
+    $formats = ['Y-m-d H:i:s', 'Y-m-d', 'm/d/Y', 'd/m/Y', 'M d, Y', 'F d, Y'];
+    foreach ($formats as $format) {
+        $dt = DateTimeImmutable::createFromFormat($format, $value);
+        if ($dt instanceof DateTimeImmutable) {
+            return $dt;
+        }
+    }
+    $ts = strtotime($value);
+    if ($ts === false) {
+        return null;
+    }
+    return (new DateTimeImmutable())->setTimestamp($ts);
+}
 
 $cache_key = 'admin_dashboard_stats';
 // Try fetching from file cache
@@ -93,9 +110,7 @@ if ($cached_data) {
             (SELECT COUNT(*) FROM document_requests WHERE status = 'Pending') AS pending_doc_requests,
             (SELECT COUNT(*) FROM business_transactions WHERE status = 'Pending') AS pending_biz_requests,
             (SELECT COUNT(*) FROM incidents WHERE status IN ('Pending', 'In Progress')) AS active_incidents,
-            (SELECT COUNT(*) FROM events WHERE event_date >= CURDATE()) AS upcoming_events,
-            (SELECT COUNT(*) FROM businesses WHERE DATEDIFF(permit_expiration_date, CURDATE()) BETWEEN 0 AND 30 AND status IN ('Active', 'Pending')) AS expiring_soon,
-            (SELECT COUNT(*) FROM businesses WHERE permit_expiration_date < CURDATE() AND status IN ('Active', 'Pending')) AS expired_permits");
+            (SELECT COUNT(*) FROM events WHERE event_date >= CURDATE()) AS upcoming_events");
         $dashboard_stats = $stats_stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
         $business_count = (int)($dashboard_stats['business_count'] ?? 0);
@@ -104,18 +119,137 @@ if ($cached_data) {
         $pending_requests = $pending_doc_requests + $pending_biz_requests;
         $active_incidents = (int)($dashboard_stats['active_incidents'] ?? 0);
         $upcoming_events = (int)($dashboard_stats['upcoming_events'] ?? 0);
-        $expiring_soon = (int)($dashboard_stats['expiring_soon'] ?? 0);
-        $expired_permits = (int)($dashboard_stats['expired_permits'] ?? 0);
+        $expiring_soon = 0;
+        $expired_permits = 0;
+        $needs_attention = 0;
+        $in_progress = 0;
+        $estimated_count = 0;
+        $next_expiry = null;
 
-        $next_expiry_stmt = $pdo->query("SELECT permit_expiration_date FROM businesses WHERE permit_expiration_date >= CURDATE() AND status IN ('Active', 'Pending') ORDER BY permit_expiration_date ASC LIMIT 1");
-        $next_expiry = $next_expiry_stmt ? $next_expiry_stmt->fetchColumn() : null;
+        $now = new DateTimeImmutable('now');
+
+        $docPermitTypes = [
+            'Barangay Clearance',
+            'Certificate of Residency',
+            'Certificate of Indigency',
+            'Certificate of Indigency (Special)'
+        ];
+        $docPlaceholders = implode(',', array_fill(0, count($docPermitTypes), '?'));
+        $docStmt = $pdo->prepare("SELECT date_requested, status
+            FROM document_requests
+            WHERE document_type IN ($docPlaceholders)");
+        $docStmt->execute($docPermitTypes);
+        $docRows = $docStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($docRows as $row) {
+            $status = strtoupper(trim((string)($row['status'] ?? '')));
+            if (in_array($status, ['PENDING', 'PROCESSING'], true)) {
+                $in_progress++;
+                continue;
+            }
+            if (!in_array($status, ['APPROVED', 'COMPLETED', 'READY FOR PICKUP'], true)) {
+                continue;
+            }
+
+            $baseDate = parse_dashboard_date($row['date_requested'] ?? null);
+
+            if (!$baseDate) {
+                $needs_attention++;
+                continue;
+            }
+
+            $validUntil = $baseDate->modify('+180 days');
+            if ($validUntil < $now) {
+                $expired_permits++;
+                continue;
+            }
+
+            $daysLeft = (int)$now->diff($validUntil)->format('%a');
+            if ($daysLeft <= 30) {
+                $expiring_soon++;
+            }
+            if ($next_expiry === null || $validUntil < $next_expiry) {
+                $next_expiry = $validUntil;
+            }
+        }
+
+        $bizStmt = $pdo->query("SELECT
+                b.permit_expiration_date,
+                b.approval_date,
+                t.processed_date,
+                t.application_date
+            FROM businesses b
+            LEFT JOIN (
+                SELECT resident_id, business_name,
+                       MAX(processed_date) AS processed_date,
+                       MAX(application_date) AS application_date
+                FROM business_transactions
+                WHERE transaction_type IN ('New Permit', 'Renewal')
+                  AND UPPER(status) IN ('APPROVED', 'COMPLETED', 'READY FOR PICKUP')
+                GROUP BY resident_id, business_name
+            ) t ON t.resident_id = b.resident_id AND t.business_name = b.business_name");
+        $bizRows = $bizStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($bizRows as $row) {
+            $explicitExpiry = parse_dashboard_date($row['permit_expiration_date'] ?? null);
+            $approvalDate = parse_dashboard_date($row['approval_date'] ?? null);
+            $processedDate = parse_dashboard_date($row['processed_date'] ?? null);
+            $legacyDate = parse_dashboard_date($row['application_date'] ?? null);
+
+            if ($explicitExpiry instanceof DateTimeImmutable) {
+                $graceUntil = $explicitExpiry->modify('+20 days');
+                if ($graceUntil < $now) {
+                    $expired_permits++;
+                    continue;
+                }
+                $daysLeft = (int)$now->diff($graceUntil)->format('%a');
+                if ($daysLeft <= 30) {
+                    $expiring_soon++;
+                }
+                if ($next_expiry === null || $graceUntil < $next_expiry) {
+                    $next_expiry = $graceUntil;
+                }
+                continue;
+            }
+
+            $baseDate = $approvalDate ?: $processedDate;
+            if (!$baseDate) {
+                if ($legacyDate) {
+                    $baseDate = $legacyDate;
+                    $estimated_count++;
+                } else {
+                    $needs_attention++;
+                    continue;
+                }
+            }
+
+            $issueYear = (int)$baseDate->format('Y');
+            $graceUntil = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', ($issueYear + 1) . '-01-20 23:59:59');
+            if (!$graceUntil) {
+                $needs_attention++;
+                continue;
+            }
+
+            if ($graceUntil < $now) {
+                $expired_permits++;
+                continue;
+            }
+
+            $daysLeft = (int)$now->diff($graceUntil)->format('%a');
+            if ($daysLeft <= 30) {
+                $expiring_soon++;
+            }
+            if ($next_expiry === null || $graceUntil < $next_expiry) {
+                $next_expiry = $graceUntil;
+            }
+        }
 
         $stats_to_cache = compact(
             'latest_transactions', 'population_stats', 'age_group_data',
             'age_labels', 'age_counts', 'resident_months', 'resident_counts',
             'business_months', 'business_counts', 'business_count',
             'pending_requests', 'active_incidents', 'upcoming_events',
-            'expiring_soon', 'expired_permits', 'next_expiry'
+            'expiring_soon', 'expired_permits', 'needs_attention', 'in_progress', 'estimated_count', 'next_expiry'
         );
         cache_set($cache_key, $stats_to_cache, 900, 'file'); // 15 mins cache
         
@@ -131,9 +265,22 @@ if ($cached_data) {
         $upcoming_events = 0;
         $expiring_soon = 0;
         $expired_permits = 0;
+        $needs_attention = 0;
+        $in_progress = 0;
+        $estimated_count = 0;
         $next_expiry = null;
         // error_log("Dashboard DB Error: " . $e->getMessage());
     }
+}
+
+if (!isset($needs_attention)) {
+    $needs_attention = 0;
+}
+if (!isset($estimated_count)) {
+    $estimated_count = 0;
+}
+if (!isset($in_progress)) {
+    $in_progress = 0;
 }
 
 // Function to get sunset time
@@ -267,10 +414,6 @@ $today_quote = $quotes[array_rand($quotes)];
                     <div class="flex items-center justify-between h-16">
                         <div class="flex items-center">
                             <h1 class="text-3xl font-bold text-gray-800 mr-10">Dashboard</h1>
-                            <form onsubmit="if (typeof adminShowToast === 'function') { adminShowToast('Global Search feature coming soon!', 'info'); } return false;" class="hidden md:flex relative">
-                                <input type="text" name="q" placeholder="Search Resident or Transaction ID..." class="bg-gray-100 text-sm rounded-full pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white w-80 lg:w-[400px] transition-all border border-transparent focus:border-blue-300">
-                                <i class="fas fa-search absolute left-4 top-2.5 text-gray-400"></i>
-                            </form>
                         </div>
                         <div class="flex items-center space-x-6">
                             <!-- Digital Clock inline -->
@@ -387,23 +530,25 @@ $today_quote = $quotes[array_rand($quotes)];
                         </div>
                     </div>
                     <!-- Permit Expiry Card -->
-                    <div class="bg-white rounded-2xl shadow-lg p-6 transition hover:shadow-xl border-l-4 <?php echo ($expired_permits > 0) ? 'border-red-500' : 'border-orange-500'; ?>">
+                    <div class="bg-white rounded-2xl shadow-lg p-6 transition hover:shadow-xl border-l-4 <?php echo ($expired_permits > 0 || $needs_attention > 0) ? 'border-red-500' : 'border-orange-500'; ?>">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-gray-500 text-base font-semibold">Permit Status</h3>
-                            <button id="check-expiry-btn"
-                                class="px-2 py-1 rounded-md text-xs transition <?php echo $can_run_permit_check ? 'bg-blue-100 hover:bg-blue-200 text-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'; ?>"
-                                title="<?php echo $can_run_permit_check ? 'Run expiry check now' : 'Requires financial management permission'; ?>"
-                                <?php echo $can_run_permit_check ? '' : 'disabled aria-disabled="true"'; ?>>
+                            <button id="refresh-permit-status-btn"
+                                class="px-2 py-1 rounded-md text-xs transition bg-blue-100 hover:bg-blue-200 text-blue-700"
+                                title="Refresh permit status">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
                         </div>
                         <div class="flex items-center">
-                            <div class="flex-shrink-0 h-12 w-12 rounded-full <?php echo ($expired_permits > 0) ? 'bg-red-100' : 'bg-orange-100'; ?> flex items-center justify-center border <?php echo ($expired_permits > 0) ? 'border-red-200' : 'border-orange-200'; ?>">
-                                <i class="fas fa-certificate <?php echo ($expired_permits > 0) ? 'text-red-600' : 'text-orange-600'; ?> text-2xl"></i>
+                            <div class="flex-shrink-0 h-12 w-12 rounded-full <?php echo ($expired_permits > 0 || $needs_attention > 0) ? 'bg-red-100' : 'bg-orange-100'; ?> flex items-center justify-center border <?php echo ($expired_permits > 0 || $needs_attention > 0) ? 'border-red-200' : 'border-orange-200'; ?>">
+                                <i class="fas fa-certificate <?php echo ($expired_permits > 0 || $needs_attention > 0) ? 'text-red-600' : 'text-orange-600'; ?> text-2xl"></i>
                             </div>
                             <div class="ml-4">
-                                <h2 class="text-3xl font-bold <?php echo ($expired_permits > 0) ? 'text-red-700' : 'text-orange-700'; ?>" id="expiring-soon-count"><?php echo $expiring_soon + $expired_permits; ?></h2>
-                                <p class="text-xs text-gray-500"><?php echo ($expired_permits > 0) ? "⚠️ $expired_permits Expired!" : 'Expiring Soon'; ?></p>
+                                <h2 class="text-3xl font-bold <?php echo ($expired_permits > 0 || $needs_attention > 0) ? 'text-red-700' : 'text-orange-700'; ?>" id="expiring-soon-count"><?php echo $expiring_soon; ?></h2>
+                                <p class="text-xs text-gray-500">Expiring Soon (30 days)</p>
+                                <p class="text-xs text-gray-500">Expired: <?php echo $expired_permits; ?></p>
+                                <p class="text-xs text-gray-500">Needs Attention: <?php echo $needs_attention; ?></p>
+                                <p class="text-xs text-gray-500">In Progress: <?php echo $in_progress; ?></p>
                             </div>
                         </div>
                     </div>
@@ -603,78 +748,20 @@ $today_quote = $quotes[array_rand($quotes)];
         businessMonths: <?= $business_months ?: '[]' ?>,
         businessCounts: <?= $business_counts ?: '[]' ?>
     };
-    window.permitCheckCsrfToken = <?= json_encode($permit_check_csrf_token) ?>;
-    window.canRunPermitCheck = <?= $can_run_permit_check ? 'true' : 'false' ?>;
     </script>
     <script>
-    // Permit Expiry Checker
-    async function checkExpiringPermits() {
-        if (!window.canRunPermitCheck) {
-            return;
-        }
-
-        try {
-            const formData = new FormData();
-            formData.append('csrf_token', window.permitCheckCsrfToken || '');
-
-            const response = await fetch('../api/check-expiring-permits.php', {
-                method: 'POST',
-                body: formData
-            });
-            if (!response.ok) {
-                throw new Error(`Permit check failed with status ${response.status}`);
-            }
-            const data = await response.json();
-            
-            if (data.status === 'success') {
-                // Update card with results
-                const expiringCount = (data.checks.expiring_30_days?.count || 0) + 
-                                    (data.checks.expiring_7_days?.count || 0) + 
-                                    (data.checks.expiring_1_day?.count || 0) +
-                                    (data.checks.marked_expired?.count || 0);
-                                    
-                document.getElementById('expiring-soon-count').textContent = expiringCount;
-                
-                // Show notification badge if there are expiry issues
-                if (data.checks.marked_expired?.count > 0 || data.checks.expiring_1_day?.count > 0) {
-                    const card = document.querySelector('[id="expiring-soon-count"]').closest('div').closest('div').closest('div');
-                    if (!card.classList.contains('border-red-500')) {
-                        card.classList.remove('border-orange-500', 'bg-white');
-                        card.classList.add('border-red-500', 'bg-red-50');
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error checking expiring permits:', error);
-        }
-    }
-    
-    // Run permit check on page load and add button listener
     document.addEventListener('DOMContentLoaded', function() {
-        if (!window.canRunPermitCheck) {
-            return;
-        }
-
-        // Auto-check on load
-        checkExpiringPermits();
-        
-        // Add click handler to manual check button
-        const checkBtn = document.getElementById('check-expiry-btn');
+        const checkBtn = document.getElementById('refresh-permit-status-btn');
         if (checkBtn) {
             checkBtn.addEventListener('click', function() {
                 const icon = checkBtn.querySelector('i');
                 icon.classList.add('animate-spin');
-                
-                checkExpiringPermits().then(() => {
+                setTimeout(() => {
                     icon.classList.remove('animate-spin');
-                }).catch(() => {
-                    icon.classList.remove('animate-spin');
-                });
+                    window.location.reload();
+                }, 300);
             });
         }
-        
-        // Auto-check every hour
-        setInterval(checkExpiringPermits, 3600000);
     });
     </script>
     <script>

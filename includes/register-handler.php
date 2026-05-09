@@ -166,6 +166,8 @@ try {
             $_SESSION['error_message'] = "Email verification is temporarily unavailable. Please try again later.";
             redirect_to(app_url('/register.php'));
         }
+    } else {
+        $_SESSION['otp_success'] = 'Verification code sent. Check your inbox and spam folder.';
     }
 
     // Store email in session for the verification page

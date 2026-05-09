@@ -1488,6 +1488,10 @@ if (!function_exists('require_role')) {
 require_once 'partials/admin_auth.php';
 ```
 
+Permit validity policy note:
+- Permit/document validity shown in the dashboard is computed in the application layer from existing timestamps (`issued_at`, fallback `approved_at`-equivalent fields, with legacy `created/application` fallback marked as estimated) plus policy defaults.
+- No database schema/table changes are required for this validity logic.
+
 ### [includes/cache_manager.php](../includes/cache_manager.php)
 
 ```php

@@ -18,8 +18,26 @@ apply_page_security_headers('login');
 $email = "";
 $email_err = "";
 $success_message = "";
+$info_message = "";
 $show_form = true; // Control whether the form is shown or not
-$generic_reset_response = "If an account with that email exists, we've sent a password reset link to your email address.";
+
+// One-time UI flash message (PRG pattern: POST -> redirect -> GET)
+$flash = $_SESSION['forgot_password_flash'] ?? null;
+if (is_array($flash) && isset($flash['type'], $flash['message'])) {
+    $type = (string) $flash['type'];
+    $message = (string) $flash['message'];
+    if ($type === 'success') {
+        $success_message = $message;
+        $show_form = false;
+    } elseif ($type === 'info') {
+        $info_message = $message;
+        $show_form = true;
+    } elseif ($type === 'error') {
+        $email_err = $message;
+        $show_form = true;
+    }
+    unset($_SESSION['forgot_password_flash']);
+}
 
 // Process form data when form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -75,20 +93,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                     if (!$email_sent) {
                         error_log('Password reset email delivery failed for user ID: ' . (int) $user['id']);
+                        $_SESSION['forgot_password_flash'] = [
+                            'type' => 'error',
+                            'message' => "We found your account, but the reset email could not be sent right now. Please try again in a minute."
+                        ];
+                    } else {
+                        $_SESSION['forgot_password_flash'] = [
+                            'type' => 'success',
+                            'message' => "Reset link sent. Check your inbox and spam folder."
+                        ];
                     }
 
-                    // Always return a generic response to avoid account and delivery-state disclosure.
-                    $success_message = $generic_reset_response;
-                    $show_form = false;
-                    
                     // Log the password reset request
                     error_log("Password reset requested for user ID: " . $user['id'] . " (Email: " . $email . ") - Email sent: " . ($email_sent ? 'Yes' : 'No'));
-                    
+
                 } else {
-                    // Don't reveal if email exists or not for security
-                    $success_message = $generic_reset_response;
-                    $show_form = false;
+                    $_SESSION['forgot_password_flash'] = [
+                        'type' => 'info',
+                        'message' => "No account was found for that email address. Please check the spelling and try again."
+                    ];
                 }
+
+                // POST/Redirect/GET: prevents resend on refresh and makes the UI message reliable.
+                redirect_to(app_url('/forgot-password.php'));
                 
             } catch (PDOException $e) {
                 error_log("Password reset error: " . $e->getMessage());
@@ -111,7 +138,7 @@ $page_title = "Forgot Password - CommunaLink";
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/css/auth.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_url('/assets/css/auth.css')) ?>?v=<?= filemtime(__DIR__ . '/assets/css/auth.css') ?>">
     <link rel="icon" href="assets/images/barangay-logo.png" type="image/png">
 </head>
 <body>
@@ -136,15 +163,18 @@ $page_title = "Forgot Password - CommunaLink";
 
                     <?php 
                     if (!empty($success_message)) {
-                        echo '<div class="alert alert-success"><p>' . $success_message . '</p></div>';
+                        echo '<div class="alert alert-success"><p>' . htmlspecialchars($success_message) . '</p></div>';
+                    }
+                    if (!empty($info_message)) {
+                        echo '<div class="alert alert-info"><p>' . htmlspecialchars($info_message) . '</p></div>';
                     }
                     if (!empty($email_err)) {
-                        echo '<div class="alert alert-error"><p>' . $email_err . '</p></div>';
+                        echo '<div class="alert alert-error"><p>' . htmlspecialchars($email_err) . '</p></div>';
                     }
                     ?>
 
                     <?php if ($show_form): ?>
-                    <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST">
+                    <form action="<?php echo htmlspecialchars(app_url('/forgot-password.php')); ?>" method="POST">
                         <?php echo CSRFProtection::getTokenField(); ?>
                         <div class="form-group">
                             <label for="email">Email Address</label>

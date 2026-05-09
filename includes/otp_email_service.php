@@ -16,11 +16,28 @@ use PHPMailer\PHPMailer\Exception;
 class OTPEmailService {
 
     /**
+     * Gmail/Google app passwords are often displayed in 4-char groups with spaces
+     * for readability (e.g. "abcd efgh ijkl mnop"). SMTP auth expects the
+     * password without any whitespace.
+     */
+    private static function normalizeSmtpPassword(string $password): string {
+        // Remove all whitespace characters (space, tabs, newlines).
+        return preg_replace('/\s+/', '', trim($password)) ?? trim($password);
+    }
+
+    /**
+     * Normalize SMTP username (defensive: trim and remove accidental whitespace).
+     */
+    private static function normalizeSmtpUsername(string $username): string {
+        return preg_replace('/\s+/', '', trim($username)) ?? trim($username);
+    }
+
+    /**
      * Returns true when SMTP credentials are present and not obvious placeholders.
      */
     private static function hasValidSmtpCredentials(string $username, string $password): bool {
-        $username = trim($username);
-        $password = trim($password);
+        $username = self::normalizeSmtpUsername($username);
+        $password = self::normalizeSmtpPassword($password);
 
         if ($username === '' || $password === '') {
             return false;
@@ -86,8 +103,8 @@ class OTPEmailService {
             $mail->isSMTP();
             $mail->Host       = defined('EMAIL_SMTP_HOST') ? EMAIL_SMTP_HOST : 'smtp.gmail.com';
             $mail->SMTPAuth   = true;
-            $mail->Username   = defined('EMAIL_SMTP_USERNAME') ? EMAIL_SMTP_USERNAME : '';
-            $mail->Password   = defined('EMAIL_SMTP_PASSWORD') ? EMAIL_SMTP_PASSWORD : '';
+            $mail->Username   = self::normalizeSmtpUsername(defined('EMAIL_SMTP_USERNAME') ? (string) EMAIL_SMTP_USERNAME : '');
+            $mail->Password   = self::normalizeSmtpPassword(defined('EMAIL_SMTP_PASSWORD') ? (string) EMAIL_SMTP_PASSWORD : '');
             $mail->SMTPSecure = self::getSmtpEncryptionMode();
             $mail->Port       = defined('EMAIL_SMTP_PORT') ? EMAIL_SMTP_PORT : 465;
             $mail->Timeout    = 20;
@@ -213,8 +230,8 @@ class OTPEmailService {
             $mail->isSMTP();
             $mail->Host       = defined('EMAIL_SMTP_HOST') ? EMAIL_SMTP_HOST : 'smtp.gmail.com';
             $mail->SMTPAuth   = true;
-            $mail->Username   = defined('EMAIL_SMTP_USERNAME') ? EMAIL_SMTP_USERNAME : '';
-            $mail->Password   = defined('EMAIL_SMTP_PASSWORD') ? EMAIL_SMTP_PASSWORD : '';
+            $mail->Username   = self::normalizeSmtpUsername(defined('EMAIL_SMTP_USERNAME') ? (string) EMAIL_SMTP_USERNAME : '');
+            $mail->Password   = self::normalizeSmtpPassword(defined('EMAIL_SMTP_PASSWORD') ? (string) EMAIL_SMTP_PASSWORD : '');
             $mail->SMTPSecure = self::getSmtpEncryptionMode();
             $mail->Port       = defined('EMAIL_SMTP_PORT') ? EMAIL_SMTP_PORT : 465;
             $mail->Timeout    = 20;

@@ -168,7 +168,7 @@ $page_title = "Reset Password - CommunaLink";
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/css/auth.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_url('/assets/css/auth.css')) ?>?v=<?= filemtime(__DIR__ . '/assets/css/auth.css') ?>">
     <link rel="icon" href="assets/images/barangay-logo.png" type="image/png">
 </head>
 <body>
@@ -216,7 +216,7 @@ $page_title = "Reset Password - CommunaLink";
                         }
                         ?>
 
-                        <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]) . '?token=' . urlencode($token); ?>" method="POST" id="reset-form">
+                        <form action="<?php echo htmlspecialchars(app_url('/reset-password.php?token=' . urlencode($token))); ?>" method="POST" id="reset-form">
                             <?php echo CSRFProtection::getTokenField(); ?>
                             <div class="form-group">
                                 <label for="password">New Password</label>

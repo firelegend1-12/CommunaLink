@@ -23,7 +23,9 @@ class GmailSMTPSenderFixed {
         $this->host = defined('EMAIL_SMTP_HOST') ? EMAIL_SMTP_HOST : 'smtp.gmail.com';
         $this->port = defined('EMAIL_SMTP_PORT') ? (int)EMAIL_SMTP_PORT : 465;
         $this->username = defined('EMAIL_SMTP_USERNAME') ? trim((string) EMAIL_SMTP_USERNAME) : '';
-        $this->password = defined('EMAIL_SMTP_PASSWORD') ? trim((string) EMAIL_SMTP_PASSWORD) : '';
+        // Gmail app passwords are often shown with spaces; SMTP auth expects no whitespace.
+        $rawPassword = defined('EMAIL_SMTP_PASSWORD') ? (string) EMAIL_SMTP_PASSWORD : '';
+        $this->password = preg_replace('/\\s+/', '', trim($rawPassword)) ?? trim($rawPassword);
         $this->from_email = defined('EMAIL_FROM_EMAIL') ? trim((string) EMAIL_FROM_EMAIL) : '';
         $this->from_name = defined('EMAIL_FROM_NAME') ? EMAIL_FROM_NAME : 'CommunaLink Barangay System';
         $this->secure = defined('EMAIL_SMTP_SECURE') ? EMAIL_SMTP_SECURE : 'ssl';

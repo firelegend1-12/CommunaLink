@@ -74,18 +74,8 @@ try {
         echo "   No permits expiring tomorrow\n";
     }
 
-    echo "\n4. Updating expired permit statuses...\n";
-    $stmt = $pdo->query("UPDATE businesses
-        SET status = 'Expired'
-        WHERE permit_expiration_date < CURDATE()
-          AND status = 'Active'");
-    $expired_count = (int)$stmt->rowCount();
-
-    if ($expired_count > 0) {
-        echo "   Updated {$expired_count} expired permit(s)\n";
-    } else {
-        echo "   No permits to mark as expired\n";
-    }
+    echo "\n4. Skipping status writes...\n";
+    echo "   Expiry status is computed at runtime by dashboard policy (no DB status update).\n";
 
     if (date('j') === '1') {
         echo "\n5. Generating monthly compliance report...\n";
