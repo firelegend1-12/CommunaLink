@@ -995,12 +995,12 @@ endif; ?>
                         <div class="flex items-center space-x-4">
                            <!-- Avatar with Initials -->
                            <div class="w-16 h-16 rounded-2xl bg-white bg-opacity-20 flex items-center justify-center border-2 border-white" x-show="selectedReq">
-                              <span class="text-2xl font-bold text-white" x-text="selectedReq.name ? selectedReq.name.split(' ').map(n => n[0]).join('') : 'N/A'"></span>
+                              <span class="text-2xl font-bold text-white" x-text="(selectedReq && selectedReq.name) ? selectedReq.name.split(' ').map(n => n[0]).join('') : 'N/A'"></span>
                            </div>
                            <!-- Name and ID -->
                            <div>
-                              <h2 class="text-xl font-bold text-white" x-text="selectedReq.name"></h2>
-                              <p class="text-sm text-blue-100 mt-1" x-text="selectedReq.type === 'document' ? 'Document Request' : 'Business Transaction'"></p>
+                              <h2 class="text-xl font-bold text-white" x-text="selectedReq ? (selectedReq.name || '') : ''"></h2>
+                              <p class="text-sm text-blue-100 mt-1" x-text="(selectedReq && selectedReq.type === 'document') ? 'Document Request' : 'Business Transaction'"></p>
                            </div>
                         </div>
                         <button type="button" @click="viewPanelOpen = false" class="bg-blue-600 rounded-md text-blue-200 hover:text-white focus:outline-none focus:ring-2 focus:ring-white">
@@ -1549,12 +1549,20 @@ echo json_encode($monitoring_csrf_token); ?>;
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        document.getElementById('deleteModalCancel').onclick = function() {
-            document.getElementById('deleteModal').classList.add('hidden');
+        const deleteModal = document.getElementById('deleteModal');
+        const cancelBtn = document.getElementById('deleteModalCancel');
+        const confirmBtn = document.getElementById('deleteModalConfirm');
+
+        if (!deleteModal || !cancelBtn || !confirmBtn) {
+            return;
+        }
+
+        cancelBtn.onclick = function() {
+            deleteModal.classList.add('hidden');
             deleteRequestId = null;
             deleteRequestType = null;
         };
-        document.getElementById('deleteModalConfirm').onclick = function() {
+        confirmBtn.onclick = function() {
             if (!deleteRequestId || !deleteRequestType) return;
             const endpoint = deleteRequestType === 'document'
                 ? '../partials/delete-document-request.php'
@@ -1571,7 +1579,7 @@ echo json_encode($monitoring_csrf_token); ?>;
             })
             .then(response => response.json())
             .then(data => {
-                document.getElementById('deleteModal').classList.add('hidden');
+                deleteModal.classList.add('hidden');
                 if (data.success) {
                     const rowId = `request-row-${deleteRequestType}-${deleteRequestId}`;
                     const row = document.getElementById(rowId);
@@ -1585,7 +1593,7 @@ echo json_encode($monitoring_csrf_token); ?>;
                 }
             })
             .catch(() => {
-                document.getElementById('deleteModal').classList.add('hidden');
+                deleteModal.classList.add('hidden');
                 showToast('Failed to delete request. Please try again.', 'error');
             });
         };

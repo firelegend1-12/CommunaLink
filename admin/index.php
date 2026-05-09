@@ -669,7 +669,7 @@ $today_quote = $quotes[array_rand($quotes)];
                                     <i class="fas fa-exclamation-triangle text-red-600 text-sm mr-2"></i>
                                     <span class="text-xs font-medium text-red-700">Report Incident</span>
                                 </a>
-                                <a href="pages/monitoring-of-request.php?tab=business" class="flex items-center p-2 bg-yellow-50 hover:bg-yellow-100 rounded transition group">
+                                <a href="pages/monitoring-of-request.php?type=business" class="flex items-center p-2 bg-yellow-50 hover:bg-yellow-100 rounded transition group">
                                     <i class="fas fa-certificate text-yellow-600 text-sm mr-2"></i>
                                     <span class="text-xs font-medium text-yellow-700">Permits</span>
                                 </a>

@@ -93,6 +93,8 @@ try {
             font-family: Arial, sans-serif;
             font-size: 7px;
             color: #2D3748; /* gray-800 */
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
         .philippine-map {
             background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Blank_map_of_the_Philippines.svg/512px-Blank_map_of_the_Philippines.svg.png');
@@ -128,6 +130,8 @@ try {
                 margin: 0; /* Let flexbox handle centering */
                 transform: scale(1.1); /* Slightly enlarge for better printing */
                 border: 1px solid #000; /* Add border for printing */
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
         }
     </style>
@@ -497,9 +501,9 @@ try {
 
     <!-- ID Card Modal -->
     <div x-show="showModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @keydown.escape.window="showModal = false">
-        <div class="bg-white rounded-lg shadow-xl" @click.away="showModal = false">
-            <div class="px-24 py-16">
-                <div class="id-modal-content transform scale-150" x-html="modalContent">
+        <div class="bg-white rounded-lg shadow-xl max-w-[520px] w-full" @click.away="showModal = false">
+            <div class="px-12 py-10 sm:px-14 sm:py-12">
+                <div class="id-modal-content transform scale-150 origin-center flex justify-center" x-html="modalContent">
                     <!-- Resident ID will be loaded here -->
                 </div>
             </div>
@@ -583,7 +587,7 @@ try {
 
                 generateId(id) {
                     this.showModal = true;
-                    this.modalContent = `<div class="id-card flex items-center justify-center" style="width: 3.375in; height: 2.125in;"><i class="fas fa-spinner fa-spin text-3xl text-gray-400"></i></div>`;
+                    this.modalContent = `<div class="id-card flex items-center justify-center"><i class="fas fa-spinner fa-spin text-3xl text-gray-400"></i></div>`;
                     fetch(`resident-id.php?id=${id}`)
                         .then(response => {
                             if (!response.ok) throw new Error('Network response was not ok');

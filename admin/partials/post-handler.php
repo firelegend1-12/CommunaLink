@@ -127,6 +127,16 @@ function upload_post_image($file) {
     ], 'admin/images/announcements', 'post_');
 
     if (!$storage_result['success']) {
+        $storage_error = (string) ($storage_result['error'] ?? 'Failed to upload the image.');
+        if (
+            stripos($storage_error, 'Upload directory is not writable') !== false ||
+            stripos($storage_error, 'STORAGE_BUCKET is not configured') !== false
+        ) {
+            error_log('Announcement image skipped because storage is unavailable: ' . $storage_error);
+            $_SESSION['announcement_upload_warning'] = 'The post was saved without the image because upload storage is not configured for this runtime.';
+            return null;
+        }
+
         throw new RuntimeException((string) ($storage_result['error'] ?? 'Failed to upload the image.'));
     }
 
@@ -244,10 +254,22 @@ if (isset($_POST['add_post'])) {
 
             if (!$broadcast_queued) {
                 error_log('Post broadcast enqueue failed: ' . (string)($broadcast_result['error'] ?? 'unknown error'));
+                // Surface a safe, one-time debug payload to the admin browser console after redirect.
+                $_SESSION['announcement_broadcast_debug'] = [
+                    'phase' => 'enqueue_public_post',
+                    'post_id' => (int) $post_id,
+                    'queue_id' => (int) ($broadcast_result['queue_id'] ?? 0),
+                    'error' => (string) ($broadcast_result['error'] ?? 'unknown error'),
+                    'timestamp' => date('c'),
+                ];
             }
         }
 
         $_SESSION['announcement_success_message'] = ucfirst($type_label) . " posted successfully.";
+        if (!empty($_SESSION['announcement_upload_warning'])) {
+            $_SESSION['announcement_success_message'] .= ' ' . $_SESSION['announcement_upload_warning'];
+            unset($_SESSION['announcement_upload_warning']);
+        }
         if ($is_live_now && $broadcast_queued) {
             $_SESSION['announcement_success_message'] .= ' Broadcast notifications were queued and will be delivered shortly.';
         } elseif ($is_live_now && is_array($broadcast_result) && empty($broadcast_result['success'])) {

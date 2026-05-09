@@ -131,6 +131,20 @@ try {
             
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-8">
+                <?php if (!empty($_SESSION['announcement_broadcast_debug']) && is_array($_SESSION['announcement_broadcast_debug'])): ?>
+                    <script>
+                    (function () {
+                        try {
+                            const payload = <?php echo json_encode($_SESSION['announcement_broadcast_debug'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+                            console.groupCollapsed('[CommunaLink] Announcement broadcast enqueue failed');
+                            console.error('enqueue_public_post() did not queue a broadcast job.');
+                            console.log(payload);
+                            console.error('Common causes: missing `public_post_dispatch_queue` table, DB permission error, or DB connection issue.');
+                            console.groupEnd();
+                        } catch (e) {}
+                    })();
+                    </script>
+                <?php unset($_SESSION['announcement_broadcast_debug']); endif; ?>
                 <?php if (isset($_SESSION['announcement_success_message'])): ?>
                     <div id="announcement-success-alert" class="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-700 p-4 mb-6 rounded-r-xl shadow-sm animate-fade-in" role="alert">
                         <div class="flex items-center">

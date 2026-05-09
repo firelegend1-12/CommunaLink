@@ -205,6 +205,26 @@ function renderTimeline(status) {
     </div>`;
 }
 
+let residentReportMapUnavailableShown = false;
+
+function showResidentReportMapUnavailable(message) {
+    const mapDiv = document.getElementById('map');
+    if (!mapDiv || residentReportMapUnavailableShown) {
+        return;
+    }
+
+    residentReportMapUnavailableShown = true;
+    mapDiv.innerHTML = `
+        <div class="w-full h-64 flex items-center justify-center bg-rose-50 text-center px-6 text-rose-800 rounded-xl border-2 border-dashed border-rose-200">
+            <div>
+                <i class="fas fa-map-marked-alt text-3xl mb-3"></i>
+                <div class="font-semibold">Map unavailable</div>
+                <div class="mt-2 text-sm max-w-sm">${message}</div>
+            </div>
+        </div>
+    `;
+}
+
 // Google Maps Setup
 window.initMap = async function() {
     const lat = <?= json_encode($report['latitude']) ?>;
@@ -232,6 +252,10 @@ window.initMap = async function() {
         title: "Incident Location",
         animation: google.maps.Animation.DROP
     });
+};
+
+window.gm_authFailure = function() {
+    showResidentReportMapUnavailable('Google Maps rejected the current API key. Please contact the administrator.');
 };
 
 function cancelReport(id) {
@@ -284,10 +308,12 @@ function cancelReport(id) {
     const apiKey = "<?php echo htmlspecialchars((string)(function_exists('maps_api_key') ? maps_api_key('') : ''), ENT_QUOTES, 'UTF-8'); ?>";
     if (!apiKey) {
         console.error('Google Maps API key is missing. Set GOOGLE_MAPS_API_KEY in environment configuration.');
+        showResidentReportMapUnavailable('Google Maps API key is missing. Please contact the administrator.');
     } else {
         script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&callback=initMap`;
         script.async = true;
         script.defer = true;
+        script.onerror = () => showResidentReportMapUnavailable('Google Maps failed to load. Please check the API key and your connection.');
         document.head.appendChild(script);
     }
 </script>

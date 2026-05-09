@@ -28,7 +28,7 @@ if (!$resident_id) {
 require_once '../config/database.php';
 
 // Fetch document requests only
-$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, remarks, admin_notes, details FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC");
+$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, remarks, NULL AS admin_notes, details FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC");
 $stmtDoc->execute([$resident_id]);
 $docRequests = $stmtDoc->fetchAll();
 

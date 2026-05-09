@@ -69,7 +69,7 @@ include '../partials/sidebar.php'; ?>
                         <div id="incident-map" class="border border-gray-200 rounded-lg"></div>
                         <div class="legend">
                             <div class="flex items-center gap-2 mb-1"><span class="inline-block w-4 h-4 rounded-full bg-blue-600"></span> Incident Report</div>
-                            <div class="flex items-center gap-2"><img src="http://maps.google.com/mapfiles/ms/icons/red-dot.png" class="w-4 h-6" alt="Barangay Center" style="object-fit:contain;"> Barangay Center</div>
+                            <div class="flex items-center gap-2"><img src="https://maps.google.com/mapfiles/ms/icons/red-dot.png" class="w-4 h-6" alt="Barangay Center" style="object-fit:contain;"> Barangay Center</div>
                         </div>
                     </div>
                 </div>
@@ -79,25 +79,47 @@ include '../partials/sidebar.php'; ?>
     <script>
     let map;
     let markers = [];
+    let clusterer = null;
+    let heatmap = null;
     let lastOpenIncidentId = null;
     let lastIncidentDataHash = '';
     let infoWindow;
     const BARANGAY_HALL = { lat: 10.710781570266882, lng: 122.51720404103982 };
+    let mapUnavailableShown = false;
 
-    let clusterer = null;
+    function showMapUnavailable(message) {
+        const mapDiv = document.getElementById('incident-map');
+        if (!mapDiv || mapUnavailableShown) {
+            return;
+        }
+
+        mapUnavailableShown = true;
+        mapDiv.innerHTML = `
+            <div class="flex items-center justify-center h-full min-h-[500px] bg-gray-100 rounded-lg text-center px-6">
+                <div>
+                    <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 text-2xl">!</div>
+                    <div class="text-lg font-semibold text-gray-800">Map unavailable</div>
+                    <div class="mt-2 text-sm text-gray-600">${message}</div>
+                </div>
+            </div>
+        `;
+    }
 
     function initMap() {
         map = new google.maps.Map(document.getElementById('incident-map'), {
             center: BARANGAY_HALL,
             zoom: 14,
-            mapTypeId: 'hybrid'
+            mapTypeId: 'roadmap',
+            mapTypeControl: true,
+            streetViewControl: false,
+            fullscreenControl: true
         });
 
-        // Add a default marker for the barangay center
         new google.maps.Marker({
             position: BARANGAY_HALL,
             map: map,
-            title: 'Barangay Hall'
+            title: 'Barangay Hall',
+            icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
         });
 
         infoWindow = new google.maps.InfoWindow();
@@ -106,17 +128,50 @@ include '../partials/sidebar.php'; ?>
         setInterval(fetchAndUpdateReports, 30000);
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, function(character) {
+            return ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[character];
+        });
+    }
+
+    function formatPopupContent(report, lat, lng) {
+        const locationText = lat && lng
+            ? `GPS: ${lat.toFixed(6)}, ${lng.toFixed(6)}`
+            : (report.location || 'Location unavailable');
+
+        return `
+            <div class="text-sm leading-relaxed">
+                <div class="font-semibold text-gray-900">${escapeHtml(report.type || 'Incident Report')}</div>
+                <div><strong>By:</strong> ${escapeHtml(report.resident_name || 'Unknown')}</div>
+                <div>${escapeHtml(locationText)}</div>
+                <div>${escapeHtml(report.description || '')}</div>
+                <div class="text-xs text-gray-500 mt-1">Reported: ${escapeHtml(report.reported_at || '')}</div>
+            </div>
+        `;
+    }
+
     function clearMarkers() {
         if (clusterer) {
             clusterer.clearMarkers();
-        } else {
-            markers.forEach(m => m.setMap(null));
+            clusterer = null;
         }
+        if (heatmap) {
+            heatmap.setMap(null);
+            heatmap = null;
+        }
+        markers.forEach(marker => marker.setMap(null));
         markers = [];
     }
 
     function addMarkers(reports) {
         clearMarkers();
+        const heatPoints = [];
         let foundOpen = false;
         
         reports.forEach(report => {
@@ -124,34 +179,25 @@ include '../partials/sidebar.php'; ?>
                 const lat = parseFloat(report.latitude);
                 const lng = parseFloat(report.longitude);
                 if (isNaN(lat) || isNaN(lng)) return;
-                
-                const pos = { lat, lng };
+
+                const point = { lat, lng };
+                heatPoints.push(new google.maps.LatLng(lat, lng));
 
                 const marker = new google.maps.Marker({
-                    position: pos,
+                    position: point,
                     map: map,
                     icon: {
                         path: google.maps.SymbolPath.CIRCLE,
                         fillColor: '#2563eb',
-                        fillOpacity: 0.85,
+                        fillOpacity: 0.9,
                         strokeWeight: 2,
-                        strokeColor: '#2563eb',
-                        scale: 8
+                        strokeColor: '#1d4ed8',
+                        scale: 7
                     }
                 });
+                const popupContent = formatPopupContent(report, lat, lng);
 
-                let locationText = report.location;
-                if (lat && lng) {
-                    locationText = `GPS: ${lat}, ${lng}`;
-                }
-                const popupContent =
-                    `<b>${report.type}</b><br>
-                     <b>By:</b> ${report.resident_name || 'Unknown'}<br>
-                     ${locationText}<br>
-                     ${report.description}<br>
-                     <small>Reported: ${report.reported_at}</small>`;
-
-                marker.addListener("click", () => {
+                marker.addListener('click', () => {
                     infoWindow.setContent(popupContent);
                     infoWindow.open(map, marker);
                     lastOpenIncidentId = report.id;
@@ -162,6 +208,7 @@ include '../partials/sidebar.php'; ?>
                     infoWindow.open(map, marker);
                     foundOpen = true;
                 }
+
                 markers.push(marker);
             }
         });
@@ -170,12 +217,18 @@ include '../partials/sidebar.php'; ?>
             lastOpenIncidentId = null;
         }
 
-        // Apply Clustering!
-        if (clusterer) {
-            clusterer.clearMarkers();
-            clusterer.addMarkers(markers);
-        } else {
+        if (markers.length > 0) {
             clusterer = new markerClusterer.MarkerClusterer({ map, markers });
+        }
+
+        if (heatPoints.length > 0) {
+            heatmap = new google.maps.visualization.HeatmapLayer({
+                data: heatPoints,
+                radius: 35,
+                opacity: 0.75,
+                dissipating: true
+            });
+            heatmap.setMap(map);
         }
     }
 
@@ -237,8 +290,10 @@ include '../partials/sidebar.php'; ?>
     document.getElementById('date-from').onchange = () => filterReports(document.getElementById('filter-range').value);
     document.getElementById('date-to').onchange = () => filterReports(document.getElementById('filter-range').value);
     document.getElementById('center-barangay').onclick = () => {
-        map.panTo(BARANGAY_HALL);
-        map.setZoom(17);
+        if (map) {
+            map.panTo(BARANGAY_HALL);
+            map.setZoom(17);
+        }
     };
 
     function fetchAndUpdateReports() {
@@ -253,22 +308,32 @@ include '../partials/sidebar.php'; ?>
                         lastIncidentDataHash = newHash;
                     }
                 }
+            })
+            .catch(() => {
+                showMapUnavailable('Unable to load incident coordinates right now. Please try refreshing the page.');
             });
     }
     </script>
     <?php
 $apiKey = function_exists('maps_api_key') ? (string) maps_api_key('') : '';
     ?>
-    <!-- Marker Clusterer CDN -->
     <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
     <?php
 if ($apiKey !== ''): ?>
     <script src="https://maps.googleapis.com/maps/api/js?key=<?php
-echo urlencode($apiKey); ?>&callback=initMap" async defer></script>
+echo urlencode($apiKey); ?>&libraries=visualization&callback=initMap" async defer onerror="showMapUnavailable('Google Maps failed to load. Please verify the API key and network access.');"></script>
+    <script>
+        window.gm_authFailure = function() {
+            showMapUnavailable('Google Maps rejected the current API key. Incident detail embeds work without a key, but the heat map page needs the full JavaScript Maps API.');
+        };
+    </script>
     <?php
 else: ?>
     <script>
         console.error('Google Maps API key is missing. Set GOOGLE_MAPS_API_KEY in environment configuration.');
+        document.addEventListener('DOMContentLoaded', function() {
+            showMapUnavailable('Google Maps API key is missing. Incident detail embeds can still render, but the heat map page needs the JavaScript Maps API key.');
+        });
     </script>
     <?php
 endif; ?>

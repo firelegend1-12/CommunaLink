@@ -325,7 +325,7 @@ echo old_value($form_data, 'email'); ?>" class="mt-1 block w-full px-3 py-2 bg-w
                                 </div>
                                 <div>
                                     <label for="contact_no" class="block text-sm font-medium text-gray-700">Contact Number</label>
-                                    <input type="tel" name="contact_no" id="contact_no" required inputmode="tel" autocomplete="tel" pattern="^(\+?63|0)9[0-9]{9}$" minlength="11" maxlength="13" value="<?php
+                                    <input type="tel" name="contact_no" id="contact_no" required inputmode="tel" autocomplete="tel" maxlength="20" value="<?php
 echo old_value($form_data, 'contact_no'); ?>" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="09123456789">
                                 </div>
                                 <div class="md:col-span-2">
@@ -490,6 +490,7 @@ echo (($form_data['voter_status'] ?? '') === 'No') ? 'selected' : ''; ?>>No</opt
             const cleaned = contactField.value.replace(/[\s\-.()]/g, '');
             const validPhone = /^(\+?63|0)9[0-9]{9}$/.test(cleaned);
             contactField.setCustomValidity(validPhone ? '' : 'Enter a valid Philippine mobile number (e.g. 09123456789).');
+            return validPhone ? cleaned : null;
         }
 
         function validatePlaceOfBirth() {
@@ -511,13 +512,17 @@ echo (($form_data['voter_status'] ?? '') === 'No') ? 'selected' : ''; ?>>No</opt
         form.addEventListener('submit', function (event) {
             calculateAge();
             updatePasswordRequirements();
-            validateContact();
+            const normalizedContact = validateContact();
             validatePlaceOfBirth();
 
             if (!form.checkValidity()) {
                 event.preventDefault();
                 form.reportValidity();
                 return;
+            }
+
+            if (normalizedContact) {
+                contactField.value = normalizedContact;
             }
 
             suppressBeforeUnload = true;

@@ -335,8 +335,34 @@ class SecurityHeaders {
      * Apply headers for admin pages
      */
     private static function applyAdminHeaders() {
-        // Enhanced security for admin pages
+        // Admin pages still need strict defaults, but Maps views embed Google resources.
+        $admin_csp = self::$headers['content_security_policy'];
+
+        if (!isset($admin_csp['script-src']) || !is_array($admin_csp['script-src'])) {
+            $admin_csp['script-src'] = ["'self'"];
+        }
+        if (!isset($admin_csp['connect-src']) || !is_array($admin_csp['connect-src'])) {
+            $admin_csp['connect-src'] = ["'self'"];
+        }
+
+        foreach (['https://maps.googleapis.com', 'https://maps.gstatic.com'] as $origin) {
+            if (!in_array($origin, $admin_csp['script-src'], true)) {
+                $admin_csp['script-src'][] = $origin;
+            }
+        }
+        if (!in_array('https://maps.googleapis.com', $admin_csp['connect-src'], true)) {
+            $admin_csp['connect-src'][] = 'https://maps.googleapis.com';
+        }
+
+        // Allow embedded map iframes for incident investigation and admin maps.
+        $admin_csp['frame-src'] = ["'self'", 'https://www.google.com', 'https://maps.google.com'];
+
+        $original_csp = self::$headers['content_security_policy'];
+        self::$headers['content_security_policy'] = $admin_csp;
+
         self::applyAll();
+
+        self::$headers['content_security_policy'] = $original_csp;
         
         // Additional admin-specific headers
         header("X-Admin-Access: true");

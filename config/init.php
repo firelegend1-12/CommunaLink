@@ -596,25 +596,8 @@ try {
         // Ignore errors if table doesn't exist yet
     }
 
-    // --- Schema Migration: Add admin_notes column to document_requests ---
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM `document_requests` LIKE 'admin_notes'");
-        if ($stmt && $stmt->rowCount() == 0) {
-            $pdo->exec("ALTER TABLE `document_requests` ADD COLUMN `admin_notes` TEXT DEFAULT NULL AFTER `remarks`;");
-        }
-    } catch (Exception $e) {
-        // Ignore errors if table doesn't exist yet
-    }
-
-    // --- Schema Migration: Add admin_notes column to business_transactions ---
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM `business_transactions` LIKE 'admin_notes'");
-        if ($stmt && $stmt->rowCount() == 0) {
-            $pdo->exec("ALTER TABLE `business_transactions` ADD COLUMN `admin_notes` TEXT DEFAULT NULL AFTER `status`;");
-        }
-    } catch (Exception $e) {
-        // Ignore errors if table doesn't exist yet
-    }
+    // admin_notes is intentionally not auto-created. The submitted schema does
+    // not include it, so request notes remain a runtime/UI-only placeholder.
 
     // --- Schema Migration for announcements ---
     try {

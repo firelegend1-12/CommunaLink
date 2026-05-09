@@ -85,6 +85,40 @@ if (!function_exists('load_env')) {
     }
 
     /**
+     * Detect placeholder values that should be treated as missing secrets.
+     *
+     * @param mixed $value
+     * @return bool
+     */
+    function env_is_placeholder_value($value) {
+        if (!is_string($value)) {
+            return false;
+        }
+
+        $normalized = strtoupper(trim($value));
+        if ($normalized === '') {
+            return true;
+        }
+
+        $placeholders = [
+            'SET_VIA_SECRET_MANAGER',
+            'REPLACE_ME',
+            'CHANGE_ME',
+            'TODO',
+            'TBD',
+            'YOUR_GOOGLE_MAPS_API_KEY',
+            'YOUR_MAPS_API_KEY',
+            'YOUR_API_KEY',
+        ];
+
+        if (in_array($normalized, $placeholders, true)) {
+            return true;
+        }
+
+        return strpos($normalized, 'YOUR_') === 0;
+    }
+
+    /**
      * Canonical resolver for Google Maps API key.
      * Prefers GOOGLE_MAPS_API_KEY and supports MAPS_API_KEY for backward compatibility.
      *
@@ -92,7 +126,12 @@ if (!function_exists('load_env')) {
      * @return mixed
      */
     function maps_api_key($default = '') {
-        return env_first(['GOOGLE_MAPS_API_KEY', 'MAPS_API_KEY'], $default);
+        $api_key = env_first(['GOOGLE_MAPS_API_KEY', 'MAPS_API_KEY'], $default);
+        if (env_is_placeholder_value($api_key)) {
+            return $default;
+        }
+
+        return $api_key;
     }
 }
 

@@ -245,7 +245,8 @@ class StorageManager
 
     private static function hasStorageBucket(): bool
     {
-        return trim((string)env('STORAGE_BUCKET', '')) !== '';
+        $bucket = trim((string)env('STORAGE_BUCKET', ''));
+        return $bucket !== '' && !in_array($bucket, ['YOUR_STORAGE_BUCKET', 'SET_VIA_SECRET_MANAGER'], true);
     }
 
     private static function isAppEngineRuntime(): bool
