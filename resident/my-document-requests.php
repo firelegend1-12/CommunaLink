@@ -31,6 +31,10 @@ require_once '../config/database.php';
 $stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, remarks, NULL AS admin_notes, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC");
 $stmtDoc->execute([$_SESSION['user_id'], $resident_id]);
 $docRequests = $stmtDoc->fetchAll();
+foreach ($docRequests as &$doc_row) {
+    $doc_row['status'] = normalize_request_status_display($doc_row['status'] ?? null);
+}
+unset($doc_row);
 
 require_once 'partials/header.php';
 ?>
@@ -185,7 +189,8 @@ document.addEventListener('DOMContentLoaded', function() {
             requests.forEach(req => {
                 const status = req.status || 'Pending';
                 let badgeClass = 'pending';
-                if (["Approved","Completed"].includes(status)) badgeClass = 'approved';
+                if (status === 'Approved') badgeClass = 'approved';
+                else if (status === 'Completed') badgeClass = 'completed';
                 else if (["Rejected", "Cancelled"].includes(status)) badgeClass = 'rejected';
 
                 const formattedDate = new Date(req.date_requested).toLocaleDateString('en-US', {

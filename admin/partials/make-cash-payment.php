@@ -99,8 +99,9 @@ try {
     $or_number = $existing_or !== '' ? $existing_or : $generated_or;
 
     if ($type === 'document') {
-        $update = $pdo->prepare("UPDATE document_requests SET payment_status = 'Paid', payment_date = NOW(), or_number = ?, cash_received = ?, change_amount = ?, status = CASE WHEN status IN ('Rejected', 'Cancelled') THEN status ELSE 'Completed' END WHERE id = ?");
-        $update->execute([$or_number, $cash_received, $change_amount, $id]);
+        $completed_status = normalize_request_status_for_storage($pdo, 'document_requests', 'Completed');
+        $update = $pdo->prepare("UPDATE document_requests SET payment_status = 'Paid', payment_date = NOW(), or_number = ?, cash_received = ?, change_amount = ?, status = CASE WHEN UPPER(status) IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN status ELSE ? END WHERE id = ?");
+        $update->execute([$or_number, $cash_received, $change_amount, $completed_status, $id]);
     } else {
         $update = $pdo->prepare("UPDATE {$table} SET payment_status = 'Paid', payment_date = NOW(), or_number = ?, cash_received = ?, change_amount = ? WHERE id = ?");
         $update->execute([$or_number, $cash_received, $change_amount, $id]);
@@ -113,7 +114,7 @@ try {
             $item_name,
             'Paid',
             $or_number,
-            'my-requests.php'
+            $type === 'document' ? 'my-document-requests.php' : 'my-requests.php'
         );
 
         if (!$notification_sent) {
@@ -127,7 +128,7 @@ try {
                 (int) $row['user_id'],
                 $item_name,
                 'Completed',
-                'my-requests.php'
+                'my-document-requests.php'
             );
             if (!$status_notification_sent && $notification_warning === null) {
                 $notification_warning = 'Payment recorded, but status notification delivery failed.';

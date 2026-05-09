@@ -108,40 +108,43 @@ if (!class_exists('NotificationSystem')) {
             $title = 'Request Update: ' . $document_type;
             $message = 'Your request for ' . $document_type . ' has been updated to: ' . $status . '. ';
             if ($status === 'Approved') {
-                $message .= 'Please proceed to the Barangay Hall for receiving and checkout.';
+                $message .= 'Your request is approved and is now being prepared.';
+            } elseif ($status === 'Completed') {
+                $message .= 'Your document is completed and ready for release.';
             } elseif ($status === 'Rejected') {
                 $message .= 'Please contact the office for more details.';
+            } elseif ($status === 'Cancelled') {
+                $message .= 'The request has been cancelled. Please contact the office if you need help.';
+            } else {
+                $message .= 'Please check your resident portal for the latest details.';
             }
 
             // Create in-app notification
             $notification_created = create_notification($pdo, $recipient_user_id, $title, $message, 'request_status', $link);
 
-            // Send email for Approved or Rejected status
-            if ($status === 'Approved' || $status === 'Rejected') {
-                try {
-                    $stmt = $pdo->prepare("SELECT email, fullname FROM users WHERE id = ? LIMIT 1");
-                    $stmt->execute([$recipient_user_id]);
-                    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-                    if ($user && !empty($user['email'])) {
-                        $email_body = '<p>Dear ' . htmlspecialchars($user['fullname'] ?: 'Resident') . ',</p>'
-                            . '<p>Your request for <strong>' . htmlspecialchars($document_type) . '</strong> has been <strong>' . htmlspecialchars($status) . '</strong>.</p>';
-                        if ($status === 'Approved') {
-                            $email_body .= '<p>Please proceed to the Barangay Hall for receiving and checkout.</p>';
-                        } elseif ($status === 'Rejected') {
-                            $email_body .= '<p>Please contact the office for more details.</p>';
-                        }
-                        $email_body .= '<p>Thank you.<br>CommunaLink Barangay Office</p>';
+            try {
+                $stmt = $pdo->prepare("SELECT email, fullname FROM users WHERE id = ? LIMIT 1");
+                $stmt->execute([$recipient_user_id]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($user && !empty($user['email'])) {
+                    $safe_name = htmlspecialchars($user['fullname'] ?: 'Resident', ENT_QUOTES, 'UTF-8');
+                    $safe_document_type = htmlspecialchars($document_type, ENT_QUOTES, 'UTF-8');
+                    $safe_status = htmlspecialchars($status, ENT_QUOTES, 'UTF-8');
+                    $safe_message = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
+                    $safe_link = htmlspecialchars(function_exists('app_url') ? app_url($link) : $link, ENT_QUOTES, 'UTF-8');
 
-                        self::send_email_with_fallback(
-                            $user['email'],
-                            $user['fullname'] ?: 'Resident',
-                            $title,
-                            $email_body
-                        );
+                    $email_body = '<p>Dear ' . $safe_name . ',</p>'
+                        . '<p>Your request for <strong>' . $safe_document_type . '</strong> has been updated to <strong>' . $safe_status . '</strong>.</p>'
+                        . '<p>' . $safe_message . '</p>'
+                        . '<p><a href="' . $safe_link . '" style="display:inline-block;padding:10px 14px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;">View Request Status</a></p>'
+                        . '<p>Thank you.<br>CommunaLink Barangay Office</p>';
+
+                    if (!self::send_email_with_fallback($user['email'], $user['fullname'] ?: 'Resident', $title, $email_body)) {
+                        error_log('Document status email delivery failed for user_id=' . $recipient_user_id . ' status=' . $status);
                     }
-                } catch (Exception $e) {
-                    error_log('Failed to send email notification for document status: ' . $e->getMessage());
                 }
+            } catch (Exception $e) {
+                error_log('Failed to send email notification for document status: ' . $e->getMessage());
             }
 
             return $notification_created;
@@ -187,11 +190,42 @@ if (!class_exists('NotificationSystem')) {
                     $message .= 'Reason: ' . $reason . '. ';
                 }
                 $message .= 'Please review the details or contact the barangay office for clarification.';
+            } elseif ($status === 'In Progress') {
+                $message .= 'The barangay office is currently reviewing and handling your report.';
             } elseif ($status === 'Resolved') {
                 $message .= 'Your report has been marked as resolved. Thank you for your patience.';
+            } elseif ($status === 'Pending') {
+                $message .= 'Your report is pending review by the barangay office.';
             }
 
-            return create_notification($pdo, $recipient_user_id, $title, $message, 'incident_status', $link);
+            $notification_created = create_notification($pdo, $recipient_user_id, $title, $message, 'incident_status', $link);
+
+            try {
+                $stmt = $pdo->prepare("SELECT email, fullname FROM users WHERE id = ? LIMIT 1");
+                $stmt->execute([$recipient_user_id]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($user && !empty($user['email'])) {
+                    $safe_name = htmlspecialchars($user['fullname'] ?: 'Resident', ENT_QUOTES, 'UTF-8');
+                    $safe_incident_type = htmlspecialchars($incident_type, ENT_QUOTES, 'UTF-8');
+                    $safe_status = htmlspecialchars($status, ENT_QUOTES, 'UTF-8');
+                    $safe_message = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
+                    $safe_link = htmlspecialchars($link, ENT_QUOTES, 'UTF-8');
+
+                    $email_body = '<p>Dear ' . $safe_name . ',</p>'
+                        . '<p>Your incident report for <strong>' . $safe_incident_type . '</strong> has been updated to <strong>' . $safe_status . '</strong>.</p>'
+                        . '<p>' . $safe_message . '</p>'
+                        . '<p><a href="' . $safe_link . '" style="display:inline-block;padding:10px 14px;background:#dc2626;color:#ffffff;text-decoration:none;border-radius:6px;">View Incident Report</a></p>'
+                        . '<p>Thank you.<br>CommunaLink Barangay Office</p>';
+
+                    if (!self::send_email_with_fallback($user['email'], $user['fullname'] ?: 'Resident', $title, $email_body)) {
+                        error_log('Incident status email delivery failed for user_id=' . $recipient_user_id . ' status=' . $status);
+                    }
+                }
+            } catch (Exception $e) {
+                error_log('Failed to send email notification for incident status: ' . $e->getMessage());
+            }
+
+            return $notification_created;
         }
 
         /**

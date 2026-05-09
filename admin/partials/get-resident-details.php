@@ -74,6 +74,10 @@ try {
                            LIMIT 5");
     $stmt->execute([$id]);
     $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($requests as &$request_row) {
+        $request_row['status'] = normalize_request_status_display($request_row['status'] ?? null);
+    }
+    unset($request_row);
 
     // 3. Fetch Recent Incident Reports (Last 5)
     // Note: incidents table uses resident_user_id (linking to users.id)

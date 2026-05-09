@@ -30,7 +30,7 @@ if (!csrf_validate()) {
 
 $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
 $type = isset($_POST['type']) ? sanitize_input($_POST['type']) : '';
-$status = isset($_POST['status']) ? sanitize_input($_POST['status']) : '';
+$status = isset($_POST['status']) ? normalize_request_status_display($_POST['status']) : '';
 
 if (!$id || !$type || !$status) {
     http_response_code(400);
@@ -48,7 +48,7 @@ if ($type === 'document') {
     exit;
 }
 
-$valid_statuses = ['Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled'];
+$valid_statuses = canonical_request_statuses();
 if (!in_array($status, $valid_statuses, true)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid status']);
@@ -57,11 +57,13 @@ if (!in_array($status, $valid_statuses, true)) {
 
 try {
     if ($type === 'document') {
+        $stored_status = normalize_request_status_for_storage($pdo, 'document_requests', $status);
         $stmt = $pdo->prepare("UPDATE document_requests SET status = ? WHERE id = ?");
-        $stmt->execute([$status, $id]);
+        $stmt->execute([$stored_status, $id]);
     } elseif ($type === 'business') {
+        $stored_status = normalize_request_status_for_storage($pdo, 'business_transactions', $status);
         $stmt = $pdo->prepare("UPDATE business_transactions SET status = ? WHERE id = ?");
-        $stmt->execute([$status, $id]);
+        $stmt->execute([$stored_status, $id]);
     }
 
     // Fetch updated record to return details for row update
@@ -72,11 +74,14 @@ try {
     }
     $fetch_stmt->execute([$id]);
     $updated_row = $fetch_stmt->fetch(PDO::FETCH_ASSOC);
+    if ($updated_row) {
+        $updated_row['status'] = normalize_request_status_display($updated_row['status'] ?? null);
+    }
 
     echo json_encode([
         'success' => true,
         'message' => 'Status updated successfully',
-        'status' => $status,
+        'status' => normalize_request_status_display($stored_status ?? $status),
         'updated_row' => $updated_row
     ]);
 

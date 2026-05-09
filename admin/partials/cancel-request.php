@@ -4,6 +4,7 @@ require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/csrf.php';
 require_once '../../includes/permission_checker.php';
+require_once '../../includes/notification_system.php';
 
 header('Content-Type: application/json');
 
@@ -42,7 +43,7 @@ if ($type === 'document') {
 
 try {
     if ($type === 'document') {
-        $stmt = $pdo->prepare("SELECT id, status, document_type FROM document_requests WHERE id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT dr.id, dr.status, dr.document_type, r.user_id FROM document_requests dr LEFT JOIN residents r ON dr.resident_id = r.id WHERE dr.id = ? LIMIT 1");
         $stmt->execute([$id]);
         $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -59,8 +60,9 @@ try {
         }
 
         $remarks = "Cancelled by admin: " . $reason;
-        $update = $pdo->prepare("UPDATE document_requests SET status = 'Cancelled', remarks = ? WHERE id = ?");
-        $update->execute([$remarks, $id]);
+        $cancelled_status = normalize_request_status_for_storage($pdo, 'document_requests', 'Cancelled');
+        $update = $pdo->prepare("UPDATE document_requests SET status = ?, remarks = ? WHERE id = ?");
+        $update->execute([$cancelled_status, $remarks, $id]);
 
         log_activity_db(
             $pdo,
@@ -71,6 +73,19 @@ try {
             'Pending',
             'Cancelled'
         );
+
+        if (!empty($request['user_id'])) {
+            $notification_sent = NotificationSystem::notify_document_status(
+                $pdo,
+                (int) $request['user_id'],
+                (string) $request['document_type'],
+                'Cancelled',
+                'my-document-requests.php'
+            );
+            if (!$notification_sent) {
+                error_log('Document cancellation notification failed for request_id=' . $id);
+            }
+        }
 
         echo json_encode(['success' => true, 'message' => 'Document request cancelled']);
         exit;

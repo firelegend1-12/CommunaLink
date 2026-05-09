@@ -32,7 +32,7 @@ if (!csrf_validate()) {
 
 // Get parameters from POST request
 $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
-$status = isset($_POST['status']) ? trim($_POST['status']) : '';
+$status = isset($_POST['status']) ? normalize_request_status_display($_POST['status']) : '';
 
 // Validate parameters
 if (empty($id) || empty($status)) {
@@ -41,51 +41,11 @@ if (empty($id) || empty($status)) {
     exit;
 }
 
-$allowed_statuses = ['Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled', 'Processing', 'Ready for Pickup'];
+$allowed_statuses = canonical_request_statuses();
 if (!in_array($status, $allowed_statuses, true)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid status value']);
     exit;
-}
-
-function document_request_status_values(PDO $pdo): array {
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM `document_requests` LIKE 'status'");
-        $column = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
-        $type = (string)($column['Type'] ?? '');
-        preg_match_all("/'((?:[^'\\\\]|\\\\.)*)'/", $type, $matches);
-        return array_map(static function ($value) {
-            return str_replace("\\'", "'", $value);
-        }, $matches[1] ?? []);
-    } catch (Throwable $e) {
-        error_log('Could not inspect document_requests.status enum: ' . $e->getMessage());
-        return [];
-    }
-}
-
-function document_request_storage_status(PDO $pdo, string $requested_status): string {
-    $enum_values = document_request_status_values($pdo);
-    if (empty($enum_values) || in_array($requested_status, $enum_values, true)) {
-        return $requested_status;
-    }
-
-    // Some submitted schemas use Processing/Ready for Pickup instead of Approved.
-    if ($requested_status === 'Approved') {
-        if (in_array('Processing', $enum_values, true)) {
-            return 'Processing';
-        }
-        if (in_array('Ready for Pickup', $enum_values, true)) {
-            return 'Ready for Pickup';
-        }
-    }
-
-    return $requested_status;
-}
-
-function document_request_display_status(string $stored_status): string {
-    return in_array($stored_status, ['Processing', 'Ready for Pickup'], true)
-        ? 'Approved'
-        : $stored_status;
 }
 
 try {
@@ -104,7 +64,8 @@ try {
         exit;
     }
     
-    $old_status = $old_data['status'];
+    $old_status = normalize_request_status_display($old_data['status'] ?? null);
+    $old_stored_status = (string)($old_data['status'] ?? '');
     $resident_id = $old_data['resident_id'];
     $document_type = $old_data['document_type'];
 
@@ -122,21 +83,21 @@ try {
         exit;
     }
     
-    $stored_status = document_request_storage_status($pdo, $status);
+    $stored_status = normalize_request_status_for_storage($pdo, 'document_requests', $status);
 
     // Update the status
     $stmt = $pdo->prepare('UPDATE document_requests SET status = ? WHERE id = ?');
     $stmt->execute([$stored_status, $id]);
 
     // Log the status change
-    $old_str = "status: $old_status";
+    $old_str = "status: $old_stored_status";
     $new_str = "status: $stored_status";
     log_activity_db(
         $pdo,
         'update_status',
         'document_request',
         $id,
-        "Document request status changed from '{$old_status}' to '{$stored_status}' for {$document_type} (Resident ID: {$resident_id})",
+        "Document request status changed from '{$old_stored_status}' to '{$stored_status}' for {$document_type} (Resident ID: {$resident_id})",
         $old_str,
         $new_str
     );
@@ -147,7 +108,7 @@ try {
     $res_user_id = $stmt_user->fetchColumn();
 
     if ($res_user_id) {
-        $notification_sent = NotificationSystem::notify_document_status($pdo, (int) $res_user_id, $document_type, document_request_display_status($stored_status), 'my-requests.php');
+        $notification_sent = NotificationSystem::notify_document_status($pdo, (int) $res_user_id, $document_type, normalize_request_status_display($stored_status), 'my-document-requests.php');
         if (!$notification_sent) {
             $notification_warning = 'Status updated, but notification delivery failed.';
             error_log('Notification delivery failed in update-document-request-status for request_id=' . $id);
@@ -160,7 +121,7 @@ try {
     
     $response = [
         'success' => true,
-        'status' => document_request_display_status($stored_status),
+        'status' => normalize_request_status_display($stored_status),
         'stored_status' => $stored_status,
     ];
     if ($notification_warning !== null) {

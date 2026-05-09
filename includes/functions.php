@@ -767,10 +767,188 @@ function get_resident_id($pdo, $user_id) {
  */
 function create_notification($pdo, $user_id, $title, $message, $type = 'general', $link = null) {
     try {
-        $stmt = $pdo->prepare("INSERT INTO notifications (user_id, title, message, type, link, is_read) VALUES (?, ?, ?, ?, ?, 0)");
-        return $stmt->execute([$user_id, $title, $message, $type, $link]);
+        static $notifications_columns = null;
+
+        if ($notifications_columns === null) {
+            $notifications_columns = [];
+            $colStmt = $pdo->query("SHOW COLUMNS FROM `notifications`");
+            if ($colStmt) {
+                foreach ($colStmt->fetchAll(PDO::FETCH_ASSOC) as $col) {
+                    $name = (string) ($col['Field'] ?? '');
+                    if ($name === '') {
+                        continue;
+                    }
+                    $notifications_columns[$name] = [
+                        'null' => strtoupper((string) ($col['Null'] ?? '')) === 'YES',
+                        'default' => array_key_exists('Default', $col) ? $col['Default'] : null,
+                    ];
+                }
+            }
+        }
+
+        $has_user_id = array_key_exists('user_id', $notifications_columns);
+        $has_resident_id = array_key_exists('resident_id', $notifications_columns);
+
+        if (!$has_user_id && !$has_resident_id) {
+            error_log('Error creating notification: notifications table missing user_id/resident_id columns');
+            return false;
+        }
+
+        $resident_id_value = null;
+        $needs_resident_id = false;
+        if ($has_resident_id) {
+            $resident_meta = $notifications_columns['resident_id'];
+            $needs_resident_id = ($resident_meta['null'] === false && $resident_meta['default'] === null);
+            $resolved_resident_id = get_resident_id($pdo, (int) $user_id);
+            if ($resolved_resident_id !== null) {
+                $resident_id_value = (int) $resolved_resident_id;
+            } elseif ($needs_resident_id) {
+                error_log('Error creating notification: could not resolve resident_id for user_id=' . (int) $user_id);
+                return false;
+            }
+        }
+
+        if ($has_user_id && $has_resident_id) {
+            $stmt = $pdo->prepare("INSERT INTO notifications (user_id, resident_id, title, message, type, link, is_read) VALUES (?, ?, ?, ?, ?, ?, 0)");
+            return $stmt->execute([(int) $user_id, $resident_id_value, $title, $message, $type, $link]);
+        }
+
+        if ($has_user_id) {
+            $stmt = $pdo->prepare("INSERT INTO notifications (user_id, title, message, type, link, is_read) VALUES (?, ?, ?, ?, ?, 0)");
+            return $stmt->execute([(int) $user_id, $title, $message, $type, $link]);
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO notifications (resident_id, title, message, type, link, is_read) VALUES (?, ?, ?, ?, ?, 0)");
+        return $stmt->execute([$resident_id_value, $title, $message, $type, $link]);
     } catch (PDOException $e) {
         error_log("Error creating notification: " . $e->getMessage());
         return false;
     }
+}
+
+/**
+ * Normalize request status values for consistent UI display across pages.
+ *
+ * The thesis-submitted schemas commonly allow only:
+ * Pending, Approved, Completed, Rejected, Cancelled
+ *
+ * Some legacy/older UI flows may store or return variants like:
+ * Processing / Ready for Pickup / uppercase variants.
+ *
+ * @param string|null $status
+ * @return string Normalized status label
+ */
+function normalize_request_status_display($status) {
+    $value = trim((string) $status);
+    if ($value === '') {
+        return '';
+    }
+
+    $upper = strtoupper($value);
+
+    // Legacy variants that should be shown as Approved in the UI.
+    if ($upper === 'PROCESSING' || $upper === 'READY FOR PICKUP') {
+        return 'Approved';
+    }
+
+    // Canonicalize common enum/label variants.
+    if ($upper === 'PENDING') {
+        return 'Pending';
+    }
+    if ($upper === 'APPROVED') {
+        return 'Approved';
+    }
+    if ($upper === 'COMPLETED') {
+        return 'Completed';
+    }
+    if ($upper === 'REJECTED') {
+        return 'Rejected';
+    }
+    if ($upper === 'CANCELLED' || $upper === 'CANCELED') {
+        return 'Cancelled';
+    }
+
+    return $value;
+}
+
+/**
+ * Canonical request statuses used by the current UI.
+ *
+ * @return array<int, string>
+ */
+function canonical_request_statuses() {
+    return ['Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled'];
+}
+
+/**
+ * Read the allowed ENUM values for a request status column.
+ *
+ * @param PDO $pdo
+ * @param string $table
+ * @return array<int, string>
+ */
+function request_status_enum_values(PDO $pdo, string $table) {
+    $allowed_tables = ['document_requests', 'business_transactions'];
+    if (!in_array($table, $allowed_tables, true)) {
+        return [];
+    }
+
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM `{$table}` LIKE 'status'");
+        $column = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+        $type = (string)($column['Type'] ?? '');
+        preg_match_all("/'((?:[^'\\\\]|\\\\.)*)'/", $type, $matches);
+        return array_map(static function ($value) {
+            return str_replace("\\'", "'", $value);
+        }, $matches[1] ?? []);
+    } catch (Throwable $e) {
+        error_log("Could not inspect {$table}.status enum: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Convert a requested UI status into the safest DB value for the current schema.
+ *
+ * Modern schemas store Approved directly. Older schemas may still only accept
+ * Processing or Ready for Pickup for the approved step.
+ *
+ * @param PDO $pdo
+ * @param string $table
+ * @param string|null $status
+ * @return string
+ */
+function normalize_request_status_for_storage(PDO $pdo, string $table, $status) {
+    $display_status = normalize_request_status_display($status);
+    if ($display_status === '') {
+        return '';
+    }
+
+    $enum_values = request_status_enum_values($pdo, $table);
+    if (empty($enum_values) || in_array($display_status, $enum_values, true)) {
+        return $display_status;
+    }
+
+    foreach ($enum_values as $enum_value) {
+        if (strcasecmp($display_status, $enum_value) === 0) {
+            return $enum_value;
+        }
+    }
+
+    if ($display_status === 'Approved') {
+        if (in_array('Processing', $enum_values, true)) {
+            return 'Processing';
+        }
+        if (in_array('Ready for Pickup', $enum_values, true)) {
+            return 'Ready for Pickup';
+        }
+        foreach ($enum_values as $enum_value) {
+            $normalized_enum = normalize_request_status_display($enum_value);
+            if ($normalized_enum === 'Approved') {
+                return $enum_value;
+            }
+        }
+    }
+
+    return $display_status;
 }

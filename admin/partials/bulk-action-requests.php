@@ -31,7 +31,7 @@ if (!csrf_validate()) {
 $action = isset($_POST['action']) ? sanitize_input($_POST['action']) : '';
 $ids = isset($_POST['ids']) && is_array($_POST['ids']) ? array_map('intval', $_POST['ids']) : [];
 $types = isset($_POST['types']) && is_array($_POST['types']) ? array_map('sanitize_input', $_POST['types']) : [];
-$status = isset($_POST['status']) ? sanitize_input($_POST['status']) : '';
+$status = isset($_POST['status']) ? normalize_request_status_display($_POST['status']) : '';
 
 if (empty($ids) || empty($action)) {
     http_response_code(400);
@@ -39,7 +39,7 @@ if (empty($ids) || empty($action)) {
     exit;
 }
 
-$valid_statuses = ['Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled'];
+$valid_statuses = canonical_request_statuses();
 $valid_actions = ['bulk_status', 'bulk_delete'];
 
 if (!in_array($action, $valid_actions)) {
@@ -97,7 +97,8 @@ try {
 
         if (!empty($doc_ids)) {
             $placeholders = implode(',', array_fill(0, count($doc_ids), '?'));
-            $params = array_merge([$status], $doc_ids);
+            $doc_status = normalize_request_status_for_storage($pdo, 'document_requests', $status);
+            $params = array_merge([$doc_status], $doc_ids);
             $stmt = $pdo->prepare("UPDATE document_requests SET status = ? WHERE id IN ({$placeholders})");
             $stmt->execute($params);
             $updated_count += $stmt->rowCount();
@@ -105,7 +106,8 @@ try {
 
         if (!empty($biz_ids)) {
             $placeholders = implode(',', array_fill(0, count($biz_ids), '?'));
-            $params = array_merge([$status], $biz_ids);
+            $biz_status = normalize_request_status_for_storage($pdo, 'business_transactions', $status);
+            $params = array_merge([$biz_status], $biz_ids);
             $stmt = $pdo->prepare("UPDATE business_transactions SET status = ? WHERE id IN ({$placeholders})");
             $stmt->execute($params);
             $updated_count += $stmt->rowCount();

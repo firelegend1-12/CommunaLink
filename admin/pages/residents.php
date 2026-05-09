@@ -431,8 +431,9 @@ try {
                                                         <span :class="{
                                                             'px-2 py-1 text-[10px] font-black uppercase rounded-lg': true,
                                                             'bg-yellow-100 text-yellow-700': req.status === 'Pending',
-                                                            'bg-blue-100 text-blue-700': req.status === 'Processing',
-                                                            'bg-green-100 text-green-700': req.status === 'Ready' || req.status === 'Completed',
+                                                            'bg-blue-100 text-blue-700': req.status === 'Approved',
+                                                            'bg-green-100 text-green-700': req.status === 'Completed',
+                                                            'bg-red-100 text-red-700': req.status === 'Rejected',
                                                             'bg-gray-100 text-gray-700': req.status === 'Cancelled'
                                                         }" x-text="req.status"></span>
                                                     </div>

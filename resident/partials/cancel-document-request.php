@@ -54,8 +54,9 @@ try {
     }
 
     $remarks = "Cancelled by resident: " . $reason;
-    $update = $pdo->prepare("UPDATE document_requests SET status = 'Cancelled', remarks = ? WHERE id = ?");
-    $update->execute([$remarks, $request_id]);
+    $cancelled_status = normalize_request_status_for_storage($pdo, 'document_requests', 'Cancelled');
+    $update = $pdo->prepare("UPDATE document_requests SET status = ?, remarks = ? WHERE id = ?");
+    $update->execute([$cancelled_status, $remarks, $request_id]);
 
     log_activity_db(
         $pdo,

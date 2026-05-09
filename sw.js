@@ -1,4 +1,4 @@
-const CACHE_NAME = 'communalink-system-v3';
+const CACHE_NAME = 'communalink-system-v4';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.php',
@@ -36,7 +36,28 @@ self.addEventListener('fetch', (event) => {
         requestUrl.pathname.includes('/partials/');
 
     if (isDynamicRequest) {
-        event.respondWith(fetch(event.request));
+        event.respondWith(
+            fetch(event.request).catch(() => {
+                const acceptHeader = event.request.headers.get('Accept') || '';
+
+                if (acceptHeader.includes('application/json')) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        error: 'Network request failed. Please check your connection and try again.'
+                    }), {
+                        status: 503,
+                        statusText: 'Service Unavailable',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                return new Response('Service temporarily unavailable. Please refresh and try again.', {
+                    status: 503,
+                    statusText: 'Service Unavailable',
+                    headers: { 'Content-Type': 'text/plain' }
+                });
+            })
+        );
         return;
     }
     
