@@ -7,7 +7,7 @@ require_once '../../includes/permission_checker.php';
 header('Content-Type: application/json');
 
 require_login();
-require_permission_or_redirect('edit_resident_profile', '../pages/residents.php');
+require_permission_or_json('edit_resident_profile', 403, 'Forbidden');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !csrf_validate()) {
     http_response_code(403);

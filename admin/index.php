@@ -107,9 +107,9 @@ if ($cached_data) {
         // Fetch quick stats for dashboard cards in one query
         $stats_stmt = $pdo->query("SELECT
             (SELECT COUNT(*) FROM businesses) AS business_count,
-            (SELECT COUNT(*) FROM document_requests WHERE status = 'Pending') AS pending_doc_requests,
-            (SELECT COUNT(*) FROM business_transactions WHERE status = 'Pending') AS pending_biz_requests,
-            (SELECT COUNT(*) FROM incidents WHERE status IN ('Pending', 'In Progress')) AS active_incidents,
+            (SELECT COUNT(*) FROM document_requests WHERE UPPER(status) = 'PENDING') AS pending_doc_requests,
+            (SELECT COUNT(*) FROM business_transactions WHERE UPPER(status) = 'PENDING') AS pending_biz_requests,
+            (SELECT COUNT(*) FROM incidents WHERE UPPER(status) IN ('PENDING', 'IN PROGRESS')) AS active_incidents,
             (SELECT COUNT(*) FROM events WHERE event_date >= CURDATE()) AS upcoming_events");
         $dashboard_stats = $stats_stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
@@ -595,7 +595,14 @@ $today_quote = $quotes[array_rand($quotes)];
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo date('M d, Y', strtotime($trans['application_date'])); ?></td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                                                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                                <?php echo $trans['status'] === 'Approved' ? 'bg-green-100 text-green-800' : ($trans['status'] === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'); ?>">
+                                                            <?php
+                                                            $trans_status = strtoupper(trim((string)($trans['status'] ?? '')));
+                                                            echo $trans_status === 'APPROVED'
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : ($trans_status === 'REJECTED'
+                                                                    ? 'bg-red-100 text-red-800'
+                                                                    : 'bg-yellow-100 text-yellow-800');
+                                                            ?>">
                                                                 <?php echo htmlspecialchars($trans['status']); ?>
                                                             </span>
                                                         </td>

@@ -1,10 +1,42 @@
 <?php
 require_once '../config/init.php';
+require_once '../includes/storage_manager.php';
 
 function is_valid_qr_token_format(string $token): bool
 {
     return preg_match('/\A(?:[a-f0-9]{48}|[a-f0-9]{64})\z/i', $token) === 1;
 }
+
+function resident_profile_image_url(string $storedPath): string
+{
+    $path = trim($storedPath);
+    if ($path === '') {
+        return '';
+    }
+
+    if (strpos($path, 'gs://') === 0 || preg_match('#^https?://#i', $path) === 1) {
+        return StorageManager::resolvePublicUrl($path);
+    }
+
+    $normalized = ltrim(str_replace('\\', '/', $path), '/');
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (stripos($normalized, 'admin/') === 0) {
+        return app_url('/' . $normalized);
+    }
+
+    return app_url('/admin/' . $normalized);
+}
+
+$defaultAvatarDataUri = 'data:image/svg+xml;utf8,' . rawurlencode(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">' .
+    '<rect width="200" height="200" rx="100" fill="#e5e7eb"/>' .
+    '<circle cx="100" cy="78" r="34" fill="#cbd5e1"/>' .
+    '<path d="M40 178c10-34 36-52 60-52s50 18 60 52" fill="#cbd5e1"/>' .
+    '</svg>'
+);
 
 $clientIp = RateLimiter::getClientIP();
 $rateLimitStatus = RateLimiter::checkRateLimit('qr_verify', $clientIp);
@@ -96,11 +128,10 @@ if ($failureReason === 'rate_limited') {
             <p>Barangay Resident Verification</p>
         </div>
         <div class="body">
-            <?php if (!empty($resident['profile_image_path']) && file_exists('../' . $resident['profile_image_path'])): ?>
-                <img src="../<?php echo htmlspecialchars($resident['profile_image_path']); ?>" alt="Photo" class="photo">
-            <?php else: ?>
-                <img src="../assets/images/default-avatar.png" alt="Photo" class="photo">
-            <?php endif; ?>
+            <?php
+            $photoUrl = resident_profile_image_url((string)($resident['profile_image_path'] ?? ''));
+            ?>
+            <img src="<?php echo htmlspecialchars($photoUrl !== '' ? $photoUrl : $defaultAvatarDataUri); ?>" alt="Photo" class="photo">
             <div class="name">
                 <?php echo htmlspecialchars($resident['first_name'] . ' ' . ($resident['middle_initial'] ? $resident['middle_initial'] . '. ' : '') . $resident['last_name']); ?>
             </div>

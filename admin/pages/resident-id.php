@@ -4,11 +4,6 @@ require_once '../partials/admin_auth.php';
  * Barangay Resident ID Card
  */
 
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin'])) {
-    header('Location: ../../index.php');
-    exit;
-}
-
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/storage_manager.php';
@@ -60,7 +55,15 @@ try {
 }
 
 $full_name = strtoupper($resident['last_name'] . ', ' . $resident['first_name'] . ' ' . $resident['middle_initial'] . '.');
-$address = strtoupper('123 AGUSTIN STREET, BGRY PAKIAD, ILOILO CITY'); // Example address
+$address = strtoupper(trim((string)($resident['address'] ?? '')));
+if ($address === '') {
+    $address = 'N/A';
+}
+$display_id_number = trim((string)($resident['id_number'] ?? ''));
+if ($display_id_number === '') {
+    $createdAtYear = isset($resident['created_at']) ? (int)date('Y', strtotime((string)$resident['created_at'])) : (int)date('Y');
+    $display_id_number = sprintf('BR-%d-%04d', $createdAtYear, (int)$resident['id']);
+}
 
 // Ensure resident has a secure QR token
 $existingToken = (string)($resident['qr_token'] ?? '');
@@ -122,6 +125,9 @@ echo htmlspecialchars($address); ?></p>
                     <p class="text-gray-500 uppercase tracking-wider text-xxs">LAST NAME, FIRST NAME, MI.</p>
                     <p class="font-bold text-xs"><?php
 echo htmlspecialchars($full_name); ?></p>
+                    <p class="text-gray-500 uppercase tracking-wider text-xxs">ID NUMBER</p>
+                    <p class="font-bold text-xs"><?php
+echo htmlspecialchars($display_id_number); ?></p>
                 </div>
                 <div class="grid grid-cols-3 gap-x-2">
                     <div>
