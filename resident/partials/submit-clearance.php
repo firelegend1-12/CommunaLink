@@ -23,12 +23,27 @@ if (!csrf_validate()) {
 }
 
 try {
-    $resident_id = filter_input(INPUT_POST, 'resident_id', FILTER_VALIDATE_INT);
+    $posted_resident_id = filter_input(INPUT_POST, 'resident_id', FILTER_VALIDATE_INT);
+    $resident_lookup_stmt = $pdo->prepare("SELECT id FROM residents WHERE user_id = ? LIMIT 1");
+    $resident_lookup_stmt->execute([$_SESSION['user_id']]);
+    $resolved_resident_id = (int) ($resident_lookup_stmt->fetchColumn() ?: 0);
+
+    if ($resolved_resident_id <= 0) {
+        echo json_encode(['success' => false, 'error' => 'Resident profile not found.']);
+        exit;
+    }
+
+    if (!empty($posted_resident_id) && (int) $posted_resident_id !== $resolved_resident_id) {
+        echo json_encode(['success' => false, 'error' => 'Unauthorized submission profile mismatch.']);
+        exit;
+    }
+
+    $resident_id = $resolved_resident_id;
     $purpose = sanitize_input($_POST['purpose'] ?? '');
     $applicant_name = sanitize_input($_POST['applicant_name'] ?? '');
     $age = sanitize_input($_POST['age'] ?? '');
 
-    if (!$resident_id || empty($purpose)) {
+    if (empty($purpose)) {
         echo json_encode(['success' => false, 'error' => 'Purpose is required.']);
         exit;
     }

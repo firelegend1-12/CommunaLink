@@ -77,10 +77,11 @@ $has_missing_data = !empty($missing_fields);
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        @page { size: A4; margin: 1in; }
         @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .no-print { display: none !important; }
-            .printable-area { margin: 0; padding: 1rem; border: none; box-shadow: none; }
+            .printable-area { margin: 0; padding: 0; border: none; box-shadow: none; }
         }
 <?php
 if ($is_view_only): ?>

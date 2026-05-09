@@ -98,10 +98,11 @@ $has_missing_data = !empty($missing_fields);
     <title>Barangay Pakiad</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        @page { size: A4; margin: 1in; }
         @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .no-print { display: none !important; }
-            .printable-area { margin: 0; padding: 2rem; border: none; box-shadow: none; }
+            .printable-area { margin: 0; padding: 0; border: none; box-shadow: none; }
         }
 <?php
 if ($is_view_only): ?>

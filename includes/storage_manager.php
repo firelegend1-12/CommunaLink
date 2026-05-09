@@ -47,6 +47,12 @@ class StorageManager
             return ['success' => false, 'error' => $localError . ' Cloud fallback: ' . $cloudError];
         }
 
+        if ($preferCloudStorage && !$localResult['success']) {
+            $cloudError = (string)($cloudResult['error'] ?? 'Cloud storage failed.');
+            $localError = (string)($localResult['error'] ?? 'Local storage failed.');
+            return ['success' => false, 'error' => $cloudError . ' Local fallback: ' . $localError];
+        }
+
         return $localResult;
     }
 
@@ -86,7 +92,9 @@ class StorageManager
             try {
                 $bucket->upload($stream, ['name' => $objectPath]);
             } finally {
-                fclose($stream);
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
             }
 
             return [

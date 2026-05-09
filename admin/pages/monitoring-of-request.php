@@ -96,13 +96,13 @@ try {
     
     // Base UNION query (without filters)
     $union_query = "(
-        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
+        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, CASE WHEN dr.status IN ('Processing', 'Ready for Pickup') THEN 'Approved' ELSE dr.status END AS status, 'document' as request_type, dr.details, dr.purpose, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
         FROM document_requests dr 
         LEFT JOIN residents r ON dr.resident_id = r.id
     ) UNION ALL (
-        SELECT bt.id, r.first_name, r.last_name, CASE WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance' ELSE bt.transaction_type END as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
+        SELECT bt.id, r.first_name, r.last_name, CASE WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance' ELSE bt.transaction_type END as document_type, bt.application_date as date_requested, bt.payment_date, CASE WHEN bt.status IN ('Processing', 'Ready for Pickup') THEN 'Approved' ELSE bt.status END AS status, 'business' as request_type, 
         JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
-        bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason, bt.admin_notes
+        NULL as purpose, bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason, bt.admin_notes
         FROM business_transactions bt 
         LEFT JOIN residents r ON bt.resident_id = r.id
     )";
@@ -110,15 +110,15 @@ try {
     // Apply type filter by modifying the union query
     if ($type_filter === 'document') {
         $union_query = "(
-            SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.details, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
+            SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, CASE WHEN dr.status IN ('Processing', 'Ready for Pickup') THEN 'Approved' ELSE dr.status END AS status, 'document' as request_type, dr.details, dr.purpose, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
             FROM document_requests dr 
             LEFT JOIN residents r ON dr.resident_id = r.id
         )";
     } else if ($type_filter === 'business') {
         $union_query = "(
-            SELECT bt.id, r.first_name, r.last_name, CASE WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance' ELSE bt.transaction_type END as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
+            SELECT bt.id, r.first_name, r.last_name, CASE WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance' ELSE bt.transaction_type END as document_type, bt.application_date as date_requested, bt.payment_date, CASE WHEN bt.status IN ('Processing', 'Ready for Pickup') THEN 'Approved' ELSE bt.status END AS status, 'business' as request_type, 
             JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
-            bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason, bt.admin_notes
+            NULL as purpose, bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason, bt.admin_notes
             FROM business_transactions bt 
             LEFT JOIN residents r ON bt.resident_id = r.id
         )";
@@ -214,14 +214,14 @@ try {
 
     // 2. Active Workload (Pending + Approved)
     $q_workload = $pdo->query("SELECT 
-        (SELECT COUNT(*) FROM document_requests WHERE status IN ('Pending', 'Approved')) + 
-        (SELECT COUNT(*) FROM business_transactions WHERE status IN ('Pending', 'Approved')) as total");
+        (SELECT COUNT(*) FROM document_requests WHERE status IN ('Pending', 'Approved', 'Processing', 'Ready for Pickup')) + 
+        (SELECT COUNT(*) FROM business_transactions WHERE status IN ('Pending', 'Approved', 'Processing', 'Ready for Pickup')) as total");
     $stats['workload'] = $q_workload->fetchColumn();
 
     // 3. Approved (Ready for Pickup)
     $q_ready = $pdo->query("SELECT 
-        (SELECT COUNT(*) FROM document_requests WHERE status = 'Approved') + 
-        (SELECT COUNT(*) FROM business_transactions WHERE status = 'Approved') as total");
+        (SELECT COUNT(*) FROM document_requests WHERE status IN ('Approved', 'Processing', 'Ready for Pickup')) + 
+        (SELECT COUNT(*) FROM business_transactions WHERE status IN ('Approved', 'Processing', 'Ready for Pickup')) as total");
     $stats['ready'] = $q_ready->fetchColumn();
 
     // 4. Daily Revenue (Paid today)
@@ -305,6 +305,89 @@ foreach ($requests as $summary_req) {
 
             return String(value);
         },
+        firstDetailValue(details, keys, fallback = '') {
+            const source = details && typeof details === 'object' ? details : {};
+            for (const key of keys) {
+                const value = source[key];
+                if (value !== null && value !== undefined && value !== '') {
+                    return value;
+                }
+            }
+            return fallback;
+        },
+        getApplicationDetails(req) {
+            if (!req) return [];
+
+            const details = req.details && typeof req.details === 'object' ? req.details : {};
+            const docType = String(req.docType || '').toLowerCase();
+            const day = this.firstDetailValue(details, ['day_issued', 'day'], req.requestDay || '');
+            const month = this.firstDetailValue(details, ['month_issued', 'month'], req.requestMonth || '');
+            const fullName = this.firstDetailValue(details, ['applicant_name', 'full_name', 'requester_name'], req.name || '');
+            const age = this.firstDetailValue(details, ['age']);
+
+            const field = (label, value) => ({ label, value: this.formatDetailValue(value) });
+
+            if (req.type === 'business') {
+                if (docType === 'business clearance') {
+                    return [
+                        field('Owner Name', this.firstDetailValue(details, ['owner_name'], req.name || '')),
+                        field('Business Location', this.firstDetailValue(details, ['address', 'business_location', 'location'])),
+                        field('Day', day),
+                        field('Month', month)
+                    ];
+                }
+
+                return [
+                    field('Name of Business', this.firstDetailValue(details, ['business_name'])),
+                    field('Name of Owner', this.firstDetailValue(details, ['owner_name'], req.name || '')),
+                    field('Type/Line of Business', this.firstDetailValue(details, ['business_type', 'line_of_business'])),
+                    field('Business Location', this.firstDetailValue(details, ['address', 'business_location', 'location'])),
+                    field('Day', day),
+                    field('Month', month)
+                ];
+            }
+
+            if (docType === 'barangay clearance') {
+                return [
+                    field('Full Name', fullName),
+                    field('Age', age),
+                    field('Purpose', this.firstDetailValue(details, ['purpose'], req.purpose || '')),
+                    field('Day', day),
+                    field('Month', month)
+                ];
+            }
+
+            if (docType === 'certificate of residency') {
+                return [
+                    field('Full Name', fullName),
+                    field('Age', age),
+                    field('Years of Residency', this.firstDetailValue(details, ['duration', 'years_of_residency'])),
+                    field('Day', day),
+                    field('Month', month)
+                ];
+            }
+
+            if (docType === 'certificate of indigency (special)' || docType.includes('special')) {
+                return [
+                    field('Name of Patient/Deceased', this.firstDetailValue(details, ['beneficiary_name', 'patient_name', 'deceased_name'])),
+                    field('Requester Name', this.firstDetailValue(details, ['requester_name'], req.name || '')),
+                    field('Relation to the Patient', this.firstDetailValue(details, ['relation', 'relationship'])),
+                    field('Day', day),
+                    field('Month', month)
+                ];
+            }
+
+            if (docType === 'certificate of indigency') {
+                return [
+                    field('Full Name', fullName),
+                    field('Age', age),
+                    field('Day', day),
+                    field('Month', month)
+                ];
+            }
+
+            return Object.entries(details).map(([key, value]) => field(this.formatDetailLabel(key), value));
+        },
         async submitCashPayment() {
             if (!this.selectedReq) return;
 
@@ -345,9 +428,20 @@ foreach ($requests as $summary_req) {
                 this.selectedReq.changeValue = Number(data.change_amount || 0).toFixed(2);
                 this.selectedReq.cashInput = '';
                 this.selectedReq.isPaying = false;
+                if (this.selectedReq.type === 'document' && data.status) {
+                    this.selectedReq.status = data.status;
+                    const row = document.getElementById(`request-row-${this.selectedReq.type}-${this.selectedReq.id}`);
+                    if (row) {
+                        const statusCell = row.querySelector('.status-badge');
+                        if (statusCell) {
+                            statusCell.textContent = data.status;
+                            statusCell.className = 'status-badge bg-green-100 text-green-800';
+                        }
+                    }
+                }
 
                 updateRowPaymentBadge(this.selectedReq.id, this.selectedReq.type, this.selectedReq.orNumber);
-                showToast('Cash payment recorded. You can now print.');
+                showToast(this.selectedReq.type === 'document' ? 'Cash payment recorded. Request completed and ready to print.' : 'Cash payment recorded. You can now print.');
             } catch (e) {
                 showToast('Failed to process cash payment.', 'error');
             }
@@ -371,14 +465,14 @@ foreach ($requests as $summary_req) {
                     showToast(data.error || 'Failed to update request status.', 'error');
                     return;
                 }
-                this.selectedReq.status = targetStatus;
+                this.selectedReq.status = data.status || targetStatus;
                 const row = document.getElementById(`request-row-${this.selectedReq.type}-${this.selectedReq.id}`);
                 if (row) {
                     const statusCell = row.querySelector('.status-badge');
                     if (statusCell) {
-                        statusCell.textContent = targetStatus;
-                        const bgClass = targetStatus === 'Completed' ? 'bg-green-100 text-green-800' :
-                                        targetStatus === 'Approved' ? 'bg-blue-100 text-blue-800' :
+                        statusCell.textContent = this.selectedReq.status;
+                        const bgClass = this.selectedReq.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                        this.selectedReq.status === 'Approved' ? 'bg-blue-100 text-blue-800' :
                                         'bg-yellow-100 text-yellow-800';
                         statusCell.className = 'status-badge ' + bgClass;
                     }
@@ -806,6 +900,9 @@ foreach ($requests as $req):
                                                         'name' => (string) $name,
                                                         'docType' => (string) $doc_type,
                                                         'date' => (string) $date,
+                                                        'purpose' => (string) ($req['purpose'] ?? ''),
+                                                        'requestDay' => date('j', strtotime((string) $req['date_requested'])),
+                                                        'requestMonth' => date('F', strtotime((string) $req['date_requested'])),
                                                         'status' => (string) $status_text,
                                                         'statusBg' => (string) $status_bg,
                                                         'orNumber' => (string) ($req['or_number'] ?? ''),
@@ -1047,19 +1144,19 @@ endif; ?>
                               </div>
                            </div>
 
-                                    <!-- Application Details Section (for business/complex requests) -->
-                                    <template x-if="(selectedReq.details && Object.keys(selectedReq.details).length > 0) || selectedReq.cancellationReason">
+                                    <!-- Application Details Section -->
+                                    <template x-if="getApplicationDetails(selectedReq).length > 0 || selectedReq.cancellationReason">
                               <div class="bg-gray-50 rounded-lg p-4">
                                  <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center">
                                     <i class="fas fa-info-circle mr-2"></i>APPLICATION DETAILS
                                  </h3>
                                  <div class="space-y-3">
-                                                <template x-if="selectedReq.details && Object.keys(selectedReq.details).length > 0">
+                                                <template x-if="getApplicationDetails(selectedReq).length > 0">
                                                 <div class="space-y-3">
-                                                <template x-for="(value, key) in selectedReq.details" :key="key">
+                                                <template x-for="item in getApplicationDetails(selectedReq)" :key="item.label">
                                        <div>
-                                                        <p class="text-xs font-semibold text-gray-600 uppercase" x-text="formatDetailLabel(key)"></p>
-                                                        <p class="mt-1 text-sm font-medium text-gray-900" x-text="formatDetailValue(value)"></p>
+                                                        <p class="text-xs font-semibold text-gray-600 uppercase" x-text="item.label"></p>
+                                                        <p class="mt-1 text-sm font-medium text-gray-900" x-text="item.value"></p>
                                        </div>
                                     </template>
                                                 </div>

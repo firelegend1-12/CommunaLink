@@ -1,12 +1,30 @@
 <?php
 session_start();
 header('Content-Type: application/json');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 require_once '../../config/database.php';
-$resident_id = $_SESSION['resident_id'] ?? null;
-$user_id = $_SESSION['user_id'] ?? null;
-if (!$resident_id || !$user_id) {
-    echo json_encode(['error' => 'Not logged in']);
+require_once '../../includes/functions.php';
+
+$user_id = (int) ($_SESSION['user_id'] ?? 0);
+$resident_id = (int) ($_SESSION['resident_id'] ?? 0);
+
+if ($user_id <= 0) {
+    echo json_encode([
+        'error' => 'Not logged in',
+        'notifications' => [],
+        'doc_requests' => [],
+        'biz_requests' => []
+    ]);
     exit;
+}
+
+if ($resident_id <= 0) {
+    $resolved_resident_id = (int) (get_resident_id($pdo, $user_id) ?? 0);
+    if ($resolved_resident_id > 0) {
+        $resident_id = $resolved_resident_id;
+        $_SESSION['resident_id'] = $resident_id;
+    }
 }
 
 // Fetch notifications
@@ -15,8 +33,8 @@ $stmt->execute([$user_id]);
 $notifications = $stmt->fetchAll();
 
 // Fetch document requests
-$stmt = $pdo->prepare('SELECT id, document_type, purpose, date_requested, status, remarks, NULL AS admin_notes, details FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC');
-$stmt->execute([$resident_id]);
+$stmt = $pdo->prepare('SELECT id, document_type, purpose, date_requested, status, remarks, NULL AS admin_notes, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC');
+$stmt->execute([$user_id, $resident_id]);
 $doc_requests = $stmt->fetchAll();
 
 // Fetch business transactions
@@ -25,6 +43,7 @@ $stmt->execute([$resident_id]);
 $biz_requests = $stmt->fetchAll();
 
 echo json_encode([
+    'error' => $resident_id > 0 ? null : 'Resident profile not found.',
     'notifications' => $notifications,
     'doc_requests' => $doc_requests,
     'biz_requests' => $biz_requests

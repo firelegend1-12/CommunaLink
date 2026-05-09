@@ -28,8 +28,8 @@ if (!$resident_id) {
 require_once '../config/database.php';
 
 // Fetch document requests only
-$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, remarks, NULL AS admin_notes, details FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC");
-$stmtDoc->execute([$resident_id]);
+$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, remarks, NULL AS admin_notes, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC");
+$stmtDoc->execute([$_SESSION['user_id'], $resident_id]);
 $docRequests = $stmtDoc->fetchAll();
 
 require_once 'partials/header.php';
@@ -107,6 +107,8 @@ require_once 'partials/header.php';
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const initialRequests = <?php echo json_encode($docRequests, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+    let hasRenderedRequests = Array.isArray(initialRequests) && initialRequests.length > 0;
     const toast = document.getElementById('toast-banner');
     if (toast) {
         const container = document.getElementById('residentToastContainer');
@@ -162,12 +164,24 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>`;
     }
 
+    function renderRequestsMessage(message, tone = 'neutral') {
+        const list = document.getElementById('requests-list');
+        if (!list) return;
+
+        const palette = tone === 'error'
+            ? { text: '#991b1b', bg: '#fef2f2', border: '#fecaca' }
+            : { text: '#666', bg: '#fff', border: '#e5e7eb' };
+
+        list.innerHTML = `<div style="text-align: center; padding: 30px; color: ${palette.text}; background: ${palette.bg}; border: 1px solid ${palette.border}; border-radius: 12px;">${escapeHTML(message)}</div>`;
+    }
+
     function renderDocumentRequests(requests) {
         const list = document.getElementById('requests-list');
         if (!list) return;
         let html = '';
 
-        if (requests.length > 0) {
+        if (Array.isArray(requests) && requests.length > 0) {
+            hasRenderedRequests = true;
             requests.forEach(req => {
                 const status = req.status || 'Pending';
                 let badgeClass = 'pending';
@@ -203,24 +217,42 @@ document.addEventListener('DOMContentLoaded', function() {
                 list.innerHTML = html;
             }
         } else {
-            list.innerHTML = '<div style="text-align: center; padding: 30px; color: #666; background: #fff; border-radius: 12px;">You have not submitted any document requests yet.</div>';
+            hasRenderedRequests = false;
+            renderRequestsMessage('You have not submitted any document requests yet.');
         }
     }
 
     function loadRequests() {
-        fetch('partials/fetch-live-updates.php')
-            .then(response => response.json())
-            .then(data => {
-                if (data.doc_requests) {
-                    renderDocumentRequests(data.doc_requests);
+        fetch('partials/fetch-live-updates.php', {
+            cache: 'no-store',
+            credentials: 'same-origin'
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Request failed with status ${response.status}`);
                 }
+                return response.json();
+            })
+            .then(data => {
+                if (Array.isArray(data.doc_requests)) {
+                    if (data.doc_requests.length === 0 && hasRenderedRequests) {
+                        console.warn('Live document request poll returned empty while server-rendered requests exist; keeping current list.', data);
+                        return;
+                    }
+
+                    renderDocumentRequests(data.doc_requests);
+                    return;
+                }
+
+                renderRequestsMessage(data.error || 'Unable to load your document requests right now.', 'error');
             })
             .catch(error => {
                 console.error('Error:', error);
+                renderRequestsMessage('Unable to load your document requests right now. Please refresh the page.', 'error');
             });
     }
 
-    // Initial load
+    renderDocumentRequests(initialRequests);
     loadRequests();
     // Polling every 5 seconds for status updates
     setInterval(loadRequests, 5000);

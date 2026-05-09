@@ -32,7 +32,7 @@ class SecurityHeaders {
         'x_content_type_options' => 'nosniff',
         'x_xss_protection' => '1; mode=block',
         'referrer_policy' => 'strict-origin-when-cross-origin',
-        'permissions_policy' => 'geolocation=(), microphone=(), camera=()',
+        'permissions_policy' => 'geolocation=(self), microphone=(), camera=()',
         'strict_transport_security' => 'max-age=31536000; includeSubDomains; preload',
         'cache_control' => 'no-store, no-cache, must-revalidate, max-age=0',
         'pragma' => 'no-cache'
@@ -389,12 +389,12 @@ class SecurityHeaders {
         // Relaxed CSP for public pages
         $public_csp = [
             'default-src' => ["'self'"],
-            'script-src' => ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://cdn.tailwindcss.com', 'https://unpkg.com'],
+            'script-src' => ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://cdn.tailwindcss.com', 'https://unpkg.com', 'https://maps.googleapis.com', 'https://maps.gstatic.com'],
             'style-src' => ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com'],
             'font-src' => ["'self'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com', 'data:'],
             'img-src' => ["'self'", 'data:', 'https:'],
-            'connect-src' => ["'self'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://cdn.tailwindcss.com', 'https://unpkg.com'],
-            'frame-src' => ["'self'"],
+            'connect-src' => ["'self'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://cdn.tailwindcss.com', 'https://unpkg.com', 'https://maps.googleapis.com'],
+            'frame-src' => ["'self'", 'https://www.google.com', 'https://maps.google.com'],
             'object-src' => ["'none'"],
             'base-uri' => ["'self'"],
             'form-action' => ["'self'"]

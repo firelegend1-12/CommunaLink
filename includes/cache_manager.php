@@ -36,9 +36,17 @@ class CacheManager {
     public static function init($config = []) {
         self::$config = array_merge(self::$config, $config);
         
-        // Create cache directory if it doesn't exist
+        // App Engine Standard exposes the app directory as read-only; use /tmp when needed.
         if (!is_dir(self::$config['cache_dir'])) {
-            mkdir(self::$config['cache_dir'], 0755, true);
+            @mkdir(self::$config['cache_dir'], 0755, true);
+        }
+
+        if (!is_dir(self::$config['cache_dir']) || !is_writable(self::$config['cache_dir'])) {
+            $fallback_dir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'communalink-cache';
+            if (!is_dir($fallback_dir)) {
+                @mkdir($fallback_dir, 0755, true);
+            }
+            self::$config['cache_dir'] = $fallback_dir . DIRECTORY_SEPARATOR;
         }
         
         // Initialize backends
@@ -315,7 +323,9 @@ class FileBackend {
         $cached = json_decode($data, true);
         
         if (!$cached || $cached['expires'] < time()) {
-            unlink($filename);
+            if (is_writable(dirname($filename))) {
+                @unlink($filename);
+            }
             return null;
         }
         
@@ -331,12 +341,19 @@ class FileBackend {
             'created' => time()
         ];
         
+        if (!is_dir($this->cache_dir)) {
+            @mkdir($this->cache_dir, 0755, true);
+        }
+        if (!is_writable($this->cache_dir)) {
+            return false;
+        }
+
         return file_put_contents($filename, json_encode($data)) !== false;
     }
     
     public function delete($key) {
         $filename = $this->getFilename($key);
-        return file_exists($filename) ? unlink($filename) : true;
+        return file_exists($filename) && is_writable(dirname($filename)) ? @unlink($filename) : true;
     }
     
     public function exists($key) {
@@ -345,10 +362,10 @@ class FileBackend {
     }
     
     public function clear() {
-        $files = glob($this->cache_dir . '*');
+        $files = glob($this->cache_dir . '*') ?: [];
         foreach ($files as $file) {
-            if (is_file($file)) {
-                unlink($file);
+            if (is_file($file) && is_writable(dirname($file))) {
+                @unlink($file);
             }
         }
         return true;

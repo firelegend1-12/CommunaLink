@@ -60,7 +60,7 @@ try {
     $notification_warning = null;
 
     if ($type === 'document') {
-        $stmt = $pdo->prepare("SELECT dr.id, dr.document_type, dr.price, dr.payment_status, dr.or_number, r.user_id, CONCAT(r.first_name, ' ', r.last_name) AS resident_name FROM document_requests dr LEFT JOIN residents r ON dr.resident_id = r.id WHERE dr.id = ? FOR UPDATE");
+        $stmt = $pdo->prepare("SELECT dr.id, dr.document_type, dr.price, dr.payment_status, dr.or_number, dr.status, r.user_id, CONCAT(r.first_name, ' ', r.last_name) AS resident_name FROM document_requests dr LEFT JOIN residents r ON dr.resident_id = r.id WHERE dr.id = ? FOR UPDATE");
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -98,8 +98,13 @@ try {
     $generated_or = 'OR-' . date('YmdHis') . '-' . $type . '-' . $id;
     $or_number = $existing_or !== '' ? $existing_or : $generated_or;
 
-    $update = $pdo->prepare("UPDATE {$table} SET payment_status = 'Paid', payment_date = NOW(), or_number = ?, cash_received = ?, change_amount = ? WHERE id = ?");
-    $update->execute([$or_number, $cash_received, $change_amount, $id]);
+    if ($type === 'document') {
+        $update = $pdo->prepare("UPDATE document_requests SET payment_status = 'Paid', payment_date = NOW(), or_number = ?, cash_received = ?, change_amount = ?, status = CASE WHEN status IN ('Rejected', 'Cancelled') THEN status ELSE 'Completed' END WHERE id = ?");
+        $update->execute([$or_number, $cash_received, $change_amount, $id]);
+    } else {
+        $update = $pdo->prepare("UPDATE {$table} SET payment_status = 'Paid', payment_date = NOW(), or_number = ?, cash_received = ?, change_amount = ? WHERE id = ?");
+        $update->execute([$or_number, $cash_received, $change_amount, $id]);
+    }
 
     if (!empty($row['user_id'])) {
         $notification_sent = NotificationSystem::notify_payment_update(
@@ -114,6 +119,19 @@ try {
         if (!$notification_sent) {
             $notification_warning = 'Payment recorded, but notification delivery failed.';
             error_log('Notification delivery failed in make-cash-payment for id=' . $id . ' type=' . $type);
+        }
+
+        if ($type === 'document' && !in_array((string)($row['status'] ?? ''), ['Rejected', 'Cancelled'], true)) {
+            $status_notification_sent = NotificationSystem::notify_document_status(
+                $pdo,
+                (int) $row['user_id'],
+                $item_name,
+                'Completed',
+                'my-requests.php'
+            );
+            if (!$status_notification_sent && $notification_warning === null) {
+                $notification_warning = 'Payment recorded, but status notification delivery failed.';
+            }
         }
     }
 
@@ -136,6 +154,7 @@ try {
         'amount_due' => number_format($amount_due, 2, '.', ''),
         'cash_received' => number_format($cash_received, 2, '.', ''),
         'change_amount' => number_format($change_amount, 2, '.', ''),
+        'status' => $type === 'document' && !in_array((string)($row['status'] ?? ''), ['Rejected', 'Cancelled'], true) ? 'Completed' : null,
     ];
 
     if ($notification_warning !== null) {

@@ -29,8 +29,8 @@ if (!$resident_id) {
 
 require_once '../config/database.php';
 // Get document requests
-$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, remarks, details FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC");
-$stmtDoc->execute([$resident_id]);
+$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, remarks, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC");
+$stmtDoc->execute([$_SESSION['user_id'], $resident_id]);
 $docRequests = $stmtDoc->fetchAll();
 
 // Get business transactions
@@ -57,6 +57,11 @@ $bizRequests = $stmtBiz->fetchAll();
     </div>
 </div>
 <script>
+const initialDocRequests = <?php echo json_encode($docRequests, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+const initialBizRequests = <?php echo json_encode($bizRequests, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+let hasRenderedRequests = (Array.isArray(initialDocRequests) && initialDocRequests.length > 0)
+    || (Array.isArray(initialBizRequests) && initialBizRequests.length > 0);
+
 document.addEventListener('DOMContentLoaded', function() {
     const toast = document.getElementById('toast-banner');
     if (toast) {
@@ -117,14 +122,18 @@ function renderTimeline(status) {
 function renderRequestsTable(docRequests, bizRequests) {
     let grid = document.getElementById('requests-grid-container');
     if (!grid) return;
+    docRequests = Array.isArray(docRequests) ? docRequests : [];
+    bizRequests = Array.isArray(bizRequests) ? bizRequests : [];
     let cards = '';
     
     if (docRequests.length === 0 && bizRequests.length === 0) {
+        hasRenderedRequests = false;
         cards = `<div class="col-span-full py-20 text-center text-gray-400">
             <i class="fas fa-folder-open text-5xl mb-4 block opacity-20"></i>
             <p>You have not submitted any requests yet.</p>
         </div>`;
     } else {
+        hasRenderedRequests = true;
         // Document requests
         docRequests.forEach(function(req) {
             let status = req.status || 'Pending';
@@ -188,10 +197,23 @@ function renderRequestsTable(docRequests, bizRequests) {
 }
 
 function fetchUpdates() {
-    fetch('partials/fetch-live-updates.php')
-        .then(res => res.json())
+    fetch('partials/fetch-live-updates.php', {
+        cache: 'no-store',
+        credentials: 'same-origin'
+    })
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`Request failed with status ${res.status}`);
+            }
+            return res.json();
+        })
         .then(data => {
-            if (data.doc_requests && data.biz_requests) {
+            if (Array.isArray(data.doc_requests) && Array.isArray(data.biz_requests)) {
+                if (data.doc_requests.length === 0 && data.biz_requests.length === 0 && hasRenderedRequests) {
+                    console.warn('Live request poll returned empty while server-rendered requests exist; keeping current list.', data);
+                    return;
+                }
+
                 renderRequestsTable(data.doc_requests, data.biz_requests);
             }
         })
@@ -211,7 +233,7 @@ function escapeHTML(str) {
     });
 }
 
-// Initial fetch
+renderRequestsTable(initialDocRequests, initialBizRequests);
 fetchUpdates();
 // Polling
 setInterval(fetchUpdates, 15000);

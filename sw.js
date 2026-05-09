@@ -1,4 +1,4 @@
-const CACHE_NAME = 'communalink-system-v2';
+const CACHE_NAME = 'communalink-system-v3';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.php',
@@ -6,6 +6,7 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (e) => {
+    self.skipWaiting();
     e.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             return cache.addAll(ASSETS_TO_CACHE);
@@ -21,12 +22,23 @@ self.addEventListener('activate', (e) => {
                     return caches.delete(key);
                 }
             }));
-        })
+        }).then(() => self.clients.claim())
     );
 });
 
 self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') return;
+
+    const requestUrl = new URL(event.request.url);
+    const isDynamicRequest =
+        requestUrl.pathname.endsWith('.php') ||
+        requestUrl.pathname.startsWith('/api/') ||
+        requestUrl.pathname.includes('/partials/');
+
+    if (isDynamicRequest) {
+        event.respondWith(fetch(event.request));
+        return;
+    }
     
     // We avoid caching API or dynamic PHP endpoints indiscriminately.
     // Instead we do a Network-First strategy, falling back to cache.

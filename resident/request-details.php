@@ -14,7 +14,7 @@ require_role('resident');
 
 $req_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$req_id) {
-    redirect_to('my-requests.php');
+    redirect_to('my-document-requests.php');
 }
 
 require_once '../config/database.php';
@@ -33,7 +33,7 @@ $stmt->execute([$req_id, $_SESSION['user_id'], $resident_id]);
 $req = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$req) {
-    redirect_to('my-requests.php');
+    redirect_to('my-document-requests.php');
 }
 
 $page_title = "Document Request Details";
@@ -148,7 +148,7 @@ $flat_details = flatten_details($details);
 
 <div class="max-w-4xl mx-auto px-4 py-8">
     <div class="mb-6 flex items-center justify-between">
-        <a href="my-requests.php" class="text-blue-600 hover:text-blue-800 flex items-center gap-2 font-medium transition">
+        <a href="my-document-requests.php" class="text-blue-600 hover:text-blue-800 flex items-center gap-2 font-medium transition">
             <i class="fas fa-arrow-left"></i> Back to My Requests
         </a>
         
@@ -322,13 +322,13 @@ function cancelDocumentRequest(requestId) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    window.location.href = 'my-requests.php?cancelled=1';
+                    window.location.href = 'my-document-requests.php?cancelled=1';
                 } else {
-                    window.location.href = 'my-requests.php?cancel_error=1';
+                    window.location.href = 'my-document-requests.php?cancel_error=1';
                 }
             })
             .catch(() => {
-                window.location.href = 'my-requests.php?cancel_error=1';
+                window.location.href = 'my-document-requests.php?cancel_error=1';
             });
         }, {
             confirmText: 'Cancel Request',

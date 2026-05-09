@@ -353,6 +353,102 @@ if (!class_exists('NotificationSystem')) {
         }
 
         /**
+         * Best-effort in-app only broadcast for announcement/event posts.
+         * Used as a fallback when the async queue table is unavailable in production.
+         *
+         * @param PDO $pdo
+         * @param array $post_data
+         * @return array{success:bool,error:?string,recipient_count:int,notification_created:int}
+         */
+        public static function notify_public_post_in_app_only($pdo, array $post_data) {
+            $title = trim((string)($post_data['title'] ?? ''));
+            $content = trim((string)($post_data['content'] ?? ''));
+            $target_audience = trim((string)($post_data['target_audience'] ?? 'all'));
+            $is_event = !empty($post_data['is_event']);
+            $event_date = trim((string)($post_data['event_date'] ?? ''));
+            $event_time = trim((string)($post_data['event_time'] ?? ''));
+            $event_location = trim((string)($post_data['event_location'] ?? ''));
+
+            if ($title === '') {
+                return [
+                    'success' => false,
+                    'error' => 'Missing post title.',
+                    'recipient_count' => 0,
+                    'notification_created' => 0,
+                ];
+            }
+
+            $recipients = self::fetch_resident_recipients($pdo, $target_audience);
+            if (empty($recipients)) {
+                return [
+                    'success' => true,
+                    'error' => null,
+                    'recipient_count' => 0,
+                    'notification_created' => 0,
+                ];
+            }
+
+            $link = '/resident/notifications.php';
+            $subject_prefix = $is_event ? 'New Barangay Event' : 'New Barangay Announcement';
+            $notification_type = $is_event ? 'event_announcement' : 'announcement';
+            $notification_title = $subject_prefix . ': ' . $title;
+
+            $summary = $content;
+            if (strlen($summary) > 220) {
+                $summary = substr($summary, 0, 217) . '...';
+            }
+
+            $notification_message = $summary !== ''
+                ? $summary
+                : ($is_event ? 'A new barangay event was posted.' : 'A new barangay announcement was posted.');
+
+            if ($is_event) {
+                $event_details = [];
+                if ($event_date !== '') {
+                    $event_details[] = 'Date: ' . date('M d, Y', strtotime($event_date));
+                }
+                if ($event_time !== '') {
+                    $event_details[] = 'Time: ' . date('h:i A', strtotime($event_time));
+                }
+                if ($event_location !== '') {
+                    $event_details[] = 'Venue: ' . $event_location;
+                }
+
+                if (!empty($event_details)) {
+                    $notification_message .= ' ' . implode(' | ', $event_details);
+                }
+            }
+
+            $in_app_count = 0;
+            foreach ($recipients as $recipient) {
+                $recipient_user_id = (int)($recipient['user_id'] ?? 0);
+                if ($recipient_user_id <= 0) {
+                    continue;
+                }
+
+                $notification_created = create_notification(
+                    $pdo,
+                    $recipient_user_id,
+                    $notification_title,
+                    $notification_message,
+                    $notification_type,
+                    $link
+                );
+
+                if ($notification_created) {
+                    $in_app_count++;
+                }
+            }
+
+            return [
+                'success' => true,
+                'error' => null,
+                'recipient_count' => count($recipients),
+                'notification_created' => $in_app_count,
+            ];
+        }
+
+        /**
          * Broadcast a barangay event from the dedicated events module.
          *
          * @param PDO $pdo
@@ -405,19 +501,18 @@ if (!class_exists('NotificationSystem')) {
             }
 
             try {
-                $stmt = $pdo->prepare(
-                    "INSERT INTO public_post_dispatch_queue (payload_json, status, attempts, max_attempts, available_at, created_at, updated_at)
-                     VALUES (?, 'pending', 0, 5, NOW(), NOW(), NOW())"
-                );
-                $stmt->execute([$encoded_payload]);
-
-                return [
-                    'success' => true,
-                    'error' => null,
-                    'queue_id' => (int)$pdo->lastInsertId(),
-                ];
+                return self::insert_public_post_queue_job($pdo, $encoded_payload);
             } catch (PDOException $e) {
-                error_log('NotificationSystem enqueue_public_post failed: ' . $e->getMessage());
+                if (self::is_missing_table_error($e) && self::ensure_public_post_queue_table($pdo)) {
+                    try {
+                        return self::insert_public_post_queue_job($pdo, $encoded_payload);
+                    } catch (PDOException $retryException) {
+                        error_log('NotificationSystem enqueue_public_post retry failed: ' . $retryException->getMessage());
+                    }
+                } else {
+                    error_log('NotificationSystem enqueue_public_post failed: ' . $e->getMessage());
+                }
+
                 return [
                     'success' => false,
                     'error' => 'Unable to queue post broadcast.',
@@ -592,6 +687,56 @@ if (!class_exists('NotificationSystem')) {
             } catch (PDOException $e) {
                 error_log('NotificationSystem requeue_public_post_job failed: ' . $e->getMessage());
             }
+        }
+
+        private static function insert_public_post_queue_job($pdo, $encoded_payload) {
+            $stmt = $pdo->prepare(
+                "INSERT INTO public_post_dispatch_queue (payload_json, status, attempts, max_attempts, available_at, created_at, updated_at)
+                 VALUES (?, 'pending', 0, 5, NOW(), NOW(), NOW())"
+            );
+            $stmt->execute([(string)$encoded_payload]);
+
+            return [
+                'success' => true,
+                'error' => null,
+                'queue_id' => (int)$pdo->lastInsertId(),
+            ];
+        }
+
+        private static function ensure_public_post_queue_table($pdo) {
+            try {
+                $pdo->exec(
+                    "CREATE TABLE IF NOT EXISTS `public_post_dispatch_queue` (
+                        `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                        `payload_json` LONGTEXT NOT NULL,
+                        `status` ENUM('pending','processing','completed','failed') NOT NULL DEFAULT 'pending',
+                        `attempts` INT(11) NOT NULL DEFAULT 0,
+                        `max_attempts` INT(11) NOT NULL DEFAULT 5,
+                        `available_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        `locked_at` DATETIME DEFAULT NULL,
+                        `completed_at` DATETIME DEFAULT NULL,
+                        `failed_at` DATETIME DEFAULT NULL,
+                        `last_error` VARCHAR(1000) DEFAULT NULL,
+                        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        PRIMARY KEY (`id`),
+                        KEY `idx_public_post_queue_status_available` (`status`, `available_at`),
+                        KEY `idx_public_post_queue_locked` (`locked_at`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+                );
+                return true;
+            } catch (PDOException $e) {
+                error_log('NotificationSystem ensure_public_post_queue_table failed: ' . $e->getMessage());
+                return false;
+            }
+        }
+
+        private static function is_missing_table_error(PDOException $e) {
+            $message = strtolower($e->getMessage());
+            return (string)$e->getCode() === '42S02'
+                || strpos($message, 'base table or view not found') !== false
+                || strpos($message, 'doesn\'t exist') !== false
+                || strpos($message, "doesn't exist") !== false;
         }
 
         /**

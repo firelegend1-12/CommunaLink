@@ -307,7 +307,6 @@ function cancelReport(id) {
     const script = document.createElement('script');
     const apiKey = "<?php echo htmlspecialchars((string)(function_exists('maps_api_key') ? maps_api_key('') : ''), ENT_QUOTES, 'UTF-8'); ?>";
     if (!apiKey) {
-        console.error('Google Maps API key is missing. Set GOOGLE_MAPS_API_KEY in environment configuration.');
         showResidentReportMapUnavailable('Google Maps API key is missing. Please contact the administrator.');
     } else {
         script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&callback=initMap`;

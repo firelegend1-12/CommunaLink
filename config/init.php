@@ -539,7 +539,7 @@ try {
         $pdo->exec("ALTER TABLE `document_requests` ADD CONSTRAINT `fk_requested_by_user` FOREIGN KEY (`requested_by_user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL;");
     }
 
-    // Ensure Cancelled status exists in document_requests status enum
+    // Simplify document_requests status enum and migrate old statuses safely.
     try {
         $stmt = $pdo->query("SHOW COLUMNS FROM `document_requests` LIKE 'status'");
         if ($stmt && $stmt->rowCount() > 0) {
@@ -553,10 +553,19 @@ try {
                     break;
                 }
             }
-            // If any unexpected old status exists (Processing/Ready for Pickup) or expected status missing, migrate data then update ENUM
-            if (!$has_all_expected || strpos($type, 'Processing') !== false || strpos($type, 'Ready for Pickup') !== false) {
-                // First migrate old statuses to new simplified flow
-                $pdo->exec("UPDATE `document_requests` SET `status` = 'Approved' WHERE `status` IN ('Processing', 'Ready for Pickup');");
+            $has_legacy = strpos($type, 'Processing') !== false
+                || strpos($type, 'Ready for Pickup') !== false
+                || strpos($type, 'PENDING') !== false
+                || strpos($type, 'APPROVED') !== false
+                || strpos($type, 'COMPLETED') !== false
+                || strpos($type, 'REJECTED') !== false
+                || strpos($type, 'CANCELLED') !== false
+                || strpos($type, 'PROCESSING') !== false
+                || strpos($type, 'READY FOR PICKUP') !== false;
+
+            if (!$has_all_expected || $has_legacy) {
+                $pdo->exec("ALTER TABLE `document_requests` MODIFY `status` ENUM('Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled', 'Processing', 'Ready for Pickup', 'PENDING', 'APPROVED', 'COMPLETED', 'REJECTED', 'CANCELLED', 'PROCESSING', 'READY FOR PICKUP') NOT NULL DEFAULT 'Pending';");
+                $pdo->exec("UPDATE `document_requests` SET `status` = CASE UPPER(`status`) WHEN 'PENDING' THEN 'Pending' WHEN 'PROCESSING' THEN 'Approved' WHEN 'READY FOR PICKUP' THEN 'Approved' WHEN 'APPROVED' THEN 'Approved' WHEN 'COMPLETED' THEN 'Completed' WHEN 'REJECTED' THEN 'Rejected' WHEN 'CANCELLED' THEN 'Cancelled' ELSE `status` END;");
                 $pdo->exec("ALTER TABLE `document_requests` MODIFY `status` ENUM('Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending';");
             }
         }
