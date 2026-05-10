@@ -286,6 +286,51 @@ foreach ($requests as $summary_req) {
             this.selectedReq = req; 
             this.viewPanelOpen = true; 
         },
+        getPrintUrl(req) {
+            if (!req) return '';
+            const docType = String(req.docType || '').toLowerCase();
+            let template = '';
+
+            if (req.type === 'business') {
+                template = docType === 'business clearance'
+                    ? 'business-clearance-template.php'
+                    : 'business-permit-application-template.php';
+            } else if (docType === 'barangay clearance') {
+                template = 'barangay-clearance-template.php';
+            } else if (docType === 'certificate of residency') {
+                template = 'certificate-of-residency-template.php';
+            } else if (docType === 'certificate of indigency (special)' || docType.includes('special')) {
+                template = 'certificate-of-indigency-special-template.php';
+            } else if (docType === 'certificate of indigency') {
+                template = 'certificate-of-indigency-template.php';
+            }
+
+            if (!template) return '';
+            return `${template}?id=${encodeURIComponent(req.id)}&auto_print=1&close_after_print=1`;
+        },
+        printCertificate(req) {
+            if (!req) return;
+            if (req.paymentStatus !== 'Paid') {
+                showToast('Print Certificate is available after payment is recorded.', 'warning');
+                return;
+            }
+
+            const printUrl = this.getPrintUrl(req);
+            if (!printUrl) {
+                showToast('No printable certificate template is available for this request type.', 'error');
+                return;
+            }
+
+            const printWindow = window.open(
+                printUrl,
+                '_blank',
+                'popup=yes,width=900,height=700'
+            );
+
+            if (!printWindow) {
+                showToast('Please allow pop-ups so the print dialog can open.', 'warning');
+            }
+        },
         formatDetailLabel(key) {
             if (!key) return 'N/A';
             return String(key).replace(/_/g, ' ');
@@ -1205,6 +1250,19 @@ endif; ?>
                                                         <button type="button" @click="selectedReq.isPaying = false; selectedReq.cashInput = ''" class="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-gray-300">Cancel</button>
                                                     </div>
                                                 </div>
+                                            </div>
+
+                                            <!-- Print Certificate -->
+                                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                                <button type="button" x-show="selectedReq.paymentStatus === 'Paid'" @click="printCertificate(selectedReq)" class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg shadow hover:bg-blue-700 transition font-bold uppercase tracking-widest text-xs">
+                                                    <i class="fas fa-print mr-2"></i>Print Certificate
+                                                </button>
+                                                <button type="button" x-show="selectedReq.paymentStatus !== 'Paid'" disabled class="w-full bg-gray-200 text-gray-500 px-4 py-3 rounded-lg cursor-not-allowed font-bold uppercase tracking-widest text-xs">
+                                                    <i class="fas fa-lock mr-2"></i>Print Certificate
+                                                </button>
+                                                <p x-show="selectedReq.paymentStatus !== 'Paid'" class="mt-2 text-xs text-blue-800 font-semibold">
+                                                    Available after payment is recorded.
+                                                </p>
                                             </div>
 
                                             <!-- Admin Notes -->
