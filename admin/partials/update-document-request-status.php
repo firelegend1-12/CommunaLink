@@ -53,7 +53,7 @@ try {
     $notification_warning = null;
 
     // Get old status for logging
-    $stmt = $pdo->prepare('SELECT status, resident_id, document_type FROM document_requests WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT status, resident_id, requested_by_user_id, document_type FROM document_requests WHERE id = ?');
     $stmt->execute([$id]);
     $old_data = $stmt->fetch();
     
@@ -102,17 +102,18 @@ try {
         $new_str
     );
 
-    // Create Notification for the resident
-    $stmt_user = $pdo->prepare("SELECT user_id FROM residents WHERE id = ?");
-    $stmt_user->execute([$resident_id]);
-    $res_user_id = $stmt_user->fetchColumn();
-
-    if ($res_user_id) {
-        $notification_sent = NotificationSystem::notify_document_status($pdo, (int) $res_user_id, $document_type, normalize_request_status_display($stored_status), 'my-document-requests.php');
+    // Create Notification for the resident account that submitted the request.
+    $res_user_id = get_document_request_recipient_user_id($pdo, $id);
+    if ($res_user_id !== null) {
+        $notification_sent = NotificationSystem::notify_document_status($pdo, $res_user_id, $document_type, normalize_request_status_display($stored_status), 'my-document-requests.php');
         if (!$notification_sent) {
-            $notification_warning = 'Status updated, but notification delivery failed.';
+            $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
+            $notification_warning = 'Status updated, but web-app notification failed' . ($detail ? ': ' . $detail : '.');
             error_log('Notification delivery failed in update-document-request-status for request_id=' . $id);
         }
+    } else {
+        $notification_warning = 'Status updated, but no resident account was found for notification.';
+        error_log('No recipient user found in update-document-request-status for request_id=' . $id);
     }
 
     $pdo->commit();

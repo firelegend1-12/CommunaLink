@@ -14,45 +14,11 @@ if (function_exists('apply_page_security_headers')) {
 $page_title = $page_title ?? "Resident Portal"; // Allow pages to set their own title
 $user_fullname = $_SESSION['fullname'] ?? 'Resident';
 $user_id = $_SESSION['user_id'] ?? null;
-$mark_read_csrf_token = csrf_token();
-
-function sanitize_notification_link_server($raw_link) {
-    $link = trim((string) $raw_link);
-    if ($link === '') {
-        return '';
-    }
-
-    $lower_link = strtolower($link);
-    if (strpos($lower_link, 'javascript:') === 0 || strpos($lower_link, 'data:') === 0) {
-        return '';
-    }
-
-    if (filter_var($link, FILTER_VALIDATE_URL)) {
-        $scheme = strtolower((string) parse_url($link, PHP_URL_SCHEME));
-        return in_array($scheme, ['http', 'https'], true) ? $link : '';
-    }
-
-    if (strpos($link, '/') === 0) {
-        return $link;
-    }
-
-    return preg_match('/^[A-Za-z0-9_\-\/\.]+(?:\?[A-Za-z0-9_\-\.=&%]*)?$/', $link) ? $link : '';
-}
-
-// Fetch unread notifications count and latest notifications
-$notifications = [];
-$unread_count = 0;
 $resident_profile_avatar_src = resident_default_profile_avatar_data_uri();
+$resident_bell_items = [];
+$resident_bell_unread_count = 0;
 if ($user_id) {
     require_once '../config/database.php';
-    $stmt = $pdo->prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 10');
-    $stmt->execute([$user_id]);
-    $notifications = $stmt->fetchAll();
-    $unread_count = 0;
-    foreach ($notifications as $notif) {
-        if (!$notif['is_read']) $unread_count++;
-    }
-
     $stmtProfile = $pdo->prepare('SELECT profile_image_path FROM residents WHERE user_id = ? LIMIT 1');
     $stmtProfile->execute([$user_id]);
     $profileRow = $stmtProfile->fetch(PDO::FETCH_ASSOC);
@@ -62,6 +28,20 @@ if ($user_id) {
         if ($resolved !== '') {
             $resident_profile_avatar_src = $resolved;
         }
+    }
+
+    try {
+        $resolved_resident_id = function_exists('get_resident_id') ? (int)(get_resident_id($pdo, (int)$user_id) ?? 0) : 0;
+        $resident_bell_items = get_resident_board_notifications($pdo, (int)$user_id, $resolved_resident_id, 5);
+        foreach ($resident_bell_items as $bell_item) {
+            if ((int)($bell_item['is_read'] ?? 0) === 0) {
+                $resident_bell_unread_count++;
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('Resident bell preview load failed: ' . $e->getMessage());
+        $resident_bell_items = [];
+        $resident_bell_unread_count = 0;
     }
 }
 
@@ -177,9 +157,142 @@ if ($user_id) {
             align-items: center;
             height: 70px;
         }
-        .header-menu { display: flex; align-items: center; color: var(--text-secondary); }
-        .header-menu .fa-bell { font-size: 20px; margin-right: 25px; cursor: pointer; }
+        .header-menu { display: flex; align-items: center; color: var(--text-secondary); min-width: 0; max-width: 100%; }
+        .header-menu > span { min-width: 0; }
         .header-menu .header-profile-avatar { margin-left: 8px; }
+        .notif-wrapper {
+            position: relative;
+            margin-left: 12px;
+            flex-shrink: 0;
+        }
+        .notif-bell-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 9999px;
+            text-decoration: none;
+            color: var(--accent-blue);
+            background: #eef2ff;
+            border: 1px solid #dbe2ff;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .notif-bell-btn:hover,
+        .notif-bell-btn:focus-visible {
+            color: #ffffff;
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(92, 103, 226, 0.25);
+        }
+        .notif-bell-badge {
+            position: absolute;
+            top: -5px;
+            right: -4px;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 9999px;
+            background: #ef4444;
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 16px;
+            text-align: center;
+            padding: 0 4px;
+            border: 2px solid #ffffff;
+        }
+        .notif-dropdown {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 10px);
+            width: min(360px, calc(100vw - 24px));
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+            overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(6px);
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+            z-index: 70;
+        }
+        .notif-dropdown-header {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #334155;
+            padding: 10px 12px;
+            background: #f8fafc;
+            border-bottom: 1px solid #edf2f7;
+        }
+        .notif-dropdown-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .notif-row {
+            display: block;
+            padding: 10px 12px;
+            text-decoration: none;
+            color: #1f2937;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background-color 0.15s ease;
+        }
+        .notif-row:hover {
+            background-color: #f8fafc;
+        }
+        .notif-row:last-child {
+            border-bottom: none;
+        }
+        .notif-row-title {
+            font-size: 0.86rem;
+            font-weight: 600;
+            line-height: 1.3;
+            margin-bottom: 4px;
+        }
+        .notif-row-message {
+            font-size: 0.8rem;
+            color: #64748b;
+            line-height: 1.35;
+        }
+        .notif-row-time {
+            display: block;
+            margin-top: 6px;
+            font-size: 0.72rem;
+            color: #94a3b8;
+        }
+        .notif-row-empty {
+            padding: 16px 12px;
+            font-size: 0.82rem;
+            color: #64748b;
+        }
+        .notif-dropdown-footer {
+            display: block;
+            text-align: center;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.82rem;
+            color: var(--accent-blue);
+            background: #f8fafc;
+            padding: 10px 12px;
+            border-top: 1px solid #edf2f7;
+        }
+        .notif-dropdown-footer:hover {
+            background: #eef2ff;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .notif-wrapper:hover .notif-dropdown,
+            .notif-wrapper:focus-within .notif-dropdown {
+                opacity: 1;
+                visibility: visible;
+                transform: translateY(0);
+                pointer-events: auto;
+            }
+        }
         
         .page-main {
             flex-grow: 1;
@@ -196,10 +309,22 @@ if ($user_id) {
             .header-menu {
                 gap: 10px;
                 font-size: 0.9rem;
+                max-width: 100%;
+                min-width: 0;
+                overflow: hidden;
             }
-            .header-menu .fa-bell {
-                font-size: 18px;
-                margin-right: 12px;
+            .notif-wrapper {
+                margin-left: 8px;
+            }
+            .notif-bell-btn {
+                width: 34px;
+                height: 34px;
+            }
+            .header-menu span {
+                display: none !important;
+            }
+            .notif-dropdown {
+                display: none !important;
             }
             .page-main {
                 padding: 12px;
@@ -272,9 +397,43 @@ if ($user_id) {
                 margin-bottom: 16px;
             }
         }
+<?php if (!empty($document_print_layout)): ?>
+        .document-print-layout .printable-area { text-align: center; }
+        .document-print-layout .printable-area svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+
+        @page { size: A4 portrait; margin: 10mm; }
+        @media print {
+            body.document-print-layout {
+                background: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            body.document-print-layout * { visibility: hidden !important; }
+            body.document-print-layout .printable-area,
+            body.document-print-layout .printable-area * { visibility: visible !important; }
+            body.document-print-layout .printable-area {
+                position: absolute !important;
+                top: 0 !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                width: 190mm !important;
+                max-width: 190mm !important;
+                min-height: 277mm !important;
+                box-sizing: border-box !important;
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+            body.document-print-layout .printable-area svg { width: 100% !important; max-width: 100% !important; height: auto !important; }
+        }
+<?php endif; ?>
     </style>
 </head>
-<body>
+<body<?php echo !empty($document_print_layout) ? ' class="document-print-layout"' : ''; ?>>
     <!-- Sidebar overlay — darkens background when sidebar is open on mobile -->
     <div id="sidebar-overlay"></div>
 
@@ -287,43 +446,48 @@ if ($user_id) {
                     <i class="fas fa-bars"></i>
                 </button>
                 <div class="header-menu relative" style="margin-left: auto;">
-                    <!-- Notification Bell -->
-                    <div class="relative group" id="notif-bell-wrapper">
-                        <button id="notif-bell" class="focus:outline-none">
-                            <i class="fas fa-bell"></i>
-                            <?php if ($unread_count > 0): ?>
-                                <span class="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5 font-bold animate-pulse"><?php echo $unread_count; ?></span>
+                    <span>Welcome, <?= htmlspecialchars($user_fullname) ?></span>
+                    <div id="notif-wrapper" class="notif-wrapper">
+                        <a href="announcements.php" class="notif-bell-btn" aria-label="Open Community Board notifications" title="Community Board notifications">
+                            <i class="fas fa-bell" aria-hidden="true"></i>
+                            <?php if ($resident_bell_unread_count > 0): ?>
+                            <span class="notif-bell-badge"><?= $resident_bell_unread_count > 9 ? '9+' : (int)$resident_bell_unread_count ?></span>
                             <?php endif; ?>
-                        </button>
-                        <!-- Dropdown -->
-                        <div id="notif-dropdown" class="hidden group-focus-within:block group-hover:block absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
-                            <div class="p-4 border-b font-bold text-gray-700 flex items-center"><i class="fas fa-bell mr-2 text-blue-600"></i>Notifications</div>
-                            <ul class="max-h-80 overflow-y-auto">
-                                <?php if (count($notifications) === 0): ?>
-                                    <li class="p-4 text-gray-500 text-center">No notifications</li>
+                        </a>
+                        <div id="notif-dropdown" class="notif-dropdown" aria-hidden="true">
+                            <div class="notif-dropdown-header">Community Board Updates</div>
+                            <div class="notif-dropdown-list">
+                                <?php if (empty($resident_bell_items)): ?>
+                                <div class="notif-row-empty">No updates yet. Click the bell to open the Community Board.</div>
                                 <?php else: ?>
-                                    <?php foreach ($notifications as $notif): ?>
-                                        <?php $notif_link = sanitize_notification_link_server($notif['link'] ?? ''); ?>
-                                        <li class="px-4 py-3 border-b last:border-b-0 <?php echo !$notif['is_read'] ? 'bg-blue-50' : ''; ?>">
-                                            <?php if ($notif_link !== ''): ?>
-                                            <a href="<?php echo htmlspecialchars($notif_link, ENT_QUOTES, 'UTF-8'); ?>" class="block text-gray-800 hover:text-blue-700">
-                                            <?php else: ?>
-                                            <span class="block text-gray-800">
+                                    <?php foreach ($resident_bell_items as $bell_item): ?>
+                                        <?php
+                                            $bell_title = trim((string)($bell_item['title'] ?? 'Community Board update'));
+                                            $bell_message = trim((string)($bell_item['message'] ?? ''));
+                                            if ($bell_message === '') {
+                                                $bell_message = trim((string)($bell_item['content'] ?? ''));
+                                            }
+                                            if (function_exists('mb_strimwidth')) {
+                                                $bell_message = mb_strimwidth($bell_message, 0, 110, '...');
+                                            } else {
+                                                $bell_message = strlen($bell_message) > 110 ? substr($bell_message, 0, 107) . '...' : $bell_message;
+                                            }
+                                            $bell_created = strtotime((string)($bell_item['created_at'] ?? ''));
+                                            $bell_created_label = $bell_created ? date('M j, Y g:i A', $bell_created) : 'Just now';
+                                        ?>
+                                        <a href="announcements.php" class="notif-row">
+                                            <div class="notif-row-title"><?= htmlspecialchars($bell_title) ?></div>
+                                            <?php if ($bell_message !== ''): ?>
+                                            <div class="notif-row-message"><?= htmlspecialchars($bell_message) ?></div>
                                             <?php endif; ?>
-                                                <div class="text-sm"><?php echo htmlspecialchars($notif['message']); ?></div>
-                                                <div class="text-xs text-gray-400 mt-1"><?php echo date('M d, Y h:i A', strtotime($notif['created_at'])); ?></div>
-                                            <?php if ($notif_link !== ''): ?>
-                                            </a>
-                                            <?php else: ?>
-                                            </span>
-                                            <?php endif; ?>
-                                        </li>
+                                            <span class="notif-row-time"><?= htmlspecialchars($bell_created_label) ?></span>
+                                        </a>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
-                            </ul>
+                            </div>
+                            <a href="announcements.php" class="notif-dropdown-footer">Open Community Board</a>
                         </div>
                     </div>
-                    <span>Welcome, <?= htmlspecialchars($user_fullname) ?></span>
                     <div id="profile-wrapper" class="relative" style="margin-left: 12px; cursor: pointer;">
                         <button id="profile-btn" class="focus:outline-none flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors duration-200" title="Profile Menu">
                             <img src="<?= htmlspecialchars($resident_profile_avatar_src, ENT_QUOTES, 'UTF-8') ?>" alt="" class="header-profile-avatar" width="32" height="32">
@@ -383,46 +547,6 @@ if ($user_id) {
                     });
                 });
 
-                // Toggle notification dropdown
-
-                const bell = document.getElementById('notif-bell');
-                const dropdown = document.getElementById('notif-dropdown');
-                const wrapper = document.getElementById('notif-bell-wrapper');
-                if (bell && dropdown) {
-                    bell.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        // Close profile dropdown if open
-                        const profDrop = document.getElementById('profile-dropdown');
-                        if (profDrop && !profDrop.classList.contains('hidden')) {
-                            profDrop.classList.add('hidden');
-                        }
-                        dropdown.classList.toggle('hidden');
-                        // Mark notifications as read via AJAX
-                        if (!dropdown.classList.contains('hidden')) {
-                            const formData = new URLSearchParams();
-                            formData.append('csrf_token', <?php echo json_encode($mark_read_csrf_token); ?>);
-                            fetch('../api/notifications.php?action=mark_all_read', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-                                },
-                                body: formData.toString(),
-                                credentials: 'same-origin',
-                                keepalive: true
-                            }).catch(function () {});
-                            // Optionally, remove the badge
-                            const badge = bell.querySelector('span');
-                            if (badge) badge.style.display = 'none';
-                        }
-                    });
-                    // Hide dropdown when clicking outside
-                    document.addEventListener('click', function(e) {
-                        if (!wrapper.contains(e.target)) {
-                            dropdown.classList.add('hidden');
-                        }
-                    });
-                }
-                
                 // Toggle profile dropdown
                 const profileBtn = document.getElementById('profile-btn');
                 const profileDropdown = document.getElementById('profile-dropdown');
@@ -430,10 +554,6 @@ if ($user_id) {
                 if (profileBtn && profileDropdown) {
                     profileBtn.addEventListener('click', function(e) {
                         e.stopPropagation();
-                        // Close notif dropdown if open
-                        if (dropdown && !dropdown.classList.contains('hidden')) {
-                            dropdown.classList.add('hidden');
-                        }
                         profileDropdown.classList.toggle('hidden');
                     });
                     document.addEventListener('click', function(e) {
@@ -442,255 +562,5 @@ if ($user_id) {
                         }
                     });
                 }
-
-                // Live notification polling + browser notification prompt
-                const initialNotificationIds = <?php echo json_encode(array_map('intval', array_column($notifications, 'id'))); ?>;
-                const knownNotificationIds = new Set((Array.isArray(initialNotificationIds) ? initialNotificationIds : []).map(function(id) {
-                    return String(id);
-                }));
-
-                const browserPromptKey = 'communalink_browser_notif_prompted_v1';
-                const browserEnabledKey = 'communalink_browser_notif_enabled_v1';
-                const defaultBrowserNotifLink = <?php echo json_encode(app_url('/resident/notifications.php')); ?>;
-                const defaultBrowserNotifIcon = <?php echo json_encode(app_url('/assets/images/barangay-logo.png')); ?>;
-                let browserNotificationsEnabled = false;
-
-                function getStoredPreference(key) {
-                    try {
-                        return window.localStorage.getItem(key);
-                    } catch (error) {
-                        return null;
-                    }
-                }
-
-                function setStoredPreference(key, value) {
-                    try {
-                        window.localStorage.setItem(key, value);
-                    } catch (error) {
-                        // Ignore storage write failures (private mode / browser policy).
-                    }
-                }
-
-                function escapeHtml(value) {
-                    return String(value || '')
-                        .replace(/&/g, '&amp;')
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;')
-                        .replace(/\"/g, '&quot;')
-                        .replace(/'/g, '&#39;');
-                }
-
-                function sanitizeNotificationLink(rawLink) {
-                    const link = String(rawLink || '').trim();
-                    if (!link) {
-                        return '';
-                    }
-
-                    const lower = link.toLowerCase();
-                    if (lower.startsWith('javascript:') || lower.startsWith('data:')) {
-                        return '';
-                    }
-
-                    if (lower.startsWith('http://') || lower.startsWith('https://') || link.startsWith('/')) {
-                        return link;
-                    }
-
-                    // Allow only constrained relative paths.
-                    return /^[A-Za-z0-9_\-\/.]+(?:\?[A-Za-z0-9_\-\.=&%]*)?$/.test(link) ? link : '';
-                }
-
-                function syncBrowserNotificationFlag() {
-                    if (!('Notification' in window)) {
-                        browserNotificationsEnabled = false;
-                        return;
-                    }
-
-                    const storedEnabled = getStoredPreference(browserEnabledKey);
-                    const hasPermission = Notification.permission === 'granted';
-                    browserNotificationsEnabled = hasPermission && storedEnabled !== '0';
-
-                    if (hasPermission && storedEnabled !== '1') {
-                        setStoredPreference(browserEnabledKey, '1');
-                    }
-
-                    if (Notification.permission !== 'default') {
-                        setStoredPreference(browserPromptKey, '1');
-                    }
-                }
-
-                function maybePromptBrowserNotifications() {
-                    if (!('Notification' in window)) {
-                        return;
-                    }
-
-                    syncBrowserNotificationFlag();
-
-                    if (Notification.permission !== 'default') {
-                        return;
-                    }
-
-                    if (getStoredPreference(browserPromptKey) === '1') {
-                        return;
-                    }
-
-                    window.setTimeout(function() {
-                        const wantsBrowserNotifications = window.confirm('Enable browser notifications for new barangay announcements and alerts?');
-                        setStoredPreference(browserPromptKey, '1');
-
-                        if (!wantsBrowserNotifications) {
-                            setStoredPreference(browserEnabledKey, '0');
-                            syncBrowserNotificationFlag();
-                            return;
-                        }
-
-                        Notification.requestPermission().then(function(permission) {
-                            if (permission === 'granted') {
-                                setStoredPreference(browserEnabledKey, '1');
-                            } else {
-                                setStoredPreference(browserEnabledKey, '0');
-                            }
-                            syncBrowserNotificationFlag();
-                        }).catch(function() {
-                            setStoredPreference(browserEnabledKey, '0');
-                            syncBrowserNotificationFlag();
-                        });
-                    }, 1200);
-                }
-
-                function showBrowserNotification(notif) {
-                    syncBrowserNotificationFlag();
-                    if (!browserNotificationsEnabled || !('Notification' in window) || Notification.permission !== 'granted') {
-                        return;
-                    }
-
-                    const title = (notif && notif.title) ? String(notif.title) : 'New Barangay Alert';
-                    const message = (notif && notif.message) ? String(notif.message) : 'You have a new notification.';
-                    const targetLink = sanitizeNotificationLink((notif && notif.link) ? notif.link : '') || defaultBrowserNotifLink;
-
-                    const options = {
-                        body: message,
-                        icon: defaultBrowserNotifIcon,
-                        badge: defaultBrowserNotifIcon,
-                        tag: 'communalink-resident-' + String(notif && notif.id ? notif.id : Date.now()),
-                        data: {
-                            link: targetLink
-                        }
-                    };
-
-                    const fallbackShow = function() {
-                        try {
-                            const browserNotification = new Notification(title, options);
-                            browserNotification.onclick = function() {
-                                window.focus();
-                                window.location.href = targetLink;
-                            };
-                        } catch (error) {
-                            // Browser blocked direct Notification constructor.
-                        }
-                    };
-
-                    if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.ready
-                            .then(function(registration) {
-                                if (registration && typeof registration.showNotification === 'function') {
-                                    return registration.showNotification(title, options);
-                                }
-                                fallbackShow();
-                                return null;
-                            })
-                            .catch(function() {
-                                fallbackShow();
-                            });
-                        return;
-                    }
-
-                    fallbackShow();
-                }
-
-                function updateNotifications(notifications) {
-                    const safeNotifications = Array.isArray(notifications) ? notifications : [];
-                    const unread = safeNotifications.filter(function(n) { return n.is_read == 0; }).length;
-
-                    if (bell) {
-                        let badge = bell.querySelector('span');
-                        if (unread > 0) {
-                            if (!badge) {
-                                badge = document.createElement('span');
-                                badge.className = 'absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5 font-bold animate-pulse';
-                                bell.appendChild(badge);
-                            }
-                            badge.textContent = unread;
-                            badge.style.display = '';
-                        } else if (badge) {
-                            badge.style.display = 'none';
-                        }
-                    }
-
-                    let dropdownList = document.querySelector('#notif-dropdown ul');
-                    if (dropdownList) {
-                        dropdownList.innerHTML = '';
-                        if (safeNotifications.length === 0) {
-                            dropdownList.innerHTML = '<li class="p-4 text-gray-500 text-center">No notifications</li>';
-                        } else {
-                            safeNotifications.forEach(function(notif) {
-                                let li = document.createElement('li');
-                                li.className = 'px-4 py-3 border-b last:border-b-0 ' + (notif.is_read == 0 ? 'bg-blue-50' : '');
-                                const safeLink = sanitizeNotificationLink(notif.link);
-                                const hasLink = safeLink !== '';
-                                const titleHtml = notif.title ? `<div class="text-xs font-bold text-gray-700 mb-1">${escapeHtml(notif.title)}</div>` : '';
-                                const messageHtml = `<div class="text-sm">${escapeHtml(notif.message)}</div>`;
-                                const createdAt = new Date(notif.created_at).toLocaleString();
-                                const createdAtHtml = `<div class="text-xs text-gray-400 mt-1">${escapeHtml(createdAt)}</div>`;
-                                if (hasLink) {
-                                    li.innerHTML = `<a href="${escapeHtml(safeLink)}" class="block text-gray-800 hover:text-blue-700">
-                                        ${titleHtml}
-                                        ${messageHtml}
-                                        ${createdAtHtml}
-                                    </a>`;
-                                } else {
-                                    li.innerHTML = `<div class="block text-gray-800 cursor-default">
-                                        ${titleHtml}
-                                        ${messageHtml}
-                                        ${createdAtHtml}
-                                    </div>`;
-                                }
-                                dropdownList.appendChild(li);
-                            });
-                        }
-                    }
-                }
-
-                function pollLiveNotifications() {
-                    fetch('../resident/partials/fetch-live-updates.php')
-                        .then(function(res) { return res.json(); })
-                        .then(function(data) {
-                            const notifications = Array.isArray(data.notifications) ? data.notifications : [];
-                            const newUnreadNotifications = [];
-
-                            notifications.forEach(function(notif) {
-                                const notifId = String(notif.id || '');
-                                if (!notifId) {
-                                    return;
-                                }
-
-                                if (!knownNotificationIds.has(notifId)) {
-                                    knownNotificationIds.add(notifId);
-                                    if (String(notif.is_read) === '0') {
-                                        newUnreadNotifications.push(notif);
-                                    }
-                                }
-                            });
-
-                            updateNotifications(notifications);
-                            newUnreadNotifications.forEach(showBrowserNotification);
-                        })
-                        .catch(function() {
-                            // Keep silent during transient network failures.
-                        });
-                }
-
-                maybePromptBrowserNotifications();
-                pollLiveNotifications();
-                setInterval(pollLiveNotifications, 5000);
             });
             </script> 

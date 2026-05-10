@@ -127,13 +127,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_permit'])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
+        @page { size: A4 portrait; margin: 10mm; }
         @media print {
+            html, body {
+                background: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
             .no-print { display: none !important; }
-            .permit-container { 
-                border: 2px solid #000; 
-                padding: 20px; 
-                margin: 20px;
-                background: white;
+            body * { visibility: hidden !important; }
+            #permit-document, #permit-document * { visibility: visible !important; }
+            #permit-document {
+                position: absolute !important;
+                top: 0 !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                width: 190mm !important;
+                max-width: 190mm !important;
+                min-height: 277mm !important;
+                box-sizing: border-box !important;
+                margin: 0 auto !important;
+                background: white !important;
             }
             .permit-header { 
                 border-bottom: 2px solid #000; 

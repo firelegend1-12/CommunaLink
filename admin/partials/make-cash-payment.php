@@ -60,7 +60,7 @@ try {
     $notification_warning = null;
 
     if ($type === 'document') {
-        $stmt = $pdo->prepare("SELECT dr.id, dr.document_type, dr.price, dr.payment_status, dr.or_number, dr.status, r.user_id, CONCAT(r.first_name, ' ', r.last_name) AS resident_name FROM document_requests dr LEFT JOIN residents r ON dr.resident_id = r.id WHERE dr.id = ? FOR UPDATE");
+        $stmt = $pdo->prepare("SELECT dr.id, dr.document_type, dr.price, dr.payment_status, dr.or_number, dr.status, COALESCE(NULLIF(dr.requested_by_user_id, 0), r.user_id) AS recipient_user_id, CONCAT(r.first_name, ' ', r.last_name) AS resident_name FROM document_requests dr LEFT JOIN residents r ON dr.resident_id = r.id WHERE dr.id = ? FOR UPDATE");
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -75,7 +75,7 @@ try {
         $table = 'document_requests';
         $item_name = (string) ($row['document_type'] ?? 'Document Request');
     } else {
-        $stmt = $pdo->prepare("SELECT bt.id, bt.transaction_type, bt.payment_status, bt.or_number, r.user_id, CONCAT(r.first_name, ' ', r.last_name) AS resident_name FROM business_transactions bt LEFT JOIN residents r ON bt.resident_id = r.id WHERE bt.id = ? FOR UPDATE");
+        $stmt = $pdo->prepare("SELECT bt.id, bt.transaction_type, bt.payment_status, bt.or_number, r.user_id AS recipient_user_id, CONCAT(r.first_name, ' ', r.last_name) AS resident_name FROM business_transactions bt LEFT JOIN residents r ON bt.resident_id = r.id WHERE bt.id = ? FOR UPDATE");
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -107,10 +107,10 @@ try {
         $update->execute([$or_number, $cash_received, $change_amount, $id]);
     }
 
-    if (!empty($row['user_id'])) {
+    if (!empty($row['recipient_user_id'])) {
         $notification_sent = NotificationSystem::notify_payment_update(
             $pdo,
-            (int) $row['user_id'],
+            (int) $row['recipient_user_id'],
             $item_name,
             'Paid',
             $or_number,
@@ -118,20 +118,22 @@ try {
         );
 
         if (!$notification_sent) {
-            $notification_warning = 'Payment recorded, but notification delivery failed.';
+            $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
+            $notification_warning = 'Payment recorded, but web-app notification failed' . ($detail ? ': ' . $detail : '.');
             error_log('Notification delivery failed in make-cash-payment for id=' . $id . ' type=' . $type);
         }
 
         if ($type === 'document' && !in_array((string)($row['status'] ?? ''), ['Rejected', 'Cancelled'], true)) {
             $status_notification_sent = NotificationSystem::notify_document_status(
                 $pdo,
-                (int) $row['user_id'],
+                (int) $row['recipient_user_id'],
                 $item_name,
                 'Completed',
                 'my-document-requests.php'
             );
             if (!$status_notification_sent && $notification_warning === null) {
-                $notification_warning = 'Payment recorded, but status notification delivery failed.';
+                $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
+                $notification_warning = 'Payment recorded, but status web-app notification failed' . ($detail ? ': ' . $detail : '.');
             }
         }
     }

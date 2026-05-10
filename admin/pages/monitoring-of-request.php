@@ -441,7 +441,7 @@ foreach ($requests as $summary_req) {
                 }
 
                 updateRowPaymentBadge(this.selectedReq.id, this.selectedReq.type, this.selectedReq.orNumber);
-                showToast(this.selectedReq.type === 'document' ? 'Cash payment recorded. Request completed and ready to print.' : 'Cash payment recorded. You can now print.');
+                showToast(data.warning || (this.selectedReq.type === 'document' ? 'Cash payment recorded. Request completed.' : 'Cash payment recorded.'), data.warning ? 'warning' : 'success');
             } catch (e) {
                 showToast('Failed to process cash payment.', 'error');
             }
@@ -479,7 +479,7 @@ foreach ($requests as $summary_req) {
                     row.style.backgroundColor = isPaid ? '#f0fdf4' : '#eff6ff';
                     setTimeout(() => row.style.backgroundColor = '', 600);
                 }
-                showToast(isPaid ? 'Request auto-completed (already paid).' : 'Request approved successfully.');
+                showToast(data.warning || (isPaid ? 'Request auto-completed (already paid).' : 'Request approved successfully.'), data.warning ? 'warning' : 'success');
             } catch (e) {
                 showToast('Failed to update request status.', 'error');
             }
@@ -1188,7 +1188,7 @@ endif; ?>
                                                 <i class="fas fa-ban mr-2"></i>Cancel Request
                                  </button>
 
-                                            <!-- Cash Payment Action (required before print) -->
+                                            <!-- Cash Payment Action -->
                                             <div x-show="selectedReq.paymentStatus !== 'Paid'" class="bg-amber-50 border border-amber-200 rounded-lg p-3">
                                                 <button type="button" x-show="!selectedReq.isPaying" @click="selectedReq.isPaying = true" class="w-full bg-amber-600 text-white px-4 py-3 rounded-lg shadow hover:bg-amber-700 transition font-bold uppercase tracking-widest text-xs">
                                                     <i class="fas fa-money-bill-wave mr-2"></i>Make Cash Payment
@@ -1206,44 +1206,6 @@ endif; ?>
                                                     </div>
                                                 </div>
                                             </div>
-
-                                 <!-- Print Document (if not rejected/cancelled) -->
-                                            <button x-show="selectedReq.status !== 'Rejected' && selectedReq.status !== 'Cancelled'" :disabled="selectedReq.paymentStatus !== 'Paid'" @click="if (selectedReq.paymentStatus !== 'Paid') return; const templates = {
-                                    'Barangay Clearance': 'barangay-clearance-template.php',
-                                    'Certificate of Residency': 'certificate-of-residency-template.php',
-                                    'Certificate of Indigency': 'certificate-of-indigency-template.php',
-                                    'Certificate of Indigency (Special)': 'certificate-of-indigency-special-template.php',
-                                    'business': 'business-clearance-template.php'
-                                 };
-                                 let templateFile;
-                                 if (selectedReq.type === 'business') {
-                                     templateFile = (selectedReq.docType === 'Business Clearance') ? templates['business'] : 'business-permit-application-template.php';
-                                 } else {
-                                     templateFile = templates[selectedReq.docType] || 'barangay-clearance-template.php';
-                                 }
-                                 window.location.href = templateFile + '?id=' + selectedReq.id;" :class="selectedReq.paymentStatus === 'Paid' ? 'w-full bg-gray-100 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-200 transition font-bold uppercase tracking-widest text-xs flex items-center justify-center' : 'w-full bg-gray-100 text-gray-400 px-4 py-3 rounded-lg opacity-70 cursor-not-allowed font-bold uppercase tracking-widest text-xs flex items-center justify-center'">
-                                    <i class="fas fa-print mr-2"></i>Print Certificate / Clearance
-                                 </button>
-                                            <p x-show="selectedReq.paymentStatus !== 'Paid'" class="text-[11px] text-red-600 font-semibold text-center">Payment required before printing.</p>
-
-                                            <!-- View Full Details (opens filled request form/template) -->
-                                            <button @click="const templates = {
-                                                'Barangay Clearance': 'barangay-clearance-template.php',
-                                                'Certificate of Residency': 'certificate-of-residency-template.php',
-                                                'Certificate of Indigency': 'certificate-of-indigency-template.php',
-                                                'Certificate of Indigency (Special)': 'certificate-of-indigency-special-template.php',
-                                                'business': 'business-clearance-template.php'
-                                            };
-                                            let templateFile;
-                                            if (selectedReq.type === 'business') {
-                                                templateFile = (selectedReq.docType === 'Business Clearance') ? templates['business'] : 'business-permit-application-template.php';
-                                            } else {
-                                                templateFile = templates[selectedReq.docType] || 'barangay-clearance-template.php';
-                                            }
-                                            window.location.href = templateFile + '?id=' + selectedReq.id + '&view_only=1';
-                                            viewPanelOpen = false;" class="w-full bg-gray-50 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-100 transition font-bold uppercase tracking-widest text-xs border border-gray-200">
-                                    <i class="fas fa-expand mr-2"></i>View Full Details
-                                 </button>
 
                                             <!-- Admin Notes -->
                                             <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-2">
@@ -1354,7 +1316,7 @@ echo json_encode($monitoring_csrf_token); ?>;
                     const row = document.getElementById(`request-row-${types[i]}-${id}`);
                     if (row) row.style.opacity = '0.5';
                 });
-                showToast(data.message || 'Status updated successfully.');
+                showToast(data.warning || data.message || 'Status updated successfully.', data.warning ? 'warning' : 'success');
                 setTimeout(() => location.reload(), 1200);
             } else {
                 showToast('Failed: ' + (data.error || 'Unknown error'), 'error');
@@ -1484,6 +1446,11 @@ echo json_encode($monitoring_csrf_token); ?>;
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                if (data.warning) {
+                    showToast(data.warning, 'warning');
+                    setTimeout(() => location.reload(), 1800);
+                    return;
+                }
                 location.reload();
             } else {
                 showToast('Failed to update payment: ' + (data.error || 'Unknown error'), 'error');
@@ -1517,6 +1484,11 @@ echo json_encode($monitoring_csrf_token); ?>;
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    if (data.warning) {
+                        showToast(data.warning, 'warning');
+                        setTimeout(() => location.reload(), 1800);
+                        return;
+                    }
                     location.reload();
                 } else {
                     showToast('Failed to cancel request: ' + (data.error || 'Unknown error'), 'error');
@@ -1580,8 +1552,9 @@ echo json_encode($monitoring_csrf_token); ?>;
         const icon  = document.getElementById('toastIcon');
         const msg   = document.getElementById('toastMessage');
         const isErr = type === 'error';
-        toast.className = `fixed bottom-6 right-6 z-[9999] flex items-center space-x-3 px-5 py-3 rounded-xl shadow-2xl transition-all duration-300 max-w-sm ${isErr ? 'bg-red-600' : 'bg-green-600'} text-white`;
-        icon.textContent  = isErr ? '\u2715' : '\u2713';
+        const isWarn = type === 'warning';
+        toast.className = `fixed bottom-6 right-6 z-[9999] flex items-center space-x-3 px-5 py-3 rounded-xl shadow-2xl transition-all duration-300 max-w-sm ${isErr ? 'bg-red-600' : (isWarn ? 'bg-amber-600' : 'bg-green-600')} text-white`;
+        icon.textContent  = isErr ? '\u2715' : (isWarn ? '!' : '\u2713');
         msg.textContent   = message;
         toast.style.opacity = '1';
         toast.style.transform = 'translateY(0)';

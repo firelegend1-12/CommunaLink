@@ -28,6 +28,7 @@ if (!$resident) {
 
 $full_name = htmlspecialchars($resident['first_name'] . ' ' . $resident['last_name']);
 
+$document_print_layout = true;
 require_once 'partials/header.php';
 ?>
 
@@ -113,7 +114,7 @@ require_once 'partials/header.php';
                 <!-- Live SVG Preview -->
                 <div class="mt-8">
                     <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Live Preview</h3>
-                    <div id="svg-preview-container" class="printable-area bg-white p-4 rounded-xl border border-gray-200 shadow-sm overflow-auto" style="max-height: 600px; text-align: center;">
+                    <div id="svg-preview-container" class="printable-area max-w-4xl mx-auto my-8 p-8 bg-white shadow-lg overflow-auto">
                         <?php
                         $svg_path = '../Certificate of Indigency (Special).svg';
                         $svg = file_get_contents($svg_path);

@@ -12,7 +12,6 @@ $resident_id = (int) ($_SESSION['resident_id'] ?? 0);
 if ($user_id <= 0) {
     echo json_encode([
         'error' => 'Not logged in',
-        'notifications' => [],
         'doc_requests' => [],
         'biz_requests' => []
     ]);
@@ -27,10 +26,7 @@ if ($resident_id <= 0) {
     }
 }
 
-// Fetch notifications
-$stmt = $pdo->prepare('SELECT id, title, message, type, link, is_read, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 10');
-$stmt->execute([$user_id]);
-$notifications = $stmt->fetchAll();
+// Notifications intentionally removed from resident live updates.
 
 // Fetch document requests
 $stmt = $pdo->prepare('SELECT id, document_type, purpose, date_requested, status, remarks, NULL AS admin_notes, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC');
@@ -52,7 +48,6 @@ unset($biz_row);
 
 echo json_encode([
     'error' => $resident_id > 0 ? null : 'Resident profile not found.',
-    'notifications' => $notifications,
     'doc_requests' => $doc_requests,
     'biz_requests' => $biz_requests
 ]); 

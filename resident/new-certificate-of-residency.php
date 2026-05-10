@@ -39,6 +39,7 @@ $day_issued = date('j');
 $month_issued = date('F');
 $year_issued = date('Y');
 
+$document_print_layout = true;
 require_once 'partials/header.php';
 ?>
 
@@ -101,7 +102,7 @@ require_once 'partials/header.php';
                 <!-- Certificate Preview -->
                 <div>
                     <h3 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4">III. <i class="fas fa-file-alt text-purple-500 mr-2"></i>Certificate Preview</h3>
-                    <div class="printable-area bg-purple-50/60 p-4 rounded-xl border border-purple-100 shadow-inner overflow-auto" style="text-align: center;">
+                    <div class="printable-area max-w-4xl mx-auto my-8 p-8 bg-white shadow-lg overflow-auto">
                         <?php
                         $svg_path = '../Certificate of Residency.svg';
                         $svg = file_get_contents($svg_path);

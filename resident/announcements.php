@@ -22,7 +22,7 @@ try {
     $stmt_context->execute([$user_id]);
     $user_context = $stmt_context->fetch(PDO::FETCH_ASSOC);
     
-    $user_role = $user_context['role'] ?? 'resident';
+    $user_role = strtolower(trim((string)($user_context['role'] ?? 'resident')));
     $user_address = $user_context['address'] ?? null;
 
     // 2. Fetch Unified Posts (Announcements & Events)
@@ -38,9 +38,10 @@ try {
     $target_sql = implode(',', $target_queries);
 
     $sql = "SELECT a.*, u.fullname as author_name,
+            'announcement' as item_source,
             (SELECT COUNT(*) FROM post_reactions WHERE post_id = a.id AND reaction_type = 'like') as like_count,
             (SELECT COUNT(*) FROM post_reactions WHERE post_id = a.id AND reaction_type = 'acknowledge') as ack_count,
-            (SELECT reaction_type FROM post_reactions WHERE post_id = a.id AND resident_id = ?) as my_reaction
+            (SELECT reaction_type FROM post_reactions WHERE post_id = a.id AND resident_id = ? LIMIT 1) as my_reaction
             FROM announcements a
             JOIN users u ON a.user_id = u.id
             WHERE a.status = 'active'
@@ -52,6 +53,57 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$user_id]);
     $feed = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Dedicated admin Events records are legacy, but production can still have them.
+    // Merge upcoming legacy events so the resident Community Board does not look empty.
+    try {
+        $events_table = $pdo->query("SHOW TABLES LIKE 'events'");
+        if ($events_table && $events_table->rowCount() > 0) {
+            $legacy_events_sql = "SELECT
+                    -e.id AS id,
+                    e.created_by AS user_id,
+                    e.title,
+                    COALESCE(e.description, '') AS content,
+                    NULL AS image_path,
+                    e.created_at,
+                    'active' AS status,
+                    'normal' AS priority,
+                    'all' AS target_audience,
+                    e.created_at AS publish_date,
+                    NULL AS expiry_date,
+                    0 AS read_count,
+                    1 AS is_event,
+                    e.event_date,
+                    e.event_time,
+                    e.location AS event_location,
+                    e.type AS event_type,
+                    u.fullname AS author_name,
+                    'legacy_event' AS item_source,
+                    0 AS like_count,
+                    0 AS ack_count,
+                    NULL AS my_reaction
+                FROM events e
+                JOIN users u ON e.created_by = u.id
+                WHERE (e.event_date IS NULL OR e.event_date >= CURDATE())
+                  AND NOT EXISTS (
+                      SELECT 1 FROM announcements a
+                      WHERE a.is_event = 1
+                        AND a.title = e.title
+                        AND (a.event_date <=> e.event_date)
+                  )";
+            $legacy_events = $pdo->query($legacy_events_sql)->fetchAll(PDO::FETCH_ASSOC);
+            if (!empty($legacy_events)) {
+                $feed = array_merge($feed, $legacy_events);
+                usort($feed, function ($a, $b) {
+                    $a_time = strtotime((string)($a['publish_date'] ?: $a['created_at'] ?: '')) ?: 0;
+                    $b_time = strtotime((string)($b['publish_date'] ?: $b['created_at'] ?: '')) ?: 0;
+                    return $b_time <=> $a_time;
+                });
+            }
+        }
+    } catch (PDOException $legacyEventError) {
+        error_log('Legacy events merge failed on resident Community Board: ' . $legacyEventError->getMessage());
+    }
 
 } catch (PDOException $e) {
     $feed = [];
@@ -211,7 +263,8 @@ try {
     <?php else: ?>
         <div class="space-y-8">
             <?php foreach ($feed as $item): ?>
-                <article class="announcement-card <?= $item['priority'] === 'urgent' ? 'border-l-4 border-amber-500' : '' ?> bg-white shadow-sm border border-slate-200 rounded-3xl overflow-hidden">
+                <?php $is_reactable_post = ($item['item_source'] ?? 'announcement') === 'announcement' && (int)($item['id'] ?? 0) > 0; ?>
+                <article class="announcement-card <?= ($item['priority'] ?? '') === 'urgent' ? 'border-l-4 border-amber-500' : '' ?> bg-white shadow-sm border border-slate-200 rounded-3xl overflow-hidden">
                     <?php if ($item['image_path']): ?>
                         <div class="relative h-64 overflow-hidden">
                             <img src="../admin/<?= htmlspecialchars($item['image_path']) ?>" alt="<?= htmlspecialchars($item['title']) ?>" class="w-full h-full object-cover">
@@ -260,19 +313,21 @@ try {
 
                         <div class="flex items-center justify-between pt-6 border-t border-slate-100">
                             <div class="flex items-center gap-4">
-                                <button onclick="toggleReaction(<?= $item['id'] ?>, 'like')" id="like-btn-<?= $item['id'] ?>" 
-                                    class="reaction-btn <?= $item['my_reaction'] === 'like' ? 'active' : '' ?> text-slate-600 hover:text-indigo-600">
-                                    <i class="<?= $item['my_reaction'] === 'like' ? 'fas' : 'far' ?> fa-thumbs-up"></i>
-                                    <span>Like</span>
-                                    <span class="reaction-count" id="like-count-<?= $item['id'] ?>"><?= $item['like_count'] ?></span>
-                                </button>
-                                
-                                <button onclick="toggleReaction(<?= $item['id'] ?>, 'acknowledge')" id="ack-btn-<?= $item['id'] ?>" 
-                                    class="reaction-btn ack <?= $item['my_reaction'] === 'acknowledge' ? 'active' : '' ?> text-slate-600 hover:text-emerald-600">
-                                    <i class="<?= $item['my_reaction'] === 'acknowledge' ? 'fas' : 'far' ?> fa-check-circle"></i>
-                                    <span>Acknowledge</span>
-                                    <span class="reaction-count" id="ack-count-<?= $item['id'] ?>"><?= $item['ack_count'] ?></span>
-                                </button>
+                                <?php if ($is_reactable_post): ?>
+                                    <button onclick="toggleReaction(<?= (int) $item['id'] ?>, 'like')" id="like-btn-<?= (int) $item['id'] ?>" 
+                                        class="reaction-btn <?= $item['my_reaction'] === 'like' ? 'active' : '' ?> text-slate-600 hover:text-indigo-600">
+                                        <i class="<?= $item['my_reaction'] === 'like' ? 'fas' : 'far' ?> fa-thumbs-up"></i>
+                                        <span>Like</span>
+                                        <span class="reaction-count" id="like-count-<?= (int) $item['id'] ?>"><?= (int) $item['like_count'] ?></span>
+                                    </button>
+                                    
+                                    <button onclick="toggleReaction(<?= (int) $item['id'] ?>, 'acknowledge')" id="ack-btn-<?= (int) $item['id'] ?>" 
+                                        class="reaction-btn ack <?= $item['my_reaction'] === 'acknowledge' ? 'active' : '' ?> text-slate-600 hover:text-emerald-600">
+                                        <i class="<?= $item['my_reaction'] === 'acknowledge' ? 'fas' : 'far' ?> fa-check-circle"></i>
+                                        <span>Acknowledge</span>
+                                        <span class="reaction-count" id="ack-count-<?= (int) $item['id'] ?>"><?= (int) $item['ack_count'] ?></span>
+                                    </button>
+                                <?php endif; ?>
                             </div>
                             
                             <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">

@@ -44,19 +44,6 @@ if (!$resident_id && isset($_SESSION['user_id'])) {
     }
 }
 
-// Fetch Latest Alerts (Notifications) for Banner Ticker
-try {
-    if ($resident_id) {
-        $stmtAlerts = $pdo->prepare("SELECT message FROM notifications WHERE resident_id = ? ORDER BY created_at DESC LIMIT 5");
-        $stmtAlerts->execute([$resident_id]);
-        $bannerAlerts = $stmtAlerts->fetchAll(PDO::FETCH_COLUMN);
-    } else {
-        $bannerAlerts = [];
-    }
-} catch (Exception $e) {
-    $bannerAlerts = [];
-}
-
 require_once 'partials/header.php';
 ?>
 
@@ -78,9 +65,37 @@ require_once 'partials/header.php';
     min-width: 0;
 }
 
-/* Banner Announcements & Alerts Ticker Setup */
-.banner-announcements,
-.banner-alerts {
+.announcement-ticker,
+.ann-ticker-container,
+.ann-ticker-content {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.ann-ticker-container {
+    display: flex;
+    box-sizing: border-box;
+}
+
+.ann-ticker-label {
+    flex-shrink: 0;
+}
+
+.ticker-item {
+    display: inline-flex;
+    align-items: center;
+}
+
+.ticker-link {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Banner Announcements Ticker Setup */
+.banner-announcements {
     background: rgba(255,255,255,0.13);
     border: 1.5px solid rgba(255,255,255,0.25);
     border-radius: 12px;
@@ -93,13 +108,7 @@ require_once 'partials/header.php';
     position: relative; /* for absolute children or pseudo */
 }
 
-.banner-alerts {
-    background: rgba(255,100,100,0.15);
-    border-color: rgba(255,200,200,0.3);
-}
-
-.banner-announcements .ann-label,
-.banner-alerts .ann-label {
+.banner-announcements .ann-label {
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
@@ -111,8 +120,7 @@ require_once 'partials/header.php';
     gap: 6px;
 }
 
-.banner-announcements .ann-ticker,
-.banner-alerts .ann-ticker {
+.banner-announcements .ann-ticker {
     overflow: hidden; 
     white-space: nowrap; 
     width: 100%;
@@ -121,8 +129,7 @@ require_once 'partials/header.php';
     -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
 }
 
-.banner-announcements .ann-ticker-inner,
-.banner-alerts .ann-ticker-inner {
+.banner-announcements .ann-ticker-inner {
     display: inline-block;
     animation: ticker-scroll 25s linear infinite;
     font-size: 18px;
@@ -132,13 +139,11 @@ require_once 'partials/header.php';
     will-change: transform;
 }
 
-.banner-announcements .ann-ticker-inner:hover,
-.banner-alerts .ann-ticker-inner:hover {
+.banner-announcements .ann-ticker-inner:hover {
     animation-play-state: paused;
 }
 
-.banner-announcements .ann-sep,
-.banner-alerts .ann-sep { 
+.banner-announcements .ann-sep { 
     margin: 0 32px; 
     opacity: 0.5; 
     font-size: 0.6em;
@@ -166,9 +171,40 @@ require_once 'partials/header.php';
 .recent-reports-header h2 { margin: 0; font-size: 1.5rem; font-weight: 600; }
 /* Global grid and card styles are now in resident.css */
 
+@media (max-width: 767px) {
+    .banner-tickers-container {
+        margin: 16px 0 0;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .banner-announcements {
+        padding: 12px 14px;
+    }
+
+    .ann-ticker-container {
+        padding: 6px 12px;
+        gap: 10px;
+    }
+
+    .ann-ticker-label {
+        margin-right: 8px;
+        font-size: 0.8rem;
+    }
+
+    .ann-ticker-inner {
+        font-size: 0.95rem;
+    }
+}
+
 @media (max-width: 480px) {
-    /* On very small phones, maybe single column is better? 
-       But user insisted on 2-column max. I'll stick to 2. */
+    .ann-ticker-label span {
+        display: none;
+    }
+
+    .ann-ticker-label {
+        margin-right: 4px;
+    }
 }
 
 </style>
@@ -193,28 +229,7 @@ require_once 'partials/header.php';
                             <?php foreach ($bannerAnnouncements as $ann_title): ?>
                                 <span class="ticker-item">
                                     <?= htmlspecialchars($ann_title) ?>
-                                    <a href="notifications.php" class="ticker-link ml-2 text-white text-xs font-semibold px-2 py-1 rounded-full bg-white/20 hover:bg-white/30 transition-colors">Read more</a>
-                                </span>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-
-        <?php if (!empty($bannerAlerts)): ?>
-        <div class="banner-alerts">
-            <div class="announcement-ticker w-full">
-                <div class="ann-ticker-container flex w-full" style="background: rgba(255, 100, 100, 0.2); border-color: rgba(255, 200, 200, 0.4);">
-                    <div class="ann-ticker-label text-red-200">
-                        <i class="fas fa-bell animate-pulse"></i> <span>Alerts</span>
-                    </div>
-                    <div class="ann-ticker-content flex-grow">
-                        <div class="ann-ticker-inner">
-                            <?php foreach ($bannerAlerts as $alertMsg): ?>
-                                <span class="ticker-item">
-                                    <?= htmlspecialchars($alertMsg) ?>
+                                    <a href="announcements.php" class="ticker-link ml-2 text-white text-xs font-semibold px-2 py-1 rounded-full bg-white/20 hover:bg-white/30 transition-colors">Read more</a>
                                 </span>
                             <?php endforeach; ?>
                         </div>

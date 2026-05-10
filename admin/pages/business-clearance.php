@@ -48,9 +48,29 @@ $valid_until = date('F j, Y', strtotime('+1 year'));
     <title>Barangay Pakiad</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        @page { size: A4 portrait; margin: 10mm; }
         @media print {
-            body { -webkit-print-color-adjust: exact; }
-            .no-print { display: none; }
+            html, body {
+                background: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .no-print { display: none !important; }
+            body * { visibility: hidden !important; }
+            #certificate, #certificate * { visibility: visible !important; }
+            #certificate {
+                position: absolute !important;
+                top: 0 !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                width: 190mm !important;
+                max-width: 190mm !important;
+                min-height: 277mm !important;
+                box-sizing: border-box !important;
+                margin: 0 auto !important;
+            }
         }
         .certificate-body {
             font-family: 'Times New Roman', Times, serif;

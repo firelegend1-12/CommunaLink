@@ -768,6 +768,7 @@ function get_resident_id($pdo, $user_id) {
 function create_notification($pdo, $user_id, $title, $message, $type = 'general', $link = null) {
     try {
         static $notifications_columns = null;
+        $GLOBALS['last_notification_error'] = null;
 
         if ($notifications_columns === null) {
             $notifications_columns = [];
@@ -788,9 +789,16 @@ function create_notification($pdo, $user_id, $title, $message, $type = 'general'
 
         $has_user_id = array_key_exists('user_id', $notifications_columns);
         $has_resident_id = array_key_exists('resident_id', $notifications_columns);
+        $has_created_at = array_key_exists('created_at', $notifications_columns);
 
         if (!$has_user_id && !$has_resident_id) {
-            error_log('Error creating notification: notifications table missing user_id/resident_id columns');
+            $GLOBALS['last_notification_error'] = 'notifications table missing user_id/resident_id columns';
+            error_log('Error creating notification: ' . $GLOBALS['last_notification_error']);
+            return false;
+        }
+        if (!array_key_exists('message', $notifications_columns)) {
+            $GLOBALS['last_notification_error'] = 'notifications table missing required message column';
+            error_log('Error creating notification: ' . $GLOBALS['last_notification_error']);
             return false;
         }
 
@@ -803,26 +811,664 @@ function create_notification($pdo, $user_id, $title, $message, $type = 'general'
             if ($resolved_resident_id !== null) {
                 $resident_id_value = (int) $resolved_resident_id;
             } elseif ($needs_resident_id) {
-                error_log('Error creating notification: could not resolve resident_id for user_id=' . (int) $user_id);
+                $GLOBALS['last_notification_error'] = 'could not resolve resident_id for user_id=' . (int) $user_id;
+                error_log('Error creating notification: ' . $GLOBALS['last_notification_error']);
                 return false;
             }
         }
 
-        if ($has_user_id && $has_resident_id) {
-            $stmt = $pdo->prepare("INSERT INTO notifications (user_id, resident_id, title, message, type, link, is_read) VALUES (?, ?, ?, ?, ?, ?, 0)");
-            return $stmt->execute([(int) $user_id, $resident_id_value, $title, $message, $type, $link]);
+        $needs_created_at = false;
+        if ($has_created_at) {
+            $created_meta = $notifications_columns['created_at'];
+            $needs_created_at = ($created_meta['null'] === false && $created_meta['default'] === null);
         }
+
+        $cols = [];
+        $vals = [];
+        $params = [];
 
         if ($has_user_id) {
-            $stmt = $pdo->prepare("INSERT INTO notifications (user_id, title, message, type, link, is_read) VALUES (?, ?, ?, ?, ?, 0)");
-            return $stmt->execute([(int) $user_id, $title, $message, $type, $link]);
+            $cols[] = 'user_id';
+            $vals[] = '?';
+            $params[] = (int) $user_id;
         }
 
-        $stmt = $pdo->prepare("INSERT INTO notifications (resident_id, title, message, type, link, is_read) VALUES (?, ?, ?, ?, ?, 0)");
-        return $stmt->execute([$resident_id_value, $title, $message, $type, $link]);
+        if ($has_resident_id) {
+            $cols[] = 'resident_id';
+            $vals[] = '?';
+            $params[] = $resident_id_value;
+        }
+
+        if (array_key_exists('title', $notifications_columns)) {
+            $cols[] = 'title';
+            $vals[] = '?';
+            $params[] = $title;
+        }
+
+        $cols[] = 'message';
+        $vals[] = '?';
+        $params[] = $message;
+
+        if (array_key_exists('type', $notifications_columns)) {
+            $cols[] = 'type';
+            $vals[] = '?';
+            $params[] = $type;
+        }
+
+        if (array_key_exists('link', $notifications_columns)) {
+            $cols[] = 'link';
+            $vals[] = '?';
+            $params[] = $link;
+        }
+
+        if (array_key_exists('is_read', $notifications_columns)) {
+            $cols[] = 'is_read';
+            $vals[] = '0';
+        }
+
+        if ($has_created_at && $needs_created_at) {
+            $cols[] = 'created_at';
+            $vals[] = 'NOW()';
+        }
+
+        $sql = "INSERT INTO notifications (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $vals) . ")";
+        $stmt = $pdo->prepare($sql);
+        $created = $stmt->execute($params);
+        if (!$created) {
+            $error_info = $stmt->errorInfo();
+            $GLOBALS['last_notification_error'] = 'notification insert returned false: ' . implode(' | ', array_filter(array_map('strval', $error_info)));
+            error_log('Error creating notification: ' . $GLOBALS['last_notification_error']);
+        }
+        return $created;
     } catch (PDOException $e) {
-        error_log("Error creating notification: " . $e->getMessage());
+        $GLOBALS['last_notification_error'] = $e->getMessage();
+        error_log("Error creating notification: " . $GLOBALS['last_notification_error']);
         return false;
+    }
+}
+
+/**
+ * Last in-app notification creation failure for JSON/debug surfaces.
+ *
+ * @return string|null
+ */
+function get_last_notification_error(): ?string {
+    $error = $GLOBALS['last_notification_error'] ?? null;
+    return is_string($error) && $error !== '' ? $error : null;
+}
+
+/**
+ * Resolve the audience values used for resident-targeted public posts.
+ *
+ * @param PDO $pdo
+ * @param int $user_id
+ * @return array<int, string>
+ */
+function get_resident_public_post_target_values(PDO $pdo, int $user_id): array {
+    if ($user_id <= 0) {
+        return ['all'];
+    }
+
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT LOWER(TRIM(u.role)) AS role, TRIM(r.address) AS address
+             FROM users u
+             LEFT JOIN residents r ON r.user_id = u.id
+             WHERE u.id = ?
+             LIMIT 1"
+        );
+        $stmt->execute([$user_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    } catch (PDOException $e) {
+        error_log('Error resolving resident public-post targeting context: ' . $e->getMessage());
+        $row = [];
+    }
+
+    $role = (string)($row['role'] ?? 'resident');
+    $address = trim((string)($row['address'] ?? ''));
+    $targets = ['all'];
+
+    if ($role === 'resident') {
+        $targets[] = 'residents';
+    }
+
+    if ($role === 'business_owner' || $role === 'admin') {
+        $targets[] = 'business';
+    }
+
+    if ($address !== '') {
+        $targets[] = $address;
+    }
+
+    return array_values(array_unique($targets));
+}
+
+/**
+ * Build a short bell-friendly summary for a public post.
+ *
+ * @param array<string, mixed> $post
+ * @return string
+ */
+function build_resident_public_post_notification_message(array $post): string {
+    $content = trim((string)($post['content'] ?? ''));
+    $is_event = !empty($post['is_event']);
+    $summary = $content;
+
+    if ($summary === '') {
+        $summary = $is_event ? 'A new barangay event was posted.' : 'A new barangay announcement was posted.';
+    }
+
+    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+        if (mb_strlen($summary, 'UTF-8') > 160) {
+            $summary = mb_substr($summary, 0, 157, 'UTF-8') . '...';
+        }
+    } elseif (strlen($summary) > 160) {
+        $summary = substr($summary, 0, 157) . '...';
+    }
+
+    if ($is_event) {
+        $event_parts = [];
+        $event_date = trim((string)($post['event_date'] ?? ''));
+        $event_time = trim((string)($post['event_time'] ?? ''));
+        $event_location = trim((string)($post['event_location'] ?? ''));
+
+        if ($event_date !== '') {
+            $timestamp = strtotime($event_date);
+            $event_parts[] = 'Date: ' . ($timestamp ? date('M d, Y', $timestamp) : $event_date);
+        }
+        if ($event_time !== '') {
+            $timestamp = strtotime($event_time);
+            $event_parts[] = 'Time: ' . ($timestamp ? date('h:i A', $timestamp) : $event_time);
+        }
+        if ($event_location !== '') {
+            $event_parts[] = 'Venue: ' . $event_location;
+        }
+
+        if (!empty($event_parts)) {
+            $summary .= ' ' . implode(' | ', $event_parts);
+        }
+    }
+
+    return $summary;
+}
+
+/**
+ * Fetch table column names with a small in-request cache.
+ *
+ * @param PDO $pdo
+ * @param string $table_name
+ * @return array<string, bool>
+ */
+function communalink_table_columns(PDO $pdo, string $table_name): array {
+    static $cache = [];
+    $table_name = trim($table_name);
+
+    if (!preg_match('/^[A-Za-z0-9_]+$/', $table_name)) {
+        return [];
+    }
+
+    if (array_key_exists($table_name, $cache)) {
+        return $cache[$table_name];
+    }
+
+    $columns = [];
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM `{$table_name}`");
+        if ($stmt) {
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $column) {
+                $name = (string)($column['Field'] ?? '');
+                if ($name !== '') {
+                    $columns[$name] = true;
+                }
+            }
+        }
+    } catch (PDOException $e) {
+        error_log('Unable to inspect table columns for ' . $table_name . ': ' . $e->getMessage());
+    }
+
+    $cache[$table_name] = $columns;
+    return $columns;
+}
+
+/**
+ * Check table existence with a small in-request cache.
+ */
+function communalink_table_exists(PDO $pdo, string $table_name): bool {
+    static $cache = [];
+    $table_name = trim($table_name);
+
+    if (!preg_match('/^[A-Za-z0-9_]+$/', $table_name)) {
+        return false;
+    }
+
+    if (array_key_exists($table_name, $cache)) {
+        return $cache[$table_name];
+    }
+
+    try {
+        $stmt = $pdo->query("SHOW TABLES LIKE " . $pdo->quote($table_name));
+        $cache[$table_name] = $stmt && $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log('Unable to inspect table existence for ' . $table_name . ': ' . $e->getMessage());
+        $cache[$table_name] = false;
+    }
+
+    return $cache[$table_name];
+}
+
+/**
+ * Fetch Community Board items as bell-compatible notification rows.
+ *
+ * @param PDO $pdo
+ * @param int $user_id
+ * @param int $resident_id
+ * @param int $limit
+ * @return array<int, array<string, mixed>>
+ */
+function get_resident_board_notifications(PDO $pdo, int $user_id, int $resident_id = 0, int $limit = 10): array {
+    if ($user_id <= 0) {
+        return [];
+    }
+
+    $resident_id = $resident_id > 0 ? $resident_id : (int)(get_resident_id($pdo, $user_id) ?? 0);
+    $targets = get_resident_public_post_target_values($pdo, $user_id);
+    $limit = max(1, min(50, $limit));
+
+    if (empty($targets)) {
+        $targets = ['all'];
+    }
+
+    $announcement_columns = communalink_table_columns($pdo, 'announcements');
+    if (empty($announcement_columns) || empty($announcement_columns['id']) || empty($announcement_columns['title'])) {
+        return [];
+    }
+
+    $has_content = !empty($announcement_columns['content']);
+    $has_status = !empty($announcement_columns['status']);
+    $has_publish_date = !empty($announcement_columns['publish_date']);
+    $has_expiry_date = !empty($announcement_columns['expiry_date']);
+    $has_target_audience = !empty($announcement_columns['target_audience']);
+    $has_is_event = !empty($announcement_columns['is_event']);
+    $has_event_date = !empty($announcement_columns['event_date']);
+    $has_event_time = !empty($announcement_columns['event_time']);
+    $has_event_location = !empty($announcement_columns['event_location']);
+    $has_created_at = !empty($announcement_columns['created_at']);
+    $has_reads_table = communalink_table_exists($pdo, 'announcement_reads') && $resident_id > 0;
+
+    $created_expr = $has_publish_date && $has_created_at
+        ? 'COALESCE(a.publish_date, a.created_at)'
+        : ($has_publish_date ? 'a.publish_date' : ($has_created_at ? 'a.created_at' : 'NOW()'));
+    $is_event_expr = $has_is_event ? 'a.is_event' : '0';
+    $event_date_expr = $has_event_date ? 'a.event_date' : 'NULL';
+    $event_time_expr = $has_event_time ? 'a.event_time' : 'NULL';
+    $event_location_expr = $has_event_location ? 'a.event_location' : 'NULL';
+    $content_expr = $has_content ? 'a.content' : "''";
+    $read_expr = $has_reads_table ? 'CASE WHEN ar.announcement_id IS NULL THEN 0 ELSE 1 END' : '0';
+    $join_sql = $has_reads_table
+        ? ' LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.resident_id = ? '
+        : '';
+    $params = [];
+    if ($has_reads_table) {
+        $params[] = $resident_id;
+    }
+
+    $where = [];
+    if ($has_status) {
+        $where[] = "a.status = 'active'";
+    }
+    if ($has_publish_date) {
+        $where[] = "(a.publish_date IS NULL OR a.publish_date <= NOW())";
+    }
+    if ($has_expiry_date) {
+        $where[] = "(a.expiry_date IS NULL OR a.expiry_date >= NOW())";
+    }
+    if ($has_target_audience) {
+        $placeholders = implode(',', array_fill(0, count($targets), '?'));
+        $where[] = "a.target_audience IN ({$placeholders})";
+        foreach ($targets as $target) {
+            $params[] = $target;
+        }
+    }
+    $where_sql = empty($where) ? '1 = 1' : implode(' AND ', $where);
+    $params[] = $limit;
+
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT
+                CONCAT('announcement-', a.id) AS id,
+                a.id AS source_id,
+                CASE
+                    WHEN {$is_event_expr} = 1 THEN CONCAT('Community Event: ', a.title)
+                    ELSE CONCAT('Community Board: ', a.title)
+                END AS title,
+                {$content_expr} AS content,
+                {$is_event_expr} AS is_event,
+                {$event_date_expr} AS event_date,
+                {$event_time_expr} AS event_time,
+                {$event_location_expr} AS event_location,
+                'announcements.php' AS link,
+                {$read_expr} AS is_read,
+                CASE WHEN {$is_event_expr} = 1 THEN 'event_announcement' ELSE 'announcement' END AS type,
+                {$created_expr} AS created_at
+             FROM announcements a
+             {$join_sql}
+             WHERE {$where_sql}
+             ORDER BY {$created_expr} DESC
+             LIMIT ?"
+        );
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (PDOException $e) {
+        error_log('Error fetching resident board notifications: ' . $e->getMessage());
+        $rows = [];
+    }
+
+    foreach ($rows as &$row) {
+        $row['message'] = build_resident_public_post_notification_message($row);
+        $row['source'] = 'community_board';
+        $row['source_link'] = 'announcements.php';
+        $row['is_read'] = (int)($row['is_read'] ?? 0);
+    }
+    unset($row);
+
+    try {
+        $events_table = $pdo->query("SHOW TABLES LIKE 'events'");
+        if ($events_table && $events_table->rowCount() > 0) {
+            $legacy_stmt = $pdo->prepare(
+                "SELECT
+                    CONCAT('legacy-event-', e.id) AS id,
+                    e.id AS source_id,
+                    CONCAT('Community Event: ', e.title) AS title,
+                    COALESCE(e.description, '') AS content,
+                    1 AS is_event,
+                    e.event_date,
+                    e.event_time,
+                    e.location AS event_location,
+                    'announcements.php' AS link,
+                    1 AS is_read,
+                    'event_announcement' AS type,
+                    e.created_at
+                 FROM events e
+                 WHERE (e.event_date IS NULL OR e.event_date >= CURDATE())
+                   AND NOT EXISTS (
+                        SELECT 1
+                        FROM announcements a
+                        WHERE a.is_event = 1
+                          AND a.title = e.title
+                          AND (a.event_date <=> e.event_date)
+                   )
+                 ORDER BY e.created_at DESC
+                 LIMIT ?"
+            );
+            $legacy_stmt->execute([$limit]);
+            $legacy_rows = $legacy_stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            foreach ($legacy_rows as &$legacy_row) {
+                $legacy_row['message'] = build_resident_public_post_notification_message($legacy_row);
+                $legacy_row['source'] = 'community_board';
+                $legacy_row['source_link'] = 'announcements.php';
+                $legacy_row['is_read'] = 1;
+            }
+            unset($legacy_row);
+
+            if (!empty($legacy_rows)) {
+                $rows = array_merge($rows, $legacy_rows);
+            }
+        }
+    } catch (PDOException $e) {
+        error_log('Error fetching legacy event notifications: ' . $e->getMessage());
+    }
+
+    usort($rows, static function (array $left, array $right): int {
+        $left_time = strtotime((string)($left['created_at'] ?? '')) ?: 0;
+        $right_time = strtotime((string)($right['created_at'] ?? '')) ?: 0;
+        return $right_time <=> $left_time;
+    });
+
+    return array_slice($rows, 0, $limit);
+}
+
+/**
+ * Fetch the resident bell feed by merging in-app notifications and Community Board items.
+ *
+ * @param PDO $pdo
+ * @param int $user_id
+ * @param int $resident_id
+ * @param int $limit
+ * @return array<int, array<string, mixed>>
+ */
+function get_resident_combined_notifications(PDO $pdo, int $user_id, int $resident_id = 0, int $limit = 10): array {
+    if ($user_id <= 0) {
+        return [];
+    }
+
+    $limit = max(1, min(50, $limit));
+
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT
+                CONCAT('notification-', id) AS id,
+                id AS source_id,
+                title,
+                message,
+                type,
+                link,
+                is_read,
+                created_at
+             FROM notifications
+             WHERE user_id = ?
+             ORDER BY created_at DESC
+             LIMIT ?"
+        );
+        $stmt->execute([$user_id, $limit]);
+        $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (PDOException $e) {
+        error_log('Error fetching resident in-app notifications: ' . $e->getMessage());
+        $notifications = [];
+    }
+
+    foreach ($notifications as &$notification) {
+        $notification['source'] = 'notification';
+        $notification['is_read'] = (int)($notification['is_read'] ?? 0);
+
+        $type = trim((string)($notification['type'] ?? ''));
+        if ($type === 'announcement' || $type === 'event_announcement') {
+            $title = trim((string)($notification['title'] ?? ''));
+            $normalized_title = preg_replace('/^(new barangay announcement|new barangay event|community board|community event)\s*:\s*/i', '', $title);
+            $prefix = $type === 'event_announcement' ? 'Community Event' : 'Community Board';
+            $notification['title'] = trim($prefix . ($normalized_title !== '' ? ': ' . $normalized_title : ''));
+
+            $link = trim((string)($notification['link'] ?? ''));
+            if ($link === '' || preg_match('#(?:^|/)resident/notifications\.php$#i', $link) === 1 || strcasecmp($link, 'notifications.php') === 0) {
+                $notification['link'] = 'announcements.php';
+            }
+        }
+    }
+    unset($notification);
+
+    $board_rows = get_resident_board_notifications($pdo, $user_id, $resident_id, $limit);
+    $covered_board_keys = [];
+
+    foreach ($notifications as $notification) {
+        $type = trim((string)($notification['type'] ?? ''));
+        if ($type !== 'announcement' && $type !== 'event_announcement') {
+            continue;
+        }
+
+        $title = trim((string)($notification['title'] ?? ''));
+        $normalized_title = preg_replace('/^(new barangay announcement|new barangay event|community board|community event)\s*:\s*/i', '', $title);
+        $date_key = '';
+        $timestamp = strtotime((string)($notification['created_at'] ?? ''));
+        if ($timestamp) {
+            $date_key = date('Y-m-d', $timestamp);
+        }
+
+        $covered_board_keys[strtolower($normalized_title) . '|' . $date_key] = true;
+    }
+
+    $merged = $notifications;
+    foreach ($board_rows as $board_row) {
+        $title = trim((string)($board_row['title'] ?? ''));
+        $normalized_title = preg_replace('/^(Community Board|Community Event)\s*:\s*/i', '', $title);
+        $timestamp = strtotime((string)($board_row['created_at'] ?? ''));
+        $date_key = $timestamp ? date('Y-m-d', $timestamp) : '';
+        $fingerprint = strtolower($normalized_title) . '|' . $date_key;
+
+        if (isset($covered_board_keys[$fingerprint])) {
+            continue;
+        }
+
+        $merged[] = $board_row;
+    }
+
+    usort($merged, static function (array $left, array $right): int {
+        $left_time = strtotime((string)($left['created_at'] ?? '')) ?: 0;
+        $right_time = strtotime((string)($right['created_at'] ?? '')) ?: 0;
+        return $right_time <=> $left_time;
+    });
+
+    return array_slice($merged, 0, $limit);
+}
+
+/**
+ * Mark targeted Community Board items as read for a resident.
+ *
+ * @param PDO $pdo
+ * @param int $user_id
+ * @param int $resident_id
+ * @return int
+ */
+function mark_resident_board_notifications_read(PDO $pdo, int $user_id, int $resident_id = 0): int {
+    if ($user_id <= 0) {
+        return 0;
+    }
+
+    $resident_id = $resident_id > 0 ? $resident_id : (int)(get_resident_id($pdo, $user_id) ?? 0);
+    if ($resident_id <= 0) {
+        return 0;
+    }
+    if (!communalink_table_exists($pdo, 'announcement_reads')) {
+        return 0;
+    }
+
+    $announcement_columns = communalink_table_columns($pdo, 'announcements');
+    if (empty($announcement_columns['id'])) {
+        return 0;
+    }
+
+    $targets = get_resident_public_post_target_values($pdo, $user_id);
+    if (empty($targets)) {
+        $targets = ['all'];
+    }
+
+    $params = [$resident_id];
+
+    $where = [];
+    if (!empty($announcement_columns['status'])) {
+        $where[] = "a.status = 'active'";
+    }
+    if (!empty($announcement_columns['publish_date'])) {
+        $where[] = "(a.publish_date IS NULL OR a.publish_date <= NOW())";
+    }
+    if (!empty($announcement_columns['expiry_date'])) {
+        $where[] = "(a.expiry_date IS NULL OR a.expiry_date >= NOW())";
+    }
+    if (!empty($announcement_columns['target_audience'])) {
+        $placeholders = implode(',', array_fill(0, count($targets), '?'));
+        $where[] = "a.target_audience IN ({$placeholders})";
+        foreach ($targets as $target) {
+            $params[] = $target;
+        }
+    }
+    $where[] = 'ar.announcement_id IS NULL';
+    $where_sql = implode(' AND ', $where);
+
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT a.id
+             FROM announcements a
+             LEFT JOIN announcement_reads ar
+                ON ar.announcement_id = a.id
+               AND ar.resident_id = ?
+             WHERE {$where_sql}"
+        );
+        $stmt->execute($params);
+        $announcement_ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+    } catch (PDOException $e) {
+        error_log('Error resolving unread board notifications: ' . $e->getMessage());
+        return 0;
+    }
+
+    if (empty($announcement_ids)) {
+        return 0;
+    }
+
+    try {
+        $pdo->beginTransaction();
+        $insert = $pdo->prepare("INSERT IGNORE INTO announcement_reads (announcement_id, resident_id) VALUES (?, ?)");
+        $update = !empty($announcement_columns['read_count'])
+            ? $pdo->prepare("UPDATE announcements SET read_count = read_count + 1 WHERE id = ?")
+            : null;
+        $updated_count = 0;
+
+        foreach ($announcement_ids as $announcement_id) {
+            $insert->execute([$announcement_id, $resident_id]);
+            if ((int)$insert->rowCount() > 0) {
+                if ($update !== null) {
+                    $update->execute([$announcement_id]);
+                }
+                $updated_count++;
+            }
+        }
+
+        $pdo->commit();
+        return $updated_count;
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log('Error marking board notifications read: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Resolve the resident account that should receive document request notifications.
+ *
+ * Prefer the account that submitted the request, then fall back to the linked
+ * resident profile account for older records.
+ *
+ * @param PDO $pdo
+ * @param int $request_id
+ * @return int|null
+ */
+function get_document_request_recipient_user_id(PDO $pdo, int $request_id): ?int {
+    if ($request_id <= 0) {
+        return null;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT dr.requested_by_user_id, r.user_id AS resident_user_id
+                               FROM document_requests dr
+                               LEFT JOIN residents r ON dr.resident_id = r.id
+                               WHERE dr.id = ?
+                               LIMIT 1");
+        $stmt->execute([$request_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return null;
+        }
+
+        $requested_by_user_id = (int)($row['requested_by_user_id'] ?? 0);
+        if ($requested_by_user_id > 0) {
+            return $requested_by_user_id;
+        }
+
+        $resident_user_id = (int)($row['resident_user_id'] ?? 0);
+        return $resident_user_id > 0 ? $resident_user_id : null;
+    } catch (PDOException $e) {
+        error_log('Error resolving document request recipient: ' . $e->getMessage());
+        return null;
     }
 }
 

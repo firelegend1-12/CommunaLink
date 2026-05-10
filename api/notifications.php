@@ -96,11 +96,15 @@ if ($requestMethod === 'POST') {
         try {
             $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0");
             $stmt->execute([$user_id]);
+            $resident_id = (int)($_SESSION['resident_id'] ?? 0);
+            $board_updated_count = mark_resident_board_notifications_read($pdo, $user_id, $resident_id);
 
             emit_perf_headers($request_start, 'api_notifications');
             echo json_encode([
                 'success' => true,
-                'updated_count' => (int)$stmt->rowCount(),
+                'updated_count' => (int)$stmt->rowCount() + $board_updated_count,
+                'web_app_updated_count' => (int)$stmt->rowCount(),
+                'board_updated_count' => $board_updated_count,
             ]);
             exit;
         } catch (PDOException $e) {

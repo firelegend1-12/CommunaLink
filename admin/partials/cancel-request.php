@@ -43,7 +43,7 @@ if ($type === 'document') {
 
 try {
     if ($type === 'document') {
-        $stmt = $pdo->prepare("SELECT dr.id, dr.status, dr.document_type, r.user_id FROM document_requests dr LEFT JOIN residents r ON dr.resident_id = r.id WHERE dr.id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT dr.id, dr.status, dr.document_type, COALESCE(NULLIF(dr.requested_by_user_id, 0), r.user_id) AS recipient_user_id FROM document_requests dr LEFT JOIN residents r ON dr.resident_id = r.id WHERE dr.id = ? LIMIT 1");
         $stmt->execute([$id]);
         $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -74,20 +74,26 @@ try {
             'Cancelled'
         );
 
-        if (!empty($request['user_id'])) {
+        if (!empty($request['recipient_user_id'])) {
             $notification_sent = NotificationSystem::notify_document_status(
                 $pdo,
-                (int) $request['user_id'],
+                (int) $request['recipient_user_id'],
                 (string) $request['document_type'],
                 'Cancelled',
                 'my-document-requests.php'
             );
             if (!$notification_sent) {
-                error_log('Document cancellation notification failed for request_id=' . $id);
+                $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
+                $notification_warning = 'Request cancelled, but web-app notification failed' . ($detail ? ': ' . $detail : '.');
+                error_log('Document cancellation notification failed for request_id=' . $id . ($detail ? ' detail=' . $detail : ''));
             }
         }
 
-        echo json_encode(['success' => true, 'message' => 'Document request cancelled']);
+        $response = ['success' => true, 'message' => 'Document request cancelled'];
+        if (!empty($notification_warning)) {
+            $response['warning'] = $notification_warning;
+        }
+        echo json_encode($response);
         exit;
     }
 

@@ -28,6 +28,7 @@ if (!$resident) {
 $full_name = htmlspecialchars($resident['first_name'] . ' ' . $resident['last_name']);
 $default_address = htmlspecialchars($resident['address'] ?? '');
 
+$document_print_layout = true;
 require_once 'partials/header.php';
 ?>
 
@@ -113,7 +114,7 @@ require_once 'partials/header.php';
                 <!-- Certificate Preview -->
                 <div>
                     <h3 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4">III. <i class="fas fa-file-alt text-amber-500 mr-2"></i>Permit Preview</h3>
-                    <div class="printable-area bg-amber-50/60 p-4 rounded-xl border border-amber-100 shadow-inner overflow-auto" style="max-height: 600px; text-align: center;">
+                    <div class="printable-area max-w-4xl mx-auto my-8 p-8 bg-white shadow-lg overflow-auto">
                         <?php
                         $svg_path = '../Barangay Business Permit.svg';
                         $svg = file_get_contents($svg_path);

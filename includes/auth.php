@@ -13,6 +13,29 @@ if (defined('AUTH_LIGHTWEIGHT_BOOTSTRAP') && AUTH_LIGHTWEIGHT_BOOTSTRAP === true
     if (!function_exists('configure_session_cookie_security')) {
         function configure_session_cookie_security() {
             if (session_status() !== PHP_SESSION_NONE) {
+                // Session is already active; still ensure the cookie is scoped to the site root.
+                // Some entrypoints start sessions before cookie params are configured, which can
+                // lead to Path=/resident and break /api/* authenticated requests.
+                $currentId = session_id();
+                if ($currentId !== '') {
+                    $is_https = (
+                        (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+                        (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443) ||
+                        (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strpos(strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']), 'https') !== false)
+                    );
+
+                    $cookieParams = session_get_cookie_params();
+                    $cookiePath = isset($cookieParams['path']) ? (string) $cookieParams['path'] : '/';
+                    if ($cookiePath !== '/') {
+                        setcookie(session_name(), $currentId, [
+                            'expires' => 0,
+                            'path' => '/',
+                            'secure' => $is_https,
+                            'httponly' => true,
+                            'samesite' => 'Lax',
+                        ]);
+                    }
+                }
                 return;
             }
 

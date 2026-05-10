@@ -121,6 +121,10 @@ if (!class_exists('NotificationSystem')) {
 
             // Create in-app notification
             $notification_created = create_notification($pdo, $recipient_user_id, $title, $message, 'request_status', $link);
+            if (!$notification_created) {
+                $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
+                error_log('Document status in-app notification failed for user_id=' . $recipient_user_id . ' status=' . $status . ($detail ? ' detail=' . $detail : ''));
+            }
 
             try {
                 $stmt = $pdo->prepare("SELECT email, fullname FROM users WHERE id = ? LIMIT 1");
@@ -302,10 +306,10 @@ if (!class_exists('NotificationSystem')) {
                 ];
             }
 
-            $link = '/resident/notifications.php';
+            $link = '/resident/announcements.php';
             $absolute_link = function_exists('app_url') ? app_url($link) : $link;
 
-            $subject_prefix = $is_event ? 'New Barangay Event' : 'New Barangay Announcement';
+            $subject_prefix = $is_event ? 'Community Event' : 'Community Board';
             $notification_type = $is_event ? 'event_announcement' : 'announcement';
             $notification_title = $subject_prefix . ': ' . $title;
 
@@ -422,8 +426,8 @@ if (!class_exists('NotificationSystem')) {
                 ];
             }
 
-            $link = '/resident/notifications.php';
-            $subject_prefix = $is_event ? 'New Barangay Event' : 'New Barangay Announcement';
+            $link = '/resident/announcements.php';
+            $subject_prefix = $is_event ? 'Community Event' : 'Community Board';
             $notification_type = $is_event ? 'event_announcement' : 'announcement';
             $notification_title = $subject_prefix . ': ' . $title;
 
@@ -786,8 +790,7 @@ if (!class_exists('NotificationSystem')) {
 
             $join_clauses = ' LEFT JOIN residents r ON r.user_id = u.id ';
             $where_clauses = [
-                "u.email IS NOT NULL",
-                "TRIM(u.email) <> ''"
+                "(u.role = 'resident' OR r.id IS NOT NULL)"
             ];
 
             if (self::table_column_exists($pdo, 'users', 'status')) {

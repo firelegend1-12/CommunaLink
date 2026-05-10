@@ -8,6 +8,7 @@ require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/csrf.php';
 require_once '../../includes/permission_checker.php';
+require_once '../../includes/notification_system.php';
 
 require_login();
 
@@ -79,6 +80,8 @@ try {
     $updated_count = 0;
     $deleted_count = 0;
     $cancelled_count = 0;
+    $notification_failed_count = 0;
+    $notification_missing_count = 0;
 
     if ($action === 'bulk_status') {
         if (!in_array($status, $valid_statuses, true)) {
@@ -95,8 +98,13 @@ try {
             $deny_permission('manage_businesses');
         }
 
+        $doc_notification_rows = [];
         if (!empty($doc_ids)) {
             $placeholders = implode(',', array_fill(0, count($doc_ids), '?'));
+            $notify_stmt = $pdo->prepare("SELECT id, status, document_type FROM document_requests WHERE id IN ({$placeholders})");
+            $notify_stmt->execute($doc_ids);
+            $doc_notification_rows = $notify_stmt->fetchAll(PDO::FETCH_ASSOC);
+
             $doc_status = normalize_request_status_for_storage($pdo, 'document_requests', $status);
             $params = array_merge([$doc_status], $doc_ids);
             $stmt = $pdo->prepare("UPDATE document_requests SET status = ? WHERE id IN ({$placeholders})");
@@ -113,11 +121,48 @@ try {
             $updated_count += $stmt->rowCount();
         }
 
-        echo json_encode([
+        foreach ($doc_notification_rows as $doc_row) {
+            $doc_id = (int)($doc_row['id'] ?? 0);
+            $old_status = normalize_request_status_display($doc_row['status'] ?? null);
+            if ($doc_id <= 0 || $old_status === $status) {
+                continue;
+            }
+
+            $recipient_user_id = get_document_request_recipient_user_id($pdo, $doc_id);
+            if ($recipient_user_id === null) {
+                $notification_missing_count++;
+                error_log('No recipient user found in bulk-action-requests for request_id=' . $doc_id);
+                continue;
+            }
+
+            $notification_sent = NotificationSystem::notify_document_status(
+                $pdo,
+                $recipient_user_id,
+                (string)($doc_row['document_type'] ?? 'Document Request'),
+                $status,
+                'my-document-requests.php'
+            );
+            if (!$notification_sent) {
+                $notification_failed_count++;
+                $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
+                error_log('Notification delivery failed in bulk-action-requests for request_id=' . $doc_id . ($detail ? ' detail=' . $detail : ''));
+            }
+        }
+
+        $response = [
             'success' => true,
             'message' => "Updated {$updated_count} request(s) to '{$status}'",
             'updated_count' => $updated_count
-        ]);
+        ];
+        if ($notification_failed_count > 0 || $notification_missing_count > 0) {
+            $response['warning'] = "Status updated, but {$notification_failed_count} notification(s) failed and {$notification_missing_count} recipient(s) were missing.";
+            $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
+            if ($detail) {
+                $response['notification_error'] = $detail;
+            }
+        }
+
+        echo json_encode($response);
 
     } elseif ($action === 'bulk_delete') {
         if (!empty($doc_ids) && !require_permission('manage_documents')) {

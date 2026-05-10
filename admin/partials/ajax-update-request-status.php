@@ -8,6 +8,7 @@ require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/csrf.php';
 require_once '../../includes/permission_checker.php';
+require_once '../../includes/notification_system.php';
 
 require_login();
 
@@ -56,7 +57,22 @@ if (!in_array($status, $valid_statuses, true)) {
 }
 
 try {
+    $notification_warning = null;
+    $old_status = null;
+    $document_type = '';
+
     if ($type === 'document') {
+        $pre_stmt = $pdo->prepare("SELECT status, document_type FROM document_requests WHERE id = ? LIMIT 1");
+        $pre_stmt->execute([$id]);
+        $old_row = $pre_stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$old_row) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Request not found']);
+            exit;
+        }
+
+        $old_status = normalize_request_status_display($old_row['status'] ?? null);
+        $document_type = (string)($old_row['document_type'] ?? 'Document Request');
         $stored_status = normalize_request_status_for_storage($pdo, 'document_requests', $status);
         $stmt = $pdo->prepare("UPDATE document_requests SET status = ? WHERE id = ?");
         $stmt->execute([$stored_status, $id]);
@@ -78,12 +94,38 @@ try {
         $updated_row['status'] = normalize_request_status_display($updated_row['status'] ?? null);
     }
 
-    echo json_encode([
+    if ($type === 'document' && $old_status !== normalize_request_status_display($stored_status ?? $status)) {
+        $recipient_user_id = get_document_request_recipient_user_id($pdo, $id);
+        if ($recipient_user_id !== null) {
+            $notification_sent = NotificationSystem::notify_document_status(
+                $pdo,
+                $recipient_user_id,
+                $document_type,
+                normalize_request_status_display($stored_status ?? $status),
+                'my-document-requests.php'
+            );
+            if (!$notification_sent) {
+                $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
+                $notification_warning = 'Status updated, but web-app notification failed' . ($detail ? ': ' . $detail : '.');
+                error_log('Notification delivery failed in ajax-update-request-status for request_id=' . $id);
+            }
+        } else {
+            $notification_warning = 'Status updated, but no resident account was found for notification.';
+            error_log('No recipient user found in ajax-update-request-status for request_id=' . $id);
+        }
+    }
+
+    $response = [
         'success' => true,
         'message' => 'Status updated successfully',
         'status' => normalize_request_status_display($stored_status ?? $status),
         'updated_row' => $updated_row
-    ]);
+    ];
+    if ($notification_warning !== null) {
+        $response['warning'] = $notification_warning;
+    }
+
+    echo json_encode($response);
 
 } catch (Exception $e) {
     error_log('ajax-update-request-status failed: ' . $e->getMessage());

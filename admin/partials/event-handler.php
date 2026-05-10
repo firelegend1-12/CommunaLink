@@ -21,6 +21,27 @@ if (!csrf_validate()) {
 
 $user_id = $_SESSION['user_id'];
 
+function mirror_event_to_community_board($pdo, array $event_data) {
+    $stmt = $pdo->prepare(
+        "INSERT INTO announcements
+            (user_id, title, content, status, priority, target_audience, publish_date, is_event, event_date, event_time, event_location, event_type)
+         VALUES
+            (?, ?, ?, 'active', 'normal', 'all', NOW(), 1, ?, ?, ?, ?)"
+    );
+
+    $stmt->execute([
+        (int)($event_data['created_by'] ?? 0),
+        (string)($event_data['title'] ?? ''),
+        (string)($event_data['content'] ?? ''),
+        $event_data['event_date'] ?? null,
+        $event_data['event_time'] ?? null,
+        $event_data['event_location'] ?? null,
+        (string)($event_data['event_type'] ?? 'Upcoming Event'),
+    ]);
+
+    return (int)$pdo->lastInsertId();
+}
+
 // --- Handle Add Event ---
 if (isset($_POST['add_event'])) {
     $title = sanitize_input($_POST['title']);
@@ -38,6 +59,15 @@ if (isset($_POST['add_event'])) {
     try {
         $stmt = $pdo->prepare("INSERT INTO events (title, description, location, event_date, event_time, type, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([$title, $description, $location, $event_date, $event_time, $type, $user_id]);
+        mirror_event_to_community_board($pdo, [
+            'created_by' => $user_id,
+            'title' => $title,
+            'content' => $description,
+            'event_date' => $event_date,
+            'event_time' => $event_time,
+            'event_location' => $location,
+            'event_type' => $type,
+        ]);
 
         $broadcast_result = NotificationSystem::notify_barangay_event($pdo, [
             'title' => $title,

@@ -30,16 +30,20 @@ self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') return;
 
     const requestUrl = new URL(event.request.url);
+    const acceptHeader = event.request.headers.get('Accept') || '';
+    const isPageNavigation = event.request.mode === 'navigate' || acceptHeader.includes('text/html');
     const isDynamicRequest =
         requestUrl.pathname.endsWith('.php') ||
         requestUrl.pathname.startsWith('/api/') ||
         requestUrl.pathname.includes('/partials/');
 
     if (isDynamicRequest) {
+        if (isPageNavigation) {
+            return;
+        }
+
         event.respondWith(
             fetch(event.request).catch(() => {
-                const acceptHeader = event.request.headers.get('Accept') || '';
-
                 if (acceptHeader.includes('application/json')) {
                     return new Response(JSON.stringify({
                         success: false,
@@ -85,32 +89,6 @@ self.addEventListener('fetch', (event) => {
             });
 
             return fetchPromise;
-        })
-    );
-});
-
-self.addEventListener('notificationclick', (event) => {
-    event.notification.close();
-
-    const rawTarget = (event.notification && event.notification.data && event.notification.data.link)
-        ? String(event.notification.data.link)
-        : '/resident/notifications.php';
-
-    const targetUrl = new URL(rawTarget, self.registration.scope).href;
-
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-            for (const client of windowClients) {
-                if (client.url === targetUrl && 'focus' in client) {
-                    return client.focus();
-                }
-            }
-
-            if (clients.openWindow) {
-                return clients.openWindow(targetUrl);
-            }
-
-            return null;
         })
     );
 });

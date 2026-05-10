@@ -74,18 +74,18 @@ try {
     }
 
     // Fetch resident info for notification
-    $stmt_res = $pdo->prepare("SELECT r.user_id, " . ($type === 'document' ? "dr.document_type as item_name" : "bt.business_name as item_name") . " 
+    $stmt_res = $pdo->prepare("SELECT " . ($type === 'document' ? "COALESCE(NULLIF(dr.requested_by_user_id, 0), r.user_id)" : "r.user_id") . " AS recipient_user_id, " . ($type === 'document' ? "dr.document_type as item_name" : "bt.business_name as item_name") . " 
                                FROM $table " . ($type === 'document' ? 'dr' : 'bt') . "
                                JOIN residents r ON " . ($type === 'document' ? 'dr.resident_id' : 'bt.resident_id') . " = r.id
                                WHERE " . ($type === 'document' ? 'dr.id' : 'bt.id') . " = ?");
     $stmt_res->execute([$id]);
     $res_info = $stmt_res->fetch();
 
-    if ($res_info && $res_info['user_id']) {
+    if ($res_info && $res_info['recipient_user_id']) {
         $item_name = $res_info['item_name'];
         $notification_sent = NotificationSystem::notify_payment_update(
             $pdo,
-            (int) $res_info['user_id'],
+            (int) $res_info['recipient_user_id'],
             $item_name,
             $payment_status,
             $or_number,
@@ -93,20 +93,22 @@ try {
         );
 
         if (!$notification_sent) {
-            $notification_warning = 'Payment updated, but notification delivery failed.';
+            $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
+            $notification_warning = 'Payment updated, but web-app notification failed' . ($detail ? ': ' . $detail : '.');
             error_log('Notification delivery failed in update-payment-info for id=' . $id . ' type=' . $type);
         }
 
         if ($type === 'document' && $payment_status === 'Paid') {
             $status_notification_sent = NotificationSystem::notify_document_status(
                 $pdo,
-                (int) $res_info['user_id'],
+                (int) $res_info['recipient_user_id'],
                 $item_name,
                 'Completed',
                 'my-document-requests.php'
             );
             if (!$status_notification_sent && $notification_warning === null) {
-                $notification_warning = 'Payment updated, but completion notification delivery failed.';
+                $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
+                $notification_warning = 'Payment updated, but completion web-app notification failed' . ($detail ? ': ' . $detail : '.');
             }
         }
     }

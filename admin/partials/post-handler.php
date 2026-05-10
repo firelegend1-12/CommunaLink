@@ -148,6 +148,44 @@ function upload_post_image($file) {
     return $stored_path;
 }
 
+function is_public_post_live_now($status, $publish_date) {
+    return $status === 'active' && ($publish_date === null || strtotime((string) $publish_date) <= time());
+}
+
+function queue_or_fallback_public_post_broadcast($pdo, $post_id, array $broadcast_payload) {
+    $broadcast_result = NotificationSystem::enqueue_public_post($pdo, $broadcast_payload);
+    $broadcast_queued = !empty($broadcast_result['success']);
+    $used_fallback = false;
+
+    if (!$broadcast_queued) {
+        error_log('Post broadcast enqueue failed: ' . (string)($broadcast_result['error'] ?? 'unknown error'));
+        $_SESSION['announcement_broadcast_debug'] = [
+            'phase' => 'enqueue_public_post',
+            'post_id' => (int) $post_id,
+            'queue_id' => (int) ($broadcast_result['queue_id'] ?? 0),
+            'error' => (string) ($broadcast_result['error'] ?? 'unknown error'),
+            'timestamp' => date('c'),
+        ];
+
+        $fallback = NotificationSystem::notify_public_post_in_app_only($pdo, $broadcast_payload);
+        if (!empty($fallback['success'])) {
+            $_SESSION['announcement_broadcast_debug']['fallback'] = [
+                'mode' => 'in_app_only',
+                'recipient_count' => (int) ($fallback['recipient_count'] ?? 0),
+                'notification_created' => (int) ($fallback['notification_created'] ?? 0),
+            ];
+            $broadcast_queued = true;
+            $used_fallback = true;
+        }
+    }
+
+    return [
+        'queued' => $broadcast_queued,
+        'result' => $broadcast_result,
+        'used_fallback' => $used_fallback,
+    ];
+}
+
 // --- Handle Add Post (Announcement or Event) ---
 if (isset($_POST['add_post'])) {
     csrf_require();
@@ -239,7 +277,8 @@ if (isset($_POST['add_post'])) {
 
         $broadcast_result = null;
         $broadcast_queued = false;
-        $is_live_now = ($status === 'active') && ($publish_date === null || strtotime((string)$publish_date) <= time());
+        $broadcast_used_fallback = false;
+        $is_live_now = is_public_post_live_now($status, $publish_date);
         if ($is_live_now) {
             $broadcast_payload = [
                 'title' => $title,
@@ -251,31 +290,10 @@ if (isset($_POST['add_post'])) {
                 'event_location' => $event_location,
             ];
 
-            $broadcast_result = NotificationSystem::enqueue_public_post($pdo, $broadcast_payload);
-            $broadcast_queued = !empty($broadcast_result['success']);
-
-            if (!$broadcast_queued) {
-                error_log('Post broadcast enqueue failed: ' . (string)($broadcast_result['error'] ?? 'unknown error'));
-                // Surface a safe, one-time debug payload to the admin browser console after redirect.
-                $_SESSION['announcement_broadcast_debug'] = [
-                    'phase' => 'enqueue_public_post',
-                    'post_id' => (int) $post_id,
-                    'queue_id' => (int) ($broadcast_result['queue_id'] ?? 0),
-                    'error' => (string) ($broadcast_result['error'] ?? 'unknown error'),
-                    'timestamp' => date('c'),
-                ];
-
-                // Fallback: send in-app notifications immediately if the async queue is unavailable.
-                $fallback = NotificationSystem::notify_public_post_in_app_only($pdo, $broadcast_payload);
-                if (!empty($fallback['success'])) {
-                    $_SESSION['announcement_broadcast_debug']['fallback'] = [
-                        'mode' => 'in_app_only',
-                        'recipient_count' => (int) ($fallback['recipient_count'] ?? 0),
-                        'notification_created' => (int) ($fallback['notification_created'] ?? 0),
-                    ];
-                    $broadcast_queued = true;
-                }
-            }
+            $broadcast_delivery = queue_or_fallback_public_post_broadcast($pdo, $post_id, $broadcast_payload);
+            $broadcast_result = $broadcast_delivery['result'];
+            $broadcast_queued = $broadcast_delivery['queued'];
+            $broadcast_used_fallback = $broadcast_delivery['used_fallback'];
         }
 
         $_SESSION['announcement_success_message'] = ucfirst($type_label) . " posted successfully.";
@@ -284,7 +302,7 @@ if (isset($_POST['add_post'])) {
             unset($_SESSION['announcement_upload_warning']);
         }
         if ($is_live_now && $broadcast_queued) {
-            if (is_array($broadcast_result) && !empty($broadcast_result['success'])) {
+            if (!$broadcast_used_fallback && is_array($broadcast_result) && !empty($broadcast_result['success'])) {
                 $_SESSION['announcement_success_message'] .= ' Broadcast notifications were queued and will be delivered shortly.';
             } else {
                 $_SESSION['announcement_success_message'] .= ' Broadcast queueing failed; delivered in-app notifications as a fallback (emails skipped).';
@@ -387,6 +405,27 @@ if (isset($_POST['update_post'])) {
         log_activity_db($pdo, 'edit', $is_event ? 'event' : 'announcement', $post_id, "Updated post", null, "Title: $title");
 
         $_SESSION['announcement_success_message'] = "Post updated successfully.";
+        $was_live = is_public_post_live_now((string)($old_data['status'] ?? ''), $old_data['publish_date'] ?? null);
+        $is_live_now = is_public_post_live_now($status, $publish_date);
+        if (!$was_live && $is_live_now) {
+            $broadcast_payload = [
+                'title' => $title,
+                'content' => $content,
+                'target_audience' => $target_audience,
+                'is_event' => $is_event,
+                'event_date' => $event_date,
+                'event_time' => $event_time,
+                'event_location' => $event_location,
+            ];
+            $broadcast_delivery = queue_or_fallback_public_post_broadcast($pdo, $post_id, $broadcast_payload);
+            if (!empty($broadcast_delivery['queued'])) {
+                $_SESSION['announcement_success_message'] .= !empty($broadcast_delivery['used_fallback'])
+                    ? ' Broadcast queueing failed; delivered in-app notifications as a fallback (emails skipped).'
+                    : ' Broadcast notifications were queued and will be delivered shortly.';
+            } else {
+                $_SESSION['announcement_success_message'] .= ' Broadcast queueing failed; check server logs.';
+            }
+        }
     } catch (Exception $e) {
         $_SESSION['error_message'] = $e->getMessage();
     }
