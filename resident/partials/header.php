@@ -157,9 +157,18 @@ if ($user_id) {
             align-items: center;
             height: 70px;
         }
-        .header-menu { display: flex; align-items: center; color: var(--text-secondary); min-width: 0; max-width: 100%; }
+        .header-menu { display: flex; align-items: center; color: var(--text-secondary); min-width: 0; max-width: 100%; overflow: visible; }
         .header-menu > span { min-width: 0; }
         .header-menu .header-profile-avatar { margin-left: 8px; }
+        #profile-wrapper {
+            position: relative;
+            margin-left: 12px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        #profile-dropdown {
+            top: calc(100% + 8px);
+        }
         .notif-wrapper {
             position: relative;
             margin-left: 12px;
@@ -311,7 +320,7 @@ if ($user_id) {
                 font-size: 0.9rem;
                 max-width: 100%;
                 min-width: 0;
-                overflow: hidden;
+                overflow: visible;
             }
             .notif-wrapper {
                 margin-left: 8px;
@@ -325,6 +334,14 @@ if ($user_id) {
             }
             .notif-dropdown {
                 display: none !important;
+            }
+            #profile-dropdown {
+                position: fixed !important;
+                top: 58px !important;
+                right: 10px !important;
+                width: min(12rem, calc(100vw - 20px)) !important;
+                margin-top: 0 !important;
+                z-index: 1200 !important;
             }
             .page-main {
                 padding: 12px;
@@ -488,13 +505,13 @@ if ($user_id) {
                             <a href="announcements.php" class="notif-dropdown-footer">Open Community Board</a>
                         </div>
                     </div>
-                    <div id="profile-wrapper" class="relative" style="margin-left: 12px; cursor: pointer;">
-                        <button id="profile-btn" class="focus:outline-none flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors duration-200" title="Profile Menu">
+                    <div id="profile-wrapper" class="relative">
+                        <button id="profile-btn" type="button" class="focus:outline-none flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors duration-200" title="Profile Menu" aria-haspopup="true" aria-expanded="false">
                             <img src="<?= htmlspecialchars($resident_profile_avatar_src, ENT_QUOTES, 'UTF-8') ?>" alt="" class="header-profile-avatar" width="32" height="32">
                             <i class="fas fa-chevron-down text-[10px]"></i>
                         </button>
                         <!-- Profile Dropdown -->
-                        <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
+                        <div id="profile-dropdown" class="hidden absolute right-0 w-48 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
                             <div class="py-2">
                                 <a href="account.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"><i class="fas fa-user-cog w-5 text-center mr-2 text-blue-500"></i> My Account</a>
                                 <div class="border-t border-gray-100 my-1"></div>
@@ -552,13 +569,30 @@ if ($user_id) {
                 const profileDropdown = document.getElementById('profile-dropdown');
                 const profileWrapper = document.getElementById('profile-wrapper');
                 if (profileBtn && profileDropdown) {
+                    function setProfileDropdownOpen(isOpen) {
+                        profileDropdown.classList.toggle('hidden', !isOpen);
+                        profileBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                    }
+
                     profileBtn.addEventListener('click', function(e) {
                         e.stopPropagation();
-                        profileDropdown.classList.toggle('hidden');
+                        setProfileDropdownOpen(profileDropdown.classList.contains('hidden'));
                     });
+
+                    profileDropdown.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                    });
+
                     document.addEventListener('click', function(e) {
                         if (profileWrapper && !profileWrapper.contains(e.target)) {
-                            profileDropdown.classList.add('hidden');
+                            setProfileDropdownOpen(false);
+                        }
+                    });
+
+                    document.addEventListener('keydown', function(e) {
+                        if (e.key === 'Escape') {
+                            setProfileDropdownOpen(false);
+                            profileBtn.blur();
                         }
                     });
                 }

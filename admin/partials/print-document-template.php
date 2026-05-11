@@ -195,7 +195,9 @@ if ($template_key === 'business-permit-application' && ($row['remarks'] ?? '') =
     print_redirect_with_error('Business permit request not found.', 'business');
 }
 
-if (($row['payment_status'] ?? 'Unpaid') !== 'Paid') {
+if ($template['type'] === 'document' && !document_request_requires_payment($template['document_type'])) {
+    // Free certificates can be printed immediately.
+} elseif (($row['payment_status'] ?? 'Unpaid') !== 'Paid') {
     print_redirect_with_error('Printing is only allowed after payment is completed.', $template['type']);
 }
 

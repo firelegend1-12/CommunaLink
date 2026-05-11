@@ -29,8 +29,17 @@ if (!$incident_id || $note === '') {
 }
 
 $current_user_id = $_SESSION['user_id'] ?? 0;
+$current_user_id = (int)$current_user_id > 0 ? (int)$current_user_id : null;
 
 try {
+    $incident_stmt = $pdo->prepare("SELECT id FROM incidents WHERE id = ? LIMIT 1");
+    $incident_stmt->execute([$incident_id]);
+    if (!$incident_stmt->fetchColumn()) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'error' => 'Incident report not found.']);
+        exit;
+    }
+
     $stmt = $pdo->prepare("INSERT INTO incident_notes (incident_id, user_id, note, created_at) VALUES (?, ?, ?, NOW())");
     $stmt->execute([$incident_id, $current_user_id, $note]);
     $note_id = (int)$pdo->lastInsertId();

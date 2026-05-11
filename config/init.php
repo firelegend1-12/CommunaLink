@@ -234,6 +234,7 @@ try {
         "CREATE TABLE IF NOT EXISTS `business_transactions` (
             `id` INT(11) NOT NULL AUTO_INCREMENT,
             `resident_id` INT(11) NOT NULL,
+            `permit_id` INT(11) DEFAULT NULL,
             `business_name` VARCHAR(255) NOT NULL,
             `business_type` VARCHAR(100) NOT NULL,
             `owner_name` VARCHAR(255) NOT NULL,
@@ -243,7 +244,9 @@ try {
             `application_date` DATETIME DEFAULT CURRENT_TIMESTAMP,
             `processed_date` DATETIME DEFAULT NULL,
             `remarks` TEXT DEFAULT NULL,
+            `admin_notes` TEXT DEFAULT NULL,
             PRIMARY KEY (`id`),
+            KEY `idx_business_transactions_permit_id` (`permit_id`),
             FOREIGN KEY (`resident_id`) REFERENCES `residents`(`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
@@ -302,6 +305,7 @@ try {
             `status` ENUM('Pending', 'Approved', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending',
             `price` DECIMAL(10, 2) DEFAULT NULL,
             `remarks` TEXT DEFAULT NULL,
+            `admin_notes` TEXT DEFAULT NULL,
             `requested_by_user_id` INT(11) NULL,
             PRIMARY KEY (`id`),
             FOREIGN KEY (`resident_id`) REFERENCES `residents`(`id`) ON DELETE CASCADE,
@@ -322,6 +326,20 @@ try {
             `admin_remarks` TEXT DEFAULT NULL,
             PRIMARY KEY (`id`),
             FOREIGN KEY (`resident_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS `incident_notes` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `incident_id` INT(11) NOT NULL,
+            `user_id` INT(11) DEFAULT NULL,
+            `note` TEXT NOT NULL,
+            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` DATETIME DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_incident_notes_incident_id` (`incident_id`),
+            KEY `idx_incident_notes_user_id` (`user_id`),
+            FOREIGN KEY (`incident_id`) REFERENCES `incidents`(`id`) ON DELETE CASCADE,
+            FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
         "CREATE TABLE IF NOT EXISTS `announcements` (
@@ -605,8 +623,46 @@ try {
         // Ignore errors if table doesn't exist yet
     }
 
-    // admin_notes is intentionally not auto-created. The submitted schema does
-    // not include it, so request notes remain a runtime/UI-only placeholder.
+    // Ensure business transactions can optionally link to generated permits.
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM `business_transactions` LIKE 'permit_id'");
+        if ($stmt && $stmt->rowCount() == 0) {
+            $pdo->exec("ALTER TABLE `business_transactions` ADD COLUMN `permit_id` INT(11) DEFAULT NULL AFTER `resident_id`");
+        }
+    } catch (Exception $e) {
+        error_log('Business transactions permit_id migration failed: ' . $e->getMessage());
+    }
+
+    // Ensure request notes and incident note threads exist on upgraded installs.
+    try {
+        $request_note_columns = [
+            ['table' => 'document_requests', 'column' => 'admin_notes', 'alter' => "ADD COLUMN `admin_notes` TEXT DEFAULT NULL AFTER `remarks`"],
+            ['table' => 'business_transactions', 'column' => 'admin_notes', 'alter' => "ADD COLUMN `admin_notes` TEXT DEFAULT NULL AFTER `remarks`"],
+        ];
+
+        foreach ($request_note_columns as $note_column) {
+            $stmt = $pdo->query("SHOW COLUMNS FROM `{$note_column['table']}` LIKE '{$note_column['column']}'");
+            if ($stmt && $stmt->rowCount() == 0) {
+                $pdo->exec("ALTER TABLE `{$note_column['table']}` {$note_column['alter']}");
+            }
+        }
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `incident_notes` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `incident_id` INT(11) NOT NULL,
+            `user_id` INT(11) DEFAULT NULL,
+            `note` TEXT NOT NULL,
+            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` DATETIME DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_incident_notes_incident_id` (`incident_id`),
+            KEY `idx_incident_notes_user_id` (`user_id`),
+            FOREIGN KEY (`incident_id`) REFERENCES `incidents`(`id`) ON DELETE CASCADE,
+            FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $e) {
+        error_log('Request notes migration failed: ' . $e->getMessage());
+    }
 
     // --- Schema Migration for announcements ---
     try {
@@ -912,6 +968,7 @@ try {
         ['table' => 'residents', 'name' => 'idx_residents_name', 'columns' => 'last_name, first_name'],
         ['table' => 'business_transactions', 'name' => 'idx_biztrans_status', 'columns' => 'status'],
         ['table' => 'business_transactions', 'name' => 'idx_business_transactions_resident_application', 'columns' => 'resident_id, application_date'],
+        ['table' => 'business_transactions', 'name' => 'idx_business_transactions_permit_id', 'columns' => 'permit_id'],
         ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_resident', 'columns' => 'resident_id'],
         ['table' => 'announcement_reads', 'name' => 'idx_announcement_reads_announcement', 'columns' => 'announcement_id'],
         ['table' => 'notifications', 'name' => 'idx_notifications_user_read_created', 'columns' => 'user_id, is_read, created_at'],

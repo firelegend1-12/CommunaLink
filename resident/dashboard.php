@@ -269,7 +269,7 @@ require_once 'partials/header.php';
 </section>
 
 <div class="dashboard-grid">
-    <section class="recent-reports mt-8 bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+    <section class="recent-reports dashboard-recent-scroll mt-8 bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
         <div class="recent-reports-header">
             <h2>
                 <i class="fas fa-history text-blue-600"></i>
@@ -308,7 +308,7 @@ require_once 'partials/header.php';
         </div>
     </section>
 
-    <section class="recent-reports mt-8 bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+    <section class="recent-reports dashboard-recent-scroll mt-8 bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
         <div class="recent-reports-header">
             <h2>
                 <i class="fas fa-file-signature text-green-600"></i>

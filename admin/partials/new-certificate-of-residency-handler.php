@@ -59,20 +59,22 @@ try {
 
     // Prepare SQL statement to insert into the document_requests table
     $stmt = $pdo->prepare(
-        "INSERT INTO document_requests (resident_id, document_type, details, status, purpose, requested_by_user_id) 
-         VALUES (:resident_id, :document_type, :details, :status, :purpose, :requested_by_user_id)"
+        "INSERT INTO document_requests (resident_id, document_type, details, status, purpose, requested_by_user_id, price)
+         VALUES (:resident_id, :document_type, :details, :status, :purpose, :requested_by_user_id, :price)"
     );
 
     $purpose = "iKonek Electrification Program";
+    $document_type = 'Certificate of Residency';
 
     // Execute the statement
     $stmt->execute([
         ':resident_id' => $resident_id,
-        ':document_type' => 'Certificate of Residency',
+        ':document_type' => $document_type,
         ':details' => $details_json,
         ':status' => 'Pending',
         ':purpose' => $purpose,
-        ':requested_by_user_id' => $_SESSION['user_id']
+        ':requested_by_user_id' => $_SESSION['user_id'],
+        ':price' => get_document_request_fee($document_type)
     ]);
 
     // Log the activity
@@ -95,4 +97,4 @@ try {
     $_SESSION['error_message'] = "An unexpected error occurred. Please try again.";
     header('Location: ../pages/new-certificate-of-residency.php');
     exit();
-} 
+}

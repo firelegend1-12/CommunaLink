@@ -45,8 +45,13 @@
 
             var toast = document.createElement('div');
             toast.className = 'ui-toast ' + toastType;
-            toast.innerHTML = (toastType === 'error' ? '<i class="fas fa-exclamation-circle" aria-hidden="true"></i>' : '<i class="fas fa-check-circle" aria-hidden="true"></i>')
-                + '<span>' + String(message || '') + '</span>';
+            var icon = document.createElement('i');
+            icon.className = toastType === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle';
+            icon.setAttribute('aria-hidden', 'true');
+            var text = document.createElement('span');
+            text.textContent = String(message || '');
+            toast.appendChild(icon);
+            toast.appendChild(text);
 
             container.appendChild(toast);
 
@@ -58,6 +63,46 @@
                     }
                 }, 260);
             }, 2600);
+        };
+
+        window.residentParseJsonResponse = function(response) {
+            return response.text().then(function(text) {
+                var payload = null;
+                try {
+                    payload = text ? JSON.parse(text) : {};
+                } catch (e) {
+                    payload = {
+                        success: false,
+                        error: 'Server returned an invalid response.',
+                        server_output: String(text || '').replace(/\s+/g, ' ').trim().slice(0, 260)
+                    };
+                }
+
+                payload.http_status = response.status;
+                payload.http_ok = response.ok;
+                return payload;
+            });
+        };
+
+        window.residentRequestErrorMessage = function(data, fallback) {
+            var payload = data || {};
+            var message = payload.error || fallback || 'Request failed.';
+
+            if (payload.http_status && payload.http_status >= 400) {
+                message += ' HTTP ' + payload.http_status + '.';
+            }
+
+            if (payload.error_id) {
+                message += ' Error ID: ' + payload.error_id + '.';
+            }
+
+            if (payload.debug_error) {
+                message += ' Details: ' + payload.debug_error;
+            } else if (payload.server_output) {
+                message += ' Server output: ' + payload.server_output;
+            }
+
+            return message;
         };
 
         window.residentConfirm = function(message, onConfirm, options) {
@@ -197,4 +242,4 @@
 })();
 </script>
 </body>
-</html> 
+</html>

@@ -271,7 +271,7 @@ try {
                 <article class="announcement-card <?= ($item['priority'] ?? '') === 'urgent' ? 'border-l-4 border-amber-500' : '' ?> bg-white shadow-sm border border-slate-200 rounded-3xl overflow-hidden">
                     <?php if ($announcementImageUrl !== ''): ?>
                         <div class="relative h-64 overflow-hidden">
-                            <img src="<?= htmlspecialchars($announcementImageUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($item['title']) ?>" class="w-full h-full object-cover">
+                            <img src="<?= htmlspecialchars($announcementImageUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($item['title']) ?>" class="w-full h-full object-cover" loading="lazy" decoding="async">
                         </div>
                     <?php endif; ?>
                     

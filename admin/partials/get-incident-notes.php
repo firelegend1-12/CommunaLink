@@ -25,6 +25,14 @@ $current_role = $_SESSION['role'] ?? '';
 $is_admin = in_array($current_role, ['admin', 'super_admin'], true);
 
 try {
+    $incident_stmt = $pdo->prepare("SELECT id FROM incidents WHERE id = ? LIMIT 1");
+    $incident_stmt->execute([$incident_id]);
+    if (!$incident_stmt->fetchColumn()) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'error' => 'Incident report not found.']);
+        exit;
+    }
+
     $stmt = $pdo->prepare("SELECT 
         n.id,
         n.note,

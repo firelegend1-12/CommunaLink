@@ -87,7 +87,7 @@ require_once 'partials/header.php';
                             $ext = strtolower(pathinfo($ext_source, PATHINFO_EXTENSION));
                             if(in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'])): ?>
                                 <a href="<?= htmlspecialchars($media_url, ENT_QUOTES, 'UTF-8') ?>" target="_blank">
-                                    <img src="<?= htmlspecialchars($media_url, ENT_QUOTES, 'UTF-8') ?>" alt="Evidence" class="max-w-full h-auto max-h-64 object-cover rounded-lg shadow-sm hover:opacity-90 transition">
+                                    <img src="<?= htmlspecialchars($media_url, ENT_QUOTES, 'UTF-8') ?>" alt="Evidence" class="max-w-full h-auto max-h-64 object-cover rounded-lg shadow-sm hover:opacity-90 transition" loading="lazy" decoding="async">
                                 </a>
                             <?php elseif(in_array($ext, ['mp4', 'mov', 'avi', 'webm', '3gp'])): ?>
                                 <video controls class="max-w-full h-auto max-h-64 rounded-lg shadow-sm">

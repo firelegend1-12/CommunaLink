@@ -41,7 +41,7 @@ try {
     $or_no = sanitize_input($_POST['or_no']);
     $or_date = sanitize_input($_POST['or_date']);
     $remarks = sanitize_input($_POST['remarks']);
-    
+
     // Validate required fields
     if (!$resident_id || empty($purpose)) {
         $_SESSION['error_message'] = "Applicant and purpose are required.";
@@ -79,11 +79,12 @@ try {
     ]);
 
     // Insert into document_requests table
-    $sql = "INSERT INTO document_requests (resident_id, document_type, purpose, details, requested_by_user_id, status) 
-            VALUES (?, 'Barangay Clearance', ?, ?, ?, 'Pending')";
-    
+    $document_type = 'Barangay Clearance';
+    $sql = "INSERT INTO document_requests (resident_id, document_type, purpose, details, requested_by_user_id, price, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'Pending')";
+
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$resident_id, $purpose, $details, $_SESSION['user_id']]);
+    $stmt->execute([$resident_id, $document_type, $purpose, $details, $_SESSION['user_id'], get_document_request_fee($document_type)]);
 
     // Success
     log_activity('Document Request', "New Barangay Clearance application submitted for resident ID {$resident_id}.", $_SESSION['user_id']);
@@ -94,7 +95,7 @@ try {
     // Error
     $user_id_for_log = $_SESSION['user_id'] ?? 0;
     log_activity('Error', "Failed to submit Barangay Clearance application. Error: " . $e->getMessage(), $user_id_for_log);
-    
+
     $_SESSION['error_message'] = "A database error occurred. Please try again later.";
     redirect_to('../pages/new-barangay-clearance.php');
-} 
+}

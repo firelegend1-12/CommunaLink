@@ -306,7 +306,7 @@ try {
                                                         <?php if ($ann['is_event']): ?>
                                                             <i class="fas fa-calendar-star text-lg"></i>
                                                         <?php elseif ($announcement_image_url !== ''): ?>
-                                                            <img src="<?= htmlspecialchars($announcement_image_url, ENT_QUOTES, 'UTF-8') ?>" class="h-full w-full object-cover">
+                                                            <img src="<?= htmlspecialchars($announcement_image_url, ENT_QUOTES, 'UTF-8') ?>" class="h-full w-full object-cover" loading="lazy" decoding="async">
                                                         <?php else: ?>
                                                             <i class="fas fa-bullhorn text-lg text-slate-400"></i>
                                                         <?php endif; ?>

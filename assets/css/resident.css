@@ -1139,6 +1139,29 @@ button,
     gap: 24px;
 }
 
+.dashboard-recent-scroll {
+    overflow: hidden;
+}
+
+.dashboard-recent-scroll .dashboard-item {
+    min-width: 0;
+}
+
+.dashboard-recent-scroll .dashboard-item-title,
+.dashboard-recent-scroll .dashboard-item-desc {
+    min-width: 0;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
+}
+
+.dashboard-recent-scroll .dashboard-item-meta,
+.dashboard-recent-scroll .dashboard-item-meta span {
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: normal;
+}
+
 .standard-card {
     background-color: var(--card-bg, #ffffff);
     border: 1px solid var(--border-color, #e5e7eb);
@@ -1185,6 +1208,88 @@ button,
 @media (min-width: 480px) and (max-width: 767px) {
     .responsive-card-grid {
         grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+@media (max-width: 767px) {
+    .dashboard-recent-scroll {
+        padding-left: 14px !important;
+        padding-right: 14px !important;
+        overflow: hidden;
+    }
+
+    .dashboard-recent-scroll .recent-reports-header {
+        gap: 12px;
+        align-items: flex-start;
+    }
+
+    .dashboard-recent-scroll .recent-reports-header h2 {
+        min-width: 0;
+        font-size: clamp(1.15rem, 5vw, 1.5rem);
+        line-height: 1.2;
+    }
+
+    .dashboard-recent-scroll .view-all-link {
+        flex-shrink: 0;
+    }
+
+    .dashboard-recent-scroll .responsive-card-grid {
+        display: grid !important;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(280px, min(88vw, 340px));
+        grid-template-columns: none !important;
+        gap: 12px !important;
+        overflow-x: auto;
+        overflow-y: hidden;
+        overscroll-behavior-inline: contain;
+        scroll-snap-type: x proximity;
+        padding: 2px 4px 12px;
+        margin-left: -4px;
+        margin-right: -4px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .dashboard-recent-scroll .responsive-card-grid > * {
+        scroll-snap-align: start;
+    }
+
+    .dashboard-recent-scroll .dashboard-item {
+        width: 100%;
+        min-width: 0;
+        padding: 18px 16px;
+        gap: 12px;
+    }
+
+    .dashboard-recent-scroll .dashboard-item-content {
+        min-width: 0;
+    }
+
+    .dashboard-recent-scroll .dashboard-item-title {
+        font-size: 1rem;
+        line-height: 1.25;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        overflow: hidden;
+    }
+
+    .dashboard-recent-scroll .dashboard-item-desc {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        overflow: hidden;
+    }
+
+    .dashboard-recent-scroll .dashboard-item-status {
+        max-width: 46%;
+    }
+
+    .dashboard-recent-scroll .status-text-badge {
+        white-space: normal;
+        line-height: 1.1;
+        text-align: center;
     }
 }
 

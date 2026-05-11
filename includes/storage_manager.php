@@ -200,8 +200,8 @@ class StorageManager
             return '';
         }
 
-        $safeTtl = max(60, $ttlSeconds);
-        $expires = time() + $safeTtl;
+        $safeTtl = max(300, min(86400, $ttlSeconds));
+        $expires = self::stableMediaExpiry($safeTtl);
         $encodedPath = self::base64UrlEncode($storedPath);
         $signature = self::signMediaPayload($encodedPath, $expires);
         $query = '?p=' . rawurlencode($encodedPath)
@@ -287,6 +287,8 @@ class StorageManager
                 'content_type' => $contentType,
                 'size' => isset($info['size']) ? (int) $info['size'] : null,
                 'filename' => basename($objectName),
+                'etag' => isset($info['etag']) ? trim((string) $info['etag'], '"') : '',
+                'updated' => (string)($info['updated'] ?? $info['timeCreated'] ?? ''),
             ];
         } catch (Throwable $e) {
             error_log('Cloud media stream failed: ' . $e->getMessage());
@@ -378,6 +380,13 @@ class StorageManager
     private static function signMediaPayload(string $encodedPath, int $expires): string
     {
         return hash_hmac('sha256', $encodedPath . '|' . $expires, self::mediaSigningSecret());
+    }
+
+    private static function stableMediaExpiry(int $ttlSeconds): int
+    {
+        $now = time();
+        $windowStart = (int) (floor($now / $ttlSeconds) * $ttlSeconds);
+        return $windowStart + ($ttlSeconds * 2);
     }
 
     private static function mediaSigningSecret(): string

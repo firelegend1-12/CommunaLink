@@ -251,7 +251,7 @@ try {
                                                     <div class="flex items-center">
                                                         <div class="flex-shrink-0 h-10 w-10">
                                                             <?php if (!empty($resident['profile_image_url'])): ?>
-                                                                <img class="h-10 w-10 rounded-xl object-cover shadow-sm" src="<?php echo htmlspecialchars($resident['profile_image_url']); ?>" alt="Profile Image" onerror="this.onerror=null; this.outerHTML='<div class=\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\'><?php echo strtoupper(substr($resident['first_name'], 0, 1) . substr($resident['last_name'], 0, 1)); ?></div>';">
+                                                                <img class="h-10 w-10 rounded-xl object-cover shadow-sm" src="<?php echo htmlspecialchars($resident['profile_image_url']); ?>" alt="Profile Image" loading="lazy" decoding="async" onerror="this.onerror=null; this.outerHTML='<div class=\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\'><?php echo strtoupper(substr($resident['first_name'], 0, 1) . substr($resident['last_name'], 0, 1)); ?></div>';">
                                                             <?php else: ?>
                                                                 <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm">
                                                                     <?php echo strtoupper(substr($resident['first_name'], 0, 1) . substr($resident['last_name'], 0, 1)); ?>
@@ -331,7 +331,7 @@ try {
                                     <template x-if="residentData && residentData.profile">
                                         <div class="h-20 w-20 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center overflow-hidden shadow-lg">
                                             <template x-if="residentData.profile.profile_image_url">
-                                                <img :src="residentData.profile.profile_image_url" class="h-full w-full object-cover">
+                                                <img :src="residentData.profile.profile_image_url" class="h-full w-full object-cover" loading="lazy" decoding="async">
                                             </template>
                                             <template x-if="!residentData.profile.profile_image_url">
                                                 <span class="text-white text-3xl font-bold" x-text="residentData.profile.first_name[0] + residentData.profile.last_name[0]"></span>
@@ -626,7 +626,7 @@ try {
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 h-10 w-10">
                                     ${resident.profile_image_url && resident.profile_image_url !== '' ?
-                                        `<img class=\"h-10 w-10 rounded-xl object-cover shadow-sm\" src=\"${resident.profile_image_url}\" alt=\"Profile Image\" onerror=\"this.onerror=null; this.outerHTML='<div class=\\\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\\\'>${(resident.first_name[0] + resident.last_name[0]).toUpperCase()}</div>';\">` :
+                                        `<img class=\"h-10 w-10 rounded-xl object-cover shadow-sm\" src=\"${resident.profile_image_url}\" alt=\"Profile Image\" loading=\"lazy\" decoding=\"async\" onerror=\"this.onerror=null; this.outerHTML='<div class=\\\'h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\\\'>${(resident.first_name[0] + resident.last_name[0]).toUpperCase()}</div>';\">` :
                                         `<div class=\"h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm\">${(resident.first_name[0] + resident.last_name[0]).toUpperCase()}</div>`
                                     }
                                 </div>

@@ -343,12 +343,12 @@ document.getElementById('business-permit-form').addEventListener('submit', funct
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(response => residentParseJsonResponse(response))
     .then(data => {
         if (data.success) {
             window.location.href = 'my-requests.php?success=1';
         } else {
-            residentShowToast("Error: " + data.error, 'error');
+            residentShowToast(residentRequestErrorMessage(data, 'Unable to submit application.'), 'error');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Application';
         }

@@ -1,5 +1,4 @@
 <?php
-session_start();
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
@@ -7,18 +6,15 @@ require_once '../../includes/functions.php';
 header('Content-Type: application/json');
 
 if (!is_logged_in() || $_SESSION['role'] !== 'resident') {
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-    exit;
+    send_json_error_response('Unauthorized', 401, null, 'Indigency Special Request Unauthorized');
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'error' => 'Invalid request']);
-    exit;
+    send_json_error_response('Invalid request', 405, null, 'Indigency Special Request Invalid Method');
 }
 
 if (!csrf_validate()) {
-    echo json_encode(['success' => false, 'error' => 'Invalid security token. Please refresh and try again.']);
-    exit;
+    send_json_error_response('Invalid security token. Please refresh and try again.', 403, null, 'Indigency Special Request CSRF');
 }
 
 try {
@@ -28,13 +24,11 @@ try {
     $resolved_resident_id = (int) ($resident_lookup_stmt->fetchColumn() ?: 0);
 
     if ($resolved_resident_id <= 0) {
-        echo json_encode(['success' => false, 'error' => 'Resident profile not found.']);
-        exit;
+        send_json_error_response('Resident profile not found.', 404, null, 'Indigency Special Request Missing Resident');
     }
 
     if (!empty($posted_resident_id) && (int) $posted_resident_id !== $resolved_resident_id) {
-        echo json_encode(['success' => false, 'error' => 'Unauthorized submission profile mismatch.']);
-        exit;
+        send_json_error_response('Unauthorized submission profile mismatch.', 403, null, 'Indigency Special Request Profile Mismatch');
     }
 
     $resident_id = $resolved_resident_id;
@@ -47,8 +41,7 @@ try {
     $remarks          = sanitize_input($_POST['remarks'] ?? '');
 
     if ($beneficiary_name === '' || $relation === '' || $case_type === '' || $purpose_input === '') {
-        echo json_encode(['success' => false, 'error' => 'Please complete all required fields.']);
-        exit;
+        send_json_error_response('Please complete all required fields.', 400, null, 'Indigency Special Request Validation');
     }
 
     $details = [
@@ -65,20 +58,22 @@ try {
 
     $purpose_label = "Certificate of Indigency (Special) - " . $case_type . " assistance for " . $beneficiary_name;
 
-    $sql = "INSERT INTO document_requests (resident_id, document_type, purpose, details, requested_by_user_id, status)
-            VALUES (?, 'Certificate of Indigency (Special)', ?, ?, ?, 'Pending')";
+    $document_type = 'Certificate of Indigency (Special)';
+    $sql = "INSERT INTO document_requests (resident_id, document_type, purpose, details, requested_by_user_id, price, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'Pending')";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         $resident_id,
+        $document_type,
         $purpose_label,
         json_encode($details),
-        $_SESSION['user_id']
+        $_SESSION['user_id'],
+        get_document_request_fee($document_type)
     ]);
 
     log_activity('Document Request', "New Certificate of Indigency (Special) requested natively by resident.", $_SESSION['user_id']);
 
     echo json_encode(['success' => true]);
-} catch (PDOException $e) {
-    error_log("Indigency (Special) Request Error: " . $e->getMessage());
-    echo json_encode(['success' => false, 'error' => 'A database error occurred.']);
+} catch (Throwable $e) {
+    send_json_error_response('A database error occurred.', 500, $e, 'Indigency Special Request Error');
 }

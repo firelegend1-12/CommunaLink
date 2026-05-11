@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS `businesses` (
 CREATE TABLE IF NOT EXISTS `business_transactions` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
     `resident_id` INT(11) NOT NULL,
+    `permit_id` INT(11) DEFAULT NULL,
     `business_name` VARCHAR(255) NOT NULL,
     `business_type` VARCHAR(100) NOT NULL,
     `owner_name` VARCHAR(255) NOT NULL,
@@ -83,6 +84,7 @@ CREATE TABLE IF NOT EXISTS `business_transactions` (
     `application_date` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `processed_date` DATETIME DEFAULT NULL,
     `remarks` TEXT DEFAULT NULL,
+    `admin_notes` TEXT DEFAULT NULL,
     `or_number` VARCHAR(100) DEFAULT NULL,
     `payment_status` ENUM('Unpaid', 'Paid') DEFAULT 'Unpaid',
     `payment_date` DATETIME DEFAULT NULL,
@@ -91,6 +93,7 @@ CREATE TABLE IF NOT EXISTS `business_transactions` (
     PRIMARY KEY (`id`),
     FOREIGN KEY (`resident_id`) REFERENCES `residents`(`id`) ON DELETE CASCADE,
     INDEX `idx_biztrans_status` (`status`),
+    INDEX `idx_business_transactions_permit_id` (`permit_id`),
     INDEX `idx_biztrans_payment_status` (`payment_status`),
     INDEX `idx_biztrans_resident_id` (`resident_id`),
     INDEX `idx_biztrans_status_payment_date` (`status`, `payment_status`, `application_date`)
@@ -153,6 +156,7 @@ CREATE TABLE IF NOT EXISTS `document_requests` (
     `status` ENUM('Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled') NOT NULL DEFAULT 'Pending',
     `price` DECIMAL(10, 2) DEFAULT NULL,
     `remarks` TEXT DEFAULT NULL,
+    `admin_notes` TEXT DEFAULT NULL,
     `requested_by_user_id` INT(11) NULL,
     `or_number` VARCHAR(100) DEFAULT NULL,
     `payment_status` ENUM('Unpaid', 'Paid') DEFAULT 'Unpaid',
@@ -187,6 +191,21 @@ CREATE TABLE IF NOT EXISTS `incidents` (
     FOREIGN KEY (`resident_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
     INDEX `idx_incidents_reported_at` (`reported_at`),
     INDEX `idx_incidents_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table: incident_notes
+CREATE TABLE IF NOT EXISTS `incident_notes` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `incident_id` INT(11) NOT NULL,
+    `user_id` INT(11) DEFAULT NULL,
+    `note` TEXT NOT NULL,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    INDEX `idx_incident_notes_incident_id` (`incident_id`),
+    INDEX `idx_incident_notes_user_id` (`user_id`),
+    FOREIGN KEY (`incident_id`) REFERENCES `incidents`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table: announcements

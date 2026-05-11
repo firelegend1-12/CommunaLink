@@ -47,9 +47,10 @@ if ($cash_received <= 0) {
 }
 
 $document_fees = [
-    'Barangay Clearance' => 50.00,
-    'Certificate of Residency' => 50.00,
-    'Certificate of Indigency' => 0.00,
+    'Barangay Clearance' => get_document_request_fee('Barangay Clearance'),
+    'Certificate of Residency' => get_document_request_fee('Certificate of Residency'),
+    'Certificate of Indigency' => get_document_request_fee('Certificate of Indigency'),
+    'Certificate of Indigency (Special)' => get_document_request_fee('Certificate of Indigency (Special)'),
     'Business Clearance' => 500.00,
 ];
 
@@ -68,9 +69,10 @@ try {
             throw new Exception('Document request not found.');
         }
 
-        $amount_due = isset($row['price']) && $row['price'] !== null
-            ? (float) $row['price']
-            : (float) ($document_fees[$row['document_type']] ?? 50.00);
+        $amount_due = get_document_request_fee($row['document_type'] ?? '');
+        if ($amount_due <= 0) {
+            throw new Exception('This document does not require payment.');
+        }
 
         $table = 'document_requests';
         $item_name = (string) ($row['document_type'] ?? 'Document Request');

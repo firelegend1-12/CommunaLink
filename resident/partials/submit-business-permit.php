@@ -1,25 +1,20 @@
 <?php
-session_start();
 require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
+header('Content-Type: application/json');
+
 if (!is_logged_in() || $_SESSION['role'] !== 'resident') {
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-    exit;
+    send_json_error_response('Unauthorized', 401, null, 'Business Clearance Request Unauthorized');
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'error' => 'Invalid request']);
-    exit;
+    send_json_error_response('Invalid request', 405, null, 'Business Clearance Request Invalid Method');
 }
 
 if (!csrf_validate()) {
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'error' => 'Invalid security token. Please refresh and try again.']);
-    exit;
+    send_json_error_response('Invalid security token. Please refresh and try again.', 403, null, 'Business Clearance Request CSRF');
 }
 
 try {
@@ -45,8 +40,7 @@ try {
     $business_address = sanitize_input($_POST['business_address'] ?? '');
 
     if ($business_name === '' || $business_type === '' || $owner_name === '' || $business_address === '') {
-        echo json_encode(['success' => false, 'error' => 'Please complete all required fields.']);
-        exit;
+        send_json_error_response('Please complete all required fields.', 400, null, 'Business Clearance Request Validation');
     }
 
     $trans_stmt = $pdo->prepare(
@@ -63,7 +57,6 @@ try {
     log_activity('Document Request', "New Barangay Business Clearance requested natively by resident.", $_SESSION['user_id']);
     echo json_encode(['success' => true]);
 
-} catch (Exception $e) {
-    error_log("Business Clearance Request Error: " . $e->getMessage());
-    echo json_encode(['success' => false, 'error' => 'A database error occurred.']);
+} catch (Throwable $e) {
+    send_json_error_response('A database error occurred.', 500, $e, 'Business Clearance Request Error');
 }

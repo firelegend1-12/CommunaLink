@@ -32,7 +32,7 @@ $current_role = $_SESSION['role'] ?? '';
 $is_admin = in_array($current_role, ['admin', 'super_admin'], true);
 
 try {
-    $stmt = $pdo->prepare("SELECT user_id, incident_id FROM incident_notes WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT n.user_id, n.incident_id FROM incident_notes n INNER JOIN incidents i ON n.incident_id = i.id WHERE n.id = ?");
     $stmt->execute([$note_id]);
     $existing = $stmt->fetch(PDO::FETCH_ASSOC);
 

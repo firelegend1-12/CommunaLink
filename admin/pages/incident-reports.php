@@ -292,7 +292,7 @@ echo $critical_type; ?></h3>
                                                         'bg-slate-100/50 border-slate-200 text-slate-600': !['Fire', 'Emergency', 'Traffic', 'Crime'].includes(report.type)
                                                     }">
                                                         <template x-if="report.image_url">
-                                                            <img :src="report.image_url" class="h-full w-full object-cover">
+                                                            <img :src="report.image_url" class="h-full w-full object-cover" loading="lazy" decoding="async">
                                                         </template>
                                                         <template x-if="!report.image_url">
                                                             <i :class="{
@@ -602,7 +602,7 @@ echo $critical_type; ?></h3>
                                                         <div>
                                                             <p class="text-[10px] font-black text-slate-400 uppercase mb-3 text-center tracking-[0.3em]">ATTACHED EVIDENCE</p>
                                                             <div class="rounded-3xl overflow-hidden border border-slate-200 shadow-lg group/media cursor-zoom-in">
-                                                                <img :src="viewData.image_url" class="w-full h-auto object-cover max-h-[400px]">
+                                                                <img :src="viewData.image_url" class="w-full h-auto object-cover max-h-[400px]" loading="lazy" decoding="async">
                                                                 <div class="bg-indigo-600 p-3 flex items-center justify-between">
                                                                     <span class="text-[10px] font-black text-white uppercase tracking-widest"><i class="fas fa-camera mr-2"></i> Field Photograph</span>
                                                                     <a :href="viewData.image_url" target="_blank" class="text-[10px] font-black uppercase text-white hover:underline bg-white/20 px-3 py-1 rounded-lg">Source</a>

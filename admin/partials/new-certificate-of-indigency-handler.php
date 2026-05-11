@@ -29,7 +29,7 @@ try {
     $day_issued = sanitize_input($_POST['day_issued']);
     $month_issued = sanitize_input($_POST['month_issued']);
     $year_issued = sanitize_input($_POST['year_issued']);
-    
+
     // Validate required fields
     if (!$resident_id) {
         $_SESSION['error_message'] = "Please select a recipient for the certificate.";
@@ -50,13 +50,14 @@ try {
     ]);
 
     // Insert into document_requests table
-    $sql = "INSERT INTO document_requests (resident_id, document_type, purpose, details, requested_by_user_id, status) 
-            VALUES (?, 'Certificate of Indigency', ?, ?, ?, 'Pending')";
-    
+    $document_type = 'Certificate of Indigency';
+    $sql = "INSERT INTO document_requests (resident_id, document_type, purpose, details, requested_by_user_id, price, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'Pending')";
+
     $purpose = "Requesting for Certificate of Indigency"; // A default purpose
-    
+
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$resident_id, $purpose, $details, $_SESSION['user_id']]);
+    $stmt->execute([$resident_id, $document_type, $purpose, $details, $_SESSION['user_id'], get_document_request_fee($document_type)]);
 
     // Success
     log_activity('Document Request', "New Certificate of Indigency application submitted for {$recipient_name}.", $_SESSION['user_id']);
@@ -67,7 +68,7 @@ try {
     // Error
     $user_id_for_log = $_SESSION['user_id'] ?? 0;
     log_activity('Error', "Failed to submit Certificate of Indigency request. Error: " . $e->getMessage(), $user_id_for_log);
-    
+
     $_SESSION['error_message'] = "A database error occurred. Please try again later.";
     redirect_to('../pages/new-certificate-of-indigency.php');
-} 
+}

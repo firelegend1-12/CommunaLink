@@ -24,7 +24,7 @@ if (!csrf_validate()) {
 $resident_id = filter_input(INPUT_POST, 'resident_id', FILTER_VALIDATE_INT);
 $document_type = sanitize_input($_POST['document_type'] ?? '');
 $purpose = sanitize_input($_POST['purpose'] ?? '');
-$price = filter_input(INPUT_POST, 'price', FILTER_VALIDATE_FLOAT);
+$price = get_document_request_fee($document_type);
 
 if (empty($resident_id) || empty($document_type) || empty($purpose)) {
     $_SESSION['error_message'] = "All fields are required.";

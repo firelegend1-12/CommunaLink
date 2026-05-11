@@ -1473,6 +1473,84 @@ function get_document_request_recipient_user_id(PDO $pdo, int $request_id): ?int
 }
 
 /**
+ * Whether debug details may be included in JSON responses.
+ *
+ * @return bool
+ */
+function app_debug_enabled(): bool {
+    if (!function_exists('env')) {
+        return strtolower(trim((string)(getenv('APP_DEBUG') ?: 'false'))) === 'true';
+    }
+
+    return in_array(strtolower(trim((string) env('APP_DEBUG', 'false'))), ['1', 'true', 'yes', 'on'], true);
+}
+
+/**
+ * Return the standard processing fee for resident document requests.
+ *
+ * @param string|null $document_type
+ * @return float
+ */
+function get_document_request_fee($document_type): float {
+    $normalized = strtolower(trim((string) $document_type));
+    $normalized = preg_replace('/\s+/', ' ', $normalized);
+
+    if ($normalized === 'certificate of indigency' || $normalized === 'certificate of indigency (special)') {
+        return 0.00;
+    }
+
+    return 50.00;
+}
+
+/**
+ * Determine whether a document request requires payment before printing.
+ *
+ * @param string|null $document_type
+ * @return bool
+ */
+function document_request_requires_payment($document_type): bool {
+    return get_document_request_fee($document_type) > 0;
+}
+
+/**
+ * Emit a consistent JSON error response for request handlers.
+ *
+ * @param string $public_message
+ * @param int $status_code
+ * @param Throwable|null $exception
+ * @param string $context
+ * @param array<string,mixed> $extra
+ * @return void
+ */
+function send_json_error_response(string $public_message, int $status_code = 400, ?Throwable $exception = null, string $context = 'Application error', array $extra = []): void {
+    $error_id = 'ERR-' . strtoupper(bin2hex(random_bytes(4))) . '-' . date('YmdHis');
+
+    if ($exception !== null) {
+        error_log($context . " [{$error_id}]: " . $exception->getMessage());
+    } else {
+        error_log($context . " [{$error_id}]: " . $public_message);
+    }
+
+    if (!headers_sent()) {
+        http_response_code($status_code);
+        header('Content-Type: application/json');
+    }
+
+    $payload = array_merge([
+        'success' => false,
+        'error' => $public_message,
+        'error_id' => $error_id,
+    ], $extra);
+
+    if ($exception !== null && app_debug_enabled()) {
+        $payload['debug_error'] = $exception->getMessage();
+    }
+
+    echo json_encode($payload);
+    exit;
+}
+
+/**
  * Normalize request status values for consistent UI display across pages.
  *
  * The thesis-submitted schemas commonly allow only:

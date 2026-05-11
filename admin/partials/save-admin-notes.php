@@ -1,8 +1,6 @@
 <?php
 /**
  * Save Admin Notes Handler
- * The submitted schema has no admin_notes columns, so this endpoint is disabled
- * instead of attempting schema-changing writes at runtime.
  */
 
 require_once '../../config/init.php';
@@ -41,9 +39,35 @@ if (empty($id) || !in_array($type, ['document', 'business'], true)) {
     exit;
 }
 
-http_response_code(409);
-echo json_encode([
-    'success' => false,
-    'error' => 'Admin notes are unavailable because the submitted database schema has no admin_notes columns.'
-]);
+try {
+    $table = $type === 'document' ? 'document_requests' : 'business_transactions';
+    $target_type = $type === 'document' ? 'document_request' : 'business_request';
+
+    $check = $pdo->prepare("SELECT id FROM {$table} WHERE id = ? LIMIT 1");
+    $check->execute([$id]);
+    if (!$check->fetchColumn()) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'error' => 'Request not found']);
+        exit;
+    }
+
+    $stmt = $pdo->prepare("UPDATE {$table} SET admin_notes = ? WHERE id = ?");
+    $stmt->execute([$admin_notes, $id]);
+
+    log_activity_db(
+        $pdo,
+        'save_admin_notes',
+        $target_type,
+        $id,
+        "Saved admin notes for {$target_type} #{$id}",
+        null,
+        null
+    );
+
+    echo json_encode(['success' => true, 'admin_notes' => $admin_notes]);
+} catch (PDOException $e) {
+    error_log('save-admin-notes failed: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Database error while saving admin notes.']);
+}
 exit;

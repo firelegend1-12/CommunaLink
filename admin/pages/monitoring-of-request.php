@@ -157,9 +157,10 @@ try {
 
 // Document types for the form
 $document_types = [
-    'Barangay Clearance' => 50.00,
-    'Certificate of Residency' => 50.00,
-    'Certificate of Indigency' => 0.00,
+    'Barangay Clearance' => get_document_request_fee('Barangay Clearance'),
+    'Certificate of Residency' => get_document_request_fee('Certificate of Residency'),
+    'Certificate of Indigency' => get_document_request_fee('Certificate of Indigency'),
+    'Certificate of Indigency (Special)' => get_document_request_fee('Certificate of Indigency (Special)'),
     'Business Clearance' => 500.00,
 ];
 
@@ -230,7 +231,8 @@ try {
         COALESCE((SELECT SUM(
             CASE 
                 WHEN cash_received IS NOT NULL THEN (cash_received - COALESCE(change_amount, 0))
-                ELSE COALESCE(price, 0)
+                WHEN LOWER(TRIM(document_type)) IN ('certificate of indigency', 'certificate of indigency (special)') THEN 0
+                ELSE COALESCE(price, 50)
             END
         ) FROM document_requests WHERE payment_status = 'Paid' AND payment_date BETWEEN ? AND ?), 0) + 
         COALESCE((SELECT SUM(
@@ -283,8 +285,41 @@ foreach ($requests as $summary_req) {
         selectedReq: null, 
         viewPanelOpen: false, 
         openView(req) { 
-            this.selectedReq = req; 
+            const nextReq = Object.assign({}, req || {});
+            const row = nextReq.id && nextReq.type ? document.getElementById(`request-row-${nextReq.type}-${nextReq.id}`) : null;
+            if (row) {
+                const statusBadge = row.querySelector('.status-badge');
+                const paymentBadge = row.querySelector('[data-payment-status]');
+                if (statusBadge) {
+                    nextReq.status = this.normalizeStatus(statusBadge.textContent);
+                }
+                if (paymentBadge) {
+                    nextReq.paymentStatus = paymentBadge.getAttribute('data-payment-status') || nextReq.paymentStatus;
+                }
+            }
+            nextReq.requiresPayment = Boolean(nextReq.requiresPayment);
+            nextReq.canPrintNow = !nextReq.requiresPayment || nextReq.paymentStatus === 'Paid';
+            this.selectedReq = nextReq;
             this.viewPanelOpen = true; 
+        },
+        normalizeStatus(value) {
+            const normalized = String(value || '').trim().toLowerCase();
+            if (normalized === 'pending') return 'Pending';
+            if (normalized === 'approved' || normalized === 'processing' || normalized === 'ready for pickup') return 'Approved';
+            if (normalized === 'completed') return 'Completed';
+            if (normalized === 'rejected') return 'Rejected';
+            if (normalized === 'cancelled' || normalized === 'canceled') return 'Cancelled';
+            return String(value || '').trim();
+        },
+        canApprove(req) {
+            return req && this.normalizeStatus(req.status) === 'Pending';
+        },
+        canPrint(req) {
+            return req && (!req.requiresPayment || req.paymentStatus === 'Paid');
+        },
+        paymentDisplay(req) {
+            if (!req) return '';
+            return req.requiresPayment ? req.paymentStatus : 'No payment required';
         },
         getPrintUrl(req) {
             if (!req) return '';
@@ -310,7 +345,7 @@ foreach ($requests as $summary_req) {
         },
         printCertificate(req) {
             if (!req) return;
-            if (req.paymentStatus !== 'Paid') {
+            if (!this.canPrint(req)) {
                 showToast('Print Certificate is available after payment is recorded.', 'warning');
                 return;
             }
@@ -435,6 +470,12 @@ foreach ($requests as $summary_req) {
         },
         async submitCashPayment() {
             if (!this.selectedReq) return;
+            if (!this.selectedReq.requiresPayment) {
+                showToast('This document does not require payment.', 'warning');
+                this.selectedReq.isPaying = false;
+                this.selectedReq.cashInput = '';
+                return;
+            }
 
             const due = parseFloat(this.selectedReq.amountDue || 0);
             const cash = parseFloat(this.selectedReq.cashInput || 0);
@@ -469,6 +510,7 @@ foreach ($requests as $summary_req) {
                 }
 
                 this.selectedReq.paymentStatus = 'Paid';
+                this.selectedReq.canPrintNow = true;
                 this.selectedReq.orNumber = data.or_number || this.selectedReq.orNumber;
                 this.selectedReq.changeValue = Number(data.change_amount || 0).toFixed(2);
                 this.selectedReq.cashInput = '';
@@ -492,7 +534,7 @@ foreach ($requests as $summary_req) {
             }
         },
         async approveRequest() {
-            if (!this.selectedReq || this.selectedReq.status !== 'Pending') return;
+            if (!this.canApprove(this.selectedReq)) return;
             const isPaid = this.selectedReq.paymentStatus === 'Paid';
             const targetStatus = isPaid ? 'Completed' : 'Approved';
             const formData = new FormData();
@@ -930,8 +972,10 @@ foreach ($requests as $req):
                                                     $raw_doc_type = (string)($req['document_type'] ?? '');
                                                     if (($req['request_type'] ?? '') === 'business') {
                                                         $amount_due = (float)($document_types['Business Clearance'] ?? 500.00);
+                                                        $requires_payment = true;
                                                     } else {
-                                                        $amount_due = (float)($document_types[$raw_doc_type] ?? 50.00);
+                                                        $amount_due = get_document_request_fee($raw_doc_type);
+                                                        $requires_payment = document_request_requires_payment($raw_doc_type);
                                                     }
 
                                                     $cancellation_reason = trim((string)($req['cancellation_reason'] ?? ''));
@@ -953,6 +997,7 @@ foreach ($requests as $req):
                                                         'orNumber' => (string) ($req['or_number'] ?? ''),
                                                         'paymentStatus' => (string) ($req['payment_status'] ?? 'Unpaid'),
                                                         'amountDue' => number_format($amount_due, 2, '.', ''),
+                                                        'requiresPayment' => $requires_payment,
                                                         'cashInput' => '',
                                                         'changeValue' => null,
                                                         'isPaying' => false,
@@ -985,8 +1030,13 @@ echo $status_text; ?>
                                                         </td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                                                             <?php
-if (($req['payment_status'] ?? 'Unpaid') === 'Paid'): ?>
-                                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
+if (!$requires_payment): ?>
+                                                                <span data-payment-status="Unpaid" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                    <i class="fas fa-check-circle mr-1"></i> NO FEE
+                                                                </span>
+                                                            <?php
+elseif (($req['payment_status'] ?? 'Unpaid') === 'Paid'): ?>
+                                                                <span data-payment-status="Paid" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
                                                                     <i class="fas fa-check-circle mr-1"></i> PAID
                                                                 </span>
                                                                 <?php
@@ -996,7 +1046,7 @@ if (!empty($req['or_number'])): ?>
 endif; ?>
                                                             <?php
 else: ?>
-                                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200">
+                                                                <span data-payment-status="Unpaid" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200">
                                                                     <i class="fas fa-clock mr-1"></i> UNPAID
                                                                 </span>
                                                             <?php
@@ -1164,7 +1214,7 @@ endif; ?>
                               </div>
                               <div class="bg-red-50 rounded-lg p-4 border border-red-100">
                                  <p class="text-xs font-bold text-red-600 uppercase tracking-wider">Payment Status</p>
-                                 <p class="mt-2 text-lg font-black text-red-900" x-text="selectedReq.paymentStatus"></p>
+                                 <p class="mt-2 text-lg font-black text-red-900" x-text="paymentDisplay(selectedReq)"></p>
                               </div>
                            </div>
 
@@ -1224,17 +1274,17 @@ endif; ?>
                               </h3>
                               <div class="space-y-2">
                                             <!-- Approve Request (if Pending) -->
-                                            <button x-show="selectedReq.status === 'Pending'" @click="approveRequest()" class="w-full bg-green-600 text-white px-4 py-3 rounded-lg shadow hover:bg-green-700 transition font-bold uppercase tracking-widest text-xs">
+                                            <button x-show="canApprove(selectedReq)" @click="approveRequest()" class="w-full bg-green-600 text-white px-4 py-3 rounded-lg shadow hover:bg-green-700 transition font-bold uppercase tracking-widest text-xs">
                                                 <i class="fas fa-check mr-2"></i>Approve Request
                                             </button>
 
                                             <!-- Cancel Request (if Pending) -->
-                                            <button x-show="selectedReq.status === 'Pending'" @click="cancelRequest(selectedReq.id, selectedReq.type); viewPanelOpen = false;" class="w-full bg-red-600 text-white px-4 py-3 rounded-lg shadow hover:bg-red-700 transition font-bold uppercase tracking-widest text-xs">
+                                            <button x-show="canApprove(selectedReq)" @click="cancelRequest(selectedReq.id, selectedReq.type); viewPanelOpen = false;" class="w-full bg-red-600 text-white px-4 py-3 rounded-lg shadow hover:bg-red-700 transition font-bold uppercase tracking-widest text-xs">
                                                 <i class="fas fa-ban mr-2"></i>Cancel Request
                                  </button>
 
                                             <!-- Cash Payment Action -->
-                                            <div x-show="selectedReq.paymentStatus !== 'Paid'" class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                            <div x-show="selectedReq.requiresPayment && selectedReq.paymentStatus !== 'Paid'" class="bg-amber-50 border border-amber-200 rounded-lg p-3">
                                                 <button type="button" x-show="!selectedReq.isPaying" @click="selectedReq.isPaying = true" class="w-full bg-amber-600 text-white px-4 py-3 rounded-lg shadow hover:bg-amber-700 transition font-bold uppercase tracking-widest text-xs">
                                                     <i class="fas fa-money-bill-wave mr-2"></i>Make Cash Payment
                                                 </button>
@@ -1252,15 +1302,19 @@ endif; ?>
                                                 </div>
                                             </div>
 
+                                            <div x-show="!selectedReq.requiresPayment" class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs font-semibold text-emerald-800">
+                                                <i class="fas fa-check-circle mr-1"></i>No payment required for this document.
+                                            </div>
+
                                             <!-- Print Certificate -->
                                             <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                                <button type="button" x-show="selectedReq.paymentStatus === 'Paid'" @click="printCertificate(selectedReq)" class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg shadow hover:bg-blue-700 transition font-bold uppercase tracking-widest text-xs">
+                                                <button type="button" x-show="canPrint(selectedReq)" @click="printCertificate(selectedReq)" class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg shadow hover:bg-blue-700 transition font-bold uppercase tracking-widest text-xs">
                                                     <i class="fas fa-print mr-2"></i>Print Certificate
                                                 </button>
-                                                <button type="button" x-show="selectedReq.paymentStatus !== 'Paid'" disabled class="w-full bg-gray-200 text-gray-500 px-4 py-3 rounded-lg cursor-not-allowed font-bold uppercase tracking-widest text-xs">
+                                                <button type="button" x-show="!canPrint(selectedReq)" disabled class="w-full bg-gray-200 text-gray-500 px-4 py-3 rounded-lg cursor-not-allowed font-bold uppercase tracking-widest text-xs">
                                                     <i class="fas fa-lock mr-2"></i>Print Certificate
                                                 </button>
-                                                <p x-show="selectedReq.paymentStatus !== 'Paid'" class="mt-2 text-xs text-blue-800 font-semibold">
+                                                <p x-show="selectedReq.requiresPayment && selectedReq.paymentStatus !== 'Paid'" class="mt-2 text-xs text-blue-800 font-semibold">
                                                     Available after payment is recorded.
                                                 </p>
                                             </div>
@@ -1481,7 +1535,7 @@ echo json_encode($monitoring_csrf_token); ?>;
         const paymentCell = cells[5];
         const safeOr = (orNumber || '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;');
         paymentCell.innerHTML = `
-            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
+            <span data-payment-status="Paid" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
                 <i class="fas fa-check-circle mr-1"></i> PAID
             </span>
             ${safeOr ? `<div class="text-xs text-gray-500 mt-1">O.R. ${safeOr}</div>` : ''}

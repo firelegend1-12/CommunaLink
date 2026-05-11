@@ -60,6 +60,25 @@ try {
     $notification_warning = null;
 
     $table = ($type === 'document') ? 'document_requests' : 'business_transactions';
+
+    if ($type === 'document') {
+        $fee_stmt = $pdo->prepare("SELECT document_type FROM document_requests WHERE id = ? LIMIT 1");
+        $fee_stmt->execute([$id]);
+        $document_type = (string)($fee_stmt->fetchColumn() ?: '');
+        if ($document_type === '') {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Document request not found.']);
+            $pdo->rollBack();
+            exit;
+        }
+
+        if ($payment_status === 'Paid' && !document_request_requires_payment($document_type)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'This document does not require payment.']);
+            $pdo->rollBack();
+            exit;
+        }
+    }
     
     // Set payment date if marking as paid
     $payment_date = ($payment_status === 'Paid') ? date('Y-m-d H:i:s') : null;

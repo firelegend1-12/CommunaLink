@@ -31,7 +31,7 @@ if (!$note_id || $note === '') {
 $current_user_id = $_SESSION['user_id'] ?? 0;
 
 try {
-    $stmt = $pdo->prepare("SELECT user_id FROM incident_notes WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT n.user_id, n.incident_id FROM incident_notes n INNER JOIN incidents i ON n.incident_id = i.id WHERE n.id = ?");
     $stmt->execute([$note_id]);
     $existing = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -47,7 +47,7 @@ try {
         exit;
     }
 
-    $stmt = $pdo->prepare("UPDATE incident_notes SET note = ? WHERE id = ?");
+    $stmt = $pdo->prepare("UPDATE incident_notes SET note = ?, updated_at = NOW() WHERE id = ?");
     $stmt->execute([$note, $note_id]);
 
     echo json_encode(['success' => true, 'message' => 'Note updated successfully']);
