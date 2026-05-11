@@ -6,6 +6,7 @@ require_once '../partials/admin_auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/business_announcement_functions.php';
 require_once '../../includes/csrf.php';
+require_once '../../includes/storage_manager.php';
 
 $page_title = "Manage Announcements";
 
@@ -275,6 +276,7 @@ try {
                                 <?php else: ?>
                                     <?php foreach ($announcements as $ann): ?>
                                         <?php
+                                            $announcement_image_url = !empty($ann['image_path']) ? StorageManager::resolvePublicUrl((string)$ann['image_path']) : '';
                                             $edit_payload = [
                                                 'id' => (int) $ann['id'],
                                                 'title' => (string) ($ann['title'] ?? ''),
@@ -303,8 +305,8 @@ try {
                                                     <div class="h-10 w-10 flex-shrink-0 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center text-indigo-500">
                                                         <?php if ($ann['is_event']): ?>
                                                             <i class="fas fa-calendar-star text-lg"></i>
-                                                        <?php elseif ($ann['image_path']): ?>
-                                                            <img src="../../<?= $ann['image_path'] ?>" class="h-full w-full object-cover">
+                                                        <?php elseif ($announcement_image_url !== ''): ?>
+                                                            <img src="<?= htmlspecialchars($announcement_image_url, ENT_QUOTES, 'UTF-8') ?>" class="h-full w-full object-cover">
                                                         <?php else: ?>
                                                             <i class="fas fa-bullhorn text-lg text-slate-400"></i>
                                                         <?php endif; ?>

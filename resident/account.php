@@ -382,6 +382,7 @@ try {
         
         <form action="partials/account-handler.php" method="POST">
             <?php echo csrf_field(); ?>
+            <input type="hidden" name="update_details" value="1">
             <div class="form-content">
                 <div class="form-section">
                     <div class="form-section-title">Basic Information</div>

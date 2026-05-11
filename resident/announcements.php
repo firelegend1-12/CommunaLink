@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../includes/storage_manager.php';
 $page_title = "Community Board";
 require_once 'partials/header.php';
 $post_reaction_csrf_token = csrf_token();
@@ -263,11 +264,14 @@ try {
     <?php else: ?>
         <div class="space-y-8">
             <?php foreach ($feed as $item): ?>
-                <?php $is_reactable_post = ($item['item_source'] ?? 'announcement') === 'announcement' && (int)($item['id'] ?? 0) > 0; ?>
+                <?php
+                    $is_reactable_post = ($item['item_source'] ?? 'announcement') === 'announcement' && (int)($item['id'] ?? 0) > 0;
+                    $announcementImageUrl = !empty($item['image_path']) ? StorageManager::resolvePublicUrl((string)$item['image_path']) : '';
+                ?>
                 <article class="announcement-card <?= ($item['priority'] ?? '') === 'urgent' ? 'border-l-4 border-amber-500' : '' ?> bg-white shadow-sm border border-slate-200 rounded-3xl overflow-hidden">
-                    <?php if ($item['image_path']): ?>
+                    <?php if ($announcementImageUrl !== ''): ?>
                         <div class="relative h-64 overflow-hidden">
-                            <img src="../admin/<?= htmlspecialchars($item['image_path']) ?>" alt="<?= htmlspecialchars($item['title']) ?>" class="w-full h-full object-cover">
+                            <img src="<?= htmlspecialchars($announcementImageUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($item['title']) ?>" class="w-full h-full object-cover">
                         </div>
                     <?php endif; ?>
                     

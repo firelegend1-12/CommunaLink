@@ -1,6 +1,6 @@
 <?php
-session_start();
-require_once '../../config/database.php';
+require_once '../../config/init.php';
+require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/csrf.php';
 require_once '../../includes/storage_manager.php';
@@ -9,12 +9,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect_to('../account.php');
 }
 
+require_role('resident');
+
 if (!csrf_validate()) {
     redirect_to('../account.php?error=invalid_token');
-}
-
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'resident') {
-    redirect_to('../../index.php');
 }
 
 $user_id = $_SESSION['user_id'];

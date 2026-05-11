@@ -166,38 +166,132 @@ class StorageManager
                 return '';
             }
 
-            [$bucketName, $objectName] = $parsed;
-
-            self::ensureComposerAutoload();
-            if (class_exists('Google\\Cloud\\Storage\\StorageClient')) {
-                try {
-                    $storage = new Google\Cloud\Storage\StorageClient();
-                    $bucket = $storage->bucket($bucketName);
-                    $object = $bucket->object($objectName);
-
-                    if ($object->exists()) {
-                        $safeTtl = max(60, $ttlSeconds);
-                        return (string) $object->signedUrl(
-                            new DateTimeImmutable('+' . $safeTtl . ' seconds'),
-                            ['version' => 'v4']
-                        );
-                    }
-                } catch (Throwable $e) {
-                    error_log('Failed to generate signed URL for cloud object: ' . $e->getMessage());
-                }
-            }
-
-            $encodedObject = implode('/', array_map('rawurlencode', explode('/', $objectName)));
-            return 'https://storage.googleapis.com/' . rawurlencode($bucketName) . '/' . $encodedObject;
+            return self::createSignedMediaUrl($storedPath, $ttlSeconds);
         }
 
-        $normalizedPath = '/' . ltrim(str_replace('\\', '/', $storedPath), '/');
+        $normalized = ltrim(str_replace('\\', '/', $storedPath), '/');
+        $publicPath = $normalized;
+        if (stripos($publicPath, 'images/') === 0) {
+            $publicPath = 'admin/' . $publicPath;
+        }
+
+        if (
+            self::shouldUseCloudStorage()
+            && self::hasStorageBucket()
+            && self::isCloudBackedRelativePath($publicPath)
+            && !self::localStoredPathExists($publicPath)
+        ) {
+            return self::createSignedMediaUrl('gs://' . trim((string) env('STORAGE_BUCKET', ''), '/') . '/' . $publicPath, $ttlSeconds);
+        }
+
+        $normalizedPath = '/' . $publicPath;
 
         if (function_exists('app_url')) {
             return app_url($normalizedPath);
         }
 
         return $normalizedPath;
+    }
+
+    public static function createSignedMediaUrl(string $storedPath, int $ttlSeconds = 1800): string
+    {
+        $storedPath = trim($storedPath);
+        if ($storedPath === '' || strpos($storedPath, 'gs://') !== 0 || self::parseGsPath($storedPath) === null) {
+            return '';
+        }
+
+        $safeTtl = max(60, $ttlSeconds);
+        $expires = time() + $safeTtl;
+        $encodedPath = self::base64UrlEncode($storedPath);
+        $signature = self::signMediaPayload($encodedPath, $expires);
+        $query = '?p=' . rawurlencode($encodedPath)
+            . '&e=' . rawurlencode((string) $expires)
+            . '&s=' . rawurlencode($signature);
+
+        if (function_exists('app_url')) {
+            return app_url('/api/media.php' . $query);
+        }
+
+        return '/api/media.php' . $query;
+    }
+
+    public static function validateSignedMediaToken(string $encodedPath, string $expires, string $signature): array
+    {
+        $encodedPath = trim($encodedPath);
+        $expires = trim($expires);
+        $signature = trim($signature);
+
+        if ($encodedPath === '' || $expires === '' || $signature === '') {
+            return ['success' => false, 'status' => 400, 'error' => 'Missing media token parameters.'];
+        }
+
+        if (!ctype_digit($expires)) {
+            return ['success' => false, 'status' => 400, 'error' => 'Invalid media token expiry.'];
+        }
+
+        $expiresAt = (int) $expires;
+        if ($expiresAt < time()) {
+            return ['success' => false, 'status' => 410, 'error' => 'Media token has expired.'];
+        }
+
+        $expected = self::signMediaPayload($encodedPath, $expiresAt);
+        if (!hash_equals($expected, $signature)) {
+            return ['success' => false, 'status' => 403, 'error' => 'Invalid media token signature.'];
+        }
+
+        $storedPath = self::base64UrlDecode($encodedPath);
+        if ($storedPath === null || strpos($storedPath, 'gs://') !== 0 || self::parseGsPath($storedPath) === null) {
+            return ['success' => false, 'status' => 400, 'error' => 'Invalid media path.'];
+        }
+
+        return [
+            'success' => true,
+            'path' => $storedPath,
+            'expires_at' => $expiresAt,
+        ];
+    }
+
+    public static function openCloudObjectStream(string $gsPath): array
+    {
+        $parsed = self::parseGsPath($gsPath);
+        if ($parsed === null) {
+            return ['success' => false, 'status' => 400, 'error' => 'Invalid cloud storage path.'];
+        }
+
+        self::ensureComposerAutoload();
+        if (!class_exists('Google\\Cloud\\Storage\\StorageClient')) {
+            return ['success' => false, 'status' => 500, 'error' => 'google/cloud-storage dependency is not installed.'];
+        }
+
+        [$bucketName, $objectName] = $parsed;
+
+        try {
+            $storage = new Google\Cloud\Storage\StorageClient();
+            $bucket = $storage->bucket($bucketName);
+            $object = $bucket->object($objectName);
+
+            if (!$object->exists()) {
+                return ['success' => false, 'status' => 404, 'error' => 'Media object was not found.'];
+            }
+
+            $info = $object->info();
+            $stream = $object->downloadAsStream();
+            $contentType = (string)($info['contentType'] ?? '');
+            if ($contentType === '') {
+                $contentType = self::guessContentTypeFromName($objectName);
+            }
+
+            return [
+                'success' => true,
+                'stream' => $stream,
+                'content_type' => $contentType,
+                'size' => isset($info['size']) ? (int) $info['size'] : null,
+                'filename' => basename($objectName),
+            ];
+        } catch (Throwable $e) {
+            error_log('Cloud media stream failed: ' . $e->getMessage());
+            return ['success' => false, 'status' => 500, 'error' => 'Unable to read media object.'];
+        }
     }
 
     private static function deleteFromCloudStorage(string $gsPath): bool
@@ -261,6 +355,106 @@ class StorageManager
     {
         $gaeEnv = strtolower((string) getenv('GAE_ENV'));
         return strpos($gaeEnv, 'standard') !== false;
+    }
+
+    private static function isCloudBackedRelativePath(string $path): bool
+    {
+        $normalized = ltrim(str_replace('\\', '/', $path), '/');
+        return stripos($normalized, 'uploads/') === 0 || stripos($normalized, 'admin/images/') === 0;
+    }
+
+    private static function localStoredPathExists(string $path): bool
+    {
+        $baseDir = realpath(__DIR__ . '/../');
+        if ($baseDir === false) {
+            return false;
+        }
+
+        $normalized = ltrim(str_replace('\\', '/', $path), '/');
+        $candidate = $baseDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalized);
+        return is_file($candidate);
+    }
+
+    private static function signMediaPayload(string $encodedPath, int $expires): string
+    {
+        return hash_hmac('sha256', $encodedPath . '|' . $expires, self::mediaSigningSecret());
+    }
+
+    private static function mediaSigningSecret(): string
+    {
+        $secret = '';
+        if (function_exists('env')) {
+            $secret = trim((string) env('MEDIA_URL_SIGNING_SECRET', ''));
+        } else {
+            $secret = trim((string) (getenv('MEDIA_URL_SIGNING_SECRET') ?: ''));
+        }
+
+        if ($secret !== '' && !self::isPlaceholderValue($secret)) {
+            return $secret;
+        }
+
+        $fallbackParts = [
+            function_exists('env') ? (string) env('APP_URL', '') : (string) (getenv('APP_URL') ?: ''),
+            function_exists('env') ? (string) env('STORAGE_BUCKET', '') : (string) (getenv('STORAGE_BUCKET') ?: ''),
+            function_exists('env') ? (string) env('DB_NAME', '') : (string) (getenv('DB_NAME') ?: ''),
+            function_exists('env') ? (string) env('DB_PASS', '') : (string) (getenv('DB_PASS') ?: ''),
+            __DIR__,
+        ];
+
+        return hash('sha256', implode('|', $fallbackParts));
+    }
+
+    private static function isPlaceholderValue(string $value): bool
+    {
+        $normalized = strtoupper(trim($value));
+        if ($normalized === '') {
+            return true;
+        }
+
+        return in_array($normalized, [
+            'SET_VIA_SECRET_MANAGER',
+            'REPLACE_ME',
+            'CHANGE_ME',
+            'TODO',
+            'TBD',
+            'YOUR_MEDIA_URL_SIGNING_SECRET',
+        ], true) || strpos($normalized, 'YOUR_') === 0;
+    }
+
+    private static function base64UrlEncode(string $value): string
+    {
+        return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+    }
+
+    private static function base64UrlDecode(string $value): ?string
+    {
+        $remainder = strlen($value) % 4;
+        if ($remainder > 0) {
+            $value .= str_repeat('=', 4 - $remainder);
+        }
+
+        $decoded = base64_decode(strtr($value, '-_', '+/'), true);
+        return $decoded === false ? null : $decoded;
+    }
+
+    private static function guessContentTypeFromName(string $objectName): string
+    {
+        $ext = strtolower(pathinfo($objectName, PATHINFO_EXTENSION));
+        $map = [
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'heic' => 'image/heic',
+            'heif' => 'image/heif',
+            'mp4' => 'video/mp4',
+            'mov' => 'video/quicktime',
+            'webm' => 'video/webm',
+            '3gp' => 'video/3gpp',
+        ];
+
+        return $map[$ext] ?? 'application/octet-stream';
     }
 
     private static function ensureComposerAutoload(): void

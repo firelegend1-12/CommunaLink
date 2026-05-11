@@ -291,10 +291,10 @@ echo $critical_type; ?></h3>
                                                         'bg-indigo-100/50 border-indigo-200 text-indigo-600': report.type === 'Traffic' || report.type === 'Crime',
                                                         'bg-slate-100/50 border-slate-200 text-slate-600': !['Fire', 'Emergency', 'Traffic', 'Crime'].includes(report.type)
                                                     }">
-                                                        <template x-if="report.image_path">
-                                                            <img :src="report.image_url || ('../../' + report.image_path)" class="h-full w-full object-cover">
+                                                        <template x-if="report.image_url">
+                                                            <img :src="report.image_url" class="h-full w-full object-cover">
                                                         </template>
-                                                        <template x-if="!report.image_path">
+                                                        <template x-if="!report.image_url">
                                                             <i :class="{
                                                                 'fas': true,
                                                                 'fa-fire': report.type === 'Fire',
@@ -316,7 +316,7 @@ echo $critical_type; ?></h3>
                                                     <div class="text-sm font-bold text-slate-900 group-hover:text-indigo-700 transition" x-text="report.type"></div>
                                                     <div class="flex items-center gap-2">
                                                         <div class="text-[10px] font-black text-slate-400 uppercase tracking-tighter" x-text="'ID: #' + report.id"></div>
-                                                        <template x-if="report.image_path">
+                                                        <template x-if="report.image_url">
                                                             <span class="text-[8px] font-black bg-indigo-50 text-indigo-500 px-1 rounded flex items-center">
                                                                 <i class="fas fa-camera mr-0.5"></i> ATTACHED
                                                             </span>
@@ -598,14 +598,14 @@ echo $critical_type; ?></h3>
                                                     </div>
 
                                                     <!-- Photos -->
-                                                    <template x-if="viewData.image_path">
+                                                    <template x-if="viewData.image_url">
                                                         <div>
                                                             <p class="text-[10px] font-black text-slate-400 uppercase mb-3 text-center tracking-[0.3em]">ATTACHED EVIDENCE</p>
                                                             <div class="rounded-3xl overflow-hidden border border-slate-200 shadow-lg group/media cursor-zoom-in">
-                                                                <img :src="viewData.image_url || ('../../' + viewData.image_path)" class="w-full h-auto object-cover max-h-[400px]">
+                                                                <img :src="viewData.image_url" class="w-full h-auto object-cover max-h-[400px]">
                                                                 <div class="bg-indigo-600 p-3 flex items-center justify-between">
                                                                     <span class="text-[10px] font-black text-white uppercase tracking-widest"><i class="fas fa-camera mr-2"></i> Field Photograph</span>
-                                                                    <a :href="viewData.image_url || ('../../' + viewData.image_path)" target="_blank" class="text-[10px] font-black uppercase text-white hover:underline bg-white/20 px-3 py-1 rounded-lg">Source</a>
+                                                                    <a :href="viewData.image_url" target="_blank" class="text-[10px] font-black uppercase text-white hover:underline bg-white/20 px-3 py-1 rounded-lg">Source</a>
                                                                 </div>
                                                             </div>
                                                         </div>
