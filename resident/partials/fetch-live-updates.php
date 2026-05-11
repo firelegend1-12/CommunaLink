@@ -1,15 +1,16 @@
 <?php
-session_start();
+require_once '../../config/init.php';
+require_once '../../includes/auth.php';
+require_once '../../includes/functions.php';
+
 header('Content-Type: application/json');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
-require_once '../../config/database.php';
-require_once '../../includes/functions.php';
 
 $user_id = (int) ($_SESSION['user_id'] ?? 0);
 $resident_id = (int) ($_SESSION['resident_id'] ?? 0);
 
-if ($user_id <= 0) {
+if (!is_logged_in() || ($_SESSION['role'] ?? '') !== 'resident' || $user_id <= 0) {
     echo json_encode([
         'error' => 'Not logged in',
         'doc_requests' => [],
@@ -50,4 +51,4 @@ echo json_encode([
     'error' => $resident_id > 0 ? null : 'Resident profile not found.',
     'doc_requests' => $doc_requests,
     'biz_requests' => $biz_requests
-]); 
+]);

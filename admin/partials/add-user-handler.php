@@ -21,7 +21,8 @@ if (!csrf_validate()) {
     redirect_to('../pages/add-user.php');
 }
 
-$fullname = sanitize_input($_POST['fullname']);
+$normalized_fullname_input = preg_replace('/\s+/', ' ', trim((string)($_POST['fullname'] ?? '')));
+$fullname = sanitize_input($normalized_fullname_input);
 $password = $_POST['password'];
 $confirm_password = (string)($_POST['confirm_password'] ?? '');
 $role = sanitize_input($_POST['role']);
@@ -30,7 +31,7 @@ $admin_confirmation_password = (string)($_POST['admin_confirmation_password'] ??
 
 // Store inputs in session to re-populate form on error
 $_SESSION['form_data'] = [
-    'fullname' => $_POST['fullname'] ?? '',
+    'fullname' => $normalized_fullname_input,
     'role' => $_POST['role'] ?? '',
     'official_position' => $_POST['official_position'] ?? '',
     'resident_id' => $resident_id,
@@ -43,7 +44,9 @@ $validation_rules = [
     'role' => ['type' => 'string', 'options' => ['required' => true]]
 ];
 
-$validation_result = validate_form($_POST, $validation_rules);
+$validation_payload = $_POST;
+$validation_payload['fullname'] = $normalized_fullname_input;
+$validation_result = validate_form($validation_payload, $validation_rules);
 
 if (!$validation_result['valid']) {
     $error_messages = [];

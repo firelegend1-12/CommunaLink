@@ -299,8 +299,7 @@ $svg_html = print_svg_with_ids($template['svg'], $template['ids']);
 
         @page { size: A4 portrait; margin: 10mm; }
 
-        @media print {e will be added for stable media URL signatures.
-        Existing database columns can continue storing either local relative paths or gs://... paths; no schem
+        @media print {
             html, body {
                 margin: 0 !important;
                 padding: 0 !important;

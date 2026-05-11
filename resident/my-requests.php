@@ -208,6 +208,12 @@ function fetchUpdates() {
             return res.json();
         })
         .then(data => {
+            if (data && data.error) {
+                if (data.error === 'Not logged in' || data.error === 'Resident profile not found.') {
+                    return;
+                }
+            }
+
             if (Array.isArray(data.doc_requests) && Array.isArray(data.biz_requests)) {
                 if (data.doc_requests.length === 0 && data.biz_requests.length === 0 && hasRenderedRequests) {
                     console.warn('Live request poll returned empty while server-rendered requests exist; keeping current list.', data);

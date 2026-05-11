@@ -20,7 +20,7 @@ class InputValidator {
         'zipcode' => '/^\d{4}$/', // Philippine ZIP code format
         'username' => '/^[a-zA-Z0-9_-]{3,20}$/',
         'password' => '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/',
-        'name' => '/^[a-zA-Z\s\'-]+$/',
+        'name' => '/^[a-zA-Z\s.\'-]+$/',
         'numeric' => '/^\d+$/',
         'decimal' => '/^\d+(\.\d+)?$/',
         'alpha' => '/^[a-zA-Z]+$/',
@@ -452,7 +452,7 @@ class InputValidator {
         $result = ['valid' => false, 'value' => $input, 'errors' => [], 'sanitized' => null];
         
         if (!preg_match(self::$patterns['name'], $input)) {
-            $result['errors'][] = "Name must contain only letters, spaces, hyphens, and apostrophes.";
+            $result['errors'][] = "Name must contain only letters, spaces, periods, hyphens, and apostrophes.";
             return $result;
         }
         

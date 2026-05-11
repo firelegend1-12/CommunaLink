@@ -134,7 +134,7 @@ try {
                                  const resident = this.residents.find(r => r.id == this.selectedResidentId);
                                  if (resident) {
                                      this.selectedResident = resident;
-                                     this.formName = resident.full_name || "";
+                                     this.formRequester = resident.full_name || "";
                                  }
                                  this.$nextTick(() => this.recomputeLayout());
                              },
