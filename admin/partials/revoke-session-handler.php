@@ -9,10 +9,6 @@ require_once '../../includes/auth.php';
 require_once '../../includes/csrf.php';
 require_once '../../includes/permission_checker.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 require_login();
 require_permission_or_redirect('user_management', '../pages/user-management.php');
 

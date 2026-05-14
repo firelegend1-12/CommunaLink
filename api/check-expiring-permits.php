@@ -25,10 +25,6 @@ function emit_perf_headers(float $start, string $endpoint): void
     header('X-Response-Time-Ms: ' . number_format($elapsed_ms, 2, '.', ''));
 }
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 function request_header(string $name): string
 {
     $key = 'HTTP_' . strtoupper(str_replace('-', '_', $name));

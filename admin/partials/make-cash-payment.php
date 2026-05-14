@@ -77,7 +77,7 @@ try {
         $table = 'document_requests';
         $item_name = (string) ($row['document_type'] ?? 'Document Request');
     } else {
-        $stmt = $pdo->prepare("SELECT bt.id, bt.transaction_type, bt.payment_status, bt.or_number, r.user_id AS recipient_user_id, CONCAT(r.first_name, ' ', r.last_name) AS resident_name FROM business_transactions bt LEFT JOIN residents r ON bt.resident_id = r.id WHERE bt.id = ? FOR UPDATE");
+        $stmt = $pdo->prepare("SELECT bt.id, bt.transaction_type, bt.payment_status, bt.or_number, bt.status, r.user_id AS recipient_user_id, CONCAT(r.first_name, ' ', r.last_name) AS resident_name FROM business_transactions bt LEFT JOIN residents r ON bt.resident_id = r.id WHERE bt.id = ? FOR UPDATE");
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -87,7 +87,7 @@ try {
 
         $amount_due = $business_fee;
         $table = 'business_transactions';
-        $item_name = 'Business Clearance';
+        $item_name = (string) ($row['transaction_type'] ?? 'Business Request');
     }
 
     if ($cash_received < $amount_due) {
@@ -105,8 +105,9 @@ try {
         $update = $pdo->prepare("UPDATE document_requests SET payment_status = 'Paid', payment_date = NOW(), or_number = ?, cash_received = ?, change_amount = ?, status = CASE WHEN UPPER(status) IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN status ELSE ? END WHERE id = ?");
         $update->execute([$or_number, $cash_received, $change_amount, $completed_status, $id]);
     } else {
-        $update = $pdo->prepare("UPDATE {$table} SET payment_status = 'Paid', payment_date = NOW(), or_number = ?, cash_received = ?, change_amount = ? WHERE id = ?");
-        $update->execute([$or_number, $cash_received, $change_amount, $id]);
+        $completed_status = normalize_request_status_for_storage($pdo, 'business_transactions', 'Completed');
+        $update = $pdo->prepare("UPDATE {$table} SET payment_status = 'Paid', payment_date = NOW(), or_number = ?, cash_received = ?, change_amount = ?, status = CASE WHEN UPPER(status) IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN status ELSE ? END WHERE id = ?");
+        $update->execute([$or_number, $cash_received, $change_amount, $completed_status, $id]);
     }
 
     if (!empty($row['recipient_user_id'])) {
@@ -125,13 +126,13 @@ try {
             error_log('Notification delivery failed in make-cash-payment for id=' . $id . ' type=' . $type);
         }
 
-        if ($type === 'document' && !in_array((string)($row['status'] ?? ''), ['Rejected', 'Cancelled'], true)) {
+        if (!request_has_terminal_status($row['status'] ?? null)) {
             $status_notification_sent = NotificationSystem::notify_document_status(
                 $pdo,
                 (int) $row['recipient_user_id'],
                 $item_name,
                 'Completed',
-                'my-document-requests.php'
+                $type === 'document' ? 'my-document-requests.php' : 'my-requests.php'
             );
             if (!$status_notification_sent && $notification_warning === null) {
                 $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
@@ -159,7 +160,7 @@ try {
         'amount_due' => number_format($amount_due, 2, '.', ''),
         'cash_received' => number_format($cash_received, 2, '.', ''),
         'change_amount' => number_format($change_amount, 2, '.', ''),
-        'status' => $type === 'document' && !in_array((string)($row['status'] ?? ''), ['Rejected', 'Cancelled'], true) ? 'Completed' : null,
+        'status' => !request_has_terminal_status($row['status'] ?? null) ? 'Completed' : null,
     ];
 
     if ($notification_warning !== null) {

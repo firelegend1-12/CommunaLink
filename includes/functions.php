@@ -1596,6 +1596,49 @@ function normalize_request_status_display($status) {
 }
 
 /**
+ * Determine whether a request is already in a terminal non-completable state.
+ *
+ * @param string|null $status
+ * @return bool
+ */
+function request_has_terminal_status($status): bool {
+    $normalized = normalize_request_status_display($status);
+    return in_array($normalized, ['Rejected', 'Cancelled'], true);
+}
+
+/**
+ * Determine whether a paid request should be treated as completed.
+ *
+ * @param string|null $status
+ * @param string|null $payment_status
+ * @param bool $requires_payment
+ * @return bool
+ */
+function paid_request_should_display_completed($status, $payment_status, bool $requires_payment = true): bool {
+    if (!$requires_payment) {
+        return false;
+    }
+
+    return trim((string) $payment_status) === 'Paid' && !request_has_terminal_status($status);
+}
+
+/**
+ * Normalize a request status for display, including the paid-equals-completed rule.
+ *
+ * @param string|null $status
+ * @param string|null $payment_status
+ * @param bool $requires_payment
+ * @return string
+ */
+function get_request_display_status($status, $payment_status = null, bool $requires_payment = true): string {
+    if (paid_request_should_display_completed($status, $payment_status, $requires_payment)) {
+        return 'Completed';
+    }
+
+    return normalize_request_status_display($status);
+}
+
+/**
  * Canonical request statuses used by the current UI.
  *
  * @return array<int, string>

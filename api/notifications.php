@@ -35,10 +35,6 @@ function notifications_json_error(int $statusCode, string $error, float $request
     exit;
 }
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 init_cache_manager([
     'cache_dir' => __DIR__ . '/../cache/',
 ]);

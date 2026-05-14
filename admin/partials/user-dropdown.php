@@ -1,8 +1,4 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 $fullname_raw = $_SESSION['fullname'] ?? 'User';
 $fullname = htmlspecialchars($fullname_raw, ENT_QUOTES, 'UTF-8');
 $initial = htmlspecialchars(strtoupper(substr($fullname_raw, 0, 1)), ENT_QUOTES, 'UTF-8');

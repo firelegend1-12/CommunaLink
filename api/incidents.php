@@ -10,10 +10,6 @@ require_once '../includes/permission_checker.php';
 // Apply security headers for API endpoints
 apply_page_security_headers('api');
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 function incidents_json_error(int $statusCode, string $error, ?string $requiredPermission = null): void
 {
     http_response_code($statusCode);

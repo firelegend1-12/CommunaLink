@@ -7,10 +7,6 @@
 // Note: Admin authentication is now handled at the top of each page by including admin_auth.php.
 // This partial primarily handles the sidebar UI and navigation highlights.
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 require_once __DIR__ . '/../../includes/permission_checker.php';
 
 // Get current script name and directory depth

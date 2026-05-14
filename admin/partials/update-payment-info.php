@@ -83,9 +83,9 @@ try {
     // Set payment date if marking as paid
     $payment_date = ($payment_status === 'Paid') ? date('Y-m-d H:i:s') : null;
 
-    if ($type === 'document' && $payment_status === 'Paid') {
-        $completed_status = normalize_request_status_for_storage($pdo, 'document_requests', 'Completed');
-        $stmt = $pdo->prepare("UPDATE document_requests SET or_number = ?, payment_status = ?, payment_date = ?, status = CASE WHEN UPPER(status) IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN status ELSE ? END WHERE id = ?");
+    if ($payment_status === 'Paid') {
+        $completed_status = normalize_request_status_for_storage($pdo, $table, 'Completed');
+        $stmt = $pdo->prepare("UPDATE $table SET or_number = ?, payment_status = ?, payment_date = ?, status = CASE WHEN UPPER(status) IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN status ELSE ? END WHERE id = ?");
         $stmt->execute([$or_number, $payment_status, $payment_date, $completed_status, $id]);
     } else {
         $stmt = $pdo->prepare("UPDATE $table SET or_number = ?, payment_status = ?, payment_date = ? WHERE id = ?");
@@ -93,7 +93,7 @@ try {
     }
 
     // Fetch resident info for notification
-    $stmt_res = $pdo->prepare("SELECT " . ($type === 'document' ? "COALESCE(NULLIF(dr.requested_by_user_id, 0), r.user_id)" : "r.user_id") . " AS recipient_user_id, " . ($type === 'document' ? "dr.document_type as item_name" : "bt.business_name as item_name") . " 
+    $stmt_res = $pdo->prepare("SELECT " . ($type === 'document' ? "COALESCE(NULLIF(dr.requested_by_user_id, 0), r.user_id)" : "r.user_id") . " AS recipient_user_id, " . ($type === 'document' ? "dr.document_type as item_name" : "COALESCE(NULLIF(bt.transaction_type, ''), bt.business_name) as item_name") . " 
                                FROM $table " . ($type === 'document' ? 'dr' : 'bt') . "
                                JOIN residents r ON " . ($type === 'document' ? 'dr.resident_id' : 'bt.resident_id') . " = r.id
                                WHERE " . ($type === 'document' ? 'dr.id' : 'bt.id') . " = ?");
@@ -117,13 +117,13 @@ try {
             error_log('Notification delivery failed in update-payment-info for id=' . $id . ' type=' . $type);
         }
 
-        if ($type === 'document' && $payment_status === 'Paid') {
+        if ($payment_status === 'Paid') {
             $status_notification_sent = NotificationSystem::notify_document_status(
                 $pdo,
                 (int) $res_info['recipient_user_id'],
                 $item_name,
                 'Completed',
-                'my-document-requests.php'
+                $type === 'document' ? 'my-document-requests.php' : 'my-requests.php'
             );
             if (!$status_notification_sent && $notification_warning === null) {
                 $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
@@ -145,7 +145,7 @@ try {
 
     $pdo->commit();
     $response = ['success' => true];
-    if ($type === 'document' && $payment_status === 'Paid') {
+    if ($payment_status === 'Paid') {
         $response['status'] = 'Completed';
     }
     if ($notification_warning !== null) {

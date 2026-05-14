@@ -4,19 +4,13 @@
  */
 require_once '../../config/init.php';
 require_once '../../includes/functions.php';
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once '../../includes/auth.php';
+require_once '../../includes/permission_checker.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
-// Only admins may run this lookup
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    http_response_code(403);
-    echo json_encode(['error' => 'Unauthorized']);
-    exit;
-}
+require_login();
+require_permission_or_json('user_management', 403, 'Forbidden');
 
 $fullname = trim((string)($_POST['fullname'] ?? $_GET['fullname'] ?? ''));
 if ($fullname === '') {

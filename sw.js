@@ -1,7 +1,5 @@
-const CACHE_NAME = 'communalink-system-v4';
+const CACHE_NAME = 'communalink-system-v5';
 const ASSETS_TO_CACHE = [
-    '/',
-    '/index.php',
     '/assets/images/barangay-logo.png'
 ];
 
@@ -30,44 +28,18 @@ self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') return;
 
     const requestUrl = new URL(event.request.url);
-    const acceptHeader = event.request.headers.get('Accept') || '';
-    const isPageNavigation = event.request.mode === 'navigate' || acceptHeader.includes('text/html');
+
     const isDynamicRequest =
         requestUrl.pathname.endsWith('.php') ||
         requestUrl.pathname.startsWith('/api/') ||
         requestUrl.pathname.includes('/partials/');
 
+    // Let dynamic requests hit the network so errors surface directly.
     if (isDynamicRequest) {
-        if (isPageNavigation) {
-            return;
-        }
-
-        event.respondWith(
-            fetch(event.request).catch(() => {
-                if (acceptHeader.includes('application/json')) {
-                    return new Response(JSON.stringify({
-                        success: false,
-                        error: 'Network request failed. Please check your connection and try again.'
-                    }), {
-                        status: 503,
-                        statusText: 'Service Unavailable',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-
-                return new Response('Service temporarily unavailable. Please refresh and try again.', {
-                    status: 503,
-                    statusText: 'Service Unavailable',
-                    headers: { 'Content-Type': 'text/plain' }
-                });
-            })
-        );
         return;
     }
     
-    // We avoid caching API or dynamic PHP endpoints indiscriminately.
-    // Instead we do a Network-First strategy, falling back to cache.
-    // Notice: if you want local caching to be "stale-while-revalidate", that's better for assets.
+    // Cache static assets with a network-first strategy.
     event.respondWith(
         caches.match(event.request).then((cachedResponse) => {
             const fetchPromise = fetch(event.request).then((networkResponse) => {

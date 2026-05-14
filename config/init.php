@@ -138,6 +138,55 @@ if (function_exists('apply_app_timezone')) {
 
 validate_startup_config_contract();
 
+if (function_exists('app_debug_enabled') && app_debug_enabled()) {
+    error_reporting(E_ALL);
+    ini_set('display_errors', '1');
+
+    set_error_handler(function ($severity, $message, $file, $line) {
+        if (!(error_reporting() & $severity)) {
+            return false;
+        }
+
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=utf-8');
+        }
+
+        echo "PHP Error: {$message} in {$file} on line {$line}";
+        return true;
+    });
+
+    set_exception_handler(function ($exception) {
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=utf-8');
+        }
+
+        echo 'Uncaught Exception: ' . $exception->getMessage()
+            . ' in ' . $exception->getFile()
+            . ' on line ' . $exception->getLine();
+    });
+
+    register_shutdown_function(function () {
+        $error = error_get_last();
+        if (!$error) {
+            return;
+        }
+
+        $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+        if (!in_array($error['type'], $fatalTypes, true)) {
+            return;
+        }
+
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=utf-8');
+        }
+
+        echo "Fatal Error: {$error['message']} in {$error['file']} on line {$error['line']}";
+    });
+}
+
 try {
     $app_env = strtolower(trim((string) env('APP_ENV', 'production')));
     $is_production_like = in_array($app_env, ['production', 'prod', 'staging'], true);
