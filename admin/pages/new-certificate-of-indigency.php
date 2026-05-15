@@ -204,8 +204,8 @@ display_flash_messages(); ?>
                                          const blankWidth = (lastX - firstX) + charWidth;
                                          let actualWidth = 0;
                                          try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
-                                         const shift = blankWidth - actualWidth;
-                                         if (Math.abs(shift) <= 0.5) return;
+                                        const overflow = actualWidth - blankWidth;
+                                        if (overflow <= 0.5) return;
                                          const origLineTransform = el.dataset.origTransform || el.getAttribute("transform");
                                          const lineY = tspan.getAttribute("y");
                                          const parent = el.parentElement;
@@ -221,9 +221,9 @@ display_flash_messages(); ?>
                                              const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
                                              if (isNaN(tFirstX) || tFirstX <= firstX) return;
                                              const currentTransform = t.getAttribute("transform") || tBaseTransform;
-                                             t.setAttribute("transform", currentTransform + " translate(" + (-shift) + " 0)");
-                                         });
-                                     });
+                                            t.setAttribute("transform", currentTransform + " translate(" + overflow + " 0)");
+                                        });
+                                    });
                                      this.layoutRafId = null;
                                  });
                              },

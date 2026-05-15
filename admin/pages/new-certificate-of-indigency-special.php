@@ -256,8 +256,8 @@ try {
                                          if (!span) return;
                                          let actualWidth = 0;
                                          try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
-                                         const shift = span.width - actualWidth;
-                                         if (Math.abs(shift) <= 0.5) return;
+                                        const overflow = actualWidth - span.width;
+                                        if (overflow <= 0.5) return;
                                          const origLineTransform = el.dataset.origTransform || el.getAttribute("transform");
                                          const lineY = tspan.getAttribute("y");
                                          const parent = el.parentElement;
@@ -274,9 +274,9 @@ try {
                                              const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
                                              if (isNaN(tFirstX) || tFirstX <= span.start) return;
                                              const currentTransform = t.getAttribute("transform") || tBaseTransform;
-                                             t.setAttribute("transform", currentTransform + " translate(" + (-shift) + " 0)");
-                                         });
-                                     });
+                                            t.setAttribute("transform", currentTransform + " translate(" + overflow + " 0)");
+                                        });
+                                    });
                                      this.layoutRafId = null;
                                  });
                              },

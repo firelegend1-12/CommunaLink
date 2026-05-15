@@ -428,6 +428,7 @@ try {
                                                         <div class="min-w-0">
                                                             <div class="text-sm font-bold text-gray-900" x-text="req.document_type"></div>
                                                             <div class="text-xs text-gray-500" x-text="new Date(req.activity_at || req.requested_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})"></div>
+                                                            <div class="mt-2 text-[11px] font-semibold text-slate-500" x-show="req.reference_number" x-text="'Ref. ' + req.reference_number"></div>
                                                             <div class="mt-2 flex flex-wrap items-center gap-2" x-show="req.payment_status === 'Paid' && req.or_number">
                                                                 <span class="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2 py-1 text-[10px] font-black uppercase text-green-700">
                                                                     <i class="fas fa-check-circle mr-1"></i>Paid
@@ -730,6 +731,7 @@ try {
                                         <p class="text-xs font-black uppercase tracking-[0.28em] text-blue-100">Official Receipt</p>
                                         <h3 class="mt-2 text-2xl font-black">${this.escapeHtml(receipt.orNumber || 'N/A')}</h3>
                                         <p class="mt-2 text-sm text-blue-100">${this.escapeHtml(receipt.barangayName || 'Barangay')}</p>
+                                        <p class="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">Ref. No. ${this.escapeHtml(receipt.referenceNumber || 'N/A')}</p>
                                     </div>
                                     <div class="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-right backdrop-blur-sm">
                                         <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-100">Paid On</p>

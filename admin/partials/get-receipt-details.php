@@ -121,6 +121,11 @@ try {
         'data' => [
             'id' => (int) $receipt['id'],
             'requestType' => (string) $receipt['request_type'],
+            'referenceNumber' => get_request_reference_number(
+                $receipt['request_type'] ?? $type,
+                $receipt['id'] ?? $id,
+                $receipt['request_date'] ?? null
+            ),
             'residentName' => trim((string) ($receipt['resident_name'] ?? '')),
             'itemName' => (string) ($receipt['item_name'] ?? $receipt['document_type'] ?? 'Request'),
             'documentType' => (string) ($receipt['document_type'] ?? ''),

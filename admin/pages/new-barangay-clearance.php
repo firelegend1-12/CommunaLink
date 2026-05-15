@@ -158,6 +158,9 @@ display_flash_messages(); ?>
                              trackedFieldIds() {
                                  return [...new Set(Object.keys(this.fieldMap).concat(...Object.values(this.fieldGroups)))];
                              },
+                             normalizeCertificateText(value) {
+                                 return String(value ?? "").replace(/\s+/g, " ").trim();
+                             },
                              rememberFieldState(id) {
                                  const el = document.getElementById(id);
                                  if (!el) return;
@@ -215,17 +218,17 @@ display_flash_messages(); ?>
                                  const resident = this.residents.find(r => r.id == this.selectedResidentId);
                                  if (resident) {
                                      this.selectedResident = resident;
-                                     this.formName = resident.full_name || "";
-                                     this.formAge = resident.document_age || "";
-                                     this.formGender = resident.document_gender || "";
-                                     this.formCivilStatus = resident.document_civil_status || "";
-                                     this.formLocality = resident.document_locality || "";
+                                     this.formName = this.normalizeCertificateText(resident.full_name || "");
+                                     this.formAge = this.normalizeCertificateText(resident.document_age || "");
+                                     this.formGender = this.normalizeCertificateText(resident.document_gender || "");
+                                     this.formCivilStatus = this.normalizeCertificateText(resident.document_civil_status || "");
+                                     this.formLocality = this.normalizeCertificateText(resident.document_locality || "");
                                  }
                                  this.$nextTick(() => this.recomputeLayout());
                              },
                              getFieldValue(id) {
                                  const key = this.fieldMap[id];
-                                 return key ? this[key] : "";
+                                 return key ? this.normalizeCertificateText(this[key]) : "";
                              },
                              recomputeLayout() {
                                  if (this.layoutRafId) {

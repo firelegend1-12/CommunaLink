@@ -130,21 +130,24 @@ try {
                                  this.$watch("formMonth", () => this.recomputeLayout());
                                  this.$nextTick(() => this.recomputeLayout());
                              },
+                             normalizeCertificateText(value) {
+                                 return String(value ?? "").replace(/\s+/g, " ").trim();
+                             },
                              selectResident() {
                                  if (!this.selectedResidentId) return;
                                  const resident = this.residents.find(r => r.id == this.selectedResidentId);
                                  if (resident) {
                                      this.selectedResident = resident;
-                                     this.formOwner = resident.full_name || "";
+                                     this.formOwner = this.normalizeCertificateText(resident.full_name || "");
                                      if (resident.address && !this.formLocation) {
-                                         this.formLocation = resident.address;
+                                         this.formLocation = this.normalizeCertificateText(resident.address);
                                      }
                                  }
                                  this.$nextTick(() => this.recomputeLayout());
                              },
                              getFieldValue(id) {
                                  const key = this.fieldMap[id];
-                                 return key ? this[key] : "";
+                                 return key ? this.normalizeCertificateText(this[key]) : "";
                              },
                              recomputeLayout() {
                                  if (this.layoutRafId) {

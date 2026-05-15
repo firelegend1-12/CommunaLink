@@ -223,6 +223,9 @@ if ($template['type'] === 'document' && !document_request_requires_payment($temp
     print_redirect_with_error('Printing is only allowed after payment is completed.', $template['type']);
 }
 
+$reference_number = get_request_reference_number_from_row($row, $template['type']);
+$or_number = trim((string) ($row['or_number'] ?? ''));
+
 if ($template['type'] === 'document') {
     $details = print_decode_details($row['details'] ?? '');
     $resident_name = trim((string)($row['first_name'] ?? '') . ' ' . (string)($row['last_name'] ?? ''));
@@ -313,12 +316,43 @@ $field_groups = $template['field_groups'] ?? [];
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .printable-area { text-align: center; }
+        .printable-area { text-align: center; position: relative; }
         .printable-area svg {
             display: block;
             margin: 0 auto;
             max-width: 100%;
             height: auto;
+        }
+        .document-meta {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 20;
+            min-width: 180px;
+            padding: 10px 12px;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(6px);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+            text-align: left;
+        }
+        .document-meta-label {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .document-meta-value {
+            margin-top: 2px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #0f172a;
+            word-break: break-word;
+        }
+        .document-meta-row + .document-meta-row {
+            margin-top: 8px;
         }
 
         @page { size: A4 portrait; margin: 10mm; }
@@ -376,6 +410,18 @@ $field_groups = $template['field_groups'] ?? [];
         </div>
 
         <div class="printable-area max-w-4xl mx-auto p-8 bg-white shadow-lg overflow-auto text-center">
+            <div class="document-meta">
+                <div class="document-meta-row">
+                    <p class="document-meta-label">Reference No.</p>
+                    <p class="document-meta-value"><?php echo print_h($reference_number !== '' ? $reference_number : 'N/A'); ?></p>
+                </div>
+                <?php if ($or_number !== ''): ?>
+                    <div class="document-meta-row">
+                        <p class="document-meta-label">O.R. No.</p>
+                        <p class="document-meta-value"><?php echo print_h($or_number); ?></p>
+                    </div>
+                <?php endif; ?>
+            </div>
             <?php echo $svg_html; ?>
         </div>
     </div>

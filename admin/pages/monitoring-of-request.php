@@ -709,6 +709,11 @@ foreach ($requests as $req):
                                                     if ($cancellation_reason !== '') {
                                                         $cancellation_reason = (string)preg_replace('/^Cancelled\s+by\s+(admin|resident)\s*:\s*/i', '', $cancellation_reason);
                                                     }
+                                                    $reference_number = get_request_reference_number(
+                                                        $req['request_type'] ?? 'document',
+                                                        $req['id'] ?? 0,
+                                                        $req['date_requested'] ?? null
+                                                    );
 
                                                     $quick_view_payload = [
                                                         'id' => (string) $req['id'],
@@ -716,6 +721,7 @@ foreach ($requests as $req):
                                                         'name' => (string) $name,
                                                         'docType' => (string) $doc_type,
                                                         'date' => (string) $date,
+                                                        'refNumber' => (string) $reference_number,
                                                         'purpose' => (string) ($req['purpose'] ?? ''),
                                                         'requestDay' => date('j', strtotime((string) $req['date_requested'])),
                                                         'requestMonth' => date('F', strtotime((string) $req['date_requested'])),
@@ -761,11 +767,17 @@ if (!$requires_payment): ?>
                                                                 <span data-payment-status="Unpaid" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                                     <i class="fas fa-check-circle mr-1"></i> NO FEE
                                                                 </span>
+                                                                <?php if ($reference_number !== ''): ?>
+                                                                    <div class="text-xs text-slate-500 mt-1">Ref. <?= htmlspecialchars($reference_number) ?></div>
+                                                                <?php endif; ?>
                                                             <?php
 elseif (($req['payment_status'] ?? 'Unpaid') === 'Paid'): ?>
                                                                 <span data-payment-status="Paid" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
                                                                     <i class="fas fa-check-circle mr-1"></i> PAID
                                                                 </span>
+                                                                <?php if ($reference_number !== ''): ?>
+                                                                    <div class="text-xs text-slate-500 mt-1">Ref. <?= htmlspecialchars($reference_number) ?></div>
+                                                                <?php endif; ?>
                                                                 <?php
 if (!empty($req['or_number'])): ?>
                                                                     <button type="button" class="mt-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline" @click="openReceipt(<?= (int) $req['id'] ?>, '<?= htmlspecialchars((string) $req['request_type'], ENT_QUOTES, 'UTF-8') ?>')">
@@ -778,6 +790,9 @@ else: ?>
                                                                 <span data-payment-status="Unpaid" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200">
                                                                     <i class="fas fa-clock mr-1"></i> UNPAID
                                                                 </span>
+                                                                <?php if ($reference_number !== ''): ?>
+                                                                    <div class="text-xs text-slate-500 mt-1">Ref. <?= htmlspecialchars($reference_number) ?></div>
+                                                                <?php endif; ?>
                                                             <?php
 endif; ?>
                                                         </td>
@@ -960,6 +975,10 @@ endif; ?>
                                  <div>
                                     <p class="text-xs font-semibold text-gray-600 uppercase">Date Requested</p>
                                     <p class="mt-1 text-sm font-medium text-gray-900" x-text="selectedReq.date"></p>
+                                 </div>
+                                 <div x-show="selectedReq.refNumber">
+                                    <p class="text-xs font-semibold text-gray-600 uppercase">Reference No.</p>
+                                    <p class="mt-1 text-sm font-medium text-gray-900" x-text="selectedReq.refNumber || 'N/A'"></p>
                                  </div>
                                  <div x-show="selectedReq.orNumber">
                                     <p class="text-xs font-semibold text-gray-600 uppercase">O.R. Number</p>
@@ -1240,6 +1259,7 @@ endif; ?>
                                     <p class="text-xs font-black uppercase tracking-[0.28em] text-blue-100">Official Receipt</p>
                                     <h3 class="mt-2 text-2xl font-black">${this.escapeHtml(receipt.orNumber || 'N/A')}</h3>
                                     <p class="mt-2 text-sm text-blue-100">${this.escapeHtml(receipt.barangayName || 'Barangay')}</p>
+                                    <p class="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">Ref. No. ${this.escapeHtml(receipt.referenceNumber || 'N/A')}</p>
                                 </div>
                                 <div class="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-right backdrop-blur-sm">
                                     <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-100">Paid On</p>
@@ -1513,7 +1533,7 @@ endif; ?>
                         }
                     }
 
-                    updateRowPaymentBadge(this.selectedReq.id, this.selectedReq.type, this.selectedReq.orNumber);
+                    updateRowPaymentBadge(this.selectedReq.id, this.selectedReq.type, this.selectedReq.orNumber, this.selectedReq.refNumber);
                     showToast(data.warning || (this.selectedReq.type === 'document' ? 'Cash payment recorded. Request completed.' : 'Cash payment recorded.'), data.warning ? 'warning' : 'success');
                 } catch (e) {
                     showToast('Failed to process cash payment.', 'error');
@@ -1772,7 +1792,7 @@ echo json_encode($monitoring_csrf_token); ?>;
         });
     });
 
-    function updateRowPaymentBadge(id, type, orNumber) {
+    function updateRowPaymentBadge(id, type, orNumber, referenceNumber) {
         const row = document.getElementById(`request-row-${type}-${id}`);
         if (!row) return;
 
@@ -1781,10 +1801,12 @@ echo json_encode($monitoring_csrf_token); ?>;
 
         const paymentCell = cells[5];
         const safeOr = (orNumber || '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const safeRef = (referenceNumber || '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;');
         paymentCell.innerHTML = `
             <span data-payment-status="Paid" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
                 <i class="fas fa-check-circle mr-1"></i> PAID
             </span>
+            ${safeRef ? `<div class="text-xs text-slate-500 mt-1">Ref. ${safeRef}</div>` : ''}
             ${safeOr ? `<button type="button" class="mt-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline" onclick='window.dispatchEvent(new CustomEvent("open-receipt", { detail: { id: ${JSON.stringify(String(id))}, type: ${JSON.stringify(String(type))} } }))'>O.R. ${safeOr}</button>` : ''}
         `;
     }

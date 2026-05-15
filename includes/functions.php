@@ -1513,6 +1513,66 @@ function document_request_requires_payment($document_type): bool {
 }
 
 /**
+ * Build a stable reference number for any request/transaction.
+ *
+ * Format example: REF-20260515-DOC-38 or REF-20260515-BIZ-10
+ *
+ * @param string|null $request_type
+ * @param int|string|null $request_id
+ * @param string|null $request_date
+ * @return string
+ */
+function get_request_reference_number($request_type, $request_id, $request_date = null): string {
+    $id = (int) $request_id;
+    if ($id <= 0) {
+        return '';
+    }
+
+    $type = strtolower(trim((string) $request_type));
+    $type_code = $type === 'business' ? 'BIZ' : 'DOC';
+
+    $date_value = trim((string) $request_date);
+    $date_segment = date('Ymd');
+    if ($date_value !== '') {
+        try {
+            $date_segment = (new DateTime($date_value))->format('Ymd');
+        } catch (Throwable $e) {
+            $date_segment = date('Ymd');
+        }
+    }
+
+    return sprintf('REF-%s-%s-%d', $date_segment, $type_code, $id);
+}
+
+/**
+ * Build a request reference number from a mixed database row.
+ *
+ * @param array $row
+ * @param string|null $request_type
+ * @return string
+ */
+function get_request_reference_number_from_row(array $row, $request_type = null): string {
+    $resolved_type = trim((string) $request_type);
+    if ($resolved_type === '') {
+        $resolved_type = trim((string) ($row['request_type'] ?? ''));
+    }
+    if ($resolved_type === '') {
+        $resolved_type = array_key_exists('transaction_type', $row) || array_key_exists('application_date', $row)
+            ? 'business'
+            : 'document';
+    }
+
+    $date_value = $row['date_requested']
+        ?? $row['application_date']
+        ?? $row['request_date']
+        ?? $row['requested_at']
+        ?? $row['created_at']
+        ?? null;
+
+    return get_request_reference_number($resolved_type, $row['id'] ?? null, $date_value);
+}
+
+/**
  * Build the age text used in printed resident documents.
  *
  * @param string|null $date_of_birth

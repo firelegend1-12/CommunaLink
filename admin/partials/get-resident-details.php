@@ -137,6 +137,7 @@ try {
             $request_row['payment_status'] ?? null,
             document_request_requires_payment($request_row['document_type'] ?? '')
         );
+        $request_row['reference_number'] = get_request_reference_number_from_row($request_row, $request_row['request_type'] ?? 'document');
         if (empty($request_row['activity_at'])) {
             $request_row['activity_at'] = $request_row['requested_at'] ?? null;
         }

@@ -48,6 +48,7 @@ if (!$permit) {
 $is_business_clearance = (($trans['remarks'] ?? '') === 'Barangay Business Clearance');
 $page_title = $is_business_clearance ? "Barangay Business Clearance Details" : "Business Permit Details";
 $status = get_request_display_status($trans['status'] ?? 'Pending', $trans['payment_status'] ?? null, true);
+$reference_number = get_request_reference_number_from_row($trans, 'business');
 $date_applied = date('F j, Y', strtotime($trans['application_date']));
 
 require_once 'partials/header.php';
@@ -127,6 +128,16 @@ require_once 'partials/header.php';
                 <div>
                     <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fas fa-store text-indigo-500 mr-2"></i>Business Information</h3>
                     <div class="bg-gray-50 rounded-xl border border-gray-100 p-5 space-y-4 text-sm">
+                        <div>
+                            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Reference No.</span>
+                            <p class="text-gray-800 font-medium"><?= htmlspecialchars($reference_number ?: 'N/A') ?></p>
+                        </div>
+                        <?php if (!empty($trans['or_number'])): ?>
+                            <div>
+                                <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">O.R. Number</span>
+                                <p class="text-gray-800 font-medium"><?= htmlspecialchars($trans['or_number']) ?></p>
+                            </div>
+                        <?php endif; ?>
                         <div>
                             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Line of Business</span>
                             <p class="text-gray-800 font-medium"><?= htmlspecialchars($trans['business_type'] ?? 'N/A') ?></p>

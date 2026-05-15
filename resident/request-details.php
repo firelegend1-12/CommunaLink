@@ -44,6 +44,7 @@ $status = get_request_display_status(
     $req['payment_status'] ?? null,
     document_request_requires_payment($req['document_type'] ?? '')
 );
+$reference_number = get_request_reference_number_from_row($req, 'document');
 $date_requested = date('F j, Y, g:i a', strtotime($req['date_requested']));
 $details = json_decode($req['details'], true) ?? [];
 
@@ -182,6 +183,16 @@ $flat_details = flatten_details($details);
                 <div>
                     <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fas fa-file-invoice text-teal-500 mr-2"></i>Application Details</h3>
                     <div class="bg-gray-50 rounded-xl border border-gray-100 p-5 space-y-4">
+                        <div>
+                            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Reference No.</span>
+                            <p class="text-gray-800 font-medium"><?= htmlspecialchars($reference_number ?: 'N/A') ?></p>
+                        </div>
+                        <?php if (!empty($req['or_number'])): ?>
+                            <div>
+                                <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">O.R. Number</span>
+                                <p class="text-gray-800 font-medium"><?= htmlspecialchars($req['or_number']) ?></p>
+                            </div>
+                        <?php endif; ?>
                         <div>
                             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Purpose</span>
                             <p class="text-gray-800 font-medium"><?= htmlspecialchars($req['purpose'] ?? 'N/A') ?></p>
