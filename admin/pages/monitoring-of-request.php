@@ -106,7 +106,7 @@ try {
             WHEN dr.status IN ('Processing', 'Ready for Pickup') THEN 'Approved'
             ELSE dr.status
         END AS status,
-        'document' as request_type, dr.details, dr.purpose, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
+        'document' as request_type, dr.details, dr.purpose, dr.or_number, dr.reference_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
         FROM document_requests dr 
         LEFT JOIN residents r ON dr.resident_id = r.id
     ) UNION ALL (
@@ -124,7 +124,7 @@ try {
         END AS status,
         'business' as request_type,
         JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details,
-        NULL as purpose, bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason, bt.admin_notes
+        NULL as purpose, bt.or_number, bt.reference_number, bt.payment_status, bt.remarks AS cancellation_reason, bt.admin_notes
         FROM business_transactions bt 
         LEFT JOIN residents r ON bt.resident_id = r.id
     )";
@@ -138,7 +138,7 @@ try {
                 WHEN dr.status IN ('Processing', 'Ready for Pickup') THEN 'Approved'
                 ELSE dr.status
             END AS status,
-            'document' as request_type, dr.details, dr.purpose, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
+            'document' as request_type, dr.details, dr.purpose, dr.or_number, dr.reference_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
             FROM document_requests dr 
             LEFT JOIN residents r ON dr.resident_id = r.id
         )";
@@ -158,7 +158,7 @@ try {
             END AS status,
             'business' as request_type,
             JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
-            NULL as purpose, bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason, bt.admin_notes
+            NULL as purpose, bt.or_number, bt.reference_number, bt.payment_status, bt.remarks AS cancellation_reason, bt.admin_notes
             FROM business_transactions bt 
             LEFT JOIN residents r ON bt.resident_id = r.id
         )";
@@ -709,11 +709,7 @@ foreach ($requests as $req):
                                                     if ($cancellation_reason !== '') {
                                                         $cancellation_reason = (string)preg_replace('/^Cancelled\s+by\s+(admin|resident)\s*:\s*/i', '', $cancellation_reason);
                                                     }
-                                                    $reference_number = get_request_reference_number(
-                                                        $req['request_type'] ?? 'document',
-                                                        $req['id'] ?? 0,
-                                                        $req['date_requested'] ?? null
-                                                    );
+                                                    $reference_number = get_request_reference_number_from_row($req, $req['request_type'] ?? 'document');
 
                                                     $quick_view_payload = [
                                                         'id' => (string) $req['id'],

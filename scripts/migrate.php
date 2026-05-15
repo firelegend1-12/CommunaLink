@@ -82,7 +82,7 @@ foreach ($files as $fullPath) {
     $start = microtime(true);
 
     try {
-        $pdo->beginTransaction();
+        $transactionStarted = $pdo->beginTransaction();
         $pdo->exec($sql);
 
         $elapsedMs = (int)round((microtime(true) - $start) * 1000);
@@ -90,12 +90,15 @@ foreach ($files as $fullPath) {
         $insert = $pdo->prepare('INSERT INTO schema_migrations (filename, checksum, execution_ms) VALUES (?, ?, ?)');
         $insert->execute([$filename, $checksum, $elapsedMs]);
 
-        $pdo->commit();
+        // MySQL DDL can implicitly commit, so only commit when a transaction is still open.
+        if ($transactionStarted && $pdo->inTransaction()) {
+            $pdo->commit();
+        }
 
         $appliedCount++;
         echo "APPLY {$filename} ({$elapsedMs} ms)\n";
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
+        if (isset($transactionStarted) && $transactionStarted && $pdo->inTransaction()) {
             $pdo->rollBack();
         }
         fwrite(STDERR, "FAIL  {$filename}: " . $e->getMessage() . "\n");

@@ -58,6 +58,7 @@ try {
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$resident_id, $document_type, $purpose, $details, $_SESSION['user_id'], get_document_request_fee($document_type)]);
+    ensure_request_reference_number($pdo, 'document', (int) $pdo->lastInsertId());
 
     // Success
     log_activity('Document Request', "New Certificate of Indigency application submitted for {$recipient_name}.", $_SESSION['user_id']);

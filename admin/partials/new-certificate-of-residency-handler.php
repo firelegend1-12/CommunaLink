@@ -76,6 +76,7 @@ try {
         ':requested_by_user_id' => $_SESSION['user_id'],
         ':price' => get_document_request_fee($document_type)
     ]);
+    ensure_request_reference_number($pdo, 'document', (int) $pdo->lastInsertId());
 
     // Log the activity
     log_activity('Document Request', "Submitted a new Certificate of Residency request for {$applicant_name}", $_SESSION['user_id']);

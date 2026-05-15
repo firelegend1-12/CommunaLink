@@ -136,6 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $resident['full_name'],
             $data['taxpayer_address'] ?? $resident['address']
         ]);
+        ensure_request_reference_number($pdo, 'business', (int) $pdo->lastInsertId());
 
         $pdo->commit();
 

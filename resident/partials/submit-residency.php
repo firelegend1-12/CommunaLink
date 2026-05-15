@@ -77,6 +77,7 @@ try {
         $_SESSION['user_id'],
         get_document_request_fee($document_type)
     ]);
+    ensure_request_reference_number($pdo, 'document', (int) $pdo->lastInsertId());
 
     log_activity('Document Request', "New Certificate of Residency requested natively by resident.", $_SESSION['user_id']);
 

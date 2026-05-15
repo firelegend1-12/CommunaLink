@@ -58,6 +58,8 @@ try {
     $stmt->execute([
         $resident_id, $owner_name, $business_name, $business_type, $address, $transaction_type
     ]);
+    $transaction_id = (int) $pdo->lastInsertId();
+    ensure_request_reference_number($pdo, 'business', $transaction_id);
     
     // Prepare business details for logging
     $business_details = "Business Name: {$business_name}, Type: {$business_type}, Address: {$address}, Owner: {$owner_name}, Transaction Type: {$transaction_type}";
@@ -67,7 +69,7 @@ try {
         $pdo,
         'add',
         'business_transaction',
-        $pdo->lastInsertId(),
+        $transaction_id,
         "New business application submitted: {$business_name}",
         null,
         $business_details
@@ -88,4 +90,4 @@ try {
     );
     $_SESSION['error_message'] = "A database error occurred. Please try again later.";
     redirect_to('../pages/business-application-form.php');
-} 
+}

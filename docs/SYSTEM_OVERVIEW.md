@@ -112,6 +112,7 @@ Canonical source is [config/init.php](../config/init.php), then additive/normali
   - processed_date DATETIME DEFAULT NULL
   - remarks TEXT DEFAULT NULL
   - or_number VARCHAR(100) DEFAULT NULL
+  - reference_number VARCHAR(50) DEFAULT NULL
   - payment_status ENUM('Unpaid','Paid') DEFAULT 'Unpaid'
   - payment_date DATETIME DEFAULT NULL
   - cash_received DECIMAL(10,2) DEFAULT NULL
@@ -182,6 +183,7 @@ Canonical source is [config/init.php](../config/init.php), then additive/normali
   - remarks TEXT DEFAULT NULL
   - requested_by_user_id INT(11) NULL
   - or_number VARCHAR(100) DEFAULT NULL
+  - reference_number VARCHAR(50) DEFAULT NULL
   - payment_status ENUM('Unpaid','Paid') DEFAULT 'Unpaid'
   - payment_date DATETIME DEFAULT NULL
   - cash_received DECIMAL(10,2) DEFAULT NULL

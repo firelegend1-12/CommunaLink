@@ -29,7 +29,7 @@ if (!$resident_id) {
 require_once '../config/database.php';
 
 // Fetch document requests only
-$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, payment_status, or_number, remarks, NULL AS admin_notes, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC");
+$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, payment_status, or_number, reference_number, remarks, NULL AS admin_notes, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC");
 $stmtDoc->execute([$_SESSION['user_id'], $resident_id]);
 $docRequests = $stmtDoc->fetchAll();
 foreach ($docRequests as &$doc_row) {
@@ -45,7 +45,7 @@ foreach ($docRequests as &$doc_row) {
 unset($doc_row);
 
 // Fetch barangay business clearances that are modeled as business transactions.
-$stmtBizClearance = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, payment_status, or_number, remarks, NULL AS admin_notes
+$stmtBizClearance = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, payment_status, or_number, reference_number, remarks, NULL AS admin_notes
     FROM business_transactions
     WHERE resident_id = ? AND remarks = 'Barangay Business Clearance'
     ORDER BY application_date DESC");

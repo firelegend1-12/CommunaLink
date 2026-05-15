@@ -101,9 +101,9 @@ try {
 
     // Fetch updated record to return details for row update
     if ($type === 'document') {
-        $fetch_stmt = $pdo->prepare("SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.status, dr.payment_status, dr.or_number FROM document_requests dr LEFT JOIN residents r ON dr.resident_id = r.id WHERE dr.id = ?");
+        $fetch_stmt = $pdo->prepare("SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.status, dr.payment_status, dr.or_number, dr.reference_number FROM document_requests dr LEFT JOIN residents r ON dr.resident_id = r.id WHERE dr.id = ?");
     } else {
-        $fetch_stmt = $pdo->prepare("SELECT bt.id, r.first_name, r.last_name, CASE WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance' WHEN bt.transaction_type = 'New Permit' THEN 'Business Permit' ELSE bt.transaction_type END as document_type, bt.application_date as date_requested, bt.status, bt.payment_status, bt.or_number FROM business_transactions bt LEFT JOIN residents r ON bt.resident_id = r.id WHERE bt.id = ?");
+        $fetch_stmt = $pdo->prepare("SELECT bt.id, r.first_name, r.last_name, CASE WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance' WHEN bt.transaction_type = 'New Permit' THEN 'Business Permit' ELSE bt.transaction_type END as document_type, bt.application_date as date_requested, bt.status, bt.payment_status, bt.or_number, bt.reference_number FROM business_transactions bt LEFT JOIN residents r ON bt.resident_id = r.id WHERE bt.id = ?");
     }
     $fetch_stmt->execute([$id]);
     $updated_row = $fetch_stmt->fetch(PDO::FETCH_ASSOC);
@@ -115,6 +115,7 @@ try {
                 ? document_request_requires_payment($updated_row['document_type'] ?? '')
                 : true
         );
+        $updated_row['reference_number'] = get_request_reference_number_from_row($updated_row, $type);
     }
 
     $display_status = normalize_request_status_display($stored_status ?? $status);

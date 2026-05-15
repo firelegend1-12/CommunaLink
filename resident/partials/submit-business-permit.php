@@ -54,6 +54,7 @@ try {
         $business_address
     ]);
     $request_id = (int) $pdo->lastInsertId();
+    ensure_request_reference_number($pdo, 'business', $request_id);
 
     log_activity('Document Request', "New Barangay Business Clearance requested natively by resident.", $_SESSION['user_id']);
     echo json_encode([

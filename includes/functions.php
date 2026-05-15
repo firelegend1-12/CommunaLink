@@ -1594,6 +1594,56 @@ function get_request_reference_number($request_type, $request_id, $request_date 
 }
 
 /**
+ * Persist a generated request reference number for a request/transaction row.
+ *
+ * The helper is safe to call repeatedly. If the row already has a stored
+ * reference number, that value is returned unchanged.
+ *
+ * @param PDO $pdo
+ * @param string|null $request_type
+ * @param int|string|null $request_id
+ * @return string
+ */
+function ensure_request_reference_number(PDO $pdo, $request_type, $request_id): string {
+    $id = (int) $request_id;
+    if ($id <= 0) {
+        return '';
+    }
+
+    $type = strtolower(trim((string) $request_type));
+    $is_business = $type === 'business';
+    $table = $is_business ? 'business_transactions' : 'document_requests';
+    $date_column = $is_business ? 'application_date' : 'date_requested';
+
+    try {
+        $stmt = $pdo->prepare("SELECT reference_number, {$date_column} AS request_date FROM {$table} WHERE id = ? LIMIT 1");
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return '';
+        }
+
+        $stored_reference_number = trim((string) ($row['reference_number'] ?? ''));
+        if ($stored_reference_number !== '') {
+            return $stored_reference_number;
+        }
+
+        $reference_number = get_request_reference_number($type, $id, $row['request_date'] ?? null);
+        if ($reference_number === '') {
+            return '';
+        }
+
+        $update = $pdo->prepare("UPDATE {$table} SET reference_number = ? WHERE id = ? AND (reference_number IS NULL OR reference_number = '')");
+        $update->execute([$reference_number, $id]);
+
+        return $reference_number;
+    } catch (Throwable $e) {
+        error_log('Failed to ensure request reference number: ' . $e->getMessage());
+        return '';
+    }
+}
+
+/**
  * Build a request reference number from a mixed database row.
  *
  * @param array $row
@@ -1601,6 +1651,11 @@ function get_request_reference_number($request_type, $request_id, $request_date 
  * @return string
  */
 function get_request_reference_number_from_row(array $row, $request_type = null): string {
+    $stored_reference_number = trim((string) ($row['reference_number'] ?? ''));
+    if ($stored_reference_number !== '') {
+        return $stored_reference_number;
+    }
+
     $resolved_type = trim((string) $request_type);
     if ($resolved_type === '') {
         $resolved_type = trim((string) ($row['request_type'] ?? ''));

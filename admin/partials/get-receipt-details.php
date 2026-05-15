@@ -33,6 +33,7 @@ try {
                 dr.status,
                 dr.payment_status,
                 dr.or_number,
+                dr.reference_number,
                 dr.date_requested AS request_date,
                 dr.payment_date,
                 dr.purpose,
@@ -65,6 +66,7 @@ try {
                 bt.status,
                 bt.payment_status,
                 bt.or_number,
+                bt.reference_number,
                 bt.application_date AS request_date,
                 bt.payment_date,
                 JSON_OBJECT(
@@ -121,11 +123,7 @@ try {
         'data' => [
             'id' => (int) $receipt['id'],
             'requestType' => (string) $receipt['request_type'],
-            'referenceNumber' => get_request_reference_number(
-                $receipt['request_type'] ?? $type,
-                $receipt['id'] ?? $id,
-                $receipt['request_date'] ?? null
-            ),
+            'referenceNumber' => get_request_reference_number_from_row($receipt, $receipt['request_type'] ?? $type),
             'residentName' => trim((string) ($receipt['resident_name'] ?? '')),
             'itemName' => (string) ($receipt['item_name'] ?? $receipt['document_type'] ?? 'Request'),
             'documentType' => (string) ($receipt['document_type'] ?? ''),

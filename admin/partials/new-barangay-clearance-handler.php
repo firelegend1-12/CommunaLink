@@ -85,6 +85,7 @@ try {
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$resident_id, $document_type, $purpose, $details, $_SESSION['user_id'], get_document_request_fee($document_type)]);
+    ensure_request_reference_number($pdo, 'document', (int) $pdo->lastInsertId());
 
     // Success
     log_activity('Document Request', "New Barangay Clearance application submitted for resident ID {$resident_id}.", $_SESSION['user_id']);

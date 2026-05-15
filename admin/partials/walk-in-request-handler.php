@@ -41,7 +41,8 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$resident_id, $_SESSION['user_id'], $document_type, $purpose, $details, $price]);
     
-    $request_id = $pdo->lastInsertId();
+    $request_id = (int) $pdo->lastInsertId();
+    ensure_request_reference_number($pdo, 'document', $request_id);
     log_activity_db(
         $pdo,
         'add',
