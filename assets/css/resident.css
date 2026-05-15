@@ -444,6 +444,7 @@ body {
     letter-spacing: 0.5px;
 }
 .status-text-badge.pending { background-color: #fffbe6; color: #f7b924; }
+.status-text-badge.under-review, .status-text-badge.in-progress, .status-text-badge.processing { background-color: #e0f2fe; color: #0369a1; }
 .status-text-badge.approved, .status-text-badge.resolved, .status-text-badge.ready { background-color: #e6f9ec; color: #15803d; }
 .status-text-badge.rejected { background-color: #fde8e8; color: #c81e1e; }
 
@@ -492,9 +493,9 @@ body {
 }
 
 .mobile-card-badge.pending { background-color: #fcefdc; color: #d48b2a; }
+.mobile-card-badge.under-review, .mobile-card-badge.in-progress, .mobile-card-badge.processing { background-color: #e0f2fe; color: #0369a1; }
 .mobile-card-badge.approved { background-color: #e6f9ec; color: #15803d; }
 .mobile-card-badge.rejected { background-color: #fde8e8; color: #c81e1e; }
-.mobile-card-badge.processing { background-color: #e0f2fe; color: #0369a1; }
 
 .mobile-card-desc {
     font-size: 0.9rem;

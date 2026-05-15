@@ -43,8 +43,8 @@ try {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $new_status = sanitize_input($_POST['status']);
-    $allowed_statuses = ['Pending', 'In Progress', 'Resolved', 'Rejected'];
+    $new_status = normalize_incident_status_display($_POST['status'] ?? '');
+    $allowed_statuses = canonical_incident_statuses();
 
     if (in_array($new_status, $allowed_statuses)) {
         try {
@@ -52,10 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("SELECT status FROM incidents WHERE id = ?");
             $stmt->execute([$report_id]);
             $old_data = $stmt->fetch(PDO::FETCH_ASSOC);
-            $old_status = $old_data ? $old_data['status'] : null;
+            $old_status = normalize_incident_status_display($old_data['status'] ?? null);
+            $stored_status = normalize_incident_status_for_storage($pdo, $new_status);
 
             $stmt = $pdo->prepare("UPDATE incidents SET status = ? WHERE id = ?");
-            $stmt->execute([$new_status, $report_id]);
+            $stmt->execute([$stored_status, $report_id]);
 
             // Log only if status changed
             if ($old_status !== $new_status) {
@@ -85,6 +86,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error_message = "Invalid status selected.";
     }
 }
+
+$report_status_display = normalize_incident_status_display($report['status'] ?? 'Pending');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -187,10 +190,10 @@ endif; ?>
                             <div class="mb-6">
                                 <label for="status" class="block text-sm font-medium text-gray-700 mb-2">Update Status</label>
                                 <select id="status" name="status" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
-                                    <option value="Pending" <?= $report['status'] === 'Pending' ? 'selected' : '' ?>>Pending</option>
-                                    <option value="In Progress" <?= $report['status'] === 'In Progress' ? 'selected' : '' ?>>In Progress</option>
-                                    <option value="Resolved" <?= $report['status'] === 'Resolved' ? 'selected' : '' ?>>Resolved</option>
-                                    <option value="Rejected" <?= $report['status'] === 'Rejected' ? 'selected' : '' ?>>Rejected</option>
+                                    <option value="Pending" <?= $report_status_display === 'Pending' ? 'selected' : '' ?>>Pending</option>
+                                    <option value="Under Review" <?= $report_status_display === 'Under Review' ? 'selected' : '' ?>>Under Review</option>
+                                    <option value="Resolved" <?= $report_status_display === 'Resolved' ? 'selected' : '' ?>>Resolved</option>
+                                    <option value="Rejected" <?= $report_status_display === 'Rejected' ? 'selected' : '' ?>>Rejected</option>
                                 </select>
                             </div>
                             

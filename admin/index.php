@@ -109,7 +109,7 @@ if ($cached_data) {
             (SELECT COUNT(*) FROM businesses) AS business_count,
             (SELECT COUNT(*) FROM document_requests WHERE UPPER(status) = 'PENDING') AS pending_doc_requests,
             (SELECT COUNT(*) FROM business_transactions WHERE UPPER(status) = 'PENDING') AS pending_biz_requests,
-            (SELECT COUNT(*) FROM incidents WHERE UPPER(status) IN ('PENDING', 'IN PROGRESS')) AS active_incidents,
+            (SELECT COUNT(*) FROM incidents WHERE UPPER(status) IN ('PENDING', 'UNDER REVIEW', 'IN PROGRESS', 'PROCESSING', 'REVIEW')) AS active_incidents,
             (SELECT COUNT(*) FROM events WHERE event_date >= CURDATE()) AS upcoming_events");
         $dashboard_stats = $stats_stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 

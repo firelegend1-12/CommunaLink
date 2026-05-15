@@ -44,6 +44,7 @@ try {
 
     $imagePath = (string)($incident['image_path'] ?? '');
     $incident['image_url'] = $imagePath !== '' ? StorageManager::resolvePublicUrl($imagePath) : '';
+    $incident['status'] = normalize_incident_status_display($incident['status'] ?? null);
 
     echo json_encode([
         'success' => true,

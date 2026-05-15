@@ -143,7 +143,7 @@ function renderTimeline(status) {
                 <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 2 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-xs font-bold ring-2 ring-white z-10">
                     ${activeStep > 2 && !isRejected ? '<i class="fas fa-check"></i>' : '2'}
                 </div>
-                <span class="text-[10px] mt-1 font-semibold ${activeStep >= 2 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Review</span>
+                <span class="text-[10px] mt-1 font-semibold ${activeStep >= 2 ? (isRejected ? 'text-red-600' : 'text-blue-700') : 'text-gray-400'}">Under Review</span>
             </div>
             <div class="flex flex-col items-center">
                 <div class="w-6 h-6 rounded-full border-2 ${activeStep >= 3 ? color : 'border-gray-300 bg-white text-gray-400'} flex items-center justify-center text-xs font-bold ring-2 ring-white z-10">

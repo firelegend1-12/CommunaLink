@@ -121,17 +121,18 @@ if ($requestMethod === 'POST') {
         require_permission_or_json('manage_incidents', 403, 'Forbidden');
 
         $report_id = (int)($_POST['report_id'] ?? 0);
-        $status = trim((string)($_POST['status'] ?? ''));
-        $allowed_statuses = ['Pending', 'In Progress', 'Resolved', 'Rejected'];
+        $status = normalize_incident_status_display((string)($_POST['status'] ?? ''));
+        $allowed_statuses = canonical_incident_statuses();
 
         if ($report_id <= 0 || !in_array($status, $allowed_statuses, true)) {
             incidents_json_error(400, 'Invalid report ID or status.');
         }
 
         try {
+            $stored_status = normalize_incident_status_for_storage($pdo, $status);
             $sql = "UPDATE incidents SET status = ? WHERE id = ?";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([$status, $report_id]);
+            $stmt->execute([$stored_status, $report_id]);
 
             $response = ['success' => true, 'message' => 'Report status updated successfully.'];
         } catch (PDOException $e) {
@@ -152,6 +153,10 @@ if ($requestMethod === 'POST') {
             $stmt = $pdo->prepare($sql);
             $stmt->execute([$user_id]);
             $reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($reports as &$report) {
+                $report['status'] = normalize_incident_status_display($report['status'] ?? null);
+            }
+            unset($report);
             $response = ['success' => true, 'reports' => $reports];
         } catch (PDOException $e) {
             error_log('incidents get_my_reports database error: ' . $e->getMessage());
@@ -167,6 +172,10 @@ if ($requestMethod === 'POST') {
                     ORDER BY i.reported_at DESC";
             $stmt = $pdo->query($sql);
             $reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($reports as &$report) {
+                $report['status'] = normalize_incident_status_display($report['status'] ?? null);
+            }
+            unset($report);
             $response = ['success' => true, 'reports' => $reports];
         } catch (PDOException $e) {
             error_log('incidents get_all_reports database error: ' . $e->getMessage());

@@ -271,7 +271,7 @@ document.getElementById('indigency-form').addEventListener('submit', function(e)
     .then(response => residentParseJsonResponse(response))
     .then(data => {
         if(data.success) {
-            window.location.href = 'my-requests.php?success=1';
+            window.location.href = 'my-document-requests.php?success=1';
         } else {
             residentShowToast(residentRequestErrorMessage(data, 'Unable to submit request.'), 'error');
             btn.disabled = false;

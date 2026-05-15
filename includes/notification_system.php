@@ -172,7 +172,7 @@ if (!class_exists('NotificationSystem')) {
             }
 
             $incident_type = trim((string) $incident_type);
-            $status = trim((string) $status);
+            $status = normalize_incident_status_display($status);
             $reason = trim((string) $reason);
             $link = trim((string) $link);
             if ($link === '') {
@@ -194,7 +194,7 @@ if (!class_exists('NotificationSystem')) {
                     $message .= 'Reason: ' . $reason . '. ';
                 }
                 $message .= 'Please review the details or contact the barangay office for clarification.';
-            } elseif ($status === 'In Progress') {
+            } elseif ($status === 'Under Review') {
                 $message .= 'The barangay office is currently reviewing and handling your report.';
             } elseif ($status === 'Resolved') {
                 $message .= 'Your report has been marked as resolved. Thank you for your patience.';

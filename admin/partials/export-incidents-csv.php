@@ -31,8 +31,14 @@ if ($search !== '') {
 }
 
 if ($status !== 'All') {
-    $query .= " AND i.status = ?";
-    $params[] = $status;
+    $status_variants = incident_status_filter_variants($status);
+    if (!empty($status_variants)) {
+        $placeholders = implode(',', array_fill(0, count($status_variants), '?'));
+        $query .= " AND i.status IN ($placeholders)";
+        foreach ($status_variants as $variant) {
+            $params[] = $variant;
+        }
+    }
 }
 
 if ($dateFrom !== '') {
@@ -82,7 +88,7 @@ try {
         fputcsv($output, [
             $row['id'],
             $row['type'],
-            $row['status'],
+            normalize_incident_status_display($row['status'] ?? null),
             $row['reporter_name'],
             $row['reporter_email'],
             $row['location'],

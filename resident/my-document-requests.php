@@ -5,6 +5,7 @@ require_once '../includes/functions.php';
 require_role('resident');
 
 $page_title = 'My Document Requests';
+$show_submit_success = isset($_GET['success']) && $_GET['success'] === '1';
 $show_cancel_success = isset($_GET['cancelled']) && $_GET['cancelled'] === '1';
 $show_cancel_error = isset($_GET['cancel_error']) && $_GET['cancel_error'] === '1';
 
@@ -33,8 +34,24 @@ $stmtDoc->execute([$_SESSION['user_id'], $resident_id]);
 $docRequests = $stmtDoc->fetchAll();
 foreach ($docRequests as &$doc_row) {
     $doc_row['status'] = normalize_request_status_display($doc_row['status'] ?? null);
+    $doc_row['request_kind'] = 'document';
+    $doc_row['detail_url'] = 'request-details.php?id=' . (int) ($doc_row['id'] ?? 0);
 }
 unset($doc_row);
+
+// Fetch barangay business clearances that are modeled as business transactions.
+$stmtBizClearance = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, remarks, NULL AS admin_notes
+    FROM business_transactions
+    WHERE resident_id = ? AND remarks = 'Barangay Business Clearance'
+    ORDER BY application_date DESC");
+$stmtBizClearance->execute([$resident_id]);
+$businessClearanceRequests = $stmtBizClearance->fetchAll();
+foreach ($businessClearanceRequests as &$biz_row) {
+    $biz_row['status'] = normalize_request_status_display($biz_row['status'] ?? null);
+    $biz_row['request_kind'] = 'business_clearance';
+    $biz_row['detail_url'] = 'business-details.php?id=' . (int) ($biz_row['id'] ?? 0);
+}
+unset($biz_row);
 
 require_once 'partials/header.php';
 ?>
@@ -86,7 +103,12 @@ require_once 'partials/header.php';
     .mobile-card-badge.rejected { background: #fee2e2; color: #991b1b; }
 </style>
 
-<?php if ($show_cancel_success): ?>
+<?php if ($show_submit_success): ?>
+<div id="toast-banner" class="ui-toast success" role="status" aria-live="polite">
+    <i class="fas fa-check-circle" aria-hidden="true"></i>
+    <span>Request submitted successfully.</span>
+</div>
+<?php elseif ($show_cancel_success): ?>
 <div id="toast-banner" class="ui-toast success" role="status" aria-live="polite">
     <i class="fas fa-check-circle" aria-hidden="true"></i>
     <span>Request cancelled successfully.</span>
@@ -112,7 +134,9 @@ require_once 'partials/header.php';
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const initialRequests = <?php echo json_encode($docRequests, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-    let hasRenderedRequests = Array.isArray(initialRequests) && initialRequests.length > 0;
+    const initialBusinessClearances = <?php echo json_encode($businessClearanceRequests, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+    let hasRenderedRequests = (Array.isArray(initialRequests) && initialRequests.length > 0)
+        || (Array.isArray(initialBusinessClearances) && initialBusinessClearances.length > 0);
     const toast = document.getElementById('toast-banner');
     if (toast) {
         const container = document.getElementById('residentToastContainer');
@@ -179,32 +203,62 @@ document.addEventListener('DOMContentLoaded', function() {
         list.innerHTML = `<div style="text-align: center; padding: 30px; color: ${palette.text}; background: ${palette.bg}; border: 1px solid ${palette.border}; border-radius: 12px;">${escapeHTML(message)}</div>`;
     }
 
-    function renderDocumentRequests(requests) {
+    function normalizeBusinessClearances(bizRequests) {
+        if (!Array.isArray(bizRequests)) return [];
+
+        return bizRequests
+            .filter(req => req && req.remarks === 'Barangay Business Clearance')
+            .map(req => ({
+                ...req,
+                request_kind: 'business_clearance',
+                detail_url: `business-details.php?id=${req.id}`
+            }));
+    }
+
+    function renderDocumentRequests(requests, businessClearances) {
         const list = document.getElementById('requests-list');
         if (!list) return;
         let html = '';
+        const mergedRequests = []
+            .concat(Array.isArray(requests) ? requests : [])
+            .concat(Array.isArray(businessClearances) ? businessClearances : [])
+            .sort((a, b) => {
+                const aDate = new Date(a.date_requested || a.application_date || 0).getTime();
+                const bDate = new Date(b.date_requested || b.application_date || 0).getTime();
+                return bDate - aDate;
+            });
 
-        if (Array.isArray(requests) && requests.length > 0) {
+        if (mergedRequests.length > 0) {
             hasRenderedRequests = true;
-            requests.forEach(req => {
+            mergedRequests.forEach(req => {
                 const status = req.status || 'Pending';
                 let badgeClass = 'pending';
                 if (status === 'Approved') badgeClass = 'approved';
                 else if (status === 'Completed') badgeClass = 'completed';
                 else if (["Rejected", "Cancelled"].includes(status)) badgeClass = 'rejected';
 
-                const formattedDate = new Date(req.date_requested).toLocaleDateString('en-US', {
+                const submittedAt = req.date_requested || req.application_date;
+                const formattedDate = new Date(submittedAt).toLocaleDateString('en-US', {
                     month: 'short', day: 'numeric', year: 'numeric'
                 });
+                const title = req.request_kind === 'business_clearance'
+                    ? (req.business_name || 'Barangay Business Clearance')
+                    : (req.document_type || 'Document Request');
+                const subtitle = req.request_kind === 'business_clearance'
+                    ? 'Barangay Business Clearance'
+                    : (req.purpose || req.document_type || 'Document Request');
+                const detailUrl = req.detail_url || (req.request_kind === 'business_clearance'
+                    ? `business-details.php?id=${req.id}`
+                    : `request-details.php?id=${req.id}`);
 
                 html += `
-                    <div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition cursor-pointer" onclick="window.location.href='request-details.php?id=${req.id}'">
+                    <div class="mobile-card bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition cursor-pointer" onclick="window.location.href='${detailUrl}'">
                         <div>
                             <div class="flex justify-between items-start mb-2">
-                                <h3 class="font-bold text-gray-800 line-clamp-2">${escapeHTML(req.document_type)}</h3>
+                                <h3 class="font-bold text-gray-800 line-clamp-2">${escapeHTML(title)}</h3>
                                 <span class="text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap mobile-card-badge ${badgeClass}">${escapeHTML(status)}</span>
                             </div>
-                            <div class="text-sm text-gray-500 mb-3 line-clamp-2">${escapeHTML(req.purpose || req.document_type)}</div>
+                            <div class="text-sm text-gray-500 mb-3 line-clamp-2">${escapeHTML(subtitle)}</div>
                         </div>
                         ${renderTimeline(status)}
                         <div class="flex items-center justify-between text-xs text-gray-400 mt-5 pt-3 border-t border-gray-50">
@@ -223,7 +277,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else {
             hasRenderedRequests = false;
-            renderRequestsMessage('You have not submitted any document requests yet.');
+            renderRequestsMessage('You have not submitted any document-related requests yet.');
         }
     }
 
@@ -240,12 +294,13 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(data => {
                 if (Array.isArray(data.doc_requests)) {
-                    if (data.doc_requests.length === 0 && hasRenderedRequests) {
+                    const businessClearances = normalizeBusinessClearances(data.biz_requests);
+                    if (data.doc_requests.length === 0 && businessClearances.length === 0 && hasRenderedRequests) {
                         console.warn('Live document request poll returned empty while server-rendered requests exist; keeping current list.', data);
                         return;
                     }
 
-                    renderDocumentRequests(data.doc_requests);
+                    renderDocumentRequests(data.doc_requests, businessClearances);
                     return;
                 }
 
@@ -257,7 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    renderDocumentRequests(initialRequests);
+    renderDocumentRequests(initialRequests, initialBusinessClearances);
     loadRequests();
     // Polling every 5 seconds for status updates
     setInterval(loadRequests, 5000);

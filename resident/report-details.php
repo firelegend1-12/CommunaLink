@@ -33,7 +33,7 @@ $page_title = "Incident Report Details";
 $user_fullname = $_SESSION['fullname'] ?? 'Resident';
 $cancel_csrf_token = csrf_token();
 
-$status = $report['status'] ?? 'Pending';
+$status = normalize_incident_status_display($report['status'] ?? 'Pending');
 $statusClass = strtolower(str_replace(' ', '-', $status));
 $statusNormalized = strtolower(trim((string) $status));
 $reported_date = date('F j, Y, g:i a', strtotime($report['reported_at']));

@@ -24,14 +24,15 @@ $incidents = $stmt->fetchAll();
 foreach ($incidents as &$incident) {
     $imagePath = (string)($incident['image_path'] ?? '');
     $incident['image_url'] = $imagePath !== '' ? StorageManager::resolvePublicUrl($imagePath) : '';
+    $incident['status'] = normalize_incident_status_display($incident['status'] ?? null);
 }
 unset($incident);
 
 // Fetch Latest Stats for UI Sync in one DB roundtrip
 $stats_stmt = $pdo->query("SELECT
-    SUM(CASE WHEN status IN ('Pending', 'In Progress') THEN 1 ELSE 0 END) AS active_cases,
+    SUM(CASE WHEN UPPER(status) IN ('PENDING', 'UNDER REVIEW', 'IN PROGRESS', 'PROCESSING', 'REVIEW') THEN 1 ELSE 0 END) AS active_cases,
     SUM(CASE WHEN reported_at >= NOW() - INTERVAL 1 DAY THEN 1 ELSE 0 END) AS trending_today,
-    SUM(CASE WHEN status = 'Resolved' THEN 1 ELSE 0 END) AS resolved_all_time,
+    SUM(CASE WHEN UPPER(status) IN ('RESOLVED', 'COMPLETED', 'CLOSED') THEN 1 ELSE 0 END) AS resolved_all_time,
     COUNT(*) AS total_all_time
     FROM incidents");
 $stats_row = $stats_stmt->fetch(PDO::FETCH_ASSOC) ?: [];

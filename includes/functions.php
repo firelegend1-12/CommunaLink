@@ -1551,6 +1551,148 @@ function send_json_error_response(string $public_message, int $status_code = 400
 }
 
 /**
+ * Normalize incident status values for consistent UI display across pages.
+ *
+ * Canonical UI labels:
+ * Pending, Under Review, Resolved, Rejected
+ *
+ * Some legacy flows may still store:
+ * In Progress / Processing / Review / Completed / Closed.
+ *
+ * @param string|null $status
+ * @return string
+ */
+function normalize_incident_status_display($status): string {
+    $value = trim((string) $status);
+    if ($value === '') {
+        return '';
+    }
+
+    $upper = strtoupper($value);
+
+    if ($upper === 'PENDING') {
+        return 'Pending';
+    }
+    if (in_array($upper, ['UNDER REVIEW', 'IN PROGRESS', 'PROCESSING', 'REVIEW'], true)) {
+        return 'Under Review';
+    }
+    if (in_array($upper, ['RESOLVED', 'COMPLETED', 'CLOSED'], true)) {
+        return 'Resolved';
+    }
+    if ($upper === 'REJECTED') {
+        return 'Rejected';
+    }
+
+    return $value;
+}
+
+/**
+ * Canonical incident statuses used by the current UI.
+ *
+ * @return array<int, string>
+ */
+function canonical_incident_statuses(): array {
+    return ['Pending', 'Under Review', 'Resolved', 'Rejected'];
+}
+
+/**
+ * Read the allowed ENUM values for the incidents status column.
+ *
+ * @param PDO $pdo
+ * @return array<int, string>
+ */
+function incident_status_enum_values(PDO $pdo): array {
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM `incidents` LIKE 'status'");
+        $column = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+        $type = (string)($column['Type'] ?? '');
+        preg_match_all("/'((?:[^'\\\\]|\\\\.)*)'/", $type, $matches);
+        return array_map(static function ($value) {
+            return str_replace("\\'", "'", $value);
+        }, $matches[1] ?? []);
+    } catch (Throwable $e) {
+        error_log('Could not inspect incidents.status enum: ' . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Convert an incident status into the safest DB value for the current schema.
+ *
+ * @param PDO $pdo
+ * @param string|null $status
+ * @return string
+ */
+function normalize_incident_status_for_storage(PDO $pdo, $status): string {
+    $display_status = normalize_incident_status_display($status);
+    if ($display_status === '') {
+        return '';
+    }
+
+    $enum_values = incident_status_enum_values($pdo);
+    if (empty($enum_values) || in_array($display_status, $enum_values, true)) {
+        return $display_status;
+    }
+
+    foreach ($enum_values as $enum_value) {
+        if (strcasecmp($display_status, $enum_value) === 0) {
+            return $enum_value;
+        }
+    }
+
+    foreach ($enum_values as $enum_value) {
+        if (normalize_incident_status_display($enum_value) === $display_status) {
+            return $enum_value;
+        }
+    }
+
+    if ($display_status === 'Under Review') {
+        foreach (['In Progress', 'Processing', 'Review'] as $fallback_value) {
+            if (in_array($fallback_value, $enum_values, true)) {
+                return $fallback_value;
+            }
+        }
+    }
+
+    return $display_status;
+}
+
+/**
+ * Determine whether an incident status is in a terminal state.
+ *
+ * @param string|null $status
+ * @return bool
+ */
+function incident_status_is_terminal($status): bool {
+    return in_array(normalize_incident_status_display($status), ['Resolved', 'Rejected'], true);
+}
+
+/**
+ * Expand a canonical incident status into compatible stored variants.
+ *
+ * @param string|null $status
+ * @return array<int, string>
+ */
+function incident_status_filter_variants($status): array {
+    $normalized = normalize_incident_status_display($status);
+
+    if ($normalized === 'Pending') {
+        return ['Pending'];
+    }
+    if ($normalized === 'Under Review') {
+        return ['Under Review', 'In Progress', 'Processing', 'Review'];
+    }
+    if ($normalized === 'Resolved') {
+        return ['Resolved', 'Completed', 'Closed'];
+    }
+    if ($normalized === 'Rejected') {
+        return ['Rejected'];
+    }
+
+    return $normalized !== '' ? [$normalized] : [];
+}
+
+/**
  * Normalize request status values for consistent UI display across pages.
  *
  * The thesis-submitted schemas commonly allow only:

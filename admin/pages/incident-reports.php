@@ -30,8 +30,8 @@ $current_user_id = $_SESSION['user_id'] ?? 0;
 $stmt = $pdo->query("SELECT COUNT(*) FROM incidents");
 $total_incidents = $stmt->fetchColumn();
 
-// 2. Active Cases (Pending + In Progress)
-$stmt = $pdo->query("SELECT COUNT(*) FROM incidents WHERE status IN ('Pending', 'In Progress')");
+// 2. Active Cases (Pending + Under Review)
+$stmt = $pdo->query("SELECT COUNT(*) FROM incidents WHERE UPPER(status) IN ('PENDING', 'UNDER REVIEW', 'IN PROGRESS', 'PROCESSING', 'REVIEW')");
 $active_cases = $stmt->fetchColumn();
 
 // 3. Trending Today (Last 24 hours)
@@ -40,7 +40,7 @@ $trending_today = $stmt->fetchColumn();
 
 // 4. Resolution Rate (All Time)
 $stmt = $pdo->query("SELECT 
-    COUNT(CASE WHEN status = 'Resolved' THEN 1 END) as resolved,
+    COUNT(CASE WHEN UPPER(status) IN ('RESOLVED', 'COMPLETED', 'CLOSED') THEN 1 END) as resolved,
     COUNT(*) as total
     FROM incidents");
 $all_time_stats = $stmt->fetch();
@@ -255,6 +255,7 @@ echo $critical_type; ?></h3>
                             <div class="flex flex-wrap bg-slate-200/50 p-1 rounded-xl border border-slate-200 gap-1">
                                 <button @click="statusFilter = 'All'" :class="statusFilter === 'All' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">ALL</button>
                                 <button @click="statusFilter = 'Pending'" :class="statusFilter === 'Pending' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">PENDING</button>
+                                <button @click="statusFilter = 'Under Review'" :class="statusFilter === 'Under Review' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">UNDER REVIEW</button>
                                 <button @click="statusFilter = 'Resolved'" :class="statusFilter === 'Resolved' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">RESOLVED</button>
                                 <button @click="statusFilter = 'Rejected'" :class="statusFilter === 'Rejected' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">REJECTED</button>
                             </div>
@@ -485,14 +486,14 @@ echo $critical_type; ?></h3>
                                             <div :class="{
                                                 'p-4 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-500 shadow-sm': true,
                                                 'bg-amber-50/50 border-amber-100': viewData.status === 'Pending',
-                                                'bg-indigo-50/50 border-indigo-100': viewData.status === 'In Progress' || viewData.status === 'Under Review',
+                                                'bg-indigo-50/50 border-indigo-100': viewData.status === 'Under Review' || viewData.status === 'In Progress',
                                                 'bg-emerald-50/50 border-emerald-100': viewData.status === 'Resolved',
                                                 'bg-rose-50/50 border-rose-100': viewData.status === 'Rejected'
                                             }">
                                                 <div class="flex items-center">
                                                     <div class="h-2.5 w-2.5 rounded-full mr-3 animate-pulse" :class="{
                                                         'bg-amber-500': viewData.status === 'Pending',
-                                                        'bg-indigo-500': viewData.status === 'In Progress',
+                                                        'bg-indigo-500': viewData.status === 'Under Review' || viewData.status === 'In Progress',
                                                         'bg-emerald-500': viewData.status === 'Resolved',
                                                         'bg-rose-500': viewData.status === 'Rejected'
                                                     }"></div>
@@ -500,7 +501,7 @@ echo $critical_type; ?></h3>
                                                         <p class="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-0.5">CURRENT STATE</p>
                                                         <span class="text-[11px] font-black uppercase tracking-widest block" :class="{
                                                             'text-amber-800': viewData.status === 'Pending',
-                                                            'text-indigo-800': viewData.status === 'In Progress',
+                                                            'text-indigo-800': viewData.status === 'Under Review' || viewData.status === 'In Progress',
                                                             'text-emerald-800': viewData.status === 'Resolved',
                                                             'text-rose-800': viewData.status === 'Rejected'
                                                         }" x-text="viewData.status"></span>
@@ -515,6 +516,7 @@ echo $critical_type; ?></h3>
                                                         class="bg-transparent border-none text-[9px] font-black uppercase tracking-wider focus:ring-0 cursor-pointer disabled:opacity-50 h-8"
                                                     >
                                                         <option value="Pending">Pending</option>
+                                                        <option value="Under Review">Under Review</option>
                                                         <option value="Resolved">Resolved</option>
                                                         <option value="Rejected">Rejected</option>
                                                     </select>
@@ -655,7 +657,7 @@ echo $critical_type; ?></h3>
                                                          <p class="text-xs font-bold" :class="{
                                                              'text-slate-800': viewData.status === 'Resolved' || viewData.status === 'Rejected',
                                                              'text-slate-400': viewData.status !== 'Resolved' && viewData.status !== 'Rejected'
-                                                         }" x-text="viewData.status === 'Resolved' ? 'Resolved' : (viewData.status === 'Rejected' ? 'Rejected' : 'In Progress')"></p>
+                                                         }" x-text="viewData.status === 'Resolved' ? 'Resolved' : (viewData.status === 'Rejected' ? 'Rejected' : 'Under Review')"></p>
                                                      </div>
                                                  </div>
                                              </div>

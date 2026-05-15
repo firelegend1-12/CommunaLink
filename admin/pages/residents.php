@@ -426,7 +426,7 @@ try {
                                                     <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
                                                         <div>
                                                             <div class="text-sm font-bold text-gray-900" x-text="req.document_type"></div>
-                                                            <div class="text-xs text-gray-500" x-text="new Date(req.requested_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})"></div>
+                                                            <div class="text-xs text-gray-500" x-text="new Date(req.activity_at || req.requested_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})"></div>
                                                         </div>
                                                         <span :class="{
                                                             'px-2 py-1 text-[10px] font-black uppercase rounded-lg': true,
@@ -455,7 +455,7 @@ try {
                                                     <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
                                                         <div>
                                                             <div class="text-sm font-bold text-gray-900" x-text="inc.type"></div>
-                                                            <div class="text-xs text-gray-500" x-text="new Date(inc.reported_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})"></div>
+                                                            <div class="text-xs text-gray-500" x-text="new Date(inc.activity_at || inc.reported_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})"></div>
                                                         </div>
                                                         <span :class="{
                                                             'px-2 py-1 text-[10px] font-black uppercase rounded-lg': true,

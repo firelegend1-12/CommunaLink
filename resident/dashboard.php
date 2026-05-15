@@ -27,6 +27,10 @@ $recentRequests = $stmtReq->fetchAll(PDO::FETCH_ASSOC);
 $stmtInc = $pdo->prepare("SELECT id, type, description, location, reported_at, status FROM incidents WHERE resident_user_id = ? ORDER BY reported_at DESC LIMIT 3");
 $stmtInc->execute([$_SESSION['user_id']]);
 $recentIncidents = $stmtInc->fetchAll(PDO::FETCH_ASSOC);
+foreach ($recentIncidents as &$incident_row) {
+    $incident_row['status'] = normalize_incident_status_display($incident_row['status'] ?? null);
+}
+unset($incident_row);
 
 // Fetch Latest Announcements for Banner Ticker
 try {

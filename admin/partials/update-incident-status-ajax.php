@@ -30,9 +30,9 @@ if (!csrf_validate()) {
 }
 
 $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
-$status = isset($_POST['status']) ? sanitize_input($_POST['status']) : '';
+$status = isset($_POST['status']) ? normalize_incident_status_display(sanitize_input($_POST['status'])) : '';
 $rejection_reason = isset($_POST['rejection_reason']) ? trim((string) $_POST['rejection_reason']) : '';
-$allowed_statuses = ['Pending', 'Resolved', 'Rejected'];
+$allowed_statuses = canonical_incident_statuses();
 
 if (!$id || !in_array($status, $allowed_statuses, true)) {
     http_response_code(400);
@@ -68,7 +68,13 @@ try {
     $stmt = $pdo->prepare("SELECT id, status, resident_user_id, type FROM incidents WHERE id = ?");
     $stmt->execute([$id]);
     $old_data = $stmt->fetch(PDO::FETCH_ASSOC);
-    $old_status = $old_data ? $old_data['status'] : null;
+    if (!$old_data) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'error' => 'Incident report not found.']);
+        exit;
+    }
+
+    $old_status = normalize_incident_status_display($old_data['status'] ?? null);
     $resident_user_id = $old_data ? (int) $old_data['resident_user_id'] : 0;
     $incident_type = $old_data ? (string) $old_data['type'] : '';
 
@@ -77,18 +83,19 @@ try {
         exit;
     }
 
-    if (($old_status === 'Resolved' || $old_status === 'Rejected') && $status !== $old_status) {
+    if (incident_status_is_terminal($old_status) && $status !== $old_status) {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Resolved or rejected reports cannot be changed.']);
         exit;
     }
 
     // 2. Update Status
+    $stored_status = normalize_incident_status_for_storage($pdo, $status);
     $new_rejection_reason = $status === 'Rejected' ? $rejection_reason : null;
     $reason_persisted = true;
     try {
         $stmt = $pdo->prepare("UPDATE incidents SET status = ?, rejection_reason = ? WHERE id = ?");
-        $result = $stmt->execute([$status, $new_rejection_reason, $id]);
+        $result = $stmt->execute([$stored_status, $new_rejection_reason, $id]);
     } catch (PDOException $updateException) {
         if (!is_unknown_column_error($updateException)) {
             throw $updateException;
@@ -96,7 +103,7 @@ try {
 
         $reason_persisted = false;
         $stmt = $pdo->prepare("UPDATE incidents SET status = ? WHERE id = ?");
-        $result = $stmt->execute([$status, $id]);
+        $result = $stmt->execute([$stored_status, $id]);
     }
 
     if ($result) {
@@ -130,17 +137,17 @@ try {
 
         // 4. Recalculate Stats for response
         $stats = [
-            'active_cases' => $pdo->query("SELECT COUNT(*) FROM incidents WHERE status IN ('Pending', 'In Progress')")->fetchColumn(),
+            'active_cases' => $pdo->query("SELECT COUNT(*) FROM incidents WHERE UPPER(status) IN ('PENDING', 'UNDER REVIEW', 'IN PROGRESS', 'PROCESSING', 'REVIEW')")->fetchColumn(),
             'trending_today' => $pdo->query("SELECT COUNT(*) FROM incidents WHERE reported_at >= NOW() - INTERVAL 1 DAY")->fetchColumn(),
             'resolution_rate' => 0
         ];
 
         // Monthly Stats
-        $stmt_m = $pdo->query("SELECT COUNT(CASE WHEN status = 'Resolved' THEN 1 END) as resolved, COUNT(*) as total FROM incidents WHERE MONTH(reported_at) = MONTH(CURRENT_DATE()) AND YEAR(reported_at) = YEAR(CURRENT_DATE())");
+        $stmt_m = $pdo->query("SELECT COUNT(CASE WHEN UPPER(status) IN ('RESOLVED', 'COMPLETED', 'CLOSED') THEN 1 END) as resolved, COUNT(*) as total FROM incidents WHERE MONTH(reported_at) = MONTH(CURRENT_DATE()) AND YEAR(reported_at) = YEAR(CURRENT_DATE())");
         $m_data = $stmt_m->fetch();
         $stats['resolution_rate'] = ($m_data['total'] > 0) ? round(($m_data['resolved'] / $m_data['total']) * 100) : 0;
 
-        $response = ['success' => true, 'message' => 'Status updated successfully', 'stats' => $stats];
+        $response = ['success' => true, 'message' => 'Status updated successfully', 'stats' => $stats, 'status' => $status];
         if ($status === 'Rejected' && !$reason_persisted) {
             $response['warning'] = 'Status updated, but rejection reason could not be stored in incidents table.';
         }
