@@ -17,7 +17,14 @@ try {
     // Fetch residents with all necessary info for auto-filling
     $resident_stmt = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) AS full_name, first_name, last_name, middle_initial, gender, address, date_of_birth, place_of_birth, civil_status, occupation FROM residents ORDER BY last_name ASC");
     $residents = $resident_stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {
+    foreach ($residents as &$resident_row) {
+        $resident_row['document_age'] = resident_document_age($resident_row['date_of_birth'] ?? '');
+        $resident_row['document_gender'] = resident_document_gender_label($resident_row['gender'] ?? '');
+        $resident_row['document_civil_status'] = resident_document_civil_status_label($resident_row['civil_status'] ?? '');
+        $resident_row['document_locality'] = resident_document_locality_label($resident_row['address'] ?? '');
+    }
+    unset($resident_row);
+} catch (PDOException $e) {
     $residents = [];
     $_SESSION['error_message'] = "A database error occurred while fetching residents.";
 }
@@ -111,12 +118,15 @@ echo substr($_SESSION['fullname'], 0, 1); ?>
 display_flash_messages(); ?>
                     <div class="bg-white rounded-lg shadow p-8" 
                          x-data='{
-                             residents: <?php echo json_encode($residents); ?>,
+                             residents: <?php echo json_encode($residents, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>,
                              selectedResidentId: null,
                              selectedResident: {},
                              formName: "",
                              formAge: "",
                              formPurpose: "",
+                             formGender: "",
+                             formCivilStatus: "",
+                             formLocality: "",
                              formDay: new Date().getDate().toString(),
                              formMonth: new Date().toLocaleDateString("en-US", { month: "long" }),
                              layoutRafId: null,
@@ -124,29 +134,92 @@ display_flash_messages(); ?>
                                  "field-name": "formName",
                                  "field-age": "formAge",
                                  "field-purpose": "formPurpose",
+                                 "field-gender": "formGender",
+                                 "field-civil-status": "formCivilStatus",
+                                 "field-locality": "formLocality",
                                  "field-day": "formDay",
                                  "field-month": "formMonth"
+                             },
+                             fieldGroups: {
+                                 "field-civil-status": ["field-civil-status-slash", "field-civil-status-married", "field-civil-status-separated", "field-civil-status-widow"],
+                                 "field-locality": ["field-locality-i", "field-locality-ii", "field-locality-slash", "field-locality-iii", "field-locality-iv"]
                              },
                              init() {
                                  this.$watch("formName", () => this.recomputeLayout());
                                  this.$watch("formAge", () => this.recomputeLayout());
                                  this.$watch("formPurpose", () => this.recomputeLayout());
+                                 this.$watch("formGender", () => this.recomputeLayout());
+                                 this.$watch("formCivilStatus", () => this.recomputeLayout());
+                                 this.$watch("formLocality", () => this.recomputeLayout());
                                  this.$watch("formDay", () => this.recomputeLayout());
                                  this.$watch("formMonth", () => this.recomputeLayout());
                                  this.$nextTick(() => this.recomputeLayout());
                              },
+                             trackedFieldIds() {
+                                 return [...new Set(Object.keys(this.fieldMap).concat(...Object.values(this.fieldGroups)))];
+                             },
+                             rememberFieldState(id) {
+                                 const el = document.getElementById(id);
+                                 if (!el) return;
+                                 const tspan = el.querySelector("tspan");
+                                 if (!tspan) return;
+                                 if (!tspan.dataset.origX) {
+                                     tspan.dataset.origX = tspan.getAttribute("x") || "0";
+                                 }
+                                 if (!tspan.dataset.origText) {
+                                     tspan.dataset.origText = tspan.textContent;
+                                 }
+                             },
+                             resetTrackedText() {
+                                 this.trackedFieldIds().forEach(id => {
+                                     this.rememberFieldState(id);
+                                     const el = document.getElementById(id);
+                                     const tspan = el ? el.querySelector("tspan") : null;
+                                     if (!tspan) return;
+                                     tspan.textContent = tspan.dataset.origText || "";
+                                     tspan.setAttribute("x", tspan.dataset.origX || "0");
+                                 });
+                             },
+                             fieldGroupIds(id) {
+                                 return [id].concat(this.fieldGroups[id] || []);
+                             },
+                             measureFieldSpan(ids) {
+                                 let start = null;
+                                 let end = null;
+                                 ids.forEach(id => {
+                                     const el = document.getElementById(id);
+                                     const tspan = el ? el.querySelector("tspan") : null;
+                                     if (!tspan) return;
+                                     const xCoords = (tspan.dataset.origX || tspan.getAttribute("x") || "0").split(/\s+/).map(parseFloat).filter(n => !isNaN(n));
+                                     if (xCoords.length === 0) return;
+                                     const firstX = xCoords[0];
+                                     const lastX = xCoords[xCoords.length - 1];
+                                     const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
+                                     start = start === null ? firstX : Math.min(start, firstX);
+                                     end = end === null ? (lastX + charWidth) : Math.max(end, lastX + charWidth);
+                                 });
+                                 if (start === null || end === null) return null;
+                                 return { start: start, width: end - start };
+                             },
                              selectResident() {
-                                 if (!this.selectedResidentId) return;
+                                 if (!this.selectedResidentId) {
+                                     this.selectedResident = {};
+                                     this.formName = "";
+                                     this.formAge = "";
+                                     this.formGender = "";
+                                     this.formCivilStatus = "";
+                                     this.formLocality = "";
+                                     this.$nextTick(() => this.recomputeLayout());
+                                     return;
+                                 }
                                  const resident = this.residents.find(r => r.id == this.selectedResidentId);
                                  if (resident) {
                                      this.selectedResident = resident;
                                      this.formName = resident.full_name || "";
-                                     if (resident.date_of_birth) {
-                                         const bd = new Date(resident.date_of_birth);
-                                         this.formAge = String(new Date().getFullYear() - bd.getFullYear());
-                                     } else {
-                                         this.formAge = "";
-                                     }
+                                     this.formAge = resident.document_age || "";
+                                     this.formGender = resident.document_gender || "";
+                                     this.formCivilStatus = resident.document_civil_status || "";
+                                     this.formLocality = resident.document_locality || "";
                                  }
                                  this.$nextTick(() => this.recomputeLayout());
                              },
@@ -165,29 +238,27 @@ display_flash_messages(); ?>
                                      }
                                  });
                                  const fieldIds = Object.keys(this.fieldMap);
+                                 this.resetTrackedText();
                                  fieldIds.forEach(id => {
                                      const el = document.getElementById(id);
                                      if (!el) return;
                                      const tspan = el.querySelector("tspan");
                                      if (!tspan) return;
-                                     if (!tspan.dataset.origX) {
-                                         tspan.dataset.origX = tspan.getAttribute("x") || "0";
-                                     }
-                                     if (!tspan.dataset.origText) {
-                                         tspan.dataset.origText = tspan.textContent;
-                                     }
                                      const value = this.getFieldValue(id);
                                      const firstX = tspan.dataset.origX.split(/\s+/)[0];
-                                     if (!value || String(value).trim() === "") {
-                                         tspan.textContent = tspan.dataset.origText;
-                                         tspan.setAttribute("x", tspan.dataset.origX);
-                                     } else {
-                                         const m = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
-                                         const prefix = m ? m[1] : "";
-                                         const suffix = m ? m[3] : "";
-                                         tspan.textContent = prefix + String(value) + suffix;
-                                         tspan.setAttribute("x", firstX);
-                                     }
+                                     if (!value || String(value).trim() === "") return;
+                                     const m = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
+                                     const prefix = m ? m[1] : "";
+                                     const suffix = m ? m[3] : "";
+                                     tspan.textContent = prefix + String(value) + suffix;
+                                     tspan.setAttribute("x", firstX);
+                                     (this.fieldGroups[id] || []).forEach(extraId => {
+                                         const extraEl = document.getElementById(extraId);
+                                         const extraTspan = extraEl ? extraEl.querySelector("tspan") : null;
+                                         if (!extraTspan) return;
+                                         extraTspan.textContent = "";
+                                         extraTspan.setAttribute("x", extraTspan.dataset.origX || "0");
+                                     });
                                  });
                                  document.querySelectorAll("svg text[data-orig-transform]").forEach(el => {
                                      el.setAttribute("transform", el.dataset.origTransform);
@@ -200,22 +271,20 @@ display_flash_messages(); ?>
                                          if (!tspan || !tspan.dataset.origX) return;
                                          const value = this.getFieldValue(id);
                                          if (!value || String(value).trim() === "") return;
-                                         const xCoords = tspan.dataset.origX.split(/\s+/).map(parseFloat).filter(n => !isNaN(n));
-                                         if (xCoords.length === 0) return;
-                                         const firstX = xCoords[0];
-                                         const lastX = xCoords[xCoords.length - 1];
-                                         const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
-                                         const blankWidth = (lastX - firstX) + charWidth;
+                                         const groupIds = this.fieldGroupIds(id);
+                                         const span = this.measureFieldSpan(groupIds);
+                                         if (!span) return;
                                          let actualWidth = 0;
                                          try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
-                                         const shift = blankWidth - actualWidth;
+                                         const shift = span.width - actualWidth;
                                          if (Math.abs(shift) <= 0.5) return;
                                          const origLineTransform = el.dataset.origTransform || el.getAttribute("transform");
                                          const lineY = tspan.getAttribute("y");
                                          const parent = el.parentElement;
                                          if (!parent) return;
+                                         const groupIdSet = new Set(groupIds);
                                          Array.from(parent.querySelectorAll("text")).forEach(t => {
-                                             if (t === el) return;
+                                             if (t === el || groupIdSet.has(t.id)) return;
                                              const ts = t.querySelector("tspan");
                                              if (!ts) return;
                                              const tBaseTransform = t.dataset.origTransform || t.getAttribute("transform") || "";
@@ -223,7 +292,7 @@ display_flash_messages(); ?>
                                              if (ts.getAttribute("y") !== lineY) return;
                                              const tOrigX = ts.dataset.origX || ts.getAttribute("x") || "0";
                                              const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
-                                             if (isNaN(tFirstX) || tFirstX <= firstX) return;
+                                             if (isNaN(tFirstX) || tFirstX <= span.start) return;
                                              const currentTransform = t.getAttribute("transform") || tBaseTransform;
                                              t.setAttribute("transform", currentTransform + " translate(" + (-shift) + " 0)");
                                          });
@@ -304,6 +373,66 @@ display_flash_messages(); ?>
                                 $svg = str_replace(
                                     '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 394.6116)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="0 8.328125',
                                     '<text id="field-purpose" xml:space="preserve" transform="matrix(.75 0 0 .75 72 394.6116)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="0 8.328125',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="29.612015 41.640626 49.96875 54.59639 61.989229 66.61687 71.24451 78.637348 90.665958 98.99408 103.62172 111.01456">male/female,</tspan></text>',
+                                    '<text id="field-gender" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="29.612015 41.640626 49.96875 54.59639 61.989229 66.61687 71.24451 78.637348 90.665958 98.99408 103.62172 111.01456">male/female,</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="119.34268 125.82463 130.45227 138.7804 147.10852 151.73616">single</tspan></text>',
+                                    '<text id="field-civil-status" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="119.34268 125.82463 130.45227 138.7804 147.10852 151.73616">single</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="163.29306">/</tspan></text>',
+                                    '<text id="field-civil-status-slash" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="163.29306">/</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="172.08477 184.11338 192.4415 198.92345 205.4054 210.03304 217.42588 225.754">married/</tspan></text>',
+                                    '<text id="field-civil-status-married" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="172.08477 184.11338 192.4415 198.92345 205.4054 210.03304 217.42588 225.754">married/</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="234.5457 241.02765 248.42049 256.7486 265.07673 271.5587 279.8868 284.51448 291.9073 300.2354">separated/</tspan></text>',
+                                    '<text id="field-civil-status-separated" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="234.5457 241.02765 248.42049 256.7486 265.07673 271.5587 279.8868 284.51448 291.9073 300.2354">separated/</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="309.0271 320.1367 324.76435 333.09248 341.4206 352.53016 357.1578 364.55067">widow/er</tspan></text>',
+                                    '<text id="field-civil-status-widow" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="309.0271 320.1367 324.76435 333.09248 341.4206 352.53016 357.1578 364.55067">widow/er</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="477.289 486.55244 494.88056 503.20869">Zone</tspan></text>',
+                                    '<text id="field-locality" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="477.289 486.55244 494.88056 503.20869">Zone</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="514.76559">I</tspan></text>',
+                                    '<text id="field-locality-i" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="514.76559">I</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="524.4763 529.10397 534.65066">/II</tspan></text>',
+                                    '<text id="field-locality-ii" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="524.4763 529.10397 534.65066">/II</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="544.3613">/</tspan></text>',
+                                    '<text id="field-locality-slash" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="544.3613">/</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="553.153 558.6997 564.24636 569.79299">III/</tspan></text>',
+                                    '<text id="field-locality-iii" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="553.153 558.6997 564.24636 569.79299">III/</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="578.5847 584.13137">IV</tspan></text>',
+                                    '<text id="field-locality-iv" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="578.5847 584.13137">IV</tspan></text>',
                                     $svg
                                 );
                                 $svg = str_replace(

@@ -124,7 +124,7 @@ try {
     );
 
     // 2. Fetch Recent Document Requests (Last 5)
-    $stmt = $pdo->prepare("SELECT id, document_type, status, date_requested as requested_at, {$requestActivityExpr} AS activity_at
+    $stmt = $pdo->prepare("SELECT id, 'document' AS request_type, document_type, status, payment_status, payment_date, or_number, date_requested as requested_at, {$requestActivityExpr} AS activity_at
                            FROM document_requests 
                            WHERE resident_id = ? 
                            ORDER BY " . ($hasRequestActivity ? "activity_at DESC, " : '') . "date_requested DESC, id DESC
@@ -132,7 +132,11 @@ try {
     $stmt->execute([$id]);
     $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($requests as &$request_row) {
-        $request_row['status'] = normalize_request_status_display($request_row['status'] ?? null);
+        $request_row['status'] = get_request_display_status(
+            $request_row['status'] ?? null,
+            $request_row['payment_status'] ?? null,
+            document_request_requires_payment($request_row['document_type'] ?? '')
+        );
         if (empty($request_row['activity_at'])) {
             $request_row['activity_at'] = $request_row['requested_at'] ?? null;
         }

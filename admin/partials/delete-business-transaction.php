@@ -72,12 +72,13 @@ try {
         : $existing_remarks . ' | ' . $soft_delete_note;
 
     // Soft-delete policy: keep history and mark as cancelled.
+    $cancelled_status = normalize_request_status_for_storage($pdo, 'business_transactions', 'Cancelled');
     $stmt = $pdo->prepare("UPDATE business_transactions
-                           SET status = 'Cancelled',
+                           SET status = ?,
                                remarks = ?,
                                processed_date = COALESCE(processed_date, NOW())
                            WHERE id = ?");
-    $stmt->execute([$new_remarks, $id]);
+    $stmt->execute([$cancelled_status, $new_remarks, $id]);
     
     if ($stmt->rowCount() > 0) {
         // Log the soft-delete action
@@ -88,7 +89,7 @@ try {
             $id,
             "Business transaction marked as Cancelled: {$business_name} - {$transaction_type} (Resident ID: {$resident_id}, Previous Status: {$status})",
             "Status: {$status}",
-            'Status: Cancelled'
+            'Status: ' . $cancelled_status
         );
         
         echo json_encode([

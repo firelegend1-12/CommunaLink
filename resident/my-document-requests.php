@@ -29,25 +29,29 @@ if (!$resident_id) {
 require_once '../config/database.php';
 
 // Fetch document requests only
-$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, remarks, NULL AS admin_notes, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC");
+$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, payment_status, remarks, NULL AS admin_notes, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC");
 $stmtDoc->execute([$_SESSION['user_id'], $resident_id]);
 $docRequests = $stmtDoc->fetchAll();
 foreach ($docRequests as &$doc_row) {
-    $doc_row['status'] = normalize_request_status_display($doc_row['status'] ?? null);
+    $doc_row['status'] = get_request_display_status(
+        $doc_row['status'] ?? null,
+        $doc_row['payment_status'] ?? null,
+        document_request_requires_payment($doc_row['document_type'] ?? '')
+    );
     $doc_row['request_kind'] = 'document';
     $doc_row['detail_url'] = 'request-details.php?id=' . (int) ($doc_row['id'] ?? 0);
 }
 unset($doc_row);
 
 // Fetch barangay business clearances that are modeled as business transactions.
-$stmtBizClearance = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, remarks, NULL AS admin_notes
+$stmtBizClearance = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, payment_status, remarks, NULL AS admin_notes
     FROM business_transactions
     WHERE resident_id = ? AND remarks = 'Barangay Business Clearance'
     ORDER BY application_date DESC");
 $stmtBizClearance->execute([$resident_id]);
 $businessClearanceRequests = $stmtBizClearance->fetchAll();
 foreach ($businessClearanceRequests as &$biz_row) {
-    $biz_row['status'] = normalize_request_status_display($biz_row['status'] ?? null);
+    $biz_row['status'] = get_request_display_status($biz_row['status'] ?? null, $biz_row['payment_status'] ?? null, true);
     $biz_row['request_kind'] = 'business_clearance';
     $biz_row['detail_url'] = 'business-details.php?id=' . (int) ($biz_row['id'] ?? 0);
 }

@@ -39,7 +39,11 @@ if (!$req) {
 $page_title = "Document Request Details";
 $user_fullname = $_SESSION['fullname'] ?? 'Resident';
 
-$status = normalize_request_status_display($req['status'] ?? 'Pending');
+$status = get_request_display_status(
+    $req['status'] ?? 'Pending',
+    $req['payment_status'] ?? null,
+    document_request_requires_payment($req['document_type'] ?? '')
+);
 $date_requested = date('F j, Y, g:i a', strtotime($req['date_requested']));
 $details = json_decode($req['details'], true) ?? [];
 

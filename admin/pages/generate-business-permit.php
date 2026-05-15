@@ -32,13 +32,20 @@ try {
         LEFT JOIN residents r ON bt.resident_id = r.id
         LEFT JOIN users u ON bt.approved_by = u.id
         LEFT JOIN business_permits bp ON bt.permit_id = bp.id
-        WHERE bt.id = ? AND bt.status = 'Approved'
+        WHERE bt.id = ?
     ");
     $stmt->execute([$transaction_id]);
     $transaction = $stmt->fetch();
 
     if (!$transaction) {
-        $_SESSION['error_message'] = "Transaction not found or not approved.";
+        $_SESSION['error_message'] = "Transaction not found.";
+        header("Location: monitoring-of-request.php?type=business");
+        exit;
+    }
+
+    $display_status = get_request_display_status($transaction['status'] ?? null, $transaction['payment_status'] ?? null, true);
+    if (!in_array($display_status, ['Approved', 'Completed'], true)) {
+        $_SESSION['error_message'] = "Transaction is not ready for permit generation.";
         header("Location: monitoring-of-request.php?type=business");
         exit;
     }

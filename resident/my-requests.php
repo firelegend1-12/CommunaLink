@@ -29,14 +29,26 @@ if (!$resident_id) {
 
 require_once '../config/database.php';
 // Get document requests
-$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, remarks, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC");
+$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, payment_status, remarks, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC");
 $stmtDoc->execute([$_SESSION['user_id'], $resident_id]);
 $docRequests = $stmtDoc->fetchAll();
+foreach ($docRequests as &$doc_row) {
+    $doc_row['status'] = get_request_display_status(
+        $doc_row['status'] ?? null,
+        $doc_row['payment_status'] ?? null,
+        document_request_requires_payment($doc_row['document_type'] ?? '')
+    );
+}
+unset($doc_row);
 
 // Get business transactions
-$stmtBiz = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, remarks FROM business_transactions WHERE resident_id = ? ORDER BY application_date DESC");
+$stmtBiz = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, payment_status, remarks FROM business_transactions WHERE resident_id = ? ORDER BY application_date DESC");
 $stmtBiz->execute([$resident_id]);
 $bizRequests = $stmtBiz->fetchAll();
+foreach ($bizRequests as &$biz_row) {
+    $biz_row['status'] = get_request_display_status($biz_row['status'] ?? null, $biz_row['payment_status'] ?? null, true);
+}
+unset($biz_row);
 ?>
 <?php if ($show_cancel_success): ?>
 <div id="toast-banner" class="ui-toast success" role="status" aria-live="polite">

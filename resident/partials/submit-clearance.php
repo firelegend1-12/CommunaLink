@@ -35,6 +35,9 @@ try {
     $purpose = sanitize_input($_POST['purpose'] ?? '');
     $applicant_name = sanitize_input($_POST['applicant_name'] ?? '');
     $age = sanitize_input($_POST['age'] ?? '');
+    $document_gender = sanitize_input($_POST['document_gender'] ?? '');
+    $document_civil_status = sanitize_input($_POST['document_civil_status'] ?? '');
+    $document_locality = sanitize_input($_POST['document_locality'] ?? '');
 
     if (empty($purpose)) {
         send_json_error_response('Purpose is required.', 400, null, 'Barangay Clearance Request Validation');
@@ -47,10 +50,13 @@ try {
     $details = [
         'applicant_name' => $applicant_name,
         'age'            => $age,
-        'purpose'          => $purpose,
-        'day_issued'       => sanitize_input($_POST['day_issued'] ?? date('jS')),
-        'month_issued'     => sanitize_input($_POST['month_issued'] ?? date('F')),
-        'year_issued'      => date('Y')
+        'purpose'        => $purpose,
+        'gender'         => $document_gender,
+        'civil_status'   => $document_civil_status,
+        'locality'       => $document_locality,
+        'day_issued'     => sanitize_input($_POST['day_issued'] ?? date('jS')),
+        'month_issued'   => sanitize_input($_POST['month_issued'] ?? date('F')),
+        'year_issued'    => date('Y')
     ];
 
     $document_type = 'Barangay Clearance';

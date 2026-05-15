@@ -1513,6 +1513,132 @@ function document_request_requires_payment($document_type): bool {
 }
 
 /**
+ * Build the age text used in printed resident documents.
+ *
+ * @param string|null $date_of_birth
+ * @return string
+ */
+function resident_document_age($date_of_birth): string {
+    $value = trim((string) $date_of_birth);
+    if ($value === '') {
+        return '';
+    }
+
+    try {
+        $birth_date = new DateTime($value);
+        $today = new DateTime('today');
+        return (string) $birth_date->diff($today)->y;
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
+/**
+ * Normalize resident gender for certificate copy.
+ *
+ * @param string|null $gender
+ * @return string
+ */
+function resident_document_gender_label($gender): string {
+    $value = strtolower(trim((string) $gender));
+
+    if ($value === 'male' || $value === 'female') {
+        return $value;
+    }
+
+    if ($value === 'other') {
+        return 'other';
+    }
+
+    return '';
+}
+
+/**
+ * Normalize resident civil status for certificate copy.
+ *
+ * @param string|null $civil_status
+ * @return string
+ */
+function resident_document_civil_status_label($civil_status): string {
+    $value = strtolower(trim((string) $civil_status));
+
+    if ($value === '') {
+        return '';
+    }
+
+    if ($value === 'widowed' || $value === 'widow' || $value === 'widower') {
+        return 'widow/er';
+    }
+
+    if ($value === 'single' || $value === 'married' || $value === 'separated') {
+        return $value;
+    }
+
+    return $value;
+}
+
+/**
+ * Extract the short locality label used in certificate body copy.
+ *
+ * @param string|null $address
+ * @return string
+ */
+function resident_document_locality_label($address): string {
+    $parts = array_values(array_filter(array_map('trim', explode(',', (string) $address)), static function ($part) {
+        return $part !== '';
+    }));
+
+    if (empty($parts)) {
+        return '';
+    }
+
+    $locality = $parts[0];
+    $normalized = strtolower($locality);
+
+    if (in_array($normalized, ['barangay pakiad', 'brgy. pakiad', 'brgy pakiad', 'pakiad'], true) && isset($parts[1])) {
+        $locality = $parts[1];
+    }
+
+    return $locality;
+}
+
+/**
+ * Return the resident-facing display label for a business transaction.
+ *
+ * @param string|null $transaction_type
+ * @param string|null $remarks
+ * @return string
+ */
+function get_business_transaction_display_name($transaction_type, $remarks = null): string {
+    $remarks_text = trim((string) $remarks);
+    if (strcasecmp($remarks_text, 'Barangay Business Clearance') === 0) {
+        return 'Business Clearance';
+    }
+
+    $transaction = trim((string) $transaction_type);
+    if ($transaction === '') {
+        return 'Business Transaction';
+    }
+
+    if (strcasecmp($transaction, 'New Permit') === 0) {
+        return 'Business Permit';
+    }
+
+    return $transaction;
+}
+
+/**
+ * Return the standard processing fee for business-related requests.
+ *
+ * @param string|null $transaction_type
+ * @param string|null $remarks
+ * @return float
+ */
+function get_business_transaction_fee($transaction_type = null, $remarks = null): float {
+    return 50.00;
+}
+
+/**
  * Emit a consistent JSON error response for request handlers.
  *
  * @param string $public_message
@@ -1819,8 +1945,8 @@ function request_status_enum_values(PDO $pdo, string $table) {
 /**
  * Convert a requested UI status into the safest DB value for the current schema.
  *
- * Modern schemas store Approved directly. Older schemas may still only accept
- * Processing or Ready for Pickup for the approved step.
+ * Modern schemas store Approved/Completed directly. Older schemas may still
+ * only accept Processing or Ready for Pickup for the approved/completed steps.
  *
  * @param PDO $pdo
  * @param string $table
@@ -1851,6 +1977,35 @@ function normalize_request_status_for_storage(PDO $pdo, string $table, $status) 
         if (in_array('Ready for Pickup', $enum_values, true)) {
             return 'Ready for Pickup';
         }
+        foreach ($enum_values as $enum_value) {
+            $normalized_enum = normalize_request_status_display($enum_value);
+            if ($normalized_enum === 'Approved') {
+                return $enum_value;
+            }
+        }
+    }
+
+    if ($display_status === 'Completed') {
+        foreach ($enum_values as $enum_value) {
+            $normalized_enum = normalize_request_status_display($enum_value);
+            if ($normalized_enum === 'Completed') {
+                return $enum_value;
+            }
+        }
+
+        // Legacy schemas that do not store Completed can safely keep the row
+        // in their approved-stage value. The UI will still render paid rows as
+        // Completed via payment_status.
+        if (in_array('Approved', $enum_values, true)) {
+            return 'Approved';
+        }
+        if (in_array('Processing', $enum_values, true)) {
+            return 'Processing';
+        }
+        if (in_array('Ready for Pickup', $enum_values, true)) {
+            return 'Ready for Pickup';
+        }
+
         foreach ($enum_values as $enum_value) {
             $normalized_enum = normalize_request_status_display($enum_value);
             if ($normalized_enum === 'Approved') {

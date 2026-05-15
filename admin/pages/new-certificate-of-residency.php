@@ -18,6 +18,12 @@ $residents = [];
 try {
     $resident_stmt = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) AS full_name, first_name, last_name, middle_initial, gender, address, date_of_birth, place_of_birth, civil_status, occupation FROM residents ORDER BY last_name ASC");
     $residents = $resident_stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($residents as &$resident_row) {
+        $resident_row['document_age'] = resident_document_age($resident_row['date_of_birth'] ?? '');
+        $resident_row['document_civil_status'] = resident_document_civil_status_label($resident_row['civil_status'] ?? '');
+        $resident_row['document_locality'] = resident_document_locality_label($resident_row['address'] ?? '');
+    }
+    unset($resident_row);
 } catch (PDOException $e) {
     $residents = [];
     $_SESSION['error_message'] = "A database error occurred while fetching residents.";
@@ -106,12 +112,14 @@ try {
                     <?php display_flash_messages(); ?>
                     <div class="bg-white rounded-lg shadow p-8"
                          x-data='{
-                             residents: <?php echo json_encode($residents); ?>,
+                             residents: <?php echo json_encode($residents, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>,
                              selectedResidentId: null,
                              selectedResident: {},
                              formName: "",
                              formAge: "",
                              formDuration: "",
+                             formCivilStatus: "",
+                             formLocality: "",
                              formDay: new Date().getDate().toString(),
                              formMonth: new Date().toLocaleDateString("en-US", { month: "long" }),
                              layoutRafId: null,
@@ -119,29 +127,87 @@ try {
                                  "field-name": "formName",
                                  "field-age": "formAge",
                                  "field-duration": "formDuration",
+                                 "field-civil-status": "formCivilStatus",
+                                 "field-locality": "formLocality",
                                  "field-day": "formDay",
                                  "field-month": "formMonth"
+                             },
+                             fieldGroups: {
+                                 "field-locality": ["field-locality-options"]
                              },
                              init() {
                                  this.$watch("formName", () => this.recomputeLayout());
                                  this.$watch("formAge", () => this.recomputeLayout());
                                  this.$watch("formDuration", () => this.recomputeLayout());
+                                 this.$watch("formCivilStatus", () => this.recomputeLayout());
+                                 this.$watch("formLocality", () => this.recomputeLayout());
                                  this.$watch("formDay", () => this.recomputeLayout());
                                  this.$watch("formMonth", () => this.recomputeLayout());
                                  this.$nextTick(() => this.recomputeLayout());
                              },
+                             trackedFieldIds() {
+                                 return [...new Set(Object.keys(this.fieldMap).concat(...Object.values(this.fieldGroups)))];
+                             },
+                             rememberFieldState(id) {
+                                 const el = document.getElementById(id);
+                                 if (!el) return;
+                                 const tspan = el.querySelector("tspan");
+                                 if (!tspan) return;
+                                 if (!tspan.dataset.origX) {
+                                     tspan.dataset.origX = tspan.getAttribute("x") || "0";
+                                 }
+                                 if (!tspan.dataset.origText) {
+                                     tspan.dataset.origText = tspan.textContent;
+                                 }
+                             },
+                             resetTrackedText() {
+                                 this.trackedFieldIds().forEach(id => {
+                                     this.rememberFieldState(id);
+                                     const el = document.getElementById(id);
+                                     const tspan = el ? el.querySelector("tspan") : null;
+                                     if (!tspan) return;
+                                     tspan.textContent = tspan.dataset.origText || "";
+                                     tspan.setAttribute("x", tspan.dataset.origX || "0");
+                                 });
+                             },
+                             fieldGroupIds(id) {
+                                 return [id].concat(this.fieldGroups[id] || []);
+                             },
+                             measureFieldSpan(ids) {
+                                 let start = null;
+                                 let end = null;
+                                 ids.forEach(id => {
+                                     const el = document.getElementById(id);
+                                     const tspan = el ? el.querySelector("tspan") : null;
+                                     if (!tspan) return;
+                                     const xCoords = (tspan.dataset.origX || tspan.getAttribute("x") || "0").split(/\s+/).map(parseFloat).filter(n => !isNaN(n));
+                                     if (xCoords.length === 0) return;
+                                     const firstX = xCoords[0];
+                                     const lastX = xCoords[xCoords.length - 1];
+                                     const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 9.64;
+                                     start = start === null ? firstX : Math.min(start, firstX);
+                                     end = end === null ? (lastX + charWidth) : Math.max(end, lastX + charWidth);
+                                 });
+                                 if (start === null || end === null) return null;
+                                 return { start: start, width: end - start };
+                             },
                              selectResident() {
-                                 if (!this.selectedResidentId) return;
+                                 if (!this.selectedResidentId) {
+                                     this.selectedResident = {};
+                                     this.formName = "";
+                                     this.formAge = "";
+                                     this.formCivilStatus = "";
+                                     this.formLocality = "";
+                                     this.$nextTick(() => this.recomputeLayout());
+                                     return;
+                                 }
                                  const resident = this.residents.find(r => r.id == this.selectedResidentId);
                                  if (resident) {
                                      this.selectedResident = resident;
                                      this.formName = resident.full_name || "";
-                                     if (resident.date_of_birth) {
-                                         const bd = new Date(resident.date_of_birth);
-                                         this.formAge = String(new Date().getFullYear() - bd.getFullYear());
-                                     } else {
-                                         this.formAge = "";
-                                     }
+                                     this.formAge = resident.document_age || "";
+                                     this.formCivilStatus = resident.document_civil_status || "";
+                                     this.formLocality = resident.document_locality || "";
                                  }
                                  this.$nextTick(() => this.recomputeLayout());
                              },
@@ -160,29 +226,27 @@ try {
                                      }
                                  });
                                  const fieldIds = Object.keys(this.fieldMap);
+                                 this.resetTrackedText();
                                  fieldIds.forEach(id => {
                                      const el = document.getElementById(id);
                                      if (!el) return;
                                      const tspan = el.querySelector("tspan");
                                      if (!tspan) return;
-                                     if (!tspan.dataset.origX) {
-                                         tspan.dataset.origX = tspan.getAttribute("x") || "0";
-                                     }
-                                     if (!tspan.dataset.origText) {
-                                         tspan.dataset.origText = tspan.textContent;
-                                     }
                                      const value = this.getFieldValue(id);
                                      const firstX = tspan.dataset.origX.split(/\s+/)[0];
-                                     if (!value || String(value).trim() === "") {
-                                         tspan.textContent = tspan.dataset.origText;
-                                         tspan.setAttribute("x", tspan.dataset.origX);
-                                     } else {
-                                         const m = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
-                                         const prefix = m ? m[1] : "";
-                                         const suffix = m ? m[3] : "";
-                                         tspan.textContent = prefix + String(value) + suffix;
-                                         tspan.setAttribute("x", firstX);
-                                     }
+                                     if (!value || String(value).trim() === "") return;
+                                     const m = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
+                                     const prefix = m ? m[1] : "";
+                                     const suffix = m ? m[3] : "";
+                                     tspan.textContent = prefix + String(value) + suffix;
+                                     tspan.setAttribute("x", firstX);
+                                     (this.fieldGroups[id] || []).forEach(extraId => {
+                                         const extraEl = document.getElementById(extraId);
+                                         const extraTspan = extraEl ? extraEl.querySelector("tspan") : null;
+                                         if (!extraTspan) return;
+                                         extraTspan.textContent = "";
+                                         extraTspan.setAttribute("x", extraTspan.dataset.origX || "0");
+                                     });
                                  });
                                  document.querySelectorAll("svg text[data-orig-transform]").forEach(el => {
                                      el.setAttribute("transform", el.dataset.origTransform);
@@ -195,22 +259,20 @@ try {
                                          if (!tspan || !tspan.dataset.origX) return;
                                          const value = this.getFieldValue(id);
                                          if (!value || String(value).trim() === "") return;
-                                         const xCoords = tspan.dataset.origX.split(/\s+/).map(parseFloat).filter(n => !isNaN(n));
-                                         if (xCoords.length === 0) return;
-                                         const firstX = xCoords[0];
-                                         const lastX = xCoords[xCoords.length - 1];
-                                         const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 9.64;
-                                         const blankWidth = (lastX - firstX) + charWidth;
+                                         const groupIds = this.fieldGroupIds(id);
+                                         const span = this.measureFieldSpan(groupIds);
+                                         if (!span) return;
                                          let actualWidth = 0;
                                          try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
-                                         const shift = blankWidth - actualWidth;
+                                         const shift = span.width - actualWidth;
                                          if (Math.abs(shift) <= 0.5) return;
                                          const origLineTransform = el.dataset.origTransform || el.getAttribute("transform");
                                          const lineY = tspan.getAttribute("y");
                                          const parent = el.parentElement;
                                          if (!parent) return;
+                                         const groupIdSet = new Set(groupIds);
                                          Array.from(parent.querySelectorAll("text")).forEach(t => {
-                                             if (t === el) return;
+                                             if (t === el || groupIdSet.has(t.id)) return;
                                              const ts = t.querySelector("tspan");
                                              if (!ts) return;
                                              const tBaseTransform = t.dataset.origTransform || t.getAttribute("transform") || "";
@@ -218,7 +280,7 @@ try {
                                              if (ts.getAttribute("y") !== lineY) return;
                                              const tOrigX = ts.dataset.origX || ts.getAttribute("x") || "0";
                                              const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
-                                             if (isNaN(tFirstX) || tFirstX <= firstX) return;
+                                             if (isNaN(tFirstX) || tFirstX <= span.start) return;
                                              const currentTransform = t.getAttribute("transform") || tBaseTransform;
                                              t.setAttribute("transform", currentTransform + " translate(" + (-shift) + " 0)");
                                          });
@@ -303,6 +365,21 @@ try {
                                 $svg = str_replace(
                                     '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 348.10835)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="570.0187',
                                     '<text id="field-duration" xml:space="preserve" transform="matrix(.75 0 0 .75 72 348.10835)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="570.0187',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="455.46513 464.12919 467.97895 477.61604 487.2531 491.10289 500.73997 505.55427 519.9888 529.62588 535.39627 541.1666 545.01638 554.65347 564.2905 569.10488 581.6187 585.46847 595.1055 604.7426">single/married/widow</tspan></text>',
+                                    '<text id="field-civil-status" xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="455.46513 464.12919 467.97895 477.61604 487.2531 491.10289 500.73997 505.55427 519.9888 529.62588 535.39627 541.1666 545.01638 554.65347 564.2905 569.10488 581.6187 585.46847 595.1055 604.7426">single/married/widow</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="188.80736 199.39208 209.02916 218.66625">Zone</tspan></text>',
+                                    '<text id="field-locality" xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="188.80736 199.39208 209.02916 218.66625">Zone</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="233.11765 237.93196 242.74628 247.5606 252.37491 257.1892 262.00355 266.81788 271.63218 276.44648 281.2608 291.2274">I/II/III/IV,</tspan></text>',
+                                    '<text id="field-locality-options" xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="233.11765 237.93196 242.74628 247.5606 252.37491 257.1892 262.00355 266.81788 271.63218 276.44648 281.2608 291.2274">I/II/III/IV,</tspan></text>',
                                     $svg
                                 );
                                 // Day (line ~462)

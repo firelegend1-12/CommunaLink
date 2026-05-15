@@ -184,11 +184,12 @@ try {
 
         if (!empty($biz_ids)) {
             $placeholders = implode(',', array_fill(0, count($biz_ids), '?'));
+            $cancelled_status = normalize_request_status_for_storage($pdo, 'business_transactions', 'Cancelled');
             $stmt = $pdo->prepare("UPDATE business_transactions
-                                   SET status = 'Cancelled',
+                                   SET status = ?,
                                        processed_date = COALESCE(processed_date, NOW())
                                    WHERE id IN ({$placeholders})");
-            $stmt->execute($biz_ids);
+            $stmt->execute(array_merge([$cancelled_status], $biz_ids));
             $cancelled_count += $stmt->rowCount();
         }
 

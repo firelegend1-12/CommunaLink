@@ -33,6 +33,8 @@ if (!empty($resident['date_of_birth'])) {
     $today = new DateTime('today');
     $age = $birthDate->diff($today)->y;
 }
+$document_civil_status = resident_document_civil_status_label($resident['civil_status'] ?? '');
+$document_locality = resident_document_locality_label($resident['address'] ?? '');
 
 // Auto-fill issuance date
 $day_issued = date('j');
@@ -72,6 +74,8 @@ require_once 'partials/header.php';
                 <input type="hidden" id="day_issued" name="day_issued" value="<?= $day_issued ?>">
                 <input type="hidden" id="month_issued" name="month_issued" value="<?= $month_issued ?>">
                 <input type="hidden" id="year_issued" name="year_issued" value="<?= $year_issued ?>">
+                <input type="hidden" id="document_civil_status" name="document_civil_status" value="<?= htmlspecialchars($document_civil_status, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" id="document_locality" name="document_locality" value="<?= htmlspecialchars($document_locality, ENT_QUOTES, 'UTF-8') ?>">
 
                 <!-- Applicant Details -->
                 <div class="bg-gray-50/50 p-6 rounded-xl border border-gray-100">
@@ -125,6 +129,21 @@ require_once 'partials/header.php';
                                 '<text id="field-duration" xml:space="preserve" transform="matrix(.75 0 0 .75 72 348.10835)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="570.0187',
                                 $svg
                             );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="455.46513 464.12919 467.97895 477.61604 487.2531 491.10289 500.73997 505.55427 519.9888 529.62588 535.39627 541.1666 545.01638 554.65347 564.2905 569.10488 581.6187 585.46847 595.1055 604.7426">single/married/widow</tspan></text>',
+                                '<text id="field-civil-status" xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="455.46513 464.12919 467.97895 477.61604 487.2531 491.10289 500.73997 505.55427 519.9888 529.62588 535.39627 541.1666 545.01638 554.65347 564.2905 569.10488 581.6187 585.46847 595.1055 604.7426">single/married/widow</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="188.80736 199.39208 209.02916 218.66625">Zone</tspan></text>',
+                                '<text id="field-locality" xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="188.80736 199.39208 209.02916 218.66625">Zone</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="233.11765 237.93196 242.74628 247.5606 252.37491 257.1892 262.00355 266.81788 271.63218 276.44648 281.2608 291.2274">I/II/III/IV,</tspan></text>',
+                                '<text id="field-locality-options" xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="233.11765 237.93196 242.74628 247.5606 252.37491 257.1892 262.00355 266.81788 271.63218 276.44648 281.2608 291.2274">I/II/III/IV,</tspan></text>',
+                                $svg
+                            );
                             // Day (line ~462)
                             $svg = str_replace(
                                 '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 482.6469)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="126.018939',
@@ -173,8 +192,13 @@ require_once 'partials/header.php';
         'field-name': 'applicant_name',
         'field-age': 'applicant_age',
         'field-duration': 'duration',
+        'field-civil-status': 'document_civil_status',
+        'field-locality': 'document_locality',
         'field-day': 'day_issued',
         'field-month': 'month_issued'
+    };
+    const fieldGroups = {
+        'field-locality': ['field-locality-options']
     };
 
     function getFieldValue(id) {
@@ -184,34 +208,83 @@ require_once 'partials/header.php';
         return el ? el.value : '';
     }
 
+    function trackedFieldIds() {
+        return [...new Set(Object.keys(fieldMap).concat(...Object.values(fieldGroups)))];
+    }
+
+    function rememberFieldState(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const tspan = el.querySelector('tspan');
+        if (!tspan) return;
+        if (!tspan.dataset.origText) {
+            tspan.dataset.origText = tspan.textContent;
+        }
+        if (!tspan.dataset.origX) {
+            tspan.dataset.origX = tspan.getAttribute('x') || '0';
+        }
+    }
+
+    function resetTrackedText() {
+        trackedFieldIds().forEach(function(id) {
+            rememberFieldState(id);
+            const el = document.getElementById(id);
+            const tspan = el ? el.querySelector('tspan') : null;
+            if (!tspan) return;
+            tspan.textContent = tspan.dataset.origText || '';
+            tspan.setAttribute('x', tspan.dataset.origX || '0');
+        });
+    }
+
+    function fieldGroupIds(id) {
+        return [id].concat(fieldGroups[id] || []);
+    }
+
+    function measureFieldSpan(ids) {
+        let start = null;
+        let end = null;
+        ids.forEach(function(id) {
+            const el = document.getElementById(id);
+            const tspan = el ? el.querySelector('tspan') : null;
+            if (!tspan) return;
+            const xCoords = (tspan.dataset.origX || tspan.getAttribute('x') || '0').split(/\s+/).map(parseFloat).filter(function(n) { return !isNaN(n); });
+            if (xCoords.length === 0) return;
+            const firstX = xCoords[0];
+            const lastX = xCoords[xCoords.length - 1];
+            const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 9.64;
+            start = start === null ? firstX : Math.min(start, firstX);
+            end = end === null ? (lastX + charWidth) : Math.max(end, lastX + charWidth);
+        });
+        if (start === null || end === null) return null;
+        return { start: start, width: end - start };
+    }
+
     function recomputeLayout() {
         document.querySelectorAll('svg text').forEach(function(el) {
             if (!el.dataset.origTransform && el.hasAttribute('transform')) {
                 el.dataset.origTransform = el.getAttribute('transform');
             }
         });
+        resetTrackedText();
 
         Object.keys(fieldMap).forEach(function(id) {
             const el = document.getElementById(id);
             if (!el) return;
             const tspan = el.querySelector('tspan');
             if (!tspan) return;
-            if (!tspan.dataset.origText) {
-                tspan.dataset.origText = tspan.textContent;
-            }
-            if (!tspan.dataset.origX) {
-                tspan.dataset.origX = tspan.getAttribute('x') || '0';
-            }
             const value = getFieldValue(id);
             const firstX = tspan.dataset.origX.split(/\s+/)[0];
-            if (!value || String(value).trim() === '') {
-                tspan.textContent = tspan.dataset.origText;
-                tspan.setAttribute('x', tspan.dataset.origX);
-            } else {
-                const suffix = tspan.dataset.origText.replace(/^[_\s]+/, '');
-                tspan.textContent = String(value) + suffix;
-                tspan.setAttribute('x', firstX);
-            }
+            if (!value || String(value).trim() === '') return;
+            const suffix = tspan.dataset.origText.replace(/^[_\s]+/, '');
+            tspan.textContent = String(value) + suffix;
+            tspan.setAttribute('x', firstX);
+            (fieldGroups[id] || []).forEach(function(extraId) {
+                const extraEl = document.getElementById(extraId);
+                const extraTspan = extraEl ? extraEl.querySelector('tspan') : null;
+                if (!extraTspan) return;
+                extraTspan.textContent = '';
+                extraTspan.setAttribute('x', extraTspan.dataset.origX || '0');
+            });
         });
 
         document.querySelectorAll('svg text[data-orig-transform]').forEach(function(el) {
@@ -226,22 +299,20 @@ require_once 'partials/header.php';
                 if (!tspan || !tspan.dataset.origX) return;
                 const value = getFieldValue(id);
                 if (!value || String(value).trim() === '') return;
-                const xCoords = tspan.dataset.origX.split(/\s+/).map(parseFloat).filter(function(n) { return !isNaN(n); });
-                if (xCoords.length === 0) return;
-                const firstX = xCoords[0];
-                const lastX = xCoords[xCoords.length - 1];
-                const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 9.64;
-                const blankWidth = (lastX - firstX) + charWidth;
+                const groupIds = fieldGroupIds(id);
+                const span = measureFieldSpan(groupIds);
+                if (!span) return;
                 let actualWidth = 0;
                 try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
-                const shift = blankWidth - actualWidth;
-                if (shift <= 0.5) return;
+                const shift = span.width - actualWidth;
+                if (Math.abs(shift) <= 0.5) return;
                 const origLineTransform = el.dataset.origTransform || el.getAttribute('transform');
                 const lineY = tspan.getAttribute('y');
                 const parent = el.parentElement;
                 if (!parent) return;
+                const groupIdSet = new Set(groupIds);
                 Array.from(parent.querySelectorAll('text')).forEach(function(t) {
-                    if (t === el) return;
+                    if (t === el || groupIdSet.has(t.id)) return;
                     const ts = t.querySelector('tspan');
                     if (!ts) return;
                     const tBaseTransform = t.dataset.origTransform || t.getAttribute('transform') || '';
@@ -249,7 +320,7 @@ require_once 'partials/header.php';
                     if (ts.getAttribute('y') !== lineY) return;
                     const tOrigX = ts.dataset.origX || ts.getAttribute('x') || '0';
                     const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
-                    if (isNaN(tFirstX) || tFirstX <= firstX) return;
+                    if (isNaN(tFirstX) || tFirstX <= span.start) return;
                     const currentTransform = t.getAttribute('transform') || tBaseTransform;
                     t.setAttribute('transform', currentTransform + ' translate(' + (-shift) + ' 0)');
                 });

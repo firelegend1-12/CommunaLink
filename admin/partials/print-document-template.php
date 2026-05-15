@@ -77,8 +77,24 @@ $template_map = [
             'field-name' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman"><tspan y="15.5598959" x="238.0417',
             'field-age' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="15.5598959" x="537.8542 546.1823 554.51046 562.83859">',
             'field-purpose' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 394.6116)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="0 8.328125',
+            'field-gender' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="29.612015 41.640626 49.96875 54.59639 61.989229 66.61687 71.24451 78.637348 90.665958 98.99408 103.62172 111.01456">male/female,</tspan></text>',
+            'field-civil-status' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="119.34268 125.82463 130.45227 138.7804 147.10852 151.73616">single</tspan></text>',
+            'field-civil-status-slash' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="163.29306">/</tspan></text>',
+            'field-civil-status-married' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="172.08477 184.11338 192.4415 198.92345 205.4054 210.03304 217.42588 225.754">married/</tspan></text>',
+            'field-civil-status-separated' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="234.5457 241.02765 248.42049 256.7486 265.07673 271.5587 279.8868 284.51448 291.9073 300.2354">separated/</tspan></text>',
+            'field-civil-status-widow' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="309.0271 320.1367 324.76435 333.09248 341.4206 352.53016 357.1578 364.55067">widow/er</tspan></text>',
+            'field-locality' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="477.289 486.55244 494.88056 503.20869">Zone</tspan></text>',
+            'field-locality-i' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="514.76559">I</tspan></text>',
+            'field-locality-ii' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="524.4763 529.10397 534.65066">/II</tspan></text>',
+            'field-locality-slash' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="544.3613">/</tspan></text>',
+            'field-locality-iii' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="553.153 558.6997 564.24636 569.79299">III/</tspan></text>',
+            'field-locality-iv' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="578.5847 584.13137">IV</tspan></text>',
             'field-day' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 460.731)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="15.5598959" x="72.16353 80.49165 88.81978 97.1479">',
             'field-month' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 460.731)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="15.5598959" x="154.97307 163.3012',
+        ],
+        'field_groups' => [
+            'field-civil-status' => ['field-civil-status-slash', 'field-civil-status-married', 'field-civil-status-separated', 'field-civil-status-widow'],
+            'field-locality' => ['field-locality-i', 'field-locality-ii', 'field-locality-slash', 'field-locality-iii', 'field-locality-iv'],
         ],
     ],
     'certificate-of-residency' => [
@@ -90,8 +106,14 @@ $template_map = [
             'field-name' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="206.88924',
             'field-age' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="341.8 ',
             'field-duration' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 348.10835)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="570.0187',
+            'field-civil-status' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="455.46513 464.12919 467.97895 477.61604 487.2531 491.10289 500.73997 505.55427 519.9888 529.62588 535.39627 541.1666 545.01638 554.65347 564.2905 569.10488 581.6187 585.46847 595.1055 604.7426">single/married/widow</tspan></text>',
+            'field-locality' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="188.80736 199.39208 209.02916 218.66625">Zone</tspan></text>',
+            'field-locality-options' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 280.83906)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="233.11765 237.93196 242.74628 247.5606 252.37491 257.1892 262.00355 266.81788 271.63218 276.44648 281.2608 291.2274">I/II/III/IV,</tspan></text>',
             'field-day' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 482.6469)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="126.018939',
             'field-month' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 482.6469)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="211.76277',
+        ],
+        'field_groups' => [
+            'field-locality' => ['field-locality-options'],
         ],
     ],
     'certificate-of-indigency' => [
@@ -162,7 +184,7 @@ $back_url = $template['type'] === 'business' ? 'monitoring-of-request.php?type=b
 try {
     if ($template['type'] === 'document') {
         $stmt = $pdo->prepare(
-            "SELECT dr.*, r.first_name, r.last_name, r.date_of_birth
+            "SELECT dr.*, r.first_name, r.last_name, r.date_of_birth, r.gender, r.address, r.civil_status
              FROM document_requests dr
              LEFT JOIN residents r ON dr.resident_id = r.id
              WHERE dr.id = ? AND dr.document_type = ?"
@@ -204,20 +226,19 @@ if ($template['type'] === 'document' && !document_request_requires_payment($temp
 if ($template['type'] === 'document') {
     $details = print_decode_details($row['details'] ?? '');
     $resident_name = trim((string)($row['first_name'] ?? '') . ' ' . (string)($row['last_name'] ?? ''));
-    $age = '';
-    if (!empty($row['date_of_birth'])) {
-        try {
-            $age = (new DateTime())->diff(new DateTime($row['date_of_birth']))->y;
-        } catch (Exception $e) {
-            $age = '';
-        }
-    }
+    $age = resident_document_age($row['date_of_birth'] ?? '');
+    $resident_gender = resident_document_gender_label($row['gender'] ?? '');
+    $resident_civil_status = resident_document_civil_status_label($row['civil_status'] ?? '');
+    $resident_locality = resident_document_locality_label($row['address'] ?? '');
 
     if ($template_key === 'barangay-clearance') {
         $values = [
             'field-name' => print_first($details, ['applicant_name', 'full_name', 'requester_name'], $resident_name),
             'field-age' => print_first($details, ['age'], $age),
             'field-purpose' => print_first($details, ['purpose'], $row['purpose'] ?? ''),
+            'field-gender' => print_first($details, ['gender'], $resident_gender),
+            'field-civil-status' => print_first($details, ['civil_status'], $resident_civil_status),
+            'field-locality' => print_first($details, ['locality'], $resident_locality),
             'field-day' => print_first($details, ['day_issued', 'day'], date('jS', strtotime($row['date_requested'] ?? 'now'))),
             'field-month' => print_first($details, ['month_issued', 'month'], date('F', strtotime($row['date_requested'] ?? 'now'))),
         ];
@@ -226,6 +247,8 @@ if ($template['type'] === 'document') {
             'field-name' => print_first($details, ['applicant_name', 'full_name', 'requester_name'], $resident_name),
             'field-age' => print_first($details, ['age'], $age),
             'field-duration' => print_first($details, ['duration', 'years_of_residency', 'resident_since']),
+            'field-civil-status' => print_first($details, ['civil_status'], $resident_civil_status),
+            'field-locality' => print_first($details, ['locality'], $resident_locality),
             'field-day' => print_first($details, ['day_issued', 'day'], date('jS', strtotime($details['issued_on'] ?? ($row['date_requested'] ?? 'now')))),
             'field-month' => print_first($details, ['month_issued', 'month'], date('F', strtotime($details['issued_on'] ?? ($row['date_requested'] ?? 'now')))),
         ];
@@ -279,6 +302,7 @@ if ($template['type'] === 'document') {
 
 $page_title = $template['title'];
 $svg_html = print_svg_with_ids($template['svg'], $template['ids']);
+$field_groups = $template['field_groups'] ?? [];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -359,6 +383,7 @@ $svg_html = print_svg_with_ids($template['svg'], $template['ids']);
 <script>
 (function() {
     const values = <?php echo json_encode($values, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+    const fieldGroups = <?php echo json_encode($field_groups, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
     const autoPrint = <?php echo $auto_print ? 'true' : 'false'; ?>;
     const closeAfterPrint = <?php echo $close_after_print ? 'true' : 'false'; ?>;
     let printedOrCancelled = false;
@@ -367,38 +392,87 @@ $svg_html = print_svg_with_ids($template['svg'], $template['ids']);
         return values[id] || '';
     }
 
+    function trackedFieldIds() {
+        return [...new Set(Object.keys(values).concat(...Object.values(fieldGroups)))];
+    }
+
+    function rememberFieldState(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const tspan = el.querySelector('tspan');
+        if (!tspan) return;
+        if (!tspan.dataset.origText) {
+            tspan.dataset.origText = tspan.textContent;
+        }
+        if (!tspan.dataset.origX) {
+            tspan.dataset.origX = tspan.getAttribute('x') || '0';
+        }
+    }
+
+    function resetTrackedText() {
+        trackedFieldIds().forEach(function(id) {
+            rememberFieldState(id);
+            const el = document.getElementById(id);
+            const tspan = el ? el.querySelector('tspan') : null;
+            if (!tspan) return;
+            tspan.textContent = tspan.dataset.origText || '';
+            tspan.setAttribute('x', tspan.dataset.origX || '0');
+        });
+    }
+
+    function fieldGroupIds(id) {
+        return [id].concat(fieldGroups[id] || []);
+    }
+
+    function measureFieldSpan(ids) {
+        let start = null;
+        let end = null;
+        ids.forEach(function(id) {
+            const el = document.getElementById(id);
+            const tspan = el ? el.querySelector('tspan') : null;
+            if (!tspan) return;
+            const xCoords = (tspan.dataset.origX || tspan.getAttribute('x') || '0').split(/\s+/).map(parseFloat).filter(function(n) { return !isNaN(n); });
+            if (xCoords.length === 0) return;
+            const firstX = xCoords[0];
+            const lastX = xCoords[xCoords.length - 1];
+            const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
+            start = start === null ? firstX : Math.min(start, firstX);
+            end = end === null ? (lastX + charWidth) : Math.max(end, lastX + charWidth);
+        });
+        if (start === null || end === null) return null;
+        return { start: start, width: end - start };
+    }
+
     function recomputeLayout() {
         document.querySelectorAll('svg text').forEach(function(el) {
             if (!el.dataset.origTransform && el.hasAttribute('transform')) {
                 el.dataset.origTransform = el.getAttribute('transform');
             }
         });
+        resetTrackedText();
 
         Object.keys(values).forEach(function(id) {
             const el = document.getElementById(id);
             if (!el) return;
             const tspan = el.querySelector('tspan');
             if (!tspan) return;
-            if (!tspan.dataset.origText) {
-                tspan.dataset.origText = tspan.textContent;
-            }
-            if (!tspan.dataset.origX) {
-                tspan.dataset.origX = tspan.getAttribute('x') || '0';
-            }
 
             const value = getFieldValue(id);
             const firstX = tspan.dataset.origX.split(/\s+/)[0];
-            if (!value || String(value).trim() === '') {
-                tspan.textContent = tspan.dataset.origText;
-                tspan.setAttribute('x', tspan.dataset.origX);
-                return;
-            }
+            if (!value || String(value).trim() === '') return;
 
             const match = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
             const prefix = match ? match[1] : '';
             const suffix = match ? match[3] : '';
             tspan.textContent = prefix + String(value) + suffix;
             tspan.setAttribute('x', firstX);
+            (fieldGroups[id] || []).forEach(function(extraId) {
+                const extraEl = document.getElementById(extraId);
+                const extraTspan = extraEl ? extraEl.querySelector('tspan') : null;
+                if (!extraTspan) return;
+                extraTspan.textContent = '';
+                extraTspan.setAttribute('x', extraTspan.dataset.origX || '0');
+            });
         });
 
         document.querySelectorAll('svg text[data-orig-transform]').forEach(function(el) {
@@ -414,24 +488,22 @@ $svg_html = print_svg_with_ids($template['svg'], $template['ids']);
                 const value = getFieldValue(id);
                 if (!value || String(value).trim() === '') return;
 
-                const xCoords = tspan.dataset.origX.split(/\s+/).map(parseFloat).filter(function(n) { return !isNaN(n); });
-                if (xCoords.length === 0) return;
-                const firstX = xCoords[0];
-                const lastX = xCoords[xCoords.length - 1];
-                const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
-                const blankWidth = (lastX - firstX) + charWidth;
+                const groupIds = fieldGroupIds(id);
+                const span = measureFieldSpan(groupIds);
+                if (!span) return;
                 let actualWidth = 0;
                 try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
-                const shift = blankWidth - actualWidth;
+                const shift = span.width - actualWidth;
                 if (Math.abs(shift) <= 0.5) return;
 
                 const origLineTransform = el.dataset.origTransform || el.getAttribute('transform');
                 const lineY = tspan.getAttribute('y');
                 const parent = el.parentElement;
                 if (!parent) return;
+                const groupIdSet = new Set(groupIds);
 
                 Array.from(parent.querySelectorAll('text')).forEach(function(t) {
-                    if (t === el) return;
+                    if (t === el || groupIdSet.has(t.id)) return;
                     const ts = t.querySelector('tspan');
                     if (!ts) return;
                     const tBaseTransform = t.dataset.origTransform || t.getAttribute('transform') || '';
@@ -439,7 +511,7 @@ $svg_html = print_svg_with_ids($template['svg'], $template['ids']);
                     if (ts.getAttribute('y') !== lineY) return;
                     const tOrigX = ts.dataset.origX || ts.getAttribute('x') || '0';
                     const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
-                    if (isNaN(tFirstX) || tFirstX <= firstX) return;
+                    if (isNaN(tFirstX) || tFirstX <= span.start) return;
                     const currentTransform = t.getAttribute('transform') || tBaseTransform;
                     t.setAttribute('transform', currentTransform + ' translate(' + (-shift) + ' 0)');
                 });

@@ -72,9 +72,13 @@ try {
         $exec_params[] = "%{$search_query}%";
     }
     
-    if (!empty($status_filter) && in_array($status_filter, $valid_statuses)) {
-        $where_parts[] = "status = ?";
-        $exec_params[] = $status_filter;
+    if (!empty($status_filter)) {
+        $status_values = array_values(array_filter(array_map('trim', explode(',', $status_filter))));
+        $status_values = array_values(array_intersect($status_values, $valid_statuses));
+        if (!empty($status_values)) {
+            $where_parts[] = 'status IN (' . implode(', ', array_fill(0, count($status_values), '?')) . ')';
+            array_push($exec_params, ...$status_values);
+        }
     }
     
     if (!empty($date_from)) {
@@ -96,12 +100,30 @@ try {
     
     // Base UNION query (without filters)
     $union_query = "(
-        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, CASE WHEN dr.status IN ('Processing', 'Ready for Pickup') THEN 'Approved' ELSE dr.status END AS status, 'document' as request_type, dr.details, dr.purpose, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
+        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date,
+        CASE
+            WHEN dr.payment_status = 'Paid' AND UPPER(COALESCE(dr.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN 'Completed'
+            WHEN dr.status IN ('Processing', 'Ready for Pickup') THEN 'Approved'
+            ELSE dr.status
+        END AS status,
+        'document' as request_type, dr.details, dr.purpose, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
         FROM document_requests dr 
         LEFT JOIN residents r ON dr.resident_id = r.id
     ) UNION ALL (
-        SELECT bt.id, r.first_name, r.last_name, CASE WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance' ELSE bt.transaction_type END as document_type, bt.application_date as date_requested, bt.payment_date, CASE WHEN bt.status IN ('Processing', 'Ready for Pickup') THEN 'Approved' ELSE bt.status END AS status, 'business' as request_type, 
-        JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
+        SELECT bt.id, r.first_name, r.last_name,
+        CASE
+            WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance'
+            WHEN bt.transaction_type = 'New Permit' THEN 'Business Permit'
+            ELSE bt.transaction_type
+        END as document_type,
+        bt.application_date as date_requested, bt.payment_date,
+        CASE
+            WHEN bt.payment_status = 'Paid' AND UPPER(COALESCE(bt.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN 'Completed'
+            WHEN bt.status IN ('Processing', 'Ready for Pickup') THEN 'Approved'
+            ELSE bt.status
+        END AS status,
+        'business' as request_type,
+        JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details,
         NULL as purpose, bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason, bt.admin_notes
         FROM business_transactions bt 
         LEFT JOIN residents r ON bt.resident_id = r.id
@@ -110,13 +132,31 @@ try {
     // Apply type filter by modifying the union query
     if ($type_filter === 'document') {
         $union_query = "(
-            SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, CASE WHEN dr.status IN ('Processing', 'Ready for Pickup') THEN 'Approved' ELSE dr.status END AS status, 'document' as request_type, dr.details, dr.purpose, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
+            SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date,
+            CASE
+                WHEN dr.payment_status = 'Paid' AND UPPER(COALESCE(dr.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN 'Completed'
+                WHEN dr.status IN ('Processing', 'Ready for Pickup') THEN 'Approved'
+                ELSE dr.status
+            END AS status,
+            'document' as request_type, dr.details, dr.purpose, dr.or_number, dr.payment_status, dr.remarks AS cancellation_reason, dr.admin_notes
             FROM document_requests dr 
             LEFT JOIN residents r ON dr.resident_id = r.id
         )";
     } else if ($type_filter === 'business') {
         $union_query = "(
-            SELECT bt.id, r.first_name, r.last_name, CASE WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance' ELSE bt.transaction_type END as document_type, bt.application_date as date_requested, bt.payment_date, CASE WHEN bt.status IN ('Processing', 'Ready for Pickup') THEN 'Approved' ELSE bt.status END AS status, 'business' as request_type, 
+            SELECT bt.id, r.first_name, r.last_name,
+            CASE
+                WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance'
+                WHEN bt.transaction_type = 'New Permit' THEN 'Business Permit'
+                ELSE bt.transaction_type
+            END as document_type,
+            bt.application_date as date_requested, bt.payment_date,
+            CASE
+                WHEN bt.payment_status = 'Paid' AND UPPER(COALESCE(bt.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN 'Completed'
+                WHEN bt.status IN ('Processing', 'Ready for Pickup') THEN 'Approved'
+                ELSE bt.status
+            END AS status,
+            'business' as request_type,
             JSON_OBJECT('business_name', bt.business_name, 'business_type', bt.business_type, 'owner_name', bt.owner_name, 'address', bt.address, 'transaction_type', bt.transaction_type) as details, 
             NULL as purpose, bt.or_number, bt.payment_status, bt.remarks AS cancellation_reason, bt.admin_notes
             FROM business_transactions bt 
@@ -161,7 +201,8 @@ $document_types = [
     'Certificate of Residency' => get_document_request_fee('Certificate of Residency'),
     'Certificate of Indigency' => get_document_request_fee('Certificate of Indigency'),
     'Certificate of Indigency (Special)' => get_document_request_fee('Certificate of Indigency (Special)'),
-    'Business Clearance' => 500.00,
+    'Business Clearance' => get_business_transaction_fee('New Permit', 'Barangay Business Clearance'),
+    'Business Permit' => get_business_transaction_fee('New Permit'),
 ];
 
 // Helper function to build pagination URLs
@@ -215,18 +256,18 @@ try {
 
     // 2. Active Workload (Pending + Approved)
     $q_workload = $pdo->query("SELECT 
-        (SELECT COUNT(*) FROM document_requests WHERE status IN ('Pending', 'Approved', 'Processing', 'Ready for Pickup')) + 
-        (SELECT COUNT(*) FROM business_transactions WHERE status IN ('Pending', 'Approved', 'Processing', 'Ready for Pickup')) as total");
+        (SELECT COUNT(*) FROM document_requests WHERE UPPER(COALESCE(status, '')) IN ('PENDING', 'APPROVED', 'PROCESSING', 'READY FOR PICKUP') AND COALESCE(payment_status, 'Unpaid') <> 'Paid') + 
+        (SELECT COUNT(*) FROM business_transactions WHERE UPPER(COALESCE(status, '')) IN ('PENDING', 'APPROVED', 'PROCESSING', 'READY FOR PICKUP') AND COALESCE(payment_status, 'Unpaid') <> 'Paid') as total");
     $stats['workload'] = $q_workload->fetchColumn();
 
     // 3. Approved (Ready for Pickup)
     $q_ready = $pdo->query("SELECT 
-        (SELECT COUNT(*) FROM document_requests WHERE status IN ('Approved', 'Processing', 'Ready for Pickup')) + 
-        (SELECT COUNT(*) FROM business_transactions WHERE status IN ('Approved', 'Processing', 'Ready for Pickup')) as total");
+        (SELECT COUNT(*) FROM document_requests WHERE UPPER(COALESCE(status, '')) IN ('APPROVED', 'PROCESSING', 'READY FOR PICKUP') AND COALESCE(payment_status, 'Unpaid') <> 'Paid') + 
+        (SELECT COUNT(*) FROM business_transactions WHERE UPPER(COALESCE(status, '')) IN ('APPROVED', 'PROCESSING', 'READY FOR PICKUP') AND COALESCE(payment_status, 'Unpaid') <> 'Paid') as total");
     $stats['ready'] = $q_ready->fetchColumn();
 
     // 4. Daily Revenue (Paid today)
-    $biz_fee = $document_types['Business Clearance'] ?? 500.00;
+    $biz_fee = $document_types['Business Clearance'] ?? get_business_transaction_fee();
     $q_revenue = $pdo->prepare("SELECT 
         COALESCE((SELECT SUM(
             CASE 
@@ -277,326 +318,12 @@ foreach ($requests as $summary_req) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
+    [x-cloak] { display: none !important; }
     .status-badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
-    <div class="flex h-screen overflow-hidden" x-data="{ 
-        selectedReq: null, 
-        viewPanelOpen: false, 
-        openView(req) { 
-            const nextReq = Object.assign({}, req || {});
-            const row = nextReq.id && nextReq.type ? document.getElementById(`request-row-${nextReq.type}-${nextReq.id}`) : null;
-            if (row) {
-                const statusBadge = row.querySelector('.status-badge');
-                const paymentBadge = row.querySelector('[data-payment-status]');
-                if (statusBadge) {
-                    nextReq.status = this.normalizeStatus(statusBadge.textContent);
-                }
-                if (paymentBadge) {
-                    nextReq.paymentStatus = paymentBadge.getAttribute('data-payment-status') || nextReq.paymentStatus;
-                }
-            }
-            nextReq.requiresPayment = Boolean(nextReq.requiresPayment);
-            nextReq.canPrintNow = !nextReq.requiresPayment || nextReq.paymentStatus === 'Paid';
-            this.selectedReq = nextReq;
-            this.viewPanelOpen = true; 
-        },
-        normalizeStatus(value) {
-            const normalized = String(value || '').trim().toLowerCase();
-            if (normalized === 'pending') return 'Pending';
-            if (normalized === 'approved' || normalized === 'processing' || normalized === 'ready for pickup') return 'Approved';
-            if (normalized === 'completed') return 'Completed';
-            if (normalized === 'rejected') return 'Rejected';
-            if (normalized === 'cancelled' || normalized === 'canceled') return 'Cancelled';
-            return String(value || '').trim();
-        },
-        canApprove(req) {
-            return req && this.normalizeStatus(req.status) === 'Pending';
-        },
-        canPrint(req) {
-            return req && (!req.requiresPayment || req.paymentStatus === 'Paid');
-        },
-        paymentDisplay(req) {
-            if (!req) return '';
-            return req.requiresPayment ? req.paymentStatus : 'No payment required';
-        },
-        getPrintUrl(req) {
-            if (!req) return '';
-            const docType = String(req.docType || '').toLowerCase();
-            let template = '';
-
-            if (req.type === 'business') {
-                template = docType === 'business clearance'
-                    ? 'business-clearance-template.php'
-                    : 'business-permit-application-template.php';
-            } else if (docType === 'barangay clearance') {
-                template = 'barangay-clearance-template.php';
-            } else if (docType === 'certificate of residency') {
-                template = 'certificate-of-residency-template.php';
-            } else if (docType === 'certificate of indigency (special)' || docType.includes('special')) {
-                template = 'certificate-of-indigency-special-template.php';
-            } else if (docType === 'certificate of indigency') {
-                template = 'certificate-of-indigency-template.php';
-            }
-
-            if (!template) return '';
-            return `${template}?id=${encodeURIComponent(req.id)}&auto_print=1&close_after_print=1`;
-        },
-        printCertificate(req) {
-            if (!req) return;
-            if (!this.canPrint(req)) {
-                showToast('Print Certificate is available after payment is recorded.', 'warning');
-                return;
-            }
-
-            const printUrl = this.getPrintUrl(req);
-            if (!printUrl) {
-                showToast('No printable certificate template is available for this request type.', 'error');
-                return;
-            }
-
-            const printWindow = window.open(
-                printUrl,
-                '_blank',
-                'popup=yes,width=900,height=700'
-            );
-
-            if (!printWindow) {
-                showToast('Please allow pop-ups so the print dialog can open.', 'warning');
-            }
-        },
-        formatDetailLabel(key) {
-            if (!key) return 'N/A';
-            return String(key).replace(/_/g, ' ');
-        },
-        formatDetailValue(value) {
-            if (value === null || value === undefined || value === '') return 'N/A';
-
-            if (Array.isArray(value)) {
-                return value.map((item) => this.formatDetailValue(item)).join(', ');
-            }
-
-            if (typeof value === 'object') {
-                return Object.entries(value)
-                    .map(([k, v]) => `${this.formatDetailLabel(k)}: ${this.formatDetailValue(v)}`)
-                    .join(', ');
-            }
-
-            return String(value);
-        },
-        firstDetailValue(details, keys, fallback = '') {
-            const source = details && typeof details === 'object' ? details : {};
-            for (const key of keys) {
-                const value = source[key];
-                if (value !== null && value !== undefined && value !== '') {
-                    return value;
-                }
-            }
-            return fallback;
-        },
-        getApplicationDetails(req) {
-            if (!req) return [];
-
-            const details = req.details && typeof req.details === 'object' ? req.details : {};
-            const docType = String(req.docType || '').toLowerCase();
-            const day = this.firstDetailValue(details, ['day_issued', 'day'], req.requestDay || '');
-            const month = this.firstDetailValue(details, ['month_issued', 'month'], req.requestMonth || '');
-            const fullName = this.firstDetailValue(details, ['applicant_name', 'full_name', 'requester_name'], req.name || '');
-            const age = this.firstDetailValue(details, ['age']);
-
-            const field = (label, value) => ({ label, value: this.formatDetailValue(value) });
-
-            if (req.type === 'business') {
-                if (docType === 'business clearance') {
-                    return [
-                        field('Owner Name', this.firstDetailValue(details, ['owner_name'], req.name || '')),
-                        field('Business Location', this.firstDetailValue(details, ['address', 'business_location', 'location'])),
-                        field('Day', day),
-                        field('Month', month)
-                    ];
-                }
-
-                return [
-                    field('Name of Business', this.firstDetailValue(details, ['business_name'])),
-                    field('Name of Owner', this.firstDetailValue(details, ['owner_name'], req.name || '')),
-                    field('Type/Line of Business', this.firstDetailValue(details, ['business_type', 'line_of_business'])),
-                    field('Business Location', this.firstDetailValue(details, ['address', 'business_location', 'location'])),
-                    field('Day', day),
-                    field('Month', month)
-                ];
-            }
-
-            if (docType === 'barangay clearance') {
-                return [
-                    field('Full Name', fullName),
-                    field('Age', age),
-                    field('Purpose', this.firstDetailValue(details, ['purpose'], req.purpose || '')),
-                    field('Day', day),
-                    field('Month', month)
-                ];
-            }
-
-            if (docType === 'certificate of residency') {
-                return [
-                    field('Full Name', fullName),
-                    field('Age', age),
-                    field('Years of Residency', this.firstDetailValue(details, ['duration', 'years_of_residency'])),
-                    field('Day', day),
-                    field('Month', month)
-                ];
-            }
-
-            if (docType === 'certificate of indigency (special)' || docType.includes('special')) {
-                return [
-                    field('Name of Patient/Deceased', this.firstDetailValue(details, ['beneficiary_name', 'patient_name', 'deceased_name'])),
-                    field('Requester Name', this.firstDetailValue(details, ['requester_name'], req.name || '')),
-                    field('Relation to the Patient', this.firstDetailValue(details, ['relation', 'relationship'])),
-                    field('Day', day),
-                    field('Month', month)
-                ];
-            }
-
-            if (docType === 'certificate of indigency') {
-                return [
-                    field('Full Name', fullName),
-                    field('Age', age),
-                    field('Day', day),
-                    field('Month', month)
-                ];
-            }
-
-            return Object.entries(details).map(([key, value]) => field(this.formatDetailLabel(key), value));
-        },
-        async submitCashPayment() {
-            if (!this.selectedReq) return;
-            if (!this.selectedReq.requiresPayment) {
-                showToast('This document does not require payment.', 'warning');
-                this.selectedReq.isPaying = false;
-                this.selectedReq.cashInput = '';
-                return;
-            }
-
-            const due = parseFloat(this.selectedReq.amountDue || 0);
-            const cash = parseFloat(this.selectedReq.cashInput || 0);
-
-            if (Number.isNaN(cash) || cash <= 0) {
-                showToast('Please enter a valid cash amount.', 'error');
-                return;
-            }
-
-            if (cash < due) {
-                showToast('Cash amount is not enough for this request.', 'error');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('id', this.selectedReq.id);
-            formData.append('type', this.selectedReq.type);
-            formData.append('cash_received', cash.toFixed(2));
-            formData.append('csrf_token', MONITORING_CSRF_TOKEN);
-
-            try {
-                const response = await fetch('../partials/make-cash-payment.php', {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-                const data = await response.json();
-
-                if (!data.success) {
-                    showToast(data.error || 'Failed to process cash payment.', 'error');
-                    return;
-                }
-
-                this.selectedReq.paymentStatus = 'Paid';
-                this.selectedReq.canPrintNow = true;
-                this.selectedReq.orNumber = data.or_number || this.selectedReq.orNumber;
-                this.selectedReq.changeValue = Number(data.change_amount || 0).toFixed(2);
-                this.selectedReq.cashInput = '';
-                this.selectedReq.isPaying = false;
-                if (this.selectedReq.type === 'document' && data.status) {
-                    this.selectedReq.status = data.status;
-                    const row = document.getElementById(`request-row-${this.selectedReq.type}-${this.selectedReq.id}`);
-                    if (row) {
-                        const statusCell = row.querySelector('.status-badge');
-                        if (statusCell) {
-                            statusCell.textContent = data.status;
-                            statusCell.className = 'status-badge bg-green-100 text-green-800';
-                        }
-                    }
-                }
-
-                updateRowPaymentBadge(this.selectedReq.id, this.selectedReq.type, this.selectedReq.orNumber);
-                showToast(data.warning || (this.selectedReq.type === 'document' ? 'Cash payment recorded. Request completed.' : 'Cash payment recorded.'), data.warning ? 'warning' : 'success');
-            } catch (e) {
-                showToast('Failed to process cash payment.', 'error');
-            }
-        },
-        async approveRequest() {
-            if (!this.canApprove(this.selectedReq)) return;
-            const isPaid = this.selectedReq.paymentStatus === 'Paid';
-            const targetStatus = isPaid ? 'Completed' : 'Approved';
-            const formData = new FormData();
-            formData.append('id', this.selectedReq.id);
-            formData.append('status', targetStatus);
-            formData.append('csrf_token', MONITORING_CSRF_TOKEN);
-            try {
-                const response = await fetch('../partials/update-document-request-status.php', {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-                const data = await response.json();
-                if (!data.success) {
-                    showToast(data.error || 'Failed to update request status.', 'error');
-                    return;
-                }
-                this.selectedReq.status = data.status || targetStatus;
-                const row = document.getElementById(`request-row-${this.selectedReq.type}-${this.selectedReq.id}`);
-                if (row) {
-                    const statusCell = row.querySelector('.status-badge');
-                    if (statusCell) {
-                        statusCell.textContent = this.selectedReq.status;
-                        const bgClass = this.selectedReq.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                        this.selectedReq.status === 'Approved' ? 'bg-blue-100 text-blue-800' :
-                                        'bg-yellow-100 text-yellow-800';
-                        statusCell.className = 'status-badge ' + bgClass;
-                    }
-                    row.style.backgroundColor = isPaid ? '#f0fdf4' : '#eff6ff';
-                    setTimeout(() => row.style.backgroundColor = '', 600);
-                }
-                showToast(data.warning || (isPaid ? 'Request auto-completed (already paid).' : 'Request approved successfully.'), data.warning ? 'warning' : 'success');
-            } catch (e) {
-                showToast('Failed to update request status.', 'error');
-            }
-        },
-        async saveAdminNotes() {
-            if (!this.selectedReq) return;
-            const notes = this.selectedReq.adminNotesInput || '';
-            const formData = new FormData();
-            formData.append('id', this.selectedReq.id);
-            formData.append('type', this.selectedReq.type);
-            formData.append('admin_notes', notes);
-            formData.append('csrf_token', MONITORING_CSRF_TOKEN);
-            try {
-                const response = await fetch('../partials/save-admin-notes.php', {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-                const data = await response.json();
-                if (!data.success) {
-                    showToast(data.error || 'Failed to save admin notes.', 'error');
-                    return;
-                }
-                this.selectedReq.adminNotes = notes;
-                showToast('Admin notes saved successfully.');
-            } catch (e) {
-                showToast('Failed to save admin notes.', 'error');
-            }
-        }
-    }">
+    <div class="flex h-screen overflow-hidden" x-data="monitoringPage()">
         <?php
 include '../partials/sidebar.php'; ?>
         
@@ -971,7 +698,7 @@ foreach ($requests as $req):
 
                                                     $raw_doc_type = (string)($req['document_type'] ?? '');
                                                     if (($req['request_type'] ?? '') === 'business') {
-                                                        $amount_due = (float)($document_types['Business Clearance'] ?? 500.00);
+                                                        $amount_due = get_business_transaction_fee($req['document_type'] ?? '', $req['cancellation_reason'] ?? '');
                                                         $requires_payment = true;
                                                     } else {
                                                         $amount_due = get_document_request_fee($raw_doc_type);
@@ -1041,7 +768,9 @@ elseif (($req['payment_status'] ?? 'Unpaid') === 'Paid'): ?>
                                                                 </span>
                                                                 <?php
 if (!empty($req['or_number'])): ?>
-                                                                    <div class="text-xs text-gray-500 mt-1">O.R. <?= htmlspecialchars($req['or_number']) ?></div>
+                                                                    <button type="button" class="mt-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline" @click="openReceipt(<?= (int) $req['id'] ?>, '<?= htmlspecialchars((string) $req['request_type'], ENT_QUOTES, 'UTF-8') ?>')">
+                                                                        O.R. <?= htmlspecialchars($req['or_number']) ?>
+                                                                    </button>
                                                                 <?php
 endif; ?>
                                                             <?php
@@ -1234,7 +963,7 @@ endif; ?>
                                  </div>
                                  <div x-show="selectedReq.orNumber">
                                     <p class="text-xs font-semibold text-gray-600 uppercase">O.R. Number</p>
-                                    <p class="mt-1 text-sm font-medium text-gray-900" x-text="selectedReq.orNumber || 'N/A'"></p>
+                                    <button type="button" class="mt-1 text-sm font-semibold text-blue-700 hover:text-blue-900 hover:underline" @click="openReceipt(selectedReq.id, selectedReq.type)" x-text="selectedReq.orNumber || 'N/A'"></button>
                                  </div>
                               </div>
                            </div>
@@ -1306,6 +1035,10 @@ endif; ?>
                                                 <i class="fas fa-check-circle mr-1"></i>No payment required for this document.
                                             </div>
 
+                                            <button type="button" x-show="selectedReq.paymentStatus === 'Paid' && selectedReq.orNumber" @click="openReceipt(selectedReq.id, selectedReq.type)" class="w-full bg-white border border-blue-200 text-blue-700 px-4 py-3 rounded-lg shadow-sm hover:bg-blue-50 transition font-bold uppercase tracking-widest text-xs">
+                                                <i class="fas fa-receipt mr-2"></i>View Official Receipt
+                                            </button>
+
                                             <!-- Print Certificate -->
                                             <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                                 <button type="button" x-show="canPrint(selectedReq)" @click="printCertificate(selectedReq)" class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg shadow hover:bg-blue-700 transition font-bold uppercase tracking-widest text-xs">
@@ -1337,8 +1070,522 @@ endif; ?>
             </div>
           </div>
         </div>
+
+        <div x-show="receiptModalOpen" x-cloak class="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 p-4" @keydown.escape.window="closeReceipt()">
+            <div class="absolute inset-0" @click="closeReceipt()"></div>
+            <div class="relative w-full max-w-3xl">
+                <div class="rounded-[32px] bg-white shadow-2xl overflow-hidden">
+                    <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                        <div>
+                            <h3 class="text-lg font-black text-gray-900">Official Receipt</h3>
+                            <p class="text-sm text-gray-500">Payment details for completed requests.</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" @click="printReceipt()" :disabled="!receiptData" class="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50">
+                                <i class="fas fa-print mr-2"></i>Print
+                            </button>
+                            <button type="button" @click="closeReceipt()" class="rounded-xl bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                    <div class="max-h-[80vh] overflow-y-auto px-6 py-6 bg-slate-50">
+                        <div x-show="receiptLoading" class="flex flex-col items-center justify-center py-20 text-center">
+                            <div class="h-12 w-12 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600"></div>
+                            <p class="mt-4 text-sm font-medium text-gray-500">Loading receipt details...</p>
+                        </div>
+                        <div x-show="!receiptLoading && receiptError" class="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm font-medium text-red-700" x-text="receiptError"></div>
+                        <div x-show="!receiptLoading && receiptData" x-html="receiptDetailsMarkup()"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     <script>
+    function monitoringPage() {
+        return {
+            selectedReq: null,
+            viewPanelOpen: false,
+            receiptModalOpen: false,
+            receiptLoading: false,
+            receiptError: '',
+            receiptData: null,
+            init() {
+                window.addEventListener('open-receipt', (event) => {
+                    const detail = event.detail || {};
+                    const id = parseInt(detail.id, 10);
+                    const type = detail.type;
+                    if (!Number.isNaN(id) && (type === 'document' || type === 'business')) {
+                        this.openReceipt(id, type);
+                    }
+                });
+            },
+            openView(req) {
+                const nextReq = Object.assign({}, req || {});
+                const row = nextReq.id && nextReq.type ? document.getElementById(`request-row-${nextReq.type}-${nextReq.id}`) : null;
+                if (row) {
+                    const statusBadge = row.querySelector('.status-badge');
+                    const paymentBadge = row.querySelector('[data-payment-status]');
+                    if (statusBadge) {
+                        nextReq.status = this.normalizeStatus(statusBadge.textContent);
+                    }
+                    if (paymentBadge) {
+                        nextReq.paymentStatus = paymentBadge.getAttribute('data-payment-status') || nextReq.paymentStatus;
+                    }
+                }
+                nextReq.requiresPayment = Boolean(nextReq.requiresPayment);
+                nextReq.canPrintNow = !nextReq.requiresPayment || nextReq.paymentStatus === 'Paid';
+                this.selectedReq = nextReq;
+                this.viewPanelOpen = true;
+            },
+            normalizeStatus(value) {
+                const normalized = String(value || '').trim().toLowerCase();
+                if (normalized === 'pending') return 'Pending';
+                if (normalized === 'approved' || normalized === 'processing' || normalized === 'ready for pickup') return 'Approved';
+                if (normalized === 'completed') return 'Completed';
+                if (normalized === 'rejected') return 'Rejected';
+                if (normalized === 'cancelled' || normalized === 'canceled') return 'Cancelled';
+                return String(value || '').trim();
+            },
+            canApprove(req) {
+                return req && this.normalizeStatus(req.status) === 'Pending';
+            },
+            canPrint(req) {
+                return req && (!req.requiresPayment || req.paymentStatus === 'Paid');
+            },
+            paymentDisplay(req) {
+                if (!req) return '';
+                return req.requiresPayment ? req.paymentStatus : 'No payment required';
+            },
+            async openReceipt(id, type) {
+                this.receiptModalOpen = true;
+                this.receiptLoading = true;
+                this.receiptError = '';
+                this.receiptData = null;
+
+                try {
+                    const response = await fetch(`../partials/get-receipt-details.php?id=${encodeURIComponent(id)}&type=${encodeURIComponent(type)}`, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await response.json();
+
+                    if (!data.success) {
+                        this.receiptError = data.error || 'Failed to load receipt details.';
+                        return;
+                    }
+
+                    this.receiptData = data.data || null;
+                } catch (error) {
+                    console.error(error);
+                    this.receiptError = 'Failed to load receipt details.';
+                } finally {
+                    this.receiptLoading = false;
+                }
+            },
+            closeReceipt() {
+                this.receiptModalOpen = false;
+            },
+            formatReceiptDate(value) {
+                if (!value) return 'N/A';
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) return value;
+                return date.toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+            },
+            formatMoney(value) {
+                const number = Number(value || 0);
+                return `PHP ${number.toFixed(2)}`;
+            },
+            escapeHtml(value) {
+                return String(value ?? '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            },
+            receiptDetailsMarkup() {
+                if (!this.receiptData) return '';
+
+                const receipt = this.receiptData;
+                const purpose = receipt.purpose ? `
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500">Purpose</p>
+                        <p class="mt-1 text-sm font-semibold text-gray-900">${this.escapeHtml(receipt.purpose)}</p>
+                    </div>
+                ` : '';
+                const cashRow = receipt.cashReceived ? `
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-500">Cash Received</span>
+                        <span class="font-semibold text-gray-900">${this.escapeHtml(this.formatMoney(receipt.cashReceived))}</span>
+                    </div>
+                ` : '';
+                const changeRow = receipt.changeAmount ? `
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-500">Change</span>
+                        <span class="font-semibold text-gray-900">${this.escapeHtml(this.formatMoney(receipt.changeAmount))}</span>
+                    </div>
+                ` : '';
+
+                return `
+                    <div class="rounded-[28px] border border-gray-200 bg-white shadow-xl overflow-hidden">
+                        <div class="bg-gradient-to-r from-blue-700 via-sky-700 to-cyan-600 px-6 py-6 text-white">
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <p class="text-xs font-black uppercase tracking-[0.28em] text-blue-100">Official Receipt</p>
+                                    <h3 class="mt-2 text-2xl font-black">${this.escapeHtml(receipt.orNumber || 'N/A')}</h3>
+                                    <p class="mt-2 text-sm text-blue-100">${this.escapeHtml(receipt.barangayName || 'Barangay')}</p>
+                                </div>
+                                <div class="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-right backdrop-blur-sm">
+                                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-100">Paid On</p>
+                                    <p class="mt-1 text-sm font-semibold text-white">${this.escapeHtml(this.formatReceiptDate(receipt.paymentDate))}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="px-6 py-6 space-y-6">
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div class="rounded-2xl bg-gray-50 border border-gray-200 p-4">
+                                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500">Resident</p>
+                                    <p class="mt-2 text-base font-bold text-gray-900">${this.escapeHtml(receipt.residentName || 'N/A')}</p>
+                                </div>
+                                <div class="rounded-2xl bg-gray-50 border border-gray-200 p-4">
+                                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500">Request</p>
+                                    <p class="mt-2 text-base font-bold text-gray-900">${this.escapeHtml(receipt.itemName || 'N/A')}</p>
+                                    <p class="mt-1 text-xs text-gray-500">${this.escapeHtml(this.formatReceiptDate(receipt.requestDate))}</p>
+                                </div>
+                            </div>
+                            <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-4 space-y-3">
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="text-gray-500">Amount Due</span>
+                                    <span class="font-semibold text-gray-900">${this.escapeHtml(this.formatMoney(receipt.amountDue))}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="text-gray-500">Amount Paid</span>
+                                    <span class="font-semibold text-gray-900">${this.escapeHtml(this.formatMoney(receipt.amountPaid))}</span>
+                                </div>
+                                ${cashRow}
+                                ${changeRow}
+                            </div>
+                            ${purpose}
+                        </div>
+                    </div>
+                `;
+            },
+            printReceipt() {
+                if (!this.receiptData) return;
+
+                const printWindow = window.open('', '_blank', 'popup=yes,width=900,height=700');
+                if (!printWindow) {
+                    showToast('Please allow pop-ups so the receipt can open.', 'warning');
+                    return;
+                }
+
+                printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>Official Receipt ${this.escapeHtml(this.receiptData.orNumber || '')}</title>
+                        <script src="https://cdn.tailwindcss.com"><\/script>
+                    </head>
+                    <body class="bg-white p-8">
+                        <div class="max-w-3xl mx-auto">
+                            ${this.receiptDetailsMarkup()}
+                        </div>
+                        <script>
+                            window.onload = function () {
+                                window.print();
+                            };
+                        <\/script>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+            },
+            getPrintUrl(req) {
+                if (!req) return '';
+                const docType = String(req.docType || '').toLowerCase();
+                let template = '';
+
+                if (req.type === 'business') {
+                    template = docType === 'business clearance'
+                        ? 'business-clearance-template.php'
+                        : 'business-permit-application-template.php';
+                } else if (docType === 'barangay clearance') {
+                    template = 'barangay-clearance-template.php';
+                } else if (docType === 'certificate of residency') {
+                    template = 'certificate-of-residency-template.php';
+                } else if (docType === 'certificate of indigency (special)' || docType.includes('special')) {
+                    template = 'certificate-of-indigency-special-template.php';
+                } else if (docType === 'certificate of indigency') {
+                    template = 'certificate-of-indigency-template.php';
+                }
+
+                if (!template) return '';
+                return `${template}?id=${encodeURIComponent(req.id)}&auto_print=1&close_after_print=1`;
+            },
+            printCertificate(req) {
+                if (!req) return;
+                if (!this.canPrint(req)) {
+                    showToast('Print Certificate is available after payment is recorded.', 'warning');
+                    return;
+                }
+
+                const printUrl = this.getPrintUrl(req);
+                if (!printUrl) {
+                    showToast('No printable certificate template is available for this request type.', 'error');
+                    return;
+                }
+
+                const printWindow = window.open(
+                    printUrl,
+                    '_blank',
+                    'popup=yes,width=900,height=700'
+                );
+
+                if (!printWindow) {
+                    showToast('Please allow pop-ups so the print dialog can open.', 'warning');
+                }
+            },
+            formatDetailLabel(key) {
+                if (!key) return 'N/A';
+                return String(key).replace(/_/g, ' ');
+            },
+            formatDetailValue(value) {
+                if (value === null || value === undefined || value === '') return 'N/A';
+
+                if (Array.isArray(value)) {
+                    return value.map((item) => this.formatDetailValue(item)).join(', ');
+                }
+
+                if (typeof value === 'object') {
+                    return Object.entries(value)
+                        .map(([k, v]) => `${this.formatDetailLabel(k)}: ${this.formatDetailValue(v)}`)
+                        .join(', ');
+                }
+
+                return String(value);
+            },
+            firstDetailValue(details, keys, fallback = '') {
+                const source = details && typeof details === 'object' ? details : {};
+                for (const key of keys) {
+                    const value = source[key];
+                    if (value !== null && value !== undefined && value !== '') {
+                        return value;
+                    }
+                }
+                return fallback;
+            },
+            getApplicationDetails(req) {
+                if (!req) return [];
+
+                const details = req.details && typeof req.details === 'object' ? req.details : {};
+                const docType = String(req.docType || '').toLowerCase();
+                const day = this.firstDetailValue(details, ['day_issued', 'day'], req.requestDay || '');
+                const month = this.firstDetailValue(details, ['month_issued', 'month'], req.requestMonth || '');
+                const fullName = this.firstDetailValue(details, ['applicant_name', 'full_name', 'requester_name'], req.name || '');
+                const age = this.firstDetailValue(details, ['age']);
+
+                const field = (label, value) => ({ label, value: this.formatDetailValue(value) });
+
+                if (req.type === 'business') {
+                    if (docType === 'business clearance') {
+                        return [
+                            field('Owner Name', this.firstDetailValue(details, ['owner_name'], req.name || '')),
+                            field('Business Location', this.firstDetailValue(details, ['address', 'business_location', 'location'])),
+                            field('Day', day),
+                            field('Month', month)
+                        ];
+                    }
+
+                    return [
+                        field('Name of Business', this.firstDetailValue(details, ['business_name'])),
+                        field('Name of Owner', this.firstDetailValue(details, ['owner_name'], req.name || '')),
+                        field('Type/Line of Business', this.firstDetailValue(details, ['business_type', 'line_of_business'])),
+                        field('Business Location', this.firstDetailValue(details, ['address', 'business_location', 'location'])),
+                        field('Day', day),
+                        field('Month', month)
+                    ];
+                }
+
+                if (docType === 'barangay clearance') {
+                    return [
+                        field('Full Name', fullName),
+                        field('Age', age),
+                        field('Purpose', this.firstDetailValue(details, ['purpose'], req.purpose || '')),
+                        field('Day', day),
+                        field('Month', month)
+                    ];
+                }
+
+                if (docType === 'certificate of residency') {
+                    return [
+                        field('Full Name', fullName),
+                        field('Age', age),
+                        field('Years of Residency', this.firstDetailValue(details, ['duration', 'years_of_residency'])),
+                        field('Day', day),
+                        field('Month', month)
+                    ];
+                }
+
+                if (docType === 'certificate of indigency (special)' || docType.includes('special')) {
+                    return [
+                        field('Name of Patient/Deceased', this.firstDetailValue(details, ['beneficiary_name', 'patient_name', 'deceased_name'])),
+                        field('Requester Name', this.firstDetailValue(details, ['requester_name'], req.name || '')),
+                        field('Relation to the Patient', this.firstDetailValue(details, ['relation', 'relationship'])),
+                        field('Day', day),
+                        field('Month', month)
+                    ];
+                }
+
+                if (docType === 'certificate of indigency') {
+                    return [
+                        field('Full Name', fullName),
+                        field('Age', age),
+                        field('Day', day),
+                        field('Month', month)
+                    ];
+                }
+
+                return Object.entries(details).map(([key, value]) => field(this.formatDetailLabel(key), value));
+            },
+            async submitCashPayment() {
+                if (!this.selectedReq) return;
+                if (!this.selectedReq.requiresPayment) {
+                    showToast('This document does not require payment.', 'warning');
+                    this.selectedReq.isPaying = false;
+                    this.selectedReq.cashInput = '';
+                    return;
+                }
+
+                const due = parseFloat(this.selectedReq.amountDue || 0);
+                const cash = parseFloat(this.selectedReq.cashInput || 0);
+
+                if (Number.isNaN(cash) || cash <= 0) {
+                    showToast('Please enter a valid cash amount.', 'error');
+                    return;
+                }
+
+                if (cash < due) {
+                    showToast('Cash amount is not enough for this request.', 'error');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('id', this.selectedReq.id);
+                formData.append('type', this.selectedReq.type);
+                formData.append('cash_received', cash.toFixed(2));
+                formData.append('csrf_token', MONITORING_CSRF_TOKEN);
+
+                try {
+                    const response = await fetch('../partials/make-cash-payment.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await response.json();
+
+                    if (!data.success) {
+                        showToast(data.error || 'Failed to process cash payment.', 'error');
+                        return;
+                    }
+
+                    this.selectedReq.paymentStatus = 'Paid';
+                    this.selectedReq.canPrintNow = true;
+                    this.selectedReq.orNumber = data.or_number || this.selectedReq.orNumber;
+                    this.selectedReq.changeValue = Number(data.change_amount || 0).toFixed(2);
+                    this.selectedReq.cashInput = '';
+                    this.selectedReq.isPaying = false;
+                    if (data.status) {
+                        this.selectedReq.status = data.status;
+                        const row = document.getElementById(`request-row-${this.selectedReq.type}-${this.selectedReq.id}`);
+                        if (row) {
+                            const statusCell = row.querySelector('.status-badge');
+                            if (statusCell) {
+                                statusCell.textContent = data.status;
+                                statusCell.className = 'status-badge bg-green-100 text-green-800';
+                            }
+                        }
+                    }
+
+                    updateRowPaymentBadge(this.selectedReq.id, this.selectedReq.type, this.selectedReq.orNumber);
+                    showToast(data.warning || (this.selectedReq.type === 'document' ? 'Cash payment recorded. Request completed.' : 'Cash payment recorded.'), data.warning ? 'warning' : 'success');
+                } catch (e) {
+                    showToast('Failed to process cash payment.', 'error');
+                }
+            },
+            async approveRequest() {
+                if (!this.canApprove(this.selectedReq)) return;
+                const isPaid = this.selectedReq.paymentStatus === 'Paid';
+                const targetStatus = isPaid ? 'Completed' : 'Approved';
+                const formData = new FormData();
+                formData.append('id', this.selectedReq.id);
+                formData.append('type', this.selectedReq.type);
+                formData.append('status', targetStatus);
+                formData.append('csrf_token', MONITORING_CSRF_TOKEN);
+                try {
+                    const response = await fetch('../partials/ajax-update-request-status.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await response.json();
+                    if (!data.success) {
+                        showToast(data.error || 'Failed to update request status.', 'error');
+                        return;
+                    }
+                    this.selectedReq.status = data.status || targetStatus;
+                    const row = document.getElementById(`request-row-${this.selectedReq.type}-${this.selectedReq.id}`);
+                    if (row) {
+                        const statusCell = row.querySelector('.status-badge');
+                        if (statusCell) {
+                            statusCell.textContent = this.selectedReq.status;
+                            const bgClass = this.selectedReq.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                            this.selectedReq.status === 'Approved' ? 'bg-blue-100 text-blue-800' :
+                                            'bg-yellow-100 text-yellow-800';
+                            statusCell.className = 'status-badge ' + bgClass;
+                        }
+                        row.style.backgroundColor = isPaid ? '#f0fdf4' : '#eff6ff';
+                        setTimeout(() => row.style.backgroundColor = '', 600);
+                    }
+                    showToast(data.warning || (isPaid ? 'Request auto-completed (already paid).' : 'Request approved successfully.'), data.warning ? 'warning' : 'success');
+                } catch (e) {
+                    showToast('Failed to update request status.', 'error');
+                }
+            },
+            async saveAdminNotes() {
+                if (!this.selectedReq) return;
+                const notes = this.selectedReq.adminNotesInput || '';
+                const formData = new FormData();
+                formData.append('id', this.selectedReq.id);
+                formData.append('type', this.selectedReq.type);
+                formData.append('admin_notes', notes);
+                formData.append('csrf_token', MONITORING_CSRF_TOKEN);
+                try {
+                    const response = await fetch('../partials/save-admin-notes.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await response.json();
+                    if (!data.success) {
+                        showToast(data.error || 'Failed to save admin notes.', 'error');
+                        return;
+                    }
+                    this.selectedReq.adminNotes = notes;
+                    showToast('Admin notes saved successfully.');
+                } catch (e) {
+                    showToast('Failed to save admin notes.', 'error');
+                }
+            }
+        };
+    }
+
     // Filter handler function
     function updateFilter(filterName, filterValue) {
         const params = new URLSearchParams(window.location.search);
@@ -1538,7 +1785,7 @@ echo json_encode($monitoring_csrf_token); ?>;
             <span data-payment-status="Paid" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
                 <i class="fas fa-check-circle mr-1"></i> PAID
             </span>
-            ${safeOr ? `<div class="text-xs text-gray-500 mt-1">O.R. ${safeOr}</div>` : ''}
+            ${safeOr ? `<button type="button" class="mt-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline" onclick='window.dispatchEvent(new CustomEvent("open-receipt", { detail: { id: ${JSON.stringify(String(id))}, type: ${JSON.stringify(String(type))} } }))'>O.R. ${safeOr}</button>` : ''}
         `;
     }
 

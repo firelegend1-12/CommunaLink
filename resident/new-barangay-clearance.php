@@ -35,6 +35,9 @@ if (!empty($resident['date_of_birth'])) {
 }
 
 $full_name = htmlspecialchars($resident['first_name'] . ' ' . $resident['last_name']);
+$document_gender = resident_document_gender_label($resident['gender'] ?? '');
+$document_civil_status = resident_document_civil_status_label($resident['civil_status'] ?? '');
+$document_locality = resident_document_locality_label($resident['address'] ?? '');
 
 $document_print_layout = true;
 require_once 'partials/header.php';
@@ -66,6 +69,9 @@ require_once 'partials/header.php';
                 <input type="hidden" name="resident_id" value="<?= $resident['id'] ?>">
                 <input type="hidden" name="day_issued" id="day_issued" value="<?= date('jS') ?>">
                 <input type="hidden" name="month_issued" id="month_issued" value="<?= date('F') ?>">
+                <input type="hidden" name="document_gender" id="document_gender" value="<?= htmlspecialchars($document_gender, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="document_civil_status" id="document_civil_status" value="<?= htmlspecialchars($document_civil_status, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="document_locality" id="document_locality" value="<?= htmlspecialchars($document_locality, ENT_QUOTES, 'UTF-8') ?>">
 
                 <!-- Applicant Details (Pre-Filled) -->
                 <div class="bg-gray-50/50 p-6 rounded-xl border border-gray-100">
@@ -117,6 +123,66 @@ require_once 'partials/header.php';
                                 $svg
                             );
                             $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="29.612015 41.640626 49.96875 54.59639 61.989229 66.61687 71.24451 78.637348 90.665958 98.99408 103.62172 111.01456">male/female,</tspan></text>',
+                                '<text id="field-gender" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="29.612015 41.640626 49.96875 54.59639 61.989229 66.61687 71.24451 78.637348 90.665958 98.99408 103.62172 111.01456">male/female,</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="119.34268 125.82463 130.45227 138.7804 147.10852 151.73616">single</tspan></text>',
+                                '<text id="field-civil-status" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="119.34268 125.82463 130.45227 138.7804 147.10852 151.73616">single</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="163.29306">/</tspan></text>',
+                                '<text id="field-civil-status-slash" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="163.29306">/</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="172.08477 184.11338 192.4415 198.92345 205.4054 210.03304 217.42588 225.754">married/</tspan></text>',
+                                '<text id="field-civil-status-married" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="172.08477 184.11338 192.4415 198.92345 205.4054 210.03304 217.42588 225.754">married/</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="234.5457 241.02765 248.42049 256.7486 265.07673 271.5587 279.8868 284.51448 291.9073 300.2354">separated/</tspan></text>',
+                                '<text id="field-civil-status-separated" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="234.5457 241.02765 248.42049 256.7486 265.07673 271.5587 279.8868 284.51448 291.9073 300.2354">separated/</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="309.0271 320.1367 324.76435 333.09248 341.4206 352.53016 357.1578 364.55067">widow/er</tspan></text>',
+                                '<text id="field-civil-status-widow" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="309.0271 320.1367 324.76435 333.09248 341.4206 352.53016 357.1578 364.55067">widow/er</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="477.289 486.55244 494.88056 503.20869">Zone</tspan></text>',
+                                '<text id="field-locality" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="477.289 486.55244 494.88056 503.20869">Zone</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="514.76559">I</tspan></text>',
+                                '<text id="field-locality-i" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="514.76559">I</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="524.4763 529.10397 534.65066">/II</tspan></text>',
+                                '<text id="field-locality-ii" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="524.4763 529.10397 534.65066">/II</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="544.3613">/</tspan></text>',
+                                '<text id="field-locality-slash" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="544.3613">/</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="553.153 558.6997 564.24636 569.79299">III/</tspan></text>',
+                                '<text id="field-locality-iii" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="553.153 558.6997 564.24636 569.79299">III/</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
+                                '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="578.5847 584.13137">IV</tspan></text>',
+                                '<text id="field-locality-iv" xml:space="preserve" transform="matrix(.75 0 0 .75 72 262.37284)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="37.59969" x="578.5847 584.13137">IV</tspan></text>',
+                                $svg
+                            );
+                            $svg = str_replace(
                                 '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 460.731)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="15.5598959" x="72.16353 80.49165 88.81978 97.1479">',
                                 '<text id="field-day" xml:space="preserve" transform="matrix(.75 0 0 .75 72 460.731)" font-size="16.666666" font-family="Times New Roman" font-style="italic"><tspan y="15.5598959" x="72.16353 80.49165 88.81978 97.1479">',
                                 $svg
@@ -156,8 +222,15 @@ require_once 'partials/header.php';
         'field-name': 'applicant_name',
         'field-age': 'applicant_age',
         'field-purpose': 'purpose',
+        'field-gender': 'document_gender',
+        'field-civil-status': 'document_civil_status',
+        'field-locality': 'document_locality',
         'field-day': 'day_issued',
         'field-month': 'month_issued'
+    };
+    const fieldGroups = {
+        'field-civil-status': ['field-civil-status-slash', 'field-civil-status-married', 'field-civil-status-separated', 'field-civil-status-widow'],
+        'field-locality': ['field-locality-i', 'field-locality-ii', 'field-locality-slash', 'field-locality-iii', 'field-locality-iv']
     };
 
     function getFieldValue(id) {
@@ -167,6 +240,57 @@ require_once 'partials/header.php';
         return el ? el.value : '';
     }
 
+    function trackedFieldIds() {
+        return [...new Set(Object.keys(fieldMap).concat(...Object.values(fieldGroups)))];
+    }
+
+    function rememberFieldState(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const tspan = el.querySelector('tspan');
+        if (!tspan) return;
+        if (!tspan.dataset.origText) {
+            tspan.dataset.origText = tspan.textContent;
+        }
+        if (!tspan.dataset.origX) {
+            tspan.dataset.origX = tspan.getAttribute('x') || '0';
+        }
+    }
+
+    function resetTrackedText() {
+        trackedFieldIds().forEach(function(id) {
+            rememberFieldState(id);
+            const el = document.getElementById(id);
+            const tspan = el ? el.querySelector('tspan') : null;
+            if (!tspan) return;
+            tspan.textContent = tspan.dataset.origText || '';
+            tspan.setAttribute('x', tspan.dataset.origX || '0');
+        });
+    }
+
+    function fieldGroupIds(id) {
+        return [id].concat(fieldGroups[id] || []);
+    }
+
+    function measureFieldSpan(ids) {
+        let start = null;
+        let end = null;
+        ids.forEach(function(id) {
+            const el = document.getElementById(id);
+            const tspan = el ? el.querySelector('tspan') : null;
+            if (!tspan) return;
+            const xCoords = (tspan.dataset.origX || tspan.getAttribute('x') || '0').split(/\s+/).map(parseFloat).filter(function(n) { return !isNaN(n); });
+            if (xCoords.length === 0) return;
+            const firstX = xCoords[0];
+            const lastX = xCoords[xCoords.length - 1];
+            const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
+            start = start === null ? firstX : Math.min(start, firstX);
+            end = end === null ? (lastX + charWidth) : Math.max(end, lastX + charWidth);
+        });
+        if (start === null || end === null) return null;
+        return { start: start, width: end - start };
+    }
+
     function recomputeLayout() {
         // Pre-save original transforms for all text elements (once)
         document.querySelectorAll('svg text').forEach(function(el) {
@@ -174,6 +298,7 @@ require_once 'partials/header.php';
                 el.dataset.origTransform = el.getAttribute('transform');
             }
         });
+        resetTrackedText();
 
         // Step 1: set text content + reset x on each field, preserving trailing punctuation
         Object.keys(fieldMap).forEach(function(id) {
@@ -181,22 +306,19 @@ require_once 'partials/header.php';
             if (!el) return;
             const tspan = el.querySelector('tspan');
             if (!tspan) return;
-            if (!tspan.dataset.origText) {
-                tspan.dataset.origText = tspan.textContent;
-            }
-            if (!tspan.dataset.origX) {
-                tspan.dataset.origX = tspan.getAttribute('x') || '0';
-            }
             const value = getFieldValue(id);
             const firstX = tspan.dataset.origX.split(/\s+/)[0];
-            if (!value || String(value).trim() === '') {
-                tspan.textContent = tspan.dataset.origText;
-                tspan.setAttribute('x', tspan.dataset.origX);
-            } else {
-                const suffix = tspan.dataset.origText.replace(/^[_\s]+/, '');
-                tspan.textContent = String(value) + suffix;
-                tspan.setAttribute('x', firstX);
-            }
+            if (!value || String(value).trim() === '') return;
+            const suffix = tspan.dataset.origText.replace(/^[_\s]+/, '');
+            tspan.textContent = String(value) + suffix;
+            tspan.setAttribute('x', firstX);
+            (fieldGroups[id] || []).forEach(function(extraId) {
+                const extraEl = document.getElementById(extraId);
+                const extraTspan = extraEl ? extraEl.querySelector('tspan') : null;
+                if (!extraTspan) return;
+                extraTspan.textContent = '';
+                extraTspan.setAttribute('x', extraTspan.dataset.origX || '0');
+            });
         });
 
         // Step 2: reset every shifted text element back to original transform
@@ -213,22 +335,20 @@ require_once 'partials/header.php';
                 if (!tspan || !tspan.dataset.origX) return;
                 const value = getFieldValue(id);
                 if (!value || String(value).trim() === '') return;
-                const xCoords = tspan.dataset.origX.split(/\s+/).map(parseFloat).filter(function(n) { return !isNaN(n); });
-                if (xCoords.length === 0) return;
-                const firstX = xCoords[0];
-                const lastX = xCoords[xCoords.length - 1];
-                const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
-                const blankWidth = (lastX - firstX) + charWidth;
+                const groupIds = fieldGroupIds(id);
+                const span = measureFieldSpan(groupIds);
+                if (!span) return;
                 let actualWidth = 0;
                 try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
-                const shift = blankWidth - actualWidth;
-                if (shift <= 0.5) return;
+                const shift = span.width - actualWidth;
+                if (Math.abs(shift) <= 0.5) return;
                 const origLineTransform = el.dataset.origTransform || el.getAttribute('transform');
                 const lineY = tspan.getAttribute('y');
                 const parent = el.parentElement;
                 if (!parent) return;
+                const groupIdSet = new Set(groupIds);
                 Array.from(parent.querySelectorAll('text')).forEach(function(t) {
-                    if (t === el) return;
+                    if (t === el || groupIdSet.has(t.id)) return;
                     const ts = t.querySelector('tspan');
                     if (!ts) return;
                     const tBaseTransform = t.dataset.origTransform || t.getAttribute('transform') || '';
@@ -236,7 +356,7 @@ require_once 'partials/header.php';
                     if (ts.getAttribute('y') !== lineY) return;
                     const tOrigX = ts.dataset.origX || ts.getAttribute('x') || '0';
                     const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
-                    if (isNaN(tFirstX) || tFirstX <= firstX) return;
+                    if (isNaN(tFirstX) || tFirstX <= span.start) return;
                     const currentTransform = t.getAttribute('transform') || tBaseTransform;
                     t.setAttribute('transform', currentTransform + ' translate(' + (-shift) + ' 0)');
                 });

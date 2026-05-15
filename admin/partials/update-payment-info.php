@@ -93,7 +93,7 @@ try {
     }
 
     // Fetch resident info for notification
-    $stmt_res = $pdo->prepare("SELECT " . ($type === 'document' ? "COALESCE(NULLIF(dr.requested_by_user_id, 0), r.user_id)" : "r.user_id") . " AS recipient_user_id, " . ($type === 'document' ? "dr.document_type as item_name" : "COALESCE(NULLIF(bt.transaction_type, ''), bt.business_name) as item_name") . " 
+    $stmt_res = $pdo->prepare("SELECT " . ($type === 'document' ? "COALESCE(NULLIF(dr.requested_by_user_id, 0), r.user_id)" : "r.user_id") . " AS recipient_user_id, " . ($type === 'document' ? "dr.document_type as item_name, NULL as transaction_type, NULL as remarks" : "COALESCE(NULLIF(bt.transaction_type, ''), bt.business_name) as item_name, bt.transaction_type as transaction_type, bt.remarks as remarks") . " 
                                FROM $table " . ($type === 'document' ? 'dr' : 'bt') . "
                                JOIN residents r ON " . ($type === 'document' ? 'dr.resident_id' : 'bt.resident_id') . " = r.id
                                WHERE " . ($type === 'document' ? 'dr.id' : 'bt.id') . " = ?");
@@ -101,7 +101,9 @@ try {
     $res_info = $stmt_res->fetch();
 
     if ($res_info && $res_info['recipient_user_id']) {
-        $item_name = $res_info['item_name'];
+        $item_name = $type === 'business'
+            ? get_business_transaction_display_name($res_info['transaction_type'] ?? $res_info['item_name'] ?? '', $res_info['remarks'] ?? '')
+            : $res_info['item_name'];
         $notification_sent = NotificationSystem::notify_payment_update(
             $pdo,
             (int) $res_info['recipient_user_id'],

@@ -47,7 +47,7 @@ if (!$permit) {
 
 $is_business_clearance = (($trans['remarks'] ?? '') === 'Barangay Business Clearance');
 $page_title = $is_business_clearance ? "Barangay Business Clearance Details" : "Business Permit Details";
-$status = $trans['status'] ?? 'Pending';
+$status = get_request_display_status($trans['status'] ?? 'Pending', $trans['payment_status'] ?? null, true);
 $date_applied = date('F j, Y', strtotime($trans['application_date']));
 
 require_once 'partials/header.php';
@@ -59,7 +59,7 @@ require_once 'partials/header.php';
             <i class="fas fa-arrow-left"></i> Back to My Requests
         </a>
         
-        <?php if($status === 'Pending'): ?>
+        <?php if (strcasecmp($status, 'Pending') === 0): ?>
             <button class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg font-semibold border border-red-200 transition-colors shadow-sm" onclick="cancelBusinessApplication(<?= (int) $trans['id'] ?>)">
                 <i class="fas fa-times-circle mr-1"></i> Cancel Application
             </button>

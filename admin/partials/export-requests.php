@@ -138,12 +138,19 @@ try {
     
     // Add data rows
     foreach ($requests as $req) {
+        $display_status = get_request_display_status(
+            $req['status'] ?? null,
+            $req['payment_status'] ?? null,
+            $req['request_type'] === 'document'
+                ? document_request_requires_payment($req['document_type'] ?? '')
+                : true
+        );
         fputcsv($output, [
             $req['id'],
             $req['first_name'] . ' ' . $req['last_name'],
             $req['document_type'],
             date('M. d, Y h:i A', strtotime($req['date_requested'])),
-            $req['status'],
+            $display_status,
             $req['payment_status'],
             $req['or_number'] ?? 'N/A',
             ucfirst($req['request_type'])

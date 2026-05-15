@@ -46,8 +46,9 @@ try {
     }
 
     $remarks = "Cancelled by resident: " . $reason;
-    $update = $pdo->prepare("UPDATE business_transactions SET status = 'Cancelled', remarks = ?, processed_date = NOW() WHERE id = ?");
-    $update->execute([$remarks, $transaction_id]);
+    $cancelled_status = normalize_request_status_for_storage($pdo, 'business_transactions', 'Cancelled');
+    $update = $pdo->prepare("UPDATE business_transactions SET status = ?, remarks = ?, processed_date = NOW() WHERE id = ?");
+    $update->execute([$cancelled_status, $remarks, $transaction_id]);
 
     log_activity_db(
         $pdo,
@@ -56,7 +57,7 @@ try {
         $transaction_id,
         "Resident cancelled business application '{$transaction['business_name']}'",
         'Pending',
-        'Cancelled'
+        $cancelled_status
     );
 
     echo json_encode(['success' => true, 'message' => 'Application cancelled successfully']);

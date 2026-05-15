@@ -35,6 +35,8 @@ try {
     $applicant_name = sanitize_input($_POST['applicant_name'] ?? '');
     $age = sanitize_input($_POST['age'] ?? '');
     $duration = sanitize_input($_POST['duration'] ?? '');
+    $document_civil_status = sanitize_input($_POST['document_civil_status'] ?? '');
+    $document_locality = sanitize_input($_POST['document_locality'] ?? '');
     $day_issued = sanitize_input($_POST['day_issued'] ?? date('j'));
     $month_issued = sanitize_input($_POST['month_issued'] ?? date('F'));
     $year_issued = sanitize_input($_POST['year_issued'] ?? date('Y'));
@@ -48,6 +50,8 @@ try {
         'applicant_name' => $applicant_name,
         'age' => $age,
         'duration' => $duration,
+        'civil_status' => $document_civil_status,
+        'locality' => $document_locality,
         'day_issued' => $day_issued,
         'month_issued' => $month_issued,
         'year_issued' => $year_issued,

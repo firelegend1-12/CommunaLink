@@ -17,6 +17,10 @@ $residents = [];
 try {
     $resident_stmt = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) AS full_name, first_name, last_name, middle_initial, gender, address, date_of_birth, place_of_birth, civil_status, occupation FROM residents ORDER BY last_name ASC");
     $residents = $resident_stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($residents as &$resident_row) {
+        $resident_row['document_locality'] = resident_document_locality_label($resident_row['address'] ?? '');
+    }
+    unset($resident_row);
 } catch (PDOException $e) {
     $residents = [];
     $_SESSION['error_message'] = "A database error occurred while fetching residents.";
@@ -105,12 +109,13 @@ try {
                     <?php display_flash_messages(); ?>
                     <div class="bg-white rounded-lg shadow p-8"
                          x-data='{
-                             residents: <?php echo json_encode($residents); ?>,
+                             residents: <?php echo json_encode($residents, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>,
                              selectedResidentId: null,
                              selectedResident: {},
                              formName: "",
                              formRequester: "",
                              formRelation: "",
+                             formLocality: "",
                              formDay: new Date().getDate().toString(),
                              formMonth: new Date().toLocaleDateString("en-US", { month: "long" }),
                              layoutRafId: null,
@@ -118,23 +123,83 @@ try {
                                  "field-name": "formName",
                                  "field-requester": "formRequester",
                                  "field-relation": "formRelation",
+                                 "field-locality": "formLocality",
                                  "field-day": "formDay",
                                  "field-month": "formMonth"
+                             },
+                             fieldGroups: {
+                                 "field-locality": ["field-locality-options"]
                              },
                              init() {
                                  this.$watch("formName", () => this.recomputeLayout());
                                  this.$watch("formRequester", () => this.recomputeLayout());
                                  this.$watch("formRelation", () => this.recomputeLayout());
+                                 this.$watch("formLocality", () => this.recomputeLayout());
                                  this.$watch("formDay", () => this.recomputeLayout());
                                  this.$watch("formMonth", () => this.recomputeLayout());
                                  this.$nextTick(() => this.recomputeLayout());
                              },
+                             trackedFieldIds() {
+                                 return [...new Set(Object.keys(this.fieldMap).concat(...Object.values(this.fieldGroups)))];
+                             },
+                             rememberFieldState(id) {
+                                 const el = document.getElementById(id);
+                                 if (!el) return;
+                                 const tspan = el.querySelector("tspan");
+                                 if (!tspan) return;
+                                 if (!tspan.dataset.origX) {
+                                     tspan.dataset.origX = tspan.getAttribute("x") || "0";
+                                 }
+                                 if (!tspan.dataset.origText) {
+                                     tspan.dataset.origText = tspan.textContent;
+                                 }
+                             },
+                             resetTrackedText() {
+                                 this.trackedFieldIds().forEach(id => {
+                                     this.rememberFieldState(id);
+                                     const el = document.getElementById(id);
+                                     const tspan = el ? el.querySelector("tspan") : null;
+                                     if (!tspan) return;
+                                     tspan.textContent = tspan.dataset.origText || "";
+                                     tspan.setAttribute("x", tspan.dataset.origX || "0");
+                                 });
+                             },
+                             fieldGroupIds(id) {
+                                 return [id].concat(this.fieldGroups[id] || []);
+                             },
+                             measureFieldSpan(ids) {
+                                 let start = null;
+                                 let end = null;
+                                 ids.forEach(id => {
+                                     const el = document.getElementById(id);
+                                     const tspan = el ? el.querySelector("tspan") : null;
+                                     if (!tspan) return;
+                                     const xCoords = (tspan.dataset.origX || tspan.getAttribute("x") || "0").split(/\s+/).map(parseFloat).filter(n => !isNaN(n));
+                                     if (xCoords.length === 0) return;
+                                     const firstX = xCoords[0];
+                                     const lastX = xCoords[xCoords.length - 1];
+                                     const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
+                                     start = start === null ? firstX : Math.min(start, firstX);
+                                     end = end === null ? (lastX + charWidth) : Math.max(end, lastX + charWidth);
+                                 });
+                                 if (start === null || end === null) return null;
+                                 return { start: start, width: end - start };
+                             },
                              selectResident() {
-                                 if (!this.selectedResidentId) return;
+                                 if (!this.selectedResidentId) {
+                                     this.selectedResident = {};
+                                     this.formName = "";
+                                     this.formRequester = "";
+                                     this.formLocality = "";
+                                     this.$nextTick(() => this.recomputeLayout());
+                                     return;
+                                 }
                                  const resident = this.residents.find(r => r.id == this.selectedResidentId);
                                  if (resident) {
                                      this.selectedResident = resident;
+                                     this.formName = resident.full_name || "";
                                      this.formRequester = resident.full_name || "";
+                                     this.formLocality = resident.document_locality || "";
                                  }
                                  this.$nextTick(() => this.recomputeLayout());
                              },
@@ -153,29 +218,27 @@ try {
                                      }
                                  });
                                  const fieldIds = Object.keys(this.fieldMap);
+                                 this.resetTrackedText();
                                  fieldIds.forEach(id => {
                                      const el = document.getElementById(id);
                                      if (!el) return;
                                      const tspan = el.querySelector("tspan");
                                      if (!tspan) return;
-                                     if (!tspan.dataset.origX) {
-                                         tspan.dataset.origX = tspan.getAttribute("x") || "0";
-                                     }
-                                     if (!tspan.dataset.origText) {
-                                         tspan.dataset.origText = tspan.textContent;
-                                     }
                                      const value = this.getFieldValue(id);
                                      const firstX = tspan.dataset.origX.split(/\s+/)[0];
-                                     if (!value || String(value).trim() === "") {
-                                         tspan.textContent = tspan.dataset.origText;
-                                         tspan.setAttribute("x", tspan.dataset.origX);
-                                     } else {
-                                         const m = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
-                                         const prefix = m ? m[1] : "";
-                                         const suffix = m ? m[3] : "";
-                                         tspan.textContent = prefix + String(value) + suffix;
-                                         tspan.setAttribute("x", firstX);
-                                     }
+                                     if (!value || String(value).trim() === "") return;
+                                     const m = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
+                                     const prefix = m ? m[1] : "";
+                                     const suffix = m ? m[3] : "";
+                                     tspan.textContent = prefix + String(value) + suffix;
+                                     tspan.setAttribute("x", firstX);
+                                     (this.fieldGroups[id] || []).forEach(extraId => {
+                                         const extraEl = document.getElementById(extraId);
+                                         const extraTspan = extraEl ? extraEl.querySelector("tspan") : null;
+                                         if (!extraTspan) return;
+                                         extraTspan.textContent = "";
+                                         extraTspan.setAttribute("x", extraTspan.dataset.origX || "0");
+                                     });
                                  });
                                  document.querySelectorAll("svg text[data-orig-transform]").forEach(el => {
                                      el.setAttribute("transform", el.dataset.origTransform);
@@ -188,22 +251,20 @@ try {
                                          if (!tspan || !tspan.dataset.origX) return;
                                          const value = this.getFieldValue(id);
                                          if (!value || String(value).trim() === "") return;
-                                         const xCoords = tspan.dataset.origX.split(/\s+/).map(parseFloat).filter(n => !isNaN(n));
-                                         if (xCoords.length === 0) return;
-                                         const firstX = xCoords[0];
-                                         const lastX = xCoords[xCoords.length - 1];
-                                          const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
-                                         const blankWidth = (lastX - firstX) + charWidth;
+                                         const groupIds = this.fieldGroupIds(id);
+                                         const span = this.measureFieldSpan(groupIds);
+                                         if (!span) return;
                                          let actualWidth = 0;
                                          try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
-                                         const shift = blankWidth - actualWidth;
+                                         const shift = span.width - actualWidth;
                                          if (Math.abs(shift) <= 0.5) return;
                                          const origLineTransform = el.dataset.origTransform || el.getAttribute("transform");
                                          const lineY = tspan.getAttribute("y");
                                          const parent = el.parentElement;
                                          if (!parent) return;
+                                         const groupIdSet = new Set(groupIds);
                                          Array.from(parent.querySelectorAll("text")).forEach(t => {
-                                             if (t === el) return;
+                                             if (t === el || groupIdSet.has(t.id)) return;
                                              const ts = t.querySelector("tspan");
                                              if (!ts) return;
                                              const tBaseTransform = t.dataset.origTransform || t.getAttribute("transform") || "";
@@ -211,7 +272,7 @@ try {
                                              if (ts.getAttribute("y") !== lineY) return;
                                              const tOrigX = ts.dataset.origX || ts.getAttribute("x") || "0";
                                              const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
-                                             if (isNaN(tFirstX) || tFirstX <= firstX) return;
+                                             if (isNaN(tFirstX) || tFirstX <= span.start) return;
                                              const currentTransform = t.getAttribute("transform") || tBaseTransform;
                                              t.setAttribute("transform", currentTransform + " translate(" + (-shift) + " 0)");
                                          });
@@ -300,6 +361,16 @@ try {
                                 $svg = str_replace(
                                     '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 396.32997)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="115.56888',
                                     '<text id="field-relation" xml:space="preserve" transform="matrix(.75 0 0 .75 72 396.32997)" font-size="17.333334" font-family="Arial"><tspan y="46.155923" x="115.56888',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 306.63758)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="508.46488 519.04959 528.68667 538.3237">Zone</tspan></text>',
+                                    '<text id="field-locality" xml:space="preserve" transform="matrix(.75 0 0 .75 72 306.63758)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="508.46488 519.04959 528.68667 538.3237">Zone</tspan></text>',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 306.63758)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="552.77517 557.5895 562.4038 567.2181 572.0324 576.84677 581.661 586.47537 591.2897 596.104 600.91836 610.8849">I/II/III/IV,</tspan></text>',
+                                    '<text id="field-locality-options" xml:space="preserve" transform="matrix(.75 0 0 .75 72 306.63758)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="552.77517 557.5895 562.4038 567.2181 572.0324 576.84677 581.661 586.47537 591.2897 596.104 600.91836 610.8849">I/II/III/IV,</tspan></text>',
                                     $svg
                                 );
                                 // Day (line ~442)

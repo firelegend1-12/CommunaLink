@@ -51,10 +51,10 @@ $document_fees = [
     'Certificate of Residency' => get_document_request_fee('Certificate of Residency'),
     'Certificate of Indigency' => get_document_request_fee('Certificate of Indigency'),
     'Certificate of Indigency (Special)' => get_document_request_fee('Certificate of Indigency (Special)'),
-    'Business Clearance' => 500.00,
+    'Business Clearance' => get_business_transaction_fee('New Permit', 'Barangay Business Clearance'),
 ];
 
-$business_fee = 500.00;
+$business_fee = get_business_transaction_fee();
 
 try {
     $pdo->beginTransaction();
@@ -77,7 +77,7 @@ try {
         $table = 'document_requests';
         $item_name = (string) ($row['document_type'] ?? 'Document Request');
     } else {
-        $stmt = $pdo->prepare("SELECT bt.id, bt.transaction_type, bt.payment_status, bt.or_number, bt.status, r.user_id AS recipient_user_id, CONCAT(r.first_name, ' ', r.last_name) AS resident_name FROM business_transactions bt LEFT JOIN residents r ON bt.resident_id = r.id WHERE bt.id = ? FOR UPDATE");
+        $stmt = $pdo->prepare("SELECT bt.id, bt.transaction_type, bt.remarks, bt.payment_status, bt.or_number, bt.status, r.user_id AS recipient_user_id, CONCAT(r.first_name, ' ', r.last_name) AS resident_name FROM business_transactions bt LEFT JOIN residents r ON bt.resident_id = r.id WHERE bt.id = ? FOR UPDATE");
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -85,9 +85,9 @@ try {
             throw new Exception('Business transaction not found.');
         }
 
-        $amount_due = $business_fee;
+        $amount_due = get_business_transaction_fee($row['transaction_type'] ?? '', $row['remarks'] ?? '');
         $table = 'business_transactions';
-        $item_name = (string) ($row['transaction_type'] ?? 'Business Request');
+        $item_name = get_business_transaction_display_name($row['transaction_type'] ?? '', $row['remarks'] ?? '');
     }
 
     if ($cash_received < $amount_due) {

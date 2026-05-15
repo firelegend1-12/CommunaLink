@@ -86,22 +86,30 @@ try {
     if ($type === 'document') {
         $fetch_stmt = $pdo->prepare("SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.status, dr.payment_status, dr.or_number FROM document_requests dr LEFT JOIN residents r ON dr.resident_id = r.id WHERE dr.id = ?");
     } else {
-        $fetch_stmt = $pdo->prepare("SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.status, bt.payment_status, bt.or_number FROM business_transactions bt LEFT JOIN residents r ON bt.resident_id = r.id WHERE bt.id = ?");
+        $fetch_stmt = $pdo->prepare("SELECT bt.id, r.first_name, r.last_name, CASE WHEN bt.remarks = 'Barangay Business Clearance' THEN 'Business Clearance' WHEN bt.transaction_type = 'New Permit' THEN 'Business Permit' ELSE bt.transaction_type END as document_type, bt.application_date as date_requested, bt.status, bt.payment_status, bt.or_number FROM business_transactions bt LEFT JOIN residents r ON bt.resident_id = r.id WHERE bt.id = ?");
     }
     $fetch_stmt->execute([$id]);
     $updated_row = $fetch_stmt->fetch(PDO::FETCH_ASSOC);
     if ($updated_row) {
-        $updated_row['status'] = normalize_request_status_display($updated_row['status'] ?? null);
+        $updated_row['status'] = get_request_display_status(
+            $updated_row['status'] ?? null,
+            $updated_row['payment_status'] ?? null,
+            $type === 'document'
+                ? document_request_requires_payment($updated_row['document_type'] ?? '')
+                : true
+        );
     }
 
-    if ($type === 'document' && $old_status !== normalize_request_status_display($stored_status ?? $status)) {
+    $display_status = normalize_request_status_display($stored_status ?? $status);
+
+    if ($type === 'document' && $old_status !== $display_status) {
         $recipient_user_id = get_document_request_recipient_user_id($pdo, $id);
         if ($recipient_user_id !== null) {
             $notification_sent = NotificationSystem::notify_document_status(
                 $pdo,
                 $recipient_user_id,
                 $document_type,
-                normalize_request_status_display($stored_status ?? $status),
+                $display_status,
                 'my-document-requests.php'
             );
             if (!$notification_sent) {
@@ -118,7 +126,7 @@ try {
     $response = [
         'success' => true,
         'message' => 'Status updated successfully',
-        'status' => normalize_request_status_display($stored_status ?? $status),
+        'status' => $updated_row['status'] ?? $display_status,
         'updated_row' => $updated_row
     ];
     if ($notification_warning !== null) {

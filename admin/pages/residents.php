@@ -9,6 +9,7 @@ require_once '../partials/admin_auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/storage_manager.php';
+require_once '../../includes/permission_checker.php';
 
 function admin_resident_profile_image_url(string $storedPath): string
 {
@@ -423,10 +424,16 @@ try {
                                             </h3>
                                             <div class="space-y-3">
                                                 <template x-for="req in residentData.history.requests" :key="req.id">
-                                                    <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
-                                                        <div>
+                                                    <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                                                        <div class="min-w-0">
                                                             <div class="text-sm font-bold text-gray-900" x-text="req.document_type"></div>
                                                             <div class="text-xs text-gray-500" x-text="new Date(req.activity_at || req.requested_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})"></div>
+                                                            <div class="mt-2 flex flex-wrap items-center gap-2" x-show="req.payment_status === 'Paid' && req.or_number">
+                                                                <span class="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2 py-1 text-[10px] font-black uppercase text-green-700">
+                                                                    <i class="fas fa-check-circle mr-1"></i>Paid
+                                                                </span>
+                                                                <button type="button" class="text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline" @click="openReceipt(req.id, req.request_type || 'document')" x-text="'O.R. ' + req.or_number"></button>
+                                                            </div>
                                                         </div>
                                                         <span :class="{
                                                             'px-2 py-1 text-[10px] font-black uppercase rounded-lg': true,
@@ -510,6 +517,35 @@ try {
             </div>
         </div>
     </div>
+    <div x-show="receiptModalOpen" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4" @keydown.escape.window="closeReceipt()">
+        <div class="absolute inset-0" @click="closeReceipt()"></div>
+        <div class="relative w-full max-w-3xl">
+            <div class="rounded-[32px] bg-white shadow-2xl overflow-hidden">
+                <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                    <div>
+                        <h3 class="text-lg font-black text-gray-900">Official Receipt</h3>
+                        <p class="text-sm text-gray-500">Payment details for completed requests.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" @click="printReceipt()" :disabled="!receiptData" class="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50">
+                            <i class="fas fa-print mr-2"></i>Print
+                        </button>
+                        <button type="button" @click="closeReceipt()" class="rounded-xl bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">
+                            Close
+                        </button>
+                    </div>
+                </div>
+                <div class="max-h-[80vh] overflow-y-auto px-6 py-6 bg-slate-50">
+                    <div x-show="receiptLoading" class="flex flex-col items-center justify-center py-20 text-center">
+                        <div class="h-12 w-12 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600"></div>
+                        <p class="mt-4 text-sm font-medium text-gray-500">Loading receipt details...</p>
+                    </div>
+                    <div x-show="!receiptLoading && receiptError" class="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm font-medium text-red-700" x-text="receiptError"></div>
+                    <div x-show="!receiptLoading && receiptData" x-html="receiptDetailsMarkup()"></div>
+                </div>
+            </div>
+        </div>
+    </div>
     <script>
         // Prevent accidental click-through right after navigation/render.
         (function() {
@@ -538,6 +574,10 @@ try {
                 showView: false,
                 loadingResident: false,
                 residentData: null,
+                receiptModalOpen: false,
+                receiptLoading: false,
+                receiptError: '',
+                receiptData: null,
                 init() {
                     window.addEventListener('resident-open-view', (e) => {
                         const id = parseInt(e.detail, 10);
@@ -550,6 +590,15 @@ try {
                         const id = parseInt(e.detail, 10);
                         if (!Number.isNaN(id)) {
                             this.generateId(id);
+                        }
+                    });
+
+                    window.addEventListener('open-receipt', (event) => {
+                        const detail = event.detail || {};
+                        const id = parseInt(detail.id, 10);
+                        const type = detail.type;
+                        if (!Number.isNaN(id) && (type === 'document' || type === 'business')) {
+                            this.openReceipt(id, type);
                         }
                     });
                 },
@@ -597,6 +646,156 @@ try {
                 },
                 printId() {
                     window.print();
+                },
+                async openReceipt(id, type) {
+                    this.receiptModalOpen = true;
+                    this.receiptLoading = true;
+                    this.receiptError = '';
+                    this.receiptData = null;
+
+                    try {
+                        const response = await fetch(`../partials/get-receipt-details.php?id=${encodeURIComponent(id)}&type=${encodeURIComponent(type)}`, {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+                        const data = await response.json();
+
+                        if (!data.success) {
+                            this.receiptError = data.error || 'Failed to load receipt details.';
+                            return;
+                        }
+
+                        this.receiptData = data.data || null;
+                    } catch (error) {
+                        console.error(error);
+                        this.receiptError = 'Failed to load receipt details.';
+                    } finally {
+                        this.receiptLoading = false;
+                    }
+                },
+                closeReceipt() {
+                    this.receiptModalOpen = false;
+                },
+                formatReceiptDate(value) {
+                    if (!value) return 'N/A';
+                    const date = new Date(value);
+                    if (Number.isNaN(date.getTime())) return value;
+                    return date.toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                    });
+                },
+                formatMoney(value) {
+                    const number = Number(value || 0);
+                    return `PHP ${number.toFixed(2)}`;
+                },
+                escapeHtml(value) {
+                    return String(value ?? '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                },
+                receiptDetailsMarkup() {
+                    if (!this.receiptData) return '';
+
+                    const receipt = this.receiptData;
+                    const purpose = receipt.purpose ? `
+                        <div>
+                            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500">Purpose</p>
+                            <p class="mt-1 text-sm font-semibold text-gray-900">${this.escapeHtml(receipt.purpose)}</p>
+                        </div>
+                    ` : '';
+                    const cashRow = receipt.cashReceived ? `
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-500">Cash Received</span>
+                            <span class="font-semibold text-gray-900">${this.escapeHtml(this.formatMoney(receipt.cashReceived))}</span>
+                        </div>
+                    ` : '';
+                    const changeRow = receipt.changeAmount ? `
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-500">Change</span>
+                            <span class="font-semibold text-gray-900">${this.escapeHtml(this.formatMoney(receipt.changeAmount))}</span>
+                        </div>
+                    ` : '';
+
+                    return `
+                        <div class="rounded-[28px] border border-gray-200 bg-white shadow-xl overflow-hidden">
+                            <div class="bg-gradient-to-r from-blue-700 via-sky-700 to-cyan-600 px-6 py-6 text-white">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div>
+                                        <p class="text-xs font-black uppercase tracking-[0.28em] text-blue-100">Official Receipt</p>
+                                        <h3 class="mt-2 text-2xl font-black">${this.escapeHtml(receipt.orNumber || 'N/A')}</h3>
+                                        <p class="mt-2 text-sm text-blue-100">${this.escapeHtml(receipt.barangayName || 'Barangay')}</p>
+                                    </div>
+                                    <div class="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-right backdrop-blur-sm">
+                                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-100">Paid On</p>
+                                        <p class="mt-1 text-sm font-semibold text-white">${this.escapeHtml(this.formatReceiptDate(receipt.paymentDate))}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="px-6 py-6 space-y-6">
+                                <div class="grid gap-3 sm:grid-cols-2">
+                                    <div class="rounded-2xl bg-gray-50 border border-gray-200 p-4">
+                                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500">Resident</p>
+                                        <p class="mt-2 text-base font-bold text-gray-900">${this.escapeHtml(receipt.residentName || 'N/A')}</p>
+                                    </div>
+                                    <div class="rounded-2xl bg-gray-50 border border-gray-200 p-4">
+                                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500">Request</p>
+                                        <p class="mt-2 text-base font-bold text-gray-900">${this.escapeHtml(receipt.itemName || 'N/A')}</p>
+                                        <p class="mt-1 text-xs text-gray-500">${this.escapeHtml(this.formatReceiptDate(receipt.requestDate))}</p>
+                                    </div>
+                                </div>
+                                <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-4 space-y-3">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span class="text-gray-500">Amount Due</span>
+                                        <span class="font-semibold text-gray-900">${this.escapeHtml(this.formatMoney(receipt.amountDue))}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span class="text-gray-500">Amount Paid</span>
+                                        <span class="font-semibold text-gray-900">${this.escapeHtml(this.formatMoney(receipt.amountPaid))}</span>
+                                    </div>
+                                    ${cashRow}
+                                    ${changeRow}
+                                </div>
+                                ${purpose}
+                            </div>
+                        </div>
+                    `;
+                },
+                printReceipt() {
+                    if (!this.receiptData) return;
+
+                    const printWindow = window.open('', '_blank', 'popup=yes,width=900,height=700');
+                    if (!printWindow) {
+                        alert('Please allow pop-ups so the receipt can open.');
+                        return;
+                    }
+
+                    printWindow.document.write(`
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <meta charset="UTF-8">
+                            <title>Official Receipt ${this.escapeHtml(this.receiptData.orNumber || '')}</title>
+                            <script src="https://cdn.tailwindcss.com"><\/script>
+                        </head>
+                        <body class="bg-white p-8">
+                            <div class="max-w-3xl mx-auto">
+                                ${this.receiptDetailsMarkup()}
+                            </div>
+                            <script>
+                                window.onload = function () {
+                                    window.print();
+                                };
+                            <\/script>
+                        </body>
+                        </html>
+                    `);
+                    printWindow.document.close();
                 }
             }
         }
