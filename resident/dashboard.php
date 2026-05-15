@@ -327,7 +327,7 @@ require_once 'partials/header.php';
                 <i class="fas fa-file-signature text-green-600"></i>
                 Recent Document Requests
             </h2>
-            <a href="my-requests.php" class="view-all-link">View All</a>
+            <a href="my-document-requests.php" class="view-all-link">View All</a>
         </div>
         <div class="responsive-card-grid">
             <?php if (empty($recentRequests)): ?>
@@ -337,7 +337,7 @@ require_once 'partials/header.php';
                     <?php 
                         $statusClass = strtolower(str_replace(' ', '-', $req['status'] ?? 'pending'));
                     ?>
-                    <a href="my-requests.php" class="dashboard-item hover:shadow-md transition-shadow" style="text-decoration: none; color: inherit;">
+                    <a href="request-details.php?id=<?= (int) $req['id'] ?>" class="dashboard-item hover:shadow-md transition-shadow" style="text-decoration: none; color: inherit;">
                         <div class="dashboard-item-icon">
                             <i class="fas fa-file-alt"></i>
                         </div>

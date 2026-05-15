@@ -92,7 +92,7 @@ try {
         $business_id,
         $business_name,
         $expiry_date,
-        'my-requests.php'
+        'new-barangay-business-permit.php'
     );
 
     if (!$delivery['success']) {

@@ -297,7 +297,7 @@ document.getElementById('business-form').addEventListener('submit', function(e) 
     .then(response => residentParseJsonResponse(response))
     .then(data => {
         if(data.success) {
-            window.location.href = 'my-document-requests.php?success=1';
+            window.location.href = data.detail_url || 'barangay-services.php';
         } else {
             residentShowToast(residentRequestErrorMessage(data, 'Unable to submit request.'), 'error');
             btn.disabled = false;

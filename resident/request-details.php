@@ -154,7 +154,7 @@ $flat_details = flatten_details($details);
 <div class="max-w-4xl mx-auto px-4 py-8">
     <div class="mb-6 flex items-center justify-between">
         <a href="my-document-requests.php" class="text-blue-600 hover:text-blue-800 flex items-center gap-2 font-medium transition">
-            <i class="fas fa-arrow-left"></i> Back to My Requests
+            <i class="fas fa-arrow-left"></i> Back to My Document Requests
         </a>
         
         <?php if(strtolower($status) === 'pending'): ?>

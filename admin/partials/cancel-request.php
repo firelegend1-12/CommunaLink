@@ -80,7 +80,7 @@ try {
                 (int) $request['recipient_user_id'],
                 (string) $request['document_type'],
                 'Cancelled',
-                'my-document-requests.php'
+                get_document_request_detail_url($id)
             );
             if (!$notification_sent) {
                 $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
@@ -143,7 +143,7 @@ try {
             (int) $transaction['recipient_user_id'],
             $request_label,
             'Cancelled',
-            'my-requests.php'
+            get_business_transaction_detail_url($id)
         );
         if (!$notification_sent) {
             $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;

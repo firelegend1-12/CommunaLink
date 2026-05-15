@@ -346,7 +346,7 @@ document.getElementById('business-permit-form').addEventListener('submit', funct
     .then(response => residentParseJsonResponse(response))
     .then(data => {
         if (data.success) {
-            window.location.href = 'my-requests.php?success=1';
+            window.location.href = data.detail_url || 'barangay-services.php';
         } else {
             residentShowToast(residentRequestErrorMessage(data, 'Unable to submit application.'), 'error');
             btn.disabled = false;

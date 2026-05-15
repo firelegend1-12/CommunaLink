@@ -60,7 +60,9 @@ try {
     $notification_warning = null;
     $old_status = null;
     $request_label = '';
-    $notification_link = $type === 'document' ? 'my-document-requests.php' : 'my-requests.php';
+    $notification_link = $type === 'document'
+        ? get_document_request_detail_url($id)
+        : get_business_transaction_detail_url($id);
 
     if ($type === 'document') {
         $pre_stmt = $pdo->prepare("SELECT status, document_type FROM document_requests WHERE id = ? LIMIT 1");

@@ -111,13 +111,16 @@ try {
     }
 
     if (!empty($row['recipient_user_id'])) {
+        $detail_url = $type === 'document'
+            ? get_document_request_detail_url($id)
+            : get_business_transaction_detail_url($id);
         $notification_sent = NotificationSystem::notify_payment_update(
             $pdo,
             (int) $row['recipient_user_id'],
             $item_name,
             'Paid',
             $or_number,
-            $type === 'document' ? 'my-document-requests.php' : 'my-requests.php'
+            $detail_url
         );
 
         if (!$notification_sent) {
@@ -127,13 +130,21 @@ try {
         }
 
         if (!request_has_terminal_status($row['status'] ?? null)) {
-            $status_notification_sent = NotificationSystem::notify_document_status(
-                $pdo,
-                (int) $row['recipient_user_id'],
-                $item_name,
-                'Completed',
-                $type === 'document' ? 'my-document-requests.php' : 'my-requests.php'
-            );
+            $status_notification_sent = $type === 'document'
+                ? NotificationSystem::notify_document_status(
+                    $pdo,
+                    (int) $row['recipient_user_id'],
+                    $item_name,
+                    'Completed',
+                    $detail_url
+                )
+                : NotificationSystem::notify_business_status(
+                    $pdo,
+                    (int) $row['recipient_user_id'],
+                    $item_name,
+                    'Completed',
+                    $detail_url
+                );
             if (!$status_notification_sent && $notification_warning === null) {
                 $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
                 $notification_warning = 'Payment recorded, but status web-app notification failed' . ($detail ? ': ' . $detail : '.');

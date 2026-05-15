@@ -21,7 +21,7 @@ if (!class_exists('NotificationSystem')) {
          * @param string $link
          * @return array{success:bool,error:?string,notification_created:bool,email_sent:bool,title:string,message:string}
          */
-        public static function notify_business_expiry($pdo, $recipient_user_id, $recipient_name, $recipient_email, $business_id, $business_name, $expiry_date = '', $link = 'my-requests.php') {
+        public static function notify_business_expiry($pdo, $recipient_user_id, $recipient_name, $recipient_email, $business_id, $business_name, $expiry_date = '', $link = 'new-barangay-business-permit.php') {
             $recipient_user_id = (int) $recipient_user_id;
             $business_id = (int) $business_id;
             $business_name = trim((string) $business_name);
@@ -96,7 +96,7 @@ if (!class_exists('NotificationSystem')) {
          * @param string $link
          * @return bool
          */
-        public static function notify_document_status($pdo, $recipient_user_id, $document_type, $status, $link = 'my-requests.php') {
+        public static function notify_document_status($pdo, $recipient_user_id, $document_type, $status, $link = 'notifications.php') {
             return self::notify_resident_request_status(
                 $pdo,
                 $recipient_user_id,
@@ -119,7 +119,7 @@ if (!class_exists('NotificationSystem')) {
          * @param string $link
          * @return bool
          */
-        public static function notify_business_status($pdo, $recipient_user_id, $request_name, $status, $link = 'my-requests.php') {
+        public static function notify_business_status($pdo, $recipient_user_id, $request_name, $status, $link = 'notifications.php') {
             return self::notify_resident_request_status(
                 $pdo,
                 $recipient_user_id,
@@ -221,7 +221,7 @@ if (!class_exists('NotificationSystem')) {
          * @param string $link
          * @return bool
          */
-        public static function notify_payment_update($pdo, $recipient_user_id, $item_name, $payment_status, $or_number = '', $link = 'my-requests.php') {
+        public static function notify_payment_update($pdo, $recipient_user_id, $item_name, $payment_status, $or_number = '', $link = 'notifications.php') {
             $recipient_user_id = (int) $recipient_user_id;
             if ($recipient_user_id <= 0) {
                 return false;
@@ -274,7 +274,7 @@ if (!class_exists('NotificationSystem')) {
             $cta_label = trim((string) $cta_label);
 
             if ($link === '') {
-                $link = 'my-requests.php';
+                $link = 'notifications.php';
             }
             if ($notification_type === '') {
                 $notification_type = 'request_status';

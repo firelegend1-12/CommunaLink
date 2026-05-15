@@ -1500,6 +1500,28 @@ function get_business_transaction_recipient_user_id(PDO $pdo, int $transaction_i
 }
 
 /**
+ * Build the resident-facing URL for a document request detail view.
+ *
+ * @param int $request_id
+ * @return string
+ */
+function get_document_request_detail_url(int $request_id): string {
+    $request_id = (int) $request_id;
+    return $request_id > 0 ? 'request-details.php?id=' . $request_id : 'my-document-requests.php';
+}
+
+/**
+ * Build the resident-facing URL for a business transaction detail view.
+ *
+ * @param int $transaction_id
+ * @return string
+ */
+function get_business_transaction_detail_url(int $transaction_id): string {
+    $transaction_id = (int) $transaction_id;
+    return $transaction_id > 0 ? 'business-details.php?id=' . $transaction_id : 'barangay-services.php';
+}
+
+/**
  * Whether debug details may be included in JSON responses.
  *
  * @return bool

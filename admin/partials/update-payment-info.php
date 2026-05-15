@@ -104,13 +104,16 @@ try {
         $item_name = $type === 'business'
             ? get_business_transaction_display_name($res_info['transaction_type'] ?? $res_info['item_name'] ?? '', $res_info['remarks'] ?? '')
             : $res_info['item_name'];
+        $detail_url = $type === 'document'
+            ? get_document_request_detail_url($id)
+            : get_business_transaction_detail_url($id);
         $notification_sent = NotificationSystem::notify_payment_update(
             $pdo,
             (int) $res_info['recipient_user_id'],
             $item_name,
             $payment_status,
             $or_number,
-            $type === 'document' ? 'my-document-requests.php' : 'my-requests.php'
+            $detail_url
         );
 
         if (!$notification_sent) {
@@ -120,13 +123,21 @@ try {
         }
 
         if ($payment_status === 'Paid') {
-            $status_notification_sent = NotificationSystem::notify_document_status(
-                $pdo,
-                (int) $res_info['recipient_user_id'],
-                $item_name,
-                'Completed',
-                $type === 'document' ? 'my-document-requests.php' : 'my-requests.php'
-            );
+            $status_notification_sent = $type === 'document'
+                ? NotificationSystem::notify_document_status(
+                    $pdo,
+                    (int) $res_info['recipient_user_id'],
+                    $item_name,
+                    'Completed',
+                    $detail_url
+                )
+                : NotificationSystem::notify_business_status(
+                    $pdo,
+                    (int) $res_info['recipient_user_id'],
+                    $item_name,
+                    'Completed',
+                    $detail_url
+                );
             if (!$status_notification_sent && $notification_warning === null) {
                 $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
                 $notification_warning = 'Payment updated, but completion web-app notification failed' . ($detail ? ': ' . $detail : '.');

@@ -53,9 +53,14 @@ try {
         $owner_name,
         $business_address
     ]);
+    $request_id = (int) $pdo->lastInsertId();
 
     log_activity('Document Request', "New Barangay Business Clearance requested natively by resident.", $_SESSION['user_id']);
-    echo json_encode(['success' => true]);
+    echo json_encode([
+        'success' => true,
+        'request_id' => $request_id,
+        'detail_url' => get_business_transaction_detail_url($request_id),
+    ]);
 
 } catch (Throwable $e) {
     send_json_error_response('A database error occurred.', 500, $e, 'Business Clearance Request Error');

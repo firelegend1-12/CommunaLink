@@ -105,7 +105,13 @@ try {
     // Create Notification for the resident account that submitted the request.
     $res_user_id = get_document_request_recipient_user_id($pdo, $id);
     if ($res_user_id !== null) {
-        $notification_sent = NotificationSystem::notify_document_status($pdo, $res_user_id, $document_type, normalize_request_status_display($stored_status), 'my-document-requests.php');
+        $notification_sent = NotificationSystem::notify_document_status(
+            $pdo,
+            $res_user_id,
+            $document_type,
+            normalize_request_status_display($stored_status),
+            get_document_request_detail_url($id)
+        );
         if (!$notification_sent) {
             $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
             $notification_warning = 'Status updated, but web-app notification failed' . ($detail ? ': ' . $detail : '.');

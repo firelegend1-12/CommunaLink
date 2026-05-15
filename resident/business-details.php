@@ -14,11 +14,14 @@ require_role('resident');
 
 $trans_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$trans_id) {
-    redirect_to('my-requests.php');
+    redirect_to('barangay-services.php');
 }
 
 require_once '../config/database.php';
 $cancel_csrf_token = csrf_token();
+$show_submit_success = isset($_GET['submitted']) && $_GET['submitted'] === '1';
+$show_cancel_success = isset($_GET['cancelled']) && $_GET['cancelled'] === '1';
+$show_cancel_error = isset($_GET['cancel_error']) && $_GET['cancel_error'] === '1';
 
 // Fetch business transaction
 $stmt = $pdo->prepare("SELECT * FROM business_transactions WHERE id = ? AND resident_id = ?");
@@ -28,7 +31,7 @@ $stmt->execute([$trans_id, $resident_id]);
 $trans = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$trans) {
-    redirect_to('my-requests.php');
+    redirect_to('barangay-services.php');
 }
 
 // Try to fetch extended permit details if it exists
@@ -54,10 +57,27 @@ $date_applied = date('F j, Y', strtotime($trans['application_date']));
 require_once 'partials/header.php';
 ?>
 
+<?php if ($show_submit_success): ?>
+<div id="toast-banner" class="ui-toast success" role="status" aria-live="polite">
+    <i class="fas fa-check-circle" aria-hidden="true"></i>
+    <span>Your business application was submitted successfully.</span>
+</div>
+<?php elseif ($show_cancel_success): ?>
+<div id="toast-banner" class="ui-toast success" role="status" aria-live="polite">
+    <i class="fas fa-check-circle" aria-hidden="true"></i>
+    <span>Business application cancelled successfully.</span>
+</div>
+<?php elseif ($show_cancel_error): ?>
+<div id="toast-banner" class="ui-toast error" role="alert" aria-live="assertive">
+    <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
+    <span>Failed to cancel application. Please try again.</span>
+</div>
+<?php endif; ?>
+
 <div class="max-w-4xl mx-auto px-4 py-8">
     <div class="mb-6 flex items-center justify-between">
-        <a href="my-requests.php" class="text-blue-600 hover:text-blue-800 flex items-center gap-2 font-medium transition">
-            <i class="fas fa-arrow-left"></i> Back to My Requests
+        <a href="barangay-services.php" class="text-blue-600 hover:text-blue-800 flex items-center gap-2 font-medium transition">
+            <i class="fas fa-arrow-left"></i> Back to Services
         </a>
         
         <?php if (strcasecmp($status, 'Pending') === 0): ?>
@@ -235,13 +255,13 @@ function cancelBusinessApplication(transactionId) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    window.location.href = 'my-requests.php?cancelled=1';
+                    window.location.href = 'business-details.php?id=<?= (int) $trans['id'] ?>&cancelled=1';
                 } else {
-                    window.location.href = 'my-requests.php?cancel_error=1';
+                    window.location.href = 'business-details.php?id=<?= (int) $trans['id'] ?>&cancel_error=1';
                 }
             })
             .catch(() => {
-                window.location.href = 'my-requests.php?cancel_error=1';
+                window.location.href = 'business-details.php?id=<?= (int) $trans['id'] ?>&cancel_error=1';
             });
         }, {
             confirmText: 'Cancel Application',
@@ -254,6 +274,24 @@ function cancelBusinessApplication(transactionId) {
         requiredMessage: 'Cancellation reason is required.'
     });
 }
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toast = document.getElementById('toast-banner');
+    if (toast) {
+        const container = document.getElementById('residentToastContainer');
+        if (container) {
+            container.appendChild(toast);
+        }
+        setTimeout(() => toast.classList.add('hide'), 2600);
+        setTimeout(() => {
+            if (toast && toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 3000);
+    }
+});
 </script>
 
 <?php require_once 'partials/footer.php'; ?>

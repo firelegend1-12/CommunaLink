@@ -145,7 +145,7 @@ try {
                 $recipient_user_id,
                 (string)($doc_row['document_type'] ?? 'Document Request'),
                 $status,
-                'my-document-requests.php'
+                get_document_request_detail_url($doc_id)
             );
             if (!$notification_sent) {
                 $notification_failed_count++;
@@ -178,7 +178,7 @@ try {
                 $recipient_user_id,
                 $request_label,
                 $status,
-                'my-requests.php'
+                get_business_transaction_detail_url($biz_id)
             );
             if (!$notification_sent) {
                 $notification_failed_count++;
