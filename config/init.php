@@ -5,6 +5,8 @@
  */
 
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/database.php'; // This file should instantiate $pdo
+require_once __DIR__ . '/../includes/session_manager.php';
 
 function configure_session_cookie_security() {
     if (session_status() !== PHP_SESSION_NONE) {
@@ -48,12 +50,13 @@ function configure_session_cookie_security() {
 }
 
 if (session_status() === PHP_SESSION_NONE) {
+    if (isset($pdo) && $pdo instanceof PDO) {
+        ensure_session_storage($pdo);
+    }
     configure_session_cookie_security();
     session_start();
 }
 
-require_once __DIR__ . '/database.php'; // This file should instantiate $pdo
-require_once __DIR__ . '/../includes/session_manager.php';
 if (isset($pdo) && $pdo instanceof PDO) {
     ensure_session_storage($pdo);
 }

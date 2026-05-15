@@ -502,18 +502,11 @@ try {
 
     <!-- ID Card Modal -->
     <div x-show="showModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @keydown.escape.window="showModal = false">
-        <div class="bg-white rounded-lg shadow-xl max-w-[520px] w-full" @click.away="showModal = false">
-            <div class="px-12 py-10 sm:px-14 sm:py-12">
+        <div class="bg-transparent rounded-none shadow-none w-auto max-w-none" @click.away="showModal = false">
+            <div class="p-0">
                 <div class="id-modal-content transform scale-150 origin-center flex justify-center" x-html="modalContent">
                     <!-- Resident ID will be loaded here -->
                 </div>
-            </div>
-            <div class="px-8 pb-8 flex justify-end space-x-2">
-                <button @click="showModal = false" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-md">Close</button>
-                <button @click="printId()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center">
-                    <i class="fas fa-print mr-2"></i>
-                    Print ID
-                </button>
             </div>
         </div>
     </div>
