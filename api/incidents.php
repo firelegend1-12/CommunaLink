@@ -6,6 +6,7 @@ require_once '../includes/auth.php';
 require_once '../includes/csrf.php';
 require_once '../includes/storage_manager.php';
 require_once '../includes/permission_checker.php';
+require_once '../includes/notification_system.php';
 
 // Apply security headers for API endpoints
 apply_page_security_headers('api');
@@ -129,10 +130,34 @@ if ($requestMethod === 'POST') {
         }
 
         try {
+            $incident_stmt = $pdo->prepare("SELECT resident_user_id, type, status FROM incidents WHERE id = ? LIMIT 1");
+            $incident_stmt->execute([$report_id]);
+            $incident = $incident_stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$incident) {
+                incidents_json_error(404, 'Incident report not found.');
+            }
+
+            $old_status = normalize_incident_status_display($incident['status'] ?? null);
             $stored_status = normalize_incident_status_for_storage($pdo, $status);
             $sql = "UPDATE incidents SET status = ? WHERE id = ?";
             $stmt = $pdo->prepare($sql);
             $stmt->execute([$stored_status, $report_id]);
+
+            $resident_user_id = (int)($incident['resident_user_id'] ?? 0);
+            if ($resident_user_id > 0 && $old_status !== $status) {
+                $notification_sent = NotificationSystem::notify_incident_status(
+                    $pdo,
+                    $resident_user_id,
+                    (string)($incident['type'] ?? 'Incident Report'),
+                    $status,
+                    trim((string)($_POST['rejection_reason'] ?? '')),
+                    '/resident/report-details.php?id=' . $report_id
+                );
+
+                if (!$notification_sent) {
+                    error_log('incidents update_report_status notification failed for report_id=' . $report_id);
+                }
+            }
 
             $response = ['success' => true, 'message' => 'Report status updated successfully.'];
         } catch (PDOException $e) {

@@ -59,7 +59,8 @@ if (!in_array($status, $valid_statuses, true)) {
 try {
     $notification_warning = null;
     $old_status = null;
-    $document_type = '';
+    $request_label = '';
+    $notification_link = $type === 'document' ? 'my-document-requests.php' : 'my-requests.php';
 
     if ($type === 'document') {
         $pre_stmt = $pdo->prepare("SELECT status, document_type FROM document_requests WHERE id = ? LIMIT 1");
@@ -72,11 +73,25 @@ try {
         }
 
         $old_status = normalize_request_status_display($old_row['status'] ?? null);
-        $document_type = (string)($old_row['document_type'] ?? 'Document Request');
+        $request_label = (string)($old_row['document_type'] ?? 'Document Request');
         $stored_status = normalize_request_status_for_storage($pdo, 'document_requests', $status);
         $stmt = $pdo->prepare("UPDATE document_requests SET status = ? WHERE id = ?");
         $stmt->execute([$stored_status, $id]);
     } elseif ($type === 'business') {
+        $pre_stmt = $pdo->prepare("SELECT status, transaction_type, remarks, business_name FROM business_transactions WHERE id = ? LIMIT 1");
+        $pre_stmt->execute([$id]);
+        $old_row = $pre_stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$old_row) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Request not found']);
+            exit;
+        }
+
+        $old_status = normalize_request_status_display($old_row['status'] ?? null);
+        $request_label = get_business_transaction_display_name(
+            $old_row['transaction_type'] ?? ($old_row['business_name'] ?? 'Business Request'),
+            $old_row['remarks'] ?? null
+        );
         $stored_status = normalize_request_status_for_storage($pdo, 'business_transactions', $status);
         $stmt = $pdo->prepare("UPDATE business_transactions SET status = ? WHERE id = ?");
         $stmt->execute([$stored_status, $id]);
@@ -102,24 +117,35 @@ try {
 
     $display_status = normalize_request_status_display($stored_status ?? $status);
 
-    if ($type === 'document' && $old_status !== $display_status) {
-        $recipient_user_id = get_document_request_recipient_user_id($pdo, $id);
+    if ($old_status !== $display_status) {
+        $recipient_user_id = $type === 'document'
+            ? get_document_request_recipient_user_id($pdo, $id)
+            : get_business_transaction_recipient_user_id($pdo, $id);
+
         if ($recipient_user_id !== null) {
-            $notification_sent = NotificationSystem::notify_document_status(
-                $pdo,
-                $recipient_user_id,
-                $document_type,
-                $display_status,
-                'my-document-requests.php'
-            );
+            $notification_sent = $type === 'document'
+                ? NotificationSystem::notify_document_status(
+                    $pdo,
+                    $recipient_user_id,
+                    $request_label,
+                    $display_status,
+                    $notification_link
+                )
+                : NotificationSystem::notify_business_status(
+                    $pdo,
+                    $recipient_user_id,
+                    $request_label,
+                    $display_status,
+                    $notification_link
+                );
             if (!$notification_sent) {
                 $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
                 $notification_warning = 'Status updated, but web-app notification failed' . ($detail ? ': ' . $detail : '.');
-                error_log('Notification delivery failed in ajax-update-request-status for request_id=' . $id);
+                error_log('Notification delivery failed in ajax-update-request-status for request_id=' . $id . ' type=' . $type);
             }
         } else {
             $notification_warning = 'Status updated, but no resident account was found for notification.';
-            error_log('No recipient user found in ajax-update-request-status for request_id=' . $id);
+            error_log('No recipient user found in ajax-update-request-status for request_id=' . $id . ' type=' . $type);
         }
     }
 

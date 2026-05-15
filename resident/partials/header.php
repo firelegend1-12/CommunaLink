@@ -14,6 +14,11 @@ if (function_exists('apply_page_security_headers')) {
 $page_title = $page_title ?? "Resident Portal"; // Allow pages to set their own title
 $user_fullname = $_SESSION['fullname'] ?? 'Resident';
 $user_id = $_SESSION['user_id'] ?? null;
+$resident_notification_csrf_token = csrf_token();
+$resident_notification_current_page = basename((string)($_SERVER['PHP_SELF'] ?? ''));
+$resident_notification_bell_limit = 5;
+$resident_notification_live_limit = $resident_notification_current_page === 'notifications.php' ? 50 : $resident_notification_bell_limit;
+$resident_notification_unread_window = max(50, $resident_notification_live_limit);
 $resident_profile_avatar_src = resident_default_profile_avatar_data_uri();
 $resident_bell_items = [];
 $resident_bell_unread_count = 0;
@@ -32,8 +37,9 @@ if ($user_id) {
 
     try {
         $resolved_resident_id = function_exists('get_resident_id') ? (int)(get_resident_id($pdo, (int)$user_id) ?? 0) : 0;
-        $resident_bell_items = get_resident_board_notifications($pdo, (int)$user_id, $resolved_resident_id, 5);
-        foreach ($resident_bell_items as $bell_item) {
+        $resident_bell_feed = get_resident_combined_notifications($pdo, (int)$user_id, $resolved_resident_id, $resident_notification_unread_window);
+        $resident_bell_items = array_slice($resident_bell_feed, 0, $resident_notification_bell_limit);
+        foreach ($resident_bell_feed as $bell_item) {
             if ((int)($bell_item['is_read'] ?? 0) === 0) {
                 $resident_bell_unread_count++;
             }
@@ -251,6 +257,9 @@ if ($user_id) {
             border-bottom: 1px solid #f1f5f9;
             transition: background-color 0.15s ease;
         }
+        .notif-row-unread {
+            background-color: #eef2ff;
+        }
         .notif-row:hover {
             background-color: #f8fafc;
         }
@@ -465,17 +474,17 @@ if ($user_id) {
                 <div class="header-menu relative" style="margin-left: auto;">
                     <span>Welcome, <?= htmlspecialchars($user_fullname) ?></span>
                     <div id="notif-wrapper" class="notif-wrapper">
-                        <a href="announcements.php" class="notif-bell-btn" aria-label="Open Community Board notifications" title="Community Board notifications">
+                        <a id="resident-notif-bell-btn" href="notifications.php" class="notif-bell-btn" aria-label="Open notifications" title="Notifications">
                             <i class="fas fa-bell" aria-hidden="true"></i>
                             <?php if ($resident_bell_unread_count > 0): ?>
-                            <span class="notif-bell-badge"><?= $resident_bell_unread_count > 9 ? '9+' : (int)$resident_bell_unread_count ?></span>
+                            <span id="resident-notif-bell-badge" class="notif-bell-badge"><?= $resident_bell_unread_count > 9 ? '9+' : (int)$resident_bell_unread_count ?></span>
                             <?php endif; ?>
                         </a>
                         <div id="notif-dropdown" class="notif-dropdown" aria-hidden="true">
-                            <div class="notif-dropdown-header">Community Board Updates</div>
-                            <div class="notif-dropdown-list">
+                            <div class="notif-dropdown-header">Notifications</div>
+                            <div id="resident-notif-dropdown-list" class="notif-dropdown-list">
                                 <?php if (empty($resident_bell_items)): ?>
-                                <div class="notif-row-empty">No updates yet. Click the bell to open the Community Board.</div>
+                                <div class="notif-row-empty">No notifications yet. Click the bell to open the notification center.</div>
                                 <?php else: ?>
                                     <?php foreach ($resident_bell_items as $bell_item): ?>
                                         <?php
@@ -491,8 +500,23 @@ if ($user_id) {
                                             }
                                             $bell_created = strtotime((string)($bell_item['created_at'] ?? ''));
                                             $bell_created_label = $bell_created ? date('M j, Y g:i A', $bell_created) : 'Just now';
+                                            $bell_link = trim((string)($bell_item['link'] ?? ''));
+                                            if ($bell_link === '') {
+                                                $bell_link = 'notifications.php';
+                                            }
+                                            $bell_is_unread = (int)($bell_item['is_read'] ?? 0) === 0;
+                                            $bell_source = trim((string)($bell_item['source'] ?? ''));
+                                            $bell_source_id = (int)($bell_item['source_id'] ?? 0);
+                                            $bell_can_mark = $bell_is_unread && $bell_source === 'notification' && $bell_source_id > 0;
                                         ?>
-                                        <a href="announcements.php" class="notif-row">
+                                        <a
+                                            href="<?= htmlspecialchars($bell_link, ENT_QUOTES, 'UTF-8') ?>"
+                                            class="notif-row<?= $bell_is_unread ? ' notif-row-unread' : '' ?>"
+                                            <?php if ($bell_can_mark): ?>
+                                            data-mark-notification-id="<?= $bell_source_id ?>"
+                                            data-notification-link="<?= htmlspecialchars($bell_link, ENT_QUOTES, 'UTF-8') ?>"
+                                            <?php endif; ?>
+                                        >
                                             <div class="notif-row-title"><?= htmlspecialchars($bell_title) ?></div>
                                             <?php if ($bell_message !== ''): ?>
                                             <div class="notif-row-message"><?= htmlspecialchars($bell_message) ?></div>
@@ -502,7 +526,7 @@ if ($user_id) {
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </div>
-                            <a href="announcements.php" class="notif-dropdown-footer">Open Community Board</a>
+                            <a href="notifications.php" class="notif-dropdown-footer">Open Notification Center</a>
                         </div>
                     </div>
                     <div id="profile-wrapper" class="relative">
@@ -529,10 +553,20 @@ if ($user_id) {
                 <?php endif; ?> 
             <script>
             document.addEventListener('DOMContentLoaded', function() {
+                const RESIDENT_NOTIFICATION_CSRF_TOKEN = <?php echo json_encode($resident_notification_csrf_token, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+                const RESIDENT_NOTIFICATION_FEED_LIMIT = <?php echo (int) $resident_notification_live_limit; ?>;
+                const RESIDENT_NOTIFICATION_BELL_LIMIT = <?php echo (int) $resident_notification_bell_limit; ?>;
+                const RESIDENT_NOTIFICATION_POLL_INTERVAL_MS = 15000;
+
                 // --- Off-Canvas Sidebar Toggle ---
                 const hamburgerBtn = document.getElementById('hamburger-btn');
                 const overlay = document.getElementById('sidebar-overlay');
                 const body = document.body;
+                const residentNotifBellBtn = document.getElementById('resident-notif-bell-btn');
+                const residentNotifDropdownList = document.getElementById('resident-notif-dropdown-list');
+                let residentNotificationPollingStopped = false;
+                let residentNotificationRequestInFlight = false;
+                let residentNotificationSignature = '';
 
                 function openSidebar() {
                     body.classList.add('sidebar-open');
@@ -593,6 +627,206 @@ if ($user_id) {
                         if (e.key === 'Escape') {
                             setProfileDropdownOpen(false);
                             profileBtn.blur();
+                        }
+                    });
+                }
+
+                function escapeResidentNotificationHTML(value) {
+                    return String(value || '').replace(/[&<>"']/g, function(match) {
+                        return {
+                            '&': '&amp;',
+                            '<': '&lt;',
+                            '>': '&gt;',
+                            '"': '&quot;',
+                            "'": '&#39;'
+                        }[match];
+                    });
+                }
+
+                function truncateResidentNotificationMessage(value, maxLength) {
+                    const text = String(value || '').trim();
+                    if (!text || text.length <= maxLength) {
+                        return text;
+                    }
+                    return text.slice(0, Math.max(0, maxLength - 3)).replace(/\s+$/, '') + '...';
+                }
+
+                function getResidentNotificationBadge() {
+                    let badge = document.getElementById('resident-notif-bell-badge');
+                    if (!badge && residentNotifBellBtn) {
+                        badge = document.createElement('span');
+                        badge.id = 'resident-notif-bell-badge';
+                        badge.className = 'notif-bell-badge';
+                        residentNotifBellBtn.appendChild(badge);
+                    }
+                    return badge;
+                }
+
+                function updateResidentNotificationBadge(unreadCount) {
+                    const badge = getResidentNotificationBadge();
+                    if (!badge) {
+                        return;
+                    }
+
+                    if (unreadCount > 0) {
+                        badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+                        badge.style.display = 'inline-flex';
+                        return;
+                    }
+
+                    if (badge.parentNode) {
+                        badge.parentNode.removeChild(badge);
+                    }
+                }
+
+                function renderResidentBellPreview(items) {
+                    if (!residentNotifDropdownList) {
+                        return;
+                    }
+
+                    const previewItems = Array.isArray(items) ? items.slice(0, RESIDENT_NOTIFICATION_BELL_LIMIT) : [];
+                    if (previewItems.length === 0) {
+                        residentNotifDropdownList.innerHTML = '<div class="notif-row-empty">No notifications yet. Click the bell to open the notification center.</div>';
+                        return;
+                    }
+
+                    residentNotifDropdownList.innerHTML = previewItems.map(function(item) {
+                        const title = escapeResidentNotificationHTML(item && item.title ? item.title : 'Notification');
+                        const message = escapeResidentNotificationHTML(truncateResidentNotificationMessage(item && item.message ? item.message : '', 110));
+                        const createdLabel = escapeResidentNotificationHTML(item && item.created_label ? item.created_label : 'Just now');
+                        const link = escapeResidentNotificationHTML(item && item.link ? item.link : 'notifications.php');
+                        const isUnread = Number(item && item.is_read ? item.is_read : 0) === 0;
+                        const source = String(item && item.source ? item.source : '');
+                        const sourceId = parseInt(item && item.source_id ? item.source_id : 0, 10);
+                        const canMark = isUnread && source === 'notification' && sourceId > 0;
+                        const attr = canMark
+                            ? ' data-mark-notification-id="' + sourceId + '" data-notification-link="' + link + '"'
+                            : '';
+
+                        return '<a href="' + link + '" class="notif-row' + (isUnread ? ' notif-row-unread' : '') + '"' + attr + '>'
+                            + '<div class="notif-row-title">' + title + '</div>'
+                            + (message ? '<div class="notif-row-message">' + message + '</div>' : '')
+                            + '<span class="notif-row-time">' + createdLabel + '</span>'
+                            + '</a>';
+                    }).join('');
+                }
+
+                function broadcastResidentNotifications(detail) {
+                    if (typeof window.CustomEvent !== 'function') {
+                        return;
+                    }
+                    window.dispatchEvent(new CustomEvent('resident-notifications-updated', { detail: detail }));
+                }
+
+                function applyResidentNotifications(data) {
+                    const notifications = Array.isArray(data && data.notifications) ? data.notifications : [];
+                    const unreadCount = Number(data && data.unread_count ? data.unread_count : 0);
+                    const signature = JSON.stringify({
+                        unread_count: unreadCount,
+                        notifications: notifications
+                    });
+
+                    if (signature === residentNotificationSignature) {
+                        return;
+                    }
+
+                    residentNotificationSignature = signature;
+                    updateResidentNotificationBadge(unreadCount);
+                    renderResidentBellPreview(notifications);
+                    broadcastResidentNotifications({
+                        unread_count: unreadCount,
+                        notifications: notifications
+                    });
+                }
+
+                function refreshResidentNotifications(force) {
+                    if (!window.fetch || residentNotificationPollingStopped || residentNotificationRequestInFlight) {
+                        return;
+                    }
+                    if (!force && document.visibilityState === 'hidden') {
+                        return;
+                    }
+
+                    residentNotificationRequestInFlight = true;
+
+                    fetch('../api/notifications.php?action=get_resident_live_notifications&limit=' + encodeURIComponent(String(RESIDENT_NOTIFICATION_FEED_LIMIT)), {
+                        credentials: 'same-origin',
+                        cache: 'no-store'
+                    })
+                        .then(function(response) {
+                            if (response.status === 401 || response.status === 403) {
+                                residentNotificationPollingStopped = true;
+                                return null;
+                            }
+                            if (!response.ok) {
+                                throw new Error('Notification poll failed with status ' + response.status);
+                            }
+                            return response.json();
+                        })
+                        .then(function(result) {
+                            if (!result || !result.success) {
+                                return;
+                            }
+                            applyResidentNotifications(result);
+                        })
+                        .catch(function(error) {
+                            console.error('Resident notification poll failed:', error);
+                        })
+                        .finally(function() {
+                            residentNotificationRequestInFlight = false;
+                        });
+                }
+
+                document.addEventListener('click', function(e) {
+                    if (!e.target || typeof e.target.closest !== 'function') {
+                        return;
+                    }
+
+                    const link = e.target.closest('#resident-notif-dropdown-list [data-mark-notification-id]');
+                    if (!link) {
+                        return;
+                    }
+
+                    const notificationId = parseInt(link.getAttribute('data-mark-notification-id') || '0', 10);
+                    const targetHref = link.getAttribute('data-notification-link') || link.getAttribute('href') || 'notifications.php';
+                    if (!notificationId) {
+                        return;
+                    }
+
+                    e.preventDefault();
+
+                    if (link.dataset.marking === '1') {
+                        return;
+                    }
+                    link.dataset.marking = '1';
+
+                    const body = new URLSearchParams();
+                    body.append('notification_id', String(notificationId));
+                    body.append('csrf_token', RESIDENT_NOTIFICATION_CSRF_TOKEN);
+
+                    fetch('../api/notifications.php?action=mark_read', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                        },
+                        body: body.toString()
+                    }).catch(function() {
+                        return null;
+                    }).finally(function() {
+                        window.location.href = targetHref;
+                    });
+                });
+
+                if (residentNotifDropdownList) {
+                    refreshResidentNotifications(true);
+                    setInterval(function() {
+                        refreshResidentNotifications(false);
+                    }, RESIDENT_NOTIFICATION_POLL_INTERVAL_MS);
+
+                    document.addEventListener('visibilitychange', function() {
+                        if (document.visibilityState === 'visible') {
+                            refreshResidentNotifications(true);
                         }
                     });
                 }

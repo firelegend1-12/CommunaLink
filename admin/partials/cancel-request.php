@@ -97,7 +97,11 @@ try {
         exit;
     }
 
-    $stmt = $pdo->prepare("SELECT id, status, business_name FROM business_transactions WHERE id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT bt.id, bt.status, bt.business_name, bt.transaction_type, bt.remarks, r.user_id AS recipient_user_id
+                           FROM business_transactions bt
+                           LEFT JOIN residents r ON bt.resident_id = r.id
+                           WHERE bt.id = ?
+                           LIMIT 1");
     $stmt->execute([$id]);
     $transaction = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -128,7 +132,31 @@ try {
         $cancelled_status
     );
 
-    echo json_encode(['success' => true, 'message' => 'Business application cancelled']);
+    if (!empty($transaction['recipient_user_id'])) {
+        $request_label = get_business_transaction_display_name(
+            $transaction['transaction_type'] ?? ($transaction['business_name'] ?? 'Business Request'),
+            $transaction['remarks'] ?? null
+        );
+
+        $notification_sent = NotificationSystem::notify_business_status(
+            $pdo,
+            (int) $transaction['recipient_user_id'],
+            $request_label,
+            'Cancelled',
+            'my-requests.php'
+        );
+        if (!$notification_sent) {
+            $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
+            $notification_warning = 'Business application cancelled, but web-app notification failed' . ($detail ? ': ' . $detail : '.');
+            error_log('Business cancellation notification failed for request_id=' . $id . ($detail ? ' detail=' . $detail : ''));
+        }
+    }
+
+    $response = ['success' => true, 'message' => 'Business application cancelled'];
+    if (!empty($notification_warning)) {
+        $response['warning'] = $notification_warning;
+    }
+    echo json_encode($response);
 } catch (Exception $e) {
     error_log('cancel-request failed: ' . $e->getMessage());
     http_response_code(500);

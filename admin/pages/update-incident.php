@@ -4,6 +4,7 @@ require_once '../../config/init.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/permission_checker.php';
+require_once '../../includes/notification_system.php';
 
 require_login();
 
@@ -60,6 +61,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Log only if status changed
             if ($old_status !== $new_status) {
+                $resident_user_id = (int)($report['resident_user_id'] ?? 0);
+                if ($resident_user_id > 0) {
+                    $notification_sent = NotificationSystem::notify_incident_status(
+                        $pdo,
+                        $resident_user_id,
+                        (string)($report['type'] ?? 'Incident Report'),
+                        $new_status,
+                        '',
+                        '/resident/report-details.php?id=' . $report_id
+                    );
+                    if (!$notification_sent) {
+                        error_log('update-incident.php notification failed for report_id=' . $report_id);
+                    }
+                }
+
                 $changed_old = [ 'status' => $old_status ];
                 $changed_new = [ 'status' => $new_status ];
                 $old_str = '';

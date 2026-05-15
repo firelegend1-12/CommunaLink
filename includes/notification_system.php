@@ -97,61 +97,39 @@ if (!class_exists('NotificationSystem')) {
          * @return bool
          */
         public static function notify_document_status($pdo, $recipient_user_id, $document_type, $status, $link = 'my-requests.php') {
-            $recipient_user_id = (int) $recipient_user_id;
-            if ($recipient_user_id <= 0) {
-                return false;
-            }
+            return self::notify_resident_request_status(
+                $pdo,
+                $recipient_user_id,
+                $document_type,
+                $status,
+                $link,
+                'request_status',
+                'Your document is completed and ready for release.',
+                'View Request Status'
+            );
+        }
 
-            $document_type = trim((string) $document_type);
-            $status = trim((string) $status);
-
-            $title = 'Request Update: ' . $document_type;
-            $message = 'Your request for ' . $document_type . ' has been updated to: ' . $status . '. ';
-            if ($status === 'Approved') {
-                $message .= 'Your request is approved and is now being prepared.';
-            } elseif ($status === 'Completed') {
-                $message .= 'Your document is completed and ready for release.';
-            } elseif ($status === 'Rejected') {
-                $message .= 'Please contact the office for more details.';
-            } elseif ($status === 'Cancelled') {
-                $message .= 'The request has been cancelled. Please contact the office if you need help.';
-            } else {
-                $message .= 'Please check your resident portal for the latest details.';
-            }
-
-            // Create in-app notification
-            $notification_created = create_notification($pdo, $recipient_user_id, $title, $message, 'request_status', $link);
-            if (!$notification_created) {
-                $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
-                error_log('Document status in-app notification failed for user_id=' . $recipient_user_id . ' status=' . $status . ($detail ? ' detail=' . $detail : ''));
-            }
-
-            try {
-                $stmt = $pdo->prepare("SELECT email, fullname FROM users WHERE id = ? LIMIT 1");
-                $stmt->execute([$recipient_user_id]);
-                $user = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($user && !empty($user['email'])) {
-                    $safe_name = htmlspecialchars($user['fullname'] ?: 'Resident', ENT_QUOTES, 'UTF-8');
-                    $safe_document_type = htmlspecialchars($document_type, ENT_QUOTES, 'UTF-8');
-                    $safe_status = htmlspecialchars($status, ENT_QUOTES, 'UTF-8');
-                    $safe_message = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
-                    $safe_link = htmlspecialchars(function_exists('app_url') ? app_url($link) : $link, ENT_QUOTES, 'UTF-8');
-
-                    $email_body = '<p>Dear ' . $safe_name . ',</p>'
-                        . '<p>Your request for <strong>' . $safe_document_type . '</strong> has been updated to <strong>' . $safe_status . '</strong>.</p>'
-                        . '<p>' . $safe_message . '</p>'
-                        . '<p><a href="' . $safe_link . '" style="display:inline-block;padding:10px 14px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;">View Request Status</a></p>'
-                        . '<p>Thank you.<br>CommunaLink Barangay Office</p>';
-
-                    if (!self::send_email_with_fallback($user['email'], $user['fullname'] ?: 'Resident', $title, $email_body)) {
-                        error_log('Document status email delivery failed for user_id=' . $recipient_user_id . ' status=' . $status);
-                    }
-                }
-            } catch (Exception $e) {
-                error_log('Failed to send email notification for document status: ' . $e->getMessage());
-            }
-
-            return $notification_created;
+        /**
+         * Notify user that a business request status was updated.
+         *
+         * @param PDO $pdo
+         * @param int $recipient_user_id
+         * @param string $request_name
+         * @param string $status
+         * @param string $link
+         * @return bool
+         */
+        public static function notify_business_status($pdo, $recipient_user_id, $request_name, $status, $link = 'my-requests.php') {
+            return self::notify_resident_request_status(
+                $pdo,
+                $recipient_user_id,
+                $request_name,
+                $status,
+                $link,
+                'request_status',
+                'Your business request is completed and ready for release.',
+                'View Business Request'
+            );
         }
 
         /**
@@ -267,6 +245,90 @@ if (!class_exists('NotificationSystem')) {
             }
 
             return create_notification($pdo, $recipient_user_id, $title, $message, 'payment_update', $link);
+        }
+
+        /**
+         * Shared delivery path for resident request status updates.
+         *
+         * @param PDO $pdo
+         * @param int $recipient_user_id
+         * @param string $request_name
+         * @param string $status
+         * @param string $link
+         * @param string $notification_type
+         * @param string $completed_message
+         * @param string $cta_label
+         * @return bool
+         */
+        private static function notify_resident_request_status($pdo, $recipient_user_id, $request_name, $status, $link, $notification_type, $completed_message, $cta_label) {
+            $recipient_user_id = (int) $recipient_user_id;
+            if ($recipient_user_id <= 0) {
+                return false;
+            }
+
+            $request_name = trim((string) $request_name);
+            $status = trim((string) $status);
+            $link = trim((string) $link);
+            $notification_type = trim((string) $notification_type);
+            $completed_message = trim((string) $completed_message);
+            $cta_label = trim((string) $cta_label);
+
+            if ($link === '') {
+                $link = 'my-requests.php';
+            }
+            if ($notification_type === '') {
+                $notification_type = 'request_status';
+            }
+            if ($cta_label === '') {
+                $cta_label = 'View Request Status';
+            }
+
+            $title = 'Request Update: ' . $request_name;
+            $message = 'Your request for ' . $request_name . ' has been updated to: ' . $status . '. ';
+            if ($status === 'Approved') {
+                $message .= 'Your request is approved and is now being prepared.';
+            } elseif ($status === 'Completed') {
+                $message .= $completed_message !== '' ? $completed_message : 'Your request is completed.';
+            } elseif ($status === 'Rejected') {
+                $message .= 'Please contact the office for more details.';
+            } elseif ($status === 'Cancelled') {
+                $message .= 'The request has been cancelled. Please contact the office if you need help.';
+            } else {
+                $message .= 'Please check your resident portal for the latest details.';
+            }
+
+            $notification_created = create_notification($pdo, $recipient_user_id, $title, $message, $notification_type, $link);
+            if (!$notification_created) {
+                $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
+                error_log('Resident request in-app notification failed for user_id=' . $recipient_user_id . ' status=' . $status . ($detail ? ' detail=' . $detail : ''));
+            }
+
+            try {
+                $stmt = $pdo->prepare("SELECT email, fullname FROM users WHERE id = ? LIMIT 1");
+                $stmt->execute([$recipient_user_id]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($user && !empty($user['email'])) {
+                    $safe_name = htmlspecialchars($user['fullname'] ?: 'Resident', ENT_QUOTES, 'UTF-8');
+                    $safe_request_name = htmlspecialchars($request_name, ENT_QUOTES, 'UTF-8');
+                    $safe_status = htmlspecialchars($status, ENT_QUOTES, 'UTF-8');
+                    $safe_message = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
+                    $safe_link = htmlspecialchars(function_exists('app_url') ? app_url($link) : $link, ENT_QUOTES, 'UTF-8');
+
+                    $email_body = '<p>Dear ' . $safe_name . ',</p>'
+                        . '<p>Your request for <strong>' . $safe_request_name . '</strong> has been updated to <strong>' . $safe_status . '</strong>.</p>'
+                        . '<p>' . $safe_message . '</p>'
+                        . '<p><a href="' . $safe_link . '" style="display:inline-block;padding:10px 14px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;">' . htmlspecialchars($cta_label, ENT_QUOTES, 'UTF-8') . '</a></p>'
+                        . '<p>Thank you.<br>CommunaLink Barangay Office</p>';
+
+                    if (!self::send_email_with_fallback($user['email'], $user['fullname'] ?: 'Resident', $title, $email_body)) {
+                        error_log('Resident request status email delivery failed for user_id=' . $recipient_user_id . ' status=' . $status);
+                    }
+                }
+            } catch (Exception $e) {
+                error_log('Failed to send resident request status email: ' . $e->getMessage());
+            }
+
+            return $notification_created;
         }
 
         /**

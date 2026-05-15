@@ -19,9 +19,18 @@ $user_fullname = $_SESSION['fullname'] ?? 'Resident';
 require_once '../config/database.php';
 
 // Fetch Recent Document Requests
-$stmtReq = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status FROM document_requests WHERE requested_by_user_id = ? ORDER BY date_requested DESC LIMIT 3");
+$stmtReq = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, payment_status, or_number FROM document_requests WHERE requested_by_user_id = ? ORDER BY date_requested DESC LIMIT 3");
 $stmtReq->execute([$_SESSION['user_id']]);
 $recentRequests = $stmtReq->fetchAll(PDO::FETCH_ASSOC);
+foreach ($recentRequests as &$request_row) {
+    $request_row['status'] = get_request_display_status(
+        $request_row['status'] ?? null,
+        $request_row['payment_status'] ?? null,
+        document_request_requires_payment($request_row['document_type'] ?? '')
+    );
+    $request_row['reference_number'] = get_request_reference_number_from_row($request_row, 'document');
+}
+unset($request_row);
 
 // Fetch Recent Incident Reports
 $stmtInc = $pdo->prepare("SELECT id, type, description, location, reported_at, status FROM incidents WHERE resident_user_id = ? ORDER BY reported_at DESC LIMIT 3");
@@ -335,6 +344,10 @@ require_once 'partials/header.php';
                         <div class="dashboard-item-content">
                             <span class="dashboard-item-title"><?= htmlspecialchars($req['document_type']) ?></span>
                             <div class="dashboard-item-desc">Purpose: <?= htmlspecialchars($req['purpose']) ?></div>
+                            <div class="dashboard-item-desc">Ref. No.: <?= htmlspecialchars($req['reference_number'] ?? 'N/A') ?></div>
+                            <?php if (!empty($req['or_number'])): ?>
+                                <div class="dashboard-item-desc">O.R. No.: <?= htmlspecialchars($req['or_number']) ?></div>
+                            <?php endif; ?>
                             <div class="dashboard-item-meta">
                                 <span>Requested: <?= date('M d, Y h:i A', strtotime($req['date_requested'])) ?></span>
                             </div>

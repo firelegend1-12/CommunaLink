@@ -29,7 +29,7 @@ if (!$resident_id) {
 
 require_once '../config/database.php';
 // Get document requests
-$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, payment_status, remarks, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC");
+$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, payment_status, or_number, remarks, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC");
 $stmtDoc->execute([$_SESSION['user_id'], $resident_id]);
 $docRequests = $stmtDoc->fetchAll();
 foreach ($docRequests as &$doc_row) {
@@ -38,15 +38,17 @@ foreach ($docRequests as &$doc_row) {
         $doc_row['payment_status'] ?? null,
         document_request_requires_payment($doc_row['document_type'] ?? '')
     );
+    $doc_row['reference_number'] = get_request_reference_number_from_row($doc_row, 'document');
 }
 unset($doc_row);
 
 // Get business transactions
-$stmtBiz = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, payment_status, remarks FROM business_transactions WHERE resident_id = ? ORDER BY application_date DESC");
+$stmtBiz = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, payment_status, or_number, remarks FROM business_transactions WHERE resident_id = ? ORDER BY application_date DESC");
 $stmtBiz->execute([$resident_id]);
 $bizRequests = $stmtBiz->fetchAll();
 foreach ($bizRequests as &$biz_row) {
     $biz_row['status'] = get_request_display_status($biz_row['status'] ?? null, $biz_row['payment_status'] ?? null, true);
+    $biz_row['reference_number'] = get_request_reference_number_from_row($biz_row, 'business');
 }
 unset($biz_row);
 ?>
@@ -160,6 +162,10 @@ function renderRequestsTable(docRequests, bizRequests) {
                         <span class="text-[10px] font-extrabold px-2 py-1 rounded-md whitespace-nowrap mobile-card-badge ${badgeClass} uppercase tracking-tight">${escapeHTML(status)}</span>
                     </div>
                     <div class="text-xs text-gray-500 mb-3 line-clamp-1">${escapeHTML(req.purpose || 'Document Request')} ${req.remarks ? ' - ' + escapeHTML(req.remarks) : ''}</div>
+                    <div class="space-y-1 mb-3">
+                        <div class="text-[11px] font-semibold text-slate-500">Ref. ${escapeHTML(req.reference_number || 'N/A')}</div>
+                        ${req.or_number ? `<div class="text-[11px] font-semibold text-emerald-700">O.R. ${escapeHTML(req.or_number)}</div>` : ''}
+                    </div>
                 </div>
                 ${renderTimeline(status)}
                 <div class="flex items-center justify-between text-[10px] text-gray-400 mt-5 pt-3 border-t border-gray-50">
@@ -189,6 +195,10 @@ function renderRequestsTable(docRequests, bizRequests) {
                         <span class="text-[10px] font-extrabold px-2 py-1 rounded-md whitespace-nowrap mobile-card-badge ${badgeClass} uppercase tracking-tight">${escapeHTML(status)}</span>
                     </div>
                     <div class="text-xs text-gray-500 mb-3 line-clamp-1">${escapeHTML(businessLabel)}${req.remarks && req.remarks !== 'Barangay Business Clearance' ? ' - ' + escapeHTML(req.remarks) : ''}</div>
+                    <div class="space-y-1 mb-3">
+                        <div class="text-[11px] font-semibold text-slate-500">Ref. ${escapeHTML(req.reference_number || 'N/A')}</div>
+                        ${req.or_number ? `<div class="text-[11px] font-semibold text-emerald-700">O.R. ${escapeHTML(req.or_number)}</div>` : ''}
+                    </div>
                 </div>
                 ${renderTimeline(status)}
                 <div class="flex items-center justify-between text-[10px] text-gray-400 mt-5 pt-3 border-t border-gray-50">

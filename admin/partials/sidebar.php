@@ -145,6 +145,8 @@ if ($hour >= 12 && $hour < 18) {
                 <a href="<?php echo ($current_dir === 'admin') ? 'pages/monitoring-of-request.php' : 'monitoring-of-request.php'; ?>" class="<?php echo $current_page === 'monitoring-of-request.php' ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'; ?> group flex w-full items-center px-3 py-3 text-sm font-medium rounded-md whitespace-nowrap">
                     <i class="fas fa-desktop mr-3 text-lg flex-shrink-0 <?php echo $current_page === 'monitoring-of-request.php' ? 'text-blue-400' : 'text-gray-400'; ?>"></i>
                     Monitoring of Request
+                    <span id="monitoring-unread-dot" class="unread-dot"></span>
+                    <span id="monitoring-requests-badge" class="unread-badge"></span>
                 </a>
                 <?php endif; ?>
 

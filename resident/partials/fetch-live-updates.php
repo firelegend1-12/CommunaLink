@@ -30,7 +30,7 @@ if ($resident_id <= 0) {
 // Notifications intentionally removed from resident live updates.
 
 // Fetch document requests
-$stmt = $pdo->prepare('SELECT id, document_type, purpose, date_requested, status, payment_status, remarks, NULL AS admin_notes, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC');
+$stmt = $pdo->prepare('SELECT id, document_type, purpose, date_requested, status, payment_status, or_number, remarks, NULL AS admin_notes, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC');
 $stmt->execute([$user_id, $resident_id]);
 $doc_requests = $stmt->fetchAll();
 foreach ($doc_requests as &$doc_row) {
@@ -39,15 +39,17 @@ foreach ($doc_requests as &$doc_row) {
         $doc_row['payment_status'] ?? null,
         document_request_requires_payment($doc_row['document_type'] ?? '')
     );
+    $doc_row['reference_number'] = get_request_reference_number_from_row($doc_row, 'document');
 }
 unset($doc_row);
 
 // Fetch business transactions
-$stmt = $pdo->prepare('SELECT id, business_name, business_type, transaction_type, application_date, status, payment_status, remarks, NULL AS admin_notes FROM business_transactions WHERE resident_id = ? ORDER BY application_date DESC');
+$stmt = $pdo->prepare('SELECT id, business_name, business_type, transaction_type, application_date, status, payment_status, or_number, remarks, NULL AS admin_notes FROM business_transactions WHERE resident_id = ? ORDER BY application_date DESC');
 $stmt->execute([$resident_id]);
 $biz_requests = $stmt->fetchAll();
 foreach ($biz_requests as &$biz_row) {
     $biz_row['status'] = get_request_display_status($biz_row['status'] ?? null, $biz_row['payment_status'] ?? null, true);
+    $biz_row['reference_number'] = get_request_reference_number_from_row($biz_row, 'business');
 }
 unset($biz_row);
 

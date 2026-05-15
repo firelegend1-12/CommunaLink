@@ -1473,6 +1473,33 @@ function get_document_request_recipient_user_id(PDO $pdo, int $request_id): ?int
 }
 
 /**
+ * Resolve the resident user account tied to a business transaction.
+ *
+ * @param PDO $pdo
+ * @param int $transaction_id
+ * @return int|null
+ */
+function get_business_transaction_recipient_user_id(PDO $pdo, int $transaction_id): ?int {
+    if ($transaction_id <= 0) {
+        return null;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT r.user_id
+                               FROM business_transactions bt
+                               LEFT JOIN residents r ON bt.resident_id = r.id
+                               WHERE bt.id = ?
+                               LIMIT 1");
+        $stmt->execute([$transaction_id]);
+        $recipient_user_id = (int)($stmt->fetchColumn() ?: 0);
+        return $recipient_user_id > 0 ? $recipient_user_id : null;
+    } catch (PDOException $e) {
+        error_log('Error resolving business transaction recipient: ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
  * Whether debug details may be included in JSON responses.
  *
  * @return bool

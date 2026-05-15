@@ -50,6 +50,35 @@ function notifications_cache_set(string $key, array $payload, int $ttl = 15): vo
     cache_set($key, $payload, $ttl);
 }
 
+function notifications_format_resident_live_item(array $row): array
+{
+    $message = trim((string)($row['message'] ?? ''));
+    if ($message === '') {
+        $message = trim((string)($row['content'] ?? ''));
+    }
+
+    $link = trim((string)($row['link'] ?? ''));
+    if ($link === '') {
+        $link = 'notifications.php';
+    }
+
+    $createdAt = (string)($row['created_at'] ?? '');
+    $createdTs = strtotime($createdAt);
+
+    return [
+        'id' => (string)($row['id'] ?? ''),
+        'source_id' => (int)($row['source_id'] ?? 0),
+        'source' => trim((string)($row['source'] ?? 'notification')),
+        'title' => trim((string)($row['title'] ?? 'Notification')),
+        'message' => $message,
+        'type' => trim((string)($row['type'] ?? 'general')),
+        'link' => $link,
+        'is_read' => (int)($row['is_read'] ?? 0),
+        'created_at' => $createdAt,
+        'created_label' => $createdTs ? date('M j, Y g:i A', $createdTs) : 'Just now',
+    ];
+}
+
 if (!is_logged_in()) {
     notifications_json_error(401, 'Authentication required.', $request_start);
 }
@@ -136,14 +165,65 @@ if ($requestMethod !== 'GET') {
 
 $response = ['success' => false, 'error' => 'Invalid request.'];
 
-if ($action === 'get_admin_sidebar_counts') {
-    if (!require_any_permission(['manage_incidents', 'manage_events'])) {
-        notifications_json_error(403, 'Forbidden', $request_start, 'manage_incidents|manage_events');
+if ($action === 'get_resident_live_notifications') {
+    if (($_SESSION['role'] ?? '') !== 'resident') {
+        notifications_json_error(403, 'Forbidden', $request_start, 'resident');
+    }
+
+    $user_id = (int)($_SESSION['user_id'] ?? 0);
+    if ($user_id <= 0) {
+        notifications_json_error(401, 'Authentication required.', $request_start);
+    }
+
+    $resident_id = (int)($_SESSION['resident_id'] ?? 0);
+    if ($resident_id <= 0) {
+        $resolved_resident_id = (int)(get_resident_id($pdo, $user_id) ?? 0);
+        if ($resolved_resident_id > 0) {
+            $resident_id = $resolved_resident_id;
+            $_SESSION['resident_id'] = $resident_id;
+        }
+    }
+
+    $limit = filter_input(INPUT_GET, 'limit', FILTER_VALIDATE_INT);
+    if ($limit === false || $limit === null || $limit <= 0) {
+        $limit = 5;
+    }
+    $limit = max(1, min(50, $limit));
+    $unreadWindow = max(50, $limit);
+
+    try {
+        $notificationFeed = get_resident_combined_notifications($pdo, $user_id, $resident_id, $unreadWindow);
+        $previewRows = $limit >= count($notificationFeed)
+            ? $notificationFeed
+            : array_slice($notificationFeed, 0, $limit);
+
+        $unreadCount = 0;
+        foreach ($notificationFeed as $notificationRow) {
+            if ((int)($notificationRow['is_read'] ?? 0) === 0) {
+                $unreadCount++;
+            }
+        }
+
+        $response = [
+            'success' => true,
+            'unread_count' => $unreadCount,
+            'notifications' => array_map('notifications_format_resident_live_item', $previewRows),
+        ];
+    } catch (Throwable $e) {
+        error_log('notifications get_resident_live_notifications failed: ' . $e->getMessage());
+        notifications_json_error(500, 'Database error while fetching resident notifications.', $request_start);
+    }
+} elseif ($action === 'get_admin_sidebar_counts') {
+    if (!require_any_permission(['manage_incidents', 'manage_events', 'manage_documents', 'manage_businesses', 'view_monitoring_requests'])) {
+        notifications_json_error(403, 'Forbidden', $request_start, 'manage_incidents|manage_events|manage_documents|manage_businesses|view_monitoring_requests');
     }
 
     $canManageIncidents = require_permission('manage_incidents');
     $canManageEvents = require_permission('manage_events');
-    $cacheKey = 'notifications:get_admin_sidebar_counts:' . (int)$canManageIncidents . ':' . (int)$canManageEvents;
+    $canManageDocuments = require_permission('manage_documents');
+    $canManageBusinesses = require_permission('manage_businesses');
+    $canViewMonitoring = require_permission('view_monitoring_requests');
+    $cacheKey = 'notifications:get_admin_sidebar_counts:' . (int)$canManageIncidents . ':' . (int)$canManageEvents . ':' . (int)$canManageDocuments . ':' . (int)$canManageBusinesses . ':' . (int)$canViewMonitoring;
     $cachedResponse = notifications_cache_get($cacheKey);
     if ($cachedResponse !== null) {
         emit_perf_headers($request_start, 'api_notifications');
@@ -154,6 +234,8 @@ if ($action === 'get_admin_sidebar_counts') {
     try {
         $pendingIncidents = 0;
         $upcomingEvents = 0;
+        $pendingDocumentRequests = 0;
+        $pendingBusinessTransactions = 0;
 
         if ($canManageIncidents) {
             $pendingIncidents = (int)$pdo->query("SELECT COUNT(*) FROM incidents WHERE status = 'Pending'")->fetchColumn();
@@ -163,10 +245,21 @@ if ($action === 'get_admin_sidebar_counts') {
             $upcomingEvents = (int)$pdo->query("SELECT COUNT(*) FROM events WHERE event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 1 DAY)")->fetchColumn();
         }
 
+        if ($canManageDocuments || $canViewMonitoring) {
+            $pendingDocumentRequests = (int)$pdo->query("SELECT COUNT(*) FROM document_requests WHERE UPPER(COALESCE(status, '')) = 'PENDING'")->fetchColumn();
+        }
+
+        if ($canManageBusinesses || $canViewMonitoring) {
+            $pendingBusinessTransactions = (int)$pdo->query("SELECT COUNT(*) FROM business_transactions WHERE UPPER(COALESCE(status, '')) = 'PENDING'")->fetchColumn();
+        }
+
         $response = [
             'success' => true,
             'incidents' => $pendingIncidents,
             'events' => $upcomingEvents,
+            'doc_requests' => $pendingDocumentRequests,
+            'biz_transactions' => $pendingBusinessTransactions,
+            'requests' => $pendingDocumentRequests + $pendingBusinessTransactions,
         ];
 
         notifications_cache_set($cacheKey, $response);

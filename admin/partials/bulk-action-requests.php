@@ -99,6 +99,7 @@ try {
         }
 
         $doc_notification_rows = [];
+        $biz_notification_rows = [];
         if (!empty($doc_ids)) {
             $placeholders = implode(',', array_fill(0, count($doc_ids), '?'));
             $notify_stmt = $pdo->prepare("SELECT id, status, document_type FROM document_requests WHERE id IN ({$placeholders})");
@@ -114,6 +115,10 @@ try {
 
         if (!empty($biz_ids)) {
             $placeholders = implode(',', array_fill(0, count($biz_ids), '?'));
+            $notify_stmt = $pdo->prepare("SELECT id, status, business_name, transaction_type, remarks FROM business_transactions WHERE id IN ({$placeholders})");
+            $notify_stmt->execute($biz_ids);
+            $biz_notification_rows = $notify_stmt->fetchAll(PDO::FETCH_ASSOC);
+
             $biz_status = normalize_request_status_for_storage($pdo, 'business_transactions', $status);
             $params = array_merge([$biz_status], $biz_ids);
             $stmt = $pdo->prepare("UPDATE business_transactions SET status = ? WHERE id IN ({$placeholders})");
@@ -146,6 +151,39 @@ try {
                 $notification_failed_count++;
                 $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
                 error_log('Notification delivery failed in bulk-action-requests for request_id=' . $doc_id . ($detail ? ' detail=' . $detail : ''));
+            }
+        }
+
+        foreach ($biz_notification_rows as $biz_row) {
+            $biz_id = (int)($biz_row['id'] ?? 0);
+            $old_status = normalize_request_status_display($biz_row['status'] ?? null);
+            if ($biz_id <= 0 || $old_status === $status) {
+                continue;
+            }
+
+            $recipient_user_id = get_business_transaction_recipient_user_id($pdo, $biz_id);
+            if ($recipient_user_id === null) {
+                $notification_missing_count++;
+                error_log('No recipient user found in bulk-action-requests for business_transaction_id=' . $biz_id);
+                continue;
+            }
+
+            $request_label = get_business_transaction_display_name(
+                $biz_row['transaction_type'] ?? ($biz_row['business_name'] ?? 'Business Request'),
+                $biz_row['remarks'] ?? null
+            );
+
+            $notification_sent = NotificationSystem::notify_business_status(
+                $pdo,
+                $recipient_user_id,
+                $request_label,
+                $status,
+                'my-requests.php'
+            );
+            if (!$notification_sent) {
+                $notification_failed_count++;
+                $detail = function_exists('get_last_notification_error') ? get_last_notification_error() : null;
+                error_log('Notification delivery failed in bulk-action-requests for business_transaction_id=' . $biz_id . ($detail ? ' detail=' . $detail : ''));
             }
         }
 

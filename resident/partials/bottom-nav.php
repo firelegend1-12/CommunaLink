@@ -16,7 +16,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <i class="fas fa-file-invoice"></i>
         <span>Documents</span>
     </a>
-    <a href="announcements.php" class="bottom-nav-item <?= in_array($current_page, ['announcements.php', 'notifications.php'], true) ? 'active' : '' ?>">
+    <a href="notifications.php" class="bottom-nav-item <?= in_array($current_page, ['announcements.php', 'notifications.php'], true) ? 'active' : '' ?>">
         <i class="fas fa-bell"></i>
         <span>Notification</span>
     </a>

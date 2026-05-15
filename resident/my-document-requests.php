@@ -29,7 +29,7 @@ if (!$resident_id) {
 require_once '../config/database.php';
 
 // Fetch document requests only
-$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, payment_status, remarks, NULL AS admin_notes, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC");
+$stmtDoc = $pdo->prepare("SELECT id, document_type, purpose, date_requested, status, payment_status, or_number, remarks, NULL AS admin_notes, details FROM document_requests WHERE requested_by_user_id = ? OR (requested_by_user_id IS NULL AND resident_id = ?) ORDER BY date_requested DESC");
 $stmtDoc->execute([$_SESSION['user_id'], $resident_id]);
 $docRequests = $stmtDoc->fetchAll();
 foreach ($docRequests as &$doc_row) {
@@ -40,11 +40,12 @@ foreach ($docRequests as &$doc_row) {
     );
     $doc_row['request_kind'] = 'document';
     $doc_row['detail_url'] = 'request-details.php?id=' . (int) ($doc_row['id'] ?? 0);
+    $doc_row['reference_number'] = get_request_reference_number_from_row($doc_row, 'document');
 }
 unset($doc_row);
 
 // Fetch barangay business clearances that are modeled as business transactions.
-$stmtBizClearance = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, payment_status, remarks, NULL AS admin_notes
+$stmtBizClearance = $pdo->prepare("SELECT id, business_name, business_type, transaction_type, application_date, status, payment_status, or_number, remarks, NULL AS admin_notes
     FROM business_transactions
     WHERE resident_id = ? AND remarks = 'Barangay Business Clearance'
     ORDER BY application_date DESC");
@@ -54,6 +55,7 @@ foreach ($businessClearanceRequests as &$biz_row) {
     $biz_row['status'] = get_request_display_status($biz_row['status'] ?? null, $biz_row['payment_status'] ?? null, true);
     $biz_row['request_kind'] = 'business_clearance';
     $biz_row['detail_url'] = 'business-details.php?id=' . (int) ($biz_row['id'] ?? 0);
+    $biz_row['reference_number'] = get_request_reference_number_from_row($biz_row, 'business');
 }
 unset($biz_row);
 
@@ -263,6 +265,10 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <span class="text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap mobile-card-badge ${badgeClass}">${escapeHTML(status)}</span>
                             </div>
                             <div class="text-sm text-gray-500 mb-3 line-clamp-2">${escapeHTML(subtitle)}</div>
+                            <div class="space-y-1 mb-3">
+                                <div class="text-[11px] font-semibold text-slate-500">Ref. ${escapeHTML(req.reference_number || 'N/A')}</div>
+                                ${req.or_number ? `<div class="text-[11px] font-semibold text-emerald-700">O.R. ${escapeHTML(req.or_number)}</div>` : ''}
+                            </div>
                         </div>
                         ${renderTimeline(status)}
                         <div class="flex items-center justify-between text-xs text-gray-400 mt-5 pt-3 border-t border-gray-50">
