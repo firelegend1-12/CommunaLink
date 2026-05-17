@@ -76,6 +76,9 @@ try {
 
         $old_status = normalize_request_status_display($old_row['status'] ?? null);
         $request_label = (string)($old_row['document_type'] ?? 'Document Request');
+        if (!document_request_requires_payment($old_row['document_type'] ?? '') && $status === 'Approved') {
+            $status = 'Completed';
+        }
         $stored_status = normalize_request_status_for_storage($pdo, 'document_requests', $status);
         $stmt = $pdo->prepare("UPDATE document_requests SET status = ? WHERE id = ?");
         $stmt->execute([$stored_status, $id]);

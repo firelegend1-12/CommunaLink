@@ -102,6 +102,10 @@ try {
     $union_query = "(
         SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date,
         CASE
+            WHEN LOWER(TRIM(COALESCE(dr.document_type, ''))) IN ('certificate of indigency', 'certificate of indigency (special)')
+                AND UPPER(COALESCE(dr.status, '')) IN ('APPROVED', 'PROCESSING', 'READY FOR PICKUP', 'COMPLETED')
+                AND UPPER(COALESCE(dr.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED')
+            THEN 'Completed'
             WHEN dr.payment_status = 'Paid' AND UPPER(COALESCE(dr.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN 'Completed'
             WHEN dr.status IN ('Processing', 'Ready for Pickup') THEN 'Approved'
             ELSE dr.status
@@ -134,6 +138,10 @@ try {
         $union_query = "(
             SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date,
             CASE
+                WHEN LOWER(TRIM(COALESCE(dr.document_type, ''))) IN ('certificate of indigency', 'certificate of indigency (special)')
+                    AND UPPER(COALESCE(dr.status, '')) IN ('APPROVED', 'PROCESSING', 'READY FOR PICKUP', 'COMPLETED')
+                    AND UPPER(COALESCE(dr.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED')
+                THEN 'Completed'
                 WHEN dr.payment_status = 'Paid' AND UPPER(COALESCE(dr.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN 'Completed'
                 WHEN dr.status IN ('Processing', 'Ready for Pickup') THEN 'Approved'
                 ELSE dr.status
@@ -256,13 +264,13 @@ try {
 
     // 2. Active Workload (Pending + Approved)
     $q_workload = $pdo->query("SELECT 
-        (SELECT COUNT(*) FROM document_requests WHERE UPPER(COALESCE(status, '')) IN ('PENDING', 'APPROVED', 'PROCESSING', 'READY FOR PICKUP') AND COALESCE(payment_status, 'Unpaid') <> 'Paid') + 
+        (SELECT COUNT(*) FROM document_requests WHERE UPPER(COALESCE(status, '')) IN ('PENDING', 'APPROVED', 'PROCESSING', 'READY FOR PICKUP') AND COALESCE(payment_status, 'Unpaid') <> 'Paid' AND NOT (LOWER(TRIM(COALESCE(document_type, ''))) IN ('certificate of indigency', 'certificate of indigency (special)') AND UPPER(COALESCE(status, '')) IN ('APPROVED', 'PROCESSING', 'READY FOR PICKUP'))) + 
         (SELECT COUNT(*) FROM business_transactions WHERE UPPER(COALESCE(status, '')) IN ('PENDING', 'APPROVED', 'PROCESSING', 'READY FOR PICKUP') AND COALESCE(payment_status, 'Unpaid') <> 'Paid') as total");
     $stats['workload'] = $q_workload->fetchColumn();
 
     // 3. Approved (Ready for Pickup)
     $q_ready = $pdo->query("SELECT 
-        (SELECT COUNT(*) FROM document_requests WHERE UPPER(COALESCE(status, '')) IN ('APPROVED', 'PROCESSING', 'READY FOR PICKUP') AND COALESCE(payment_status, 'Unpaid') <> 'Paid') + 
+        (SELECT COUNT(*) FROM document_requests WHERE UPPER(COALESCE(status, '')) IN ('APPROVED', 'PROCESSING', 'READY FOR PICKUP') AND COALESCE(payment_status, 'Unpaid') <> 'Paid' AND NOT (LOWER(TRIM(COALESCE(document_type, ''))) IN ('certificate of indigency', 'certificate of indigency (special)') AND UPPER(COALESCE(status, '')) IN ('APPROVED', 'PROCESSING', 'READY FOR PICKUP'))) + 
         (SELECT COUNT(*) FROM business_transactions WHERE UPPER(COALESCE(status, '')) IN ('APPROVED', 'PROCESSING', 'READY FOR PICKUP') AND COALESCE(payment_status, 'Unpaid') <> 'Paid') as total");
     $stats['ready'] = $q_ready->fetchColumn();
 
@@ -1538,7 +1546,7 @@ endif; ?>
             async approveRequest() {
                 if (!this.canApprove(this.selectedReq)) return;
                 const isPaid = this.selectedReq.paymentStatus === 'Paid';
-                const targetStatus = isPaid ? 'Completed' : 'Approved';
+                const targetStatus = (!this.selectedReq.requiresPayment || isPaid) ? 'Completed' : 'Approved';
                 const formData = new FormData();
                 formData.append('id', this.selectedReq.id);
                 formData.append('type', this.selectedReq.type);

@@ -2048,7 +2048,8 @@ function request_has_terminal_status($status): bool {
  */
 function paid_request_should_display_completed($status, $payment_status, bool $requires_payment = true): bool {
     if (!$requires_payment) {
-        return false;
+        $normalized_status = normalize_request_status_display($status);
+        return $normalized_status === 'Approved' || $normalized_status === 'Completed';
     }
 
     return trim((string) $payment_status) === 'Paid' && !request_has_terminal_status($status);

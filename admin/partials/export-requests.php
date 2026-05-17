@@ -83,11 +83,27 @@ $where_clause = !empty($where_parts) ? " WHERE " . implode(" AND ", $where_parts
 
 // Base UNION query
 $union_query = "(
-    SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.or_number, dr.payment_status 
+    SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date,
+    CASE
+        WHEN LOWER(TRIM(COALESCE(dr.document_type, ''))) IN ('certificate of indigency', 'certificate of indigency (special)')
+            AND UPPER(COALESCE(dr.status, '')) IN ('APPROVED', 'PROCESSING', 'READY FOR PICKUP', 'COMPLETED')
+            AND UPPER(COALESCE(dr.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED')
+        THEN 'Completed'
+        WHEN dr.payment_status = 'Paid' AND UPPER(COALESCE(dr.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN 'Completed'
+        WHEN dr.status IN ('Processing', 'Ready for Pickup') THEN 'Approved'
+        ELSE dr.status
+    END AS status,
+    'document' as request_type, dr.or_number, dr.payment_status 
     FROM document_requests dr 
     LEFT JOIN residents r ON dr.resident_id = r.id
 ) UNION ALL (
-    SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
+    SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.payment_date,
+    CASE
+        WHEN bt.payment_status = 'Paid' AND UPPER(COALESCE(bt.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN 'Completed'
+        WHEN bt.status IN ('Processing', 'Ready for Pickup') THEN 'Approved'
+        ELSE bt.status
+    END AS status,
+    'business' as request_type, 
     bt.or_number, bt.payment_status 
     FROM business_transactions bt 
     LEFT JOIN residents r ON bt.resident_id = r.id
@@ -96,13 +112,29 @@ $union_query = "(
 // Apply type filter
 if ($type_filter === 'document') {
     $union_query = "(
-        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date, dr.status, 'document' as request_type, dr.or_number, dr.payment_status 
+        SELECT dr.id, r.first_name, r.last_name, dr.document_type, dr.date_requested, dr.payment_date,
+        CASE
+            WHEN LOWER(TRIM(COALESCE(dr.document_type, ''))) IN ('certificate of indigency', 'certificate of indigency (special)')
+                AND UPPER(COALESCE(dr.status, '')) IN ('APPROVED', 'PROCESSING', 'READY FOR PICKUP', 'COMPLETED')
+                AND UPPER(COALESCE(dr.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED')
+            THEN 'Completed'
+            WHEN dr.payment_status = 'Paid' AND UPPER(COALESCE(dr.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN 'Completed'
+            WHEN dr.status IN ('Processing', 'Ready for Pickup') THEN 'Approved'
+            ELSE dr.status
+        END AS status,
+        'document' as request_type, dr.or_number, dr.payment_status 
         FROM document_requests dr 
         LEFT JOIN residents r ON dr.resident_id = r.id
     )";
 } else if ($type_filter === 'business') {
     $union_query = "(
-        SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.payment_date, bt.status, 'business' as request_type, 
+        SELECT bt.id, r.first_name, r.last_name, bt.transaction_type as document_type, bt.application_date as date_requested, bt.payment_date,
+        CASE
+            WHEN bt.payment_status = 'Paid' AND UPPER(COALESCE(bt.status, '')) NOT IN ('REJECTED', 'CANCELLED', 'CANCELED') THEN 'Completed'
+            WHEN bt.status IN ('Processing', 'Ready for Pickup') THEN 'Approved'
+            ELSE bt.status
+        END AS status,
+        'business' as request_type, 
         bt.or_number, bt.payment_status 
         FROM business_transactions bt 
         LEFT JOIN residents r ON bt.resident_id = r.id
