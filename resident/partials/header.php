@@ -67,6 +67,7 @@ if ($user_id) {
     <link rel="manifest" href="<?= htmlspecialchars(app_url('/resident/manifest.json')) ?>">
     <meta name="theme-color" content="#5c67e2">
     <script src="../assets/js/system-worker.js" defer></script>
+    <script src="../assets/js/document-svg-layout.js" defer></script>
     <style>
         /* Inlined styles for resident pages */
         :root {

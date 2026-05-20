@@ -19,9 +19,13 @@ try {
     $resident_stmt = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) AS full_name, first_name, last_name, middle_initial, gender, address, date_of_birth, place_of_birth, civil_status, occupation FROM residents ORDER BY last_name ASC");
     $residents = $resident_stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($residents as &$resident_row) {
+        $resident_row['full_name'] = normalize_document_text($resident_row['full_name'] ?? '');
         $resident_row['document_age'] = resident_document_age($resident_row['date_of_birth'] ?? '');
         $resident_row['document_civil_status'] = resident_document_civil_status_label($resident_row['civil_status'] ?? '');
         $resident_row['document_locality'] = resident_document_locality_label($resident_row['address'] ?? '');
+        $resident_row['document_age'] = normalize_document_text($resident_row['document_age'] ?? '');
+        $resident_row['document_civil_status'] = normalize_document_text($resident_row['document_civil_status'] ?? '');
+        $resident_row['document_locality'] = normalize_document_text($resident_row['document_locality'] ?? '');
     }
     unset($resident_row);
 } catch (PDOException $e) {
@@ -38,6 +42,7 @@ try {
     <title>Barangay Pakiad</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script defer src="../../assets/js/document-svg-layout.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         /* Always center the SVG inside its container */
@@ -148,6 +153,9 @@ try {
                              trackedFieldIds() {
                                  return [...new Set(Object.keys(this.fieldMap).concat(...Object.values(this.fieldGroups)))];
                              },
+                             normalizeCertificateText(value) {
+                                 return window.CommunaLinkDocumentSvg.normalizeText(value);
+                             },
                              rememberFieldState(id) {
                                  const el = document.getElementById(id);
                                  if (!el) return;
@@ -204,88 +212,22 @@ try {
                                  const resident = this.residents.find(r => r.id == this.selectedResidentId);
                                  if (resident) {
                                      this.selectedResident = resident;
-                                     this.formName = resident.full_name || "";
-                                     this.formAge = resident.document_age || "";
-                                     this.formCivilStatus = resident.document_civil_status || "";
-                                     this.formLocality = resident.document_locality || "";
+                                     this.formName = this.normalizeCertificateText(resident.full_name || "");
+                                     this.formAge = this.normalizeCertificateText(resident.document_age || "");
+                                     this.formCivilStatus = this.normalizeCertificateText(resident.document_civil_status || "");
+                                     this.formLocality = this.normalizeCertificateText(resident.document_locality || "");
                                  }
                                  this.$nextTick(() => this.recomputeLayout());
                              },
                              getFieldValue(id) {
                                  const key = this.fieldMap[id];
-                                 return key ? this[key] : "";
+                                 return key ? this.normalizeCertificateText(this[key]) : "";
                              },
                              recomputeLayout() {
-                                 if (this.layoutRafId) {
-                                     cancelAnimationFrame(this.layoutRafId);
-                                     this.layoutRafId = null;
-                                 }
-                                 document.querySelectorAll("svg text").forEach(el => {
-                                     if (!el.dataset.origTransform && el.hasAttribute("transform")) {
-                                         el.dataset.origTransform = el.getAttribute("transform");
-                                     }
-                                 });
-                                 const fieldIds = Object.keys(this.fieldMap);
-                                 this.resetTrackedText();
-                                 fieldIds.forEach(id => {
-                                     const el = document.getElementById(id);
-                                     if (!el) return;
-                                     const tspan = el.querySelector("tspan");
-                                     if (!tspan) return;
-                                     const value = this.getFieldValue(id);
-                                     const firstX = tspan.dataset.origX.split(/\s+/)[0];
-                                     if (!value || String(value).trim() === "") return;
-                                     const m = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
-                                     const prefix = m ? m[1] : "";
-                                     const suffix = m ? m[3] : "";
-                                     tspan.textContent = prefix + String(value) + suffix;
-                                     tspan.setAttribute("x", firstX);
-                                     (this.fieldGroups[id] || []).forEach(extraId => {
-                                         const extraEl = document.getElementById(extraId);
-                                         const extraTspan = extraEl ? extraEl.querySelector("tspan") : null;
-                                         if (!extraTspan) return;
-                                         extraTspan.textContent = "";
-                                         extraTspan.setAttribute("x", extraTspan.dataset.origX || "0");
-                                     });
-                                 });
-                                 document.querySelectorAll("svg text[data-orig-transform]").forEach(el => {
-                                     el.setAttribute("transform", el.dataset.origTransform);
-                                 });
-                                 this.layoutRafId = requestAnimationFrame(() => {
-                                     fieldIds.forEach(id => {
-                                         const el = document.getElementById(id);
-                                         if (!el) return;
-                                         const tspan = el.querySelector("tspan");
-                                         if (!tspan || !tspan.dataset.origX) return;
-                                         const value = this.getFieldValue(id);
-                                         if (!value || String(value).trim() === "") return;
-                                         const groupIds = this.fieldGroupIds(id);
-                                         const span = this.measureFieldSpan(groupIds);
-                                         if (!span) return;
-                                         let actualWidth = 0;
-                                         try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
-                                        const overflow = actualWidth - span.width;
-                                        if (overflow <= 0.5) return;
-                                         const origLineTransform = el.dataset.origTransform || el.getAttribute("transform");
-                                         const lineY = tspan.getAttribute("y");
-                                         const parent = el.parentElement;
-                                         if (!parent) return;
-                                         const groupIdSet = new Set(groupIds);
-                                         Array.from(parent.querySelectorAll("text")).forEach(t => {
-                                             if (t === el || groupIdSet.has(t.id)) return;
-                                             const ts = t.querySelector("tspan");
-                                             if (!ts) return;
-                                             const tBaseTransform = t.dataset.origTransform || t.getAttribute("transform") || "";
-                                             if (tBaseTransform !== origLineTransform) return;
-                                             if (ts.getAttribute("y") !== lineY) return;
-                                             const tOrigX = ts.dataset.origX || ts.getAttribute("x") || "0";
-                                             const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
-                                             if (isNaN(tFirstX) || tFirstX <= span.start) return;
-                                             const currentTransform = t.getAttribute("transform") || tBaseTransform;
-                                            t.setAttribute("transform", currentTransform + " translate(" + overflow + " 0)");
-                                        });
-                                    });
-                                     this.layoutRafId = null;
+                                 this.layoutRafId = window.CommunaLinkDocumentSvg.syncLayout({
+                                     fieldIds: Object.keys(this.fieldMap),
+                                     fieldGroups: this.fieldGroups || {},
+                                     getFieldValue: id => this.getFieldValue(id)
                                  });
                              },
                              printCertificate() {

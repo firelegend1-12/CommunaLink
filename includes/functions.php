@@ -1562,6 +1562,22 @@ function document_request_requires_payment($document_type): bool {
 }
 
 /**
+ * Normalize document text pulled from resident records or stored request details.
+ *
+ * @param mixed $value
+ * @return string
+ */
+function normalize_document_text($value): string {
+    $text = trim((string) $value);
+    if ($text === '') {
+        return '';
+    }
+
+    $normalized = preg_replace('/\s+/u', ' ', $text);
+    return $normalized !== null ? $normalized : $text;
+}
+
+/**
  * Build a stable reference number for any request/transaction.
  *
  * Format example: REF-20260515-DOC-38 or REF-20260515-BIZ-10

@@ -16,6 +16,12 @@ $residents = [];
 try {
     $resident_stmt = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) AS full_name, first_name, last_name, middle_initial, gender, address, date_of_birth, place_of_birth, civil_status, occupation FROM residents ORDER BY last_name ASC");
     $residents = $resident_stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($residents as &$resident_row) {
+        $resident_row['full_name'] = normalize_document_text($resident_row['full_name'] ?? '');
+        $resident_row['document_age'] = normalize_document_text(resident_document_age($resident_row['date_of_birth'] ?? ''));
+        $resident_row['document_civil_status'] = normalize_document_text(resident_document_civil_status_label($resident_row['civil_status'] ?? ''));
+    }
+    unset($resident_row);
 } catch (PDOException $e) {
     $residents = [];
     $_SESSION['error_message'] = "A database error occurred while fetching residents.";
@@ -30,6 +36,7 @@ try {
     <title>Barangay Pakiad</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script defer src="../../assets/js/document-svg-layout.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         /* Always center the SVG inside its container */
@@ -115,116 +122,48 @@ display_flash_messages(); ?>
                              selectedResident: {},
                              formName: "",
                              formAge: "",
+                             formCivilStatus: "",
                              formDay: new Date().getDate().toString(),
                              formMonth: new Date().toLocaleDateString("en-US", { month: "long" }),
                              layoutRafId: null,
                              fieldMap: {
                                  "field-name": "formName",
                                  "field-age": "formAge",
+                                 "field-civil-status": "formCivilStatus",
                                  "field-day": "formDay",
                                  "field-month": "formMonth"
                              },
                              init() {
                                  this.$watch("formName", () => this.recomputeLayout());
                                  this.$watch("formAge", () => this.recomputeLayout());
+                                 this.$watch("formCivilStatus", () => this.recomputeLayout());
                                  this.$watch("formDay", () => this.recomputeLayout());
                                  this.$watch("formMonth", () => this.recomputeLayout());
                                  this.$nextTick(() => this.recomputeLayout());
+                             },
+                             normalizeCertificateText(value) {
+                                 return window.CommunaLinkDocumentSvg.normalizeText(value);
                              },
                              selectResident() {
                                  if (!this.selectedResidentId) return;
                                  const resident = this.residents.find(r => r.id == this.selectedResidentId);
                                  if (resident) {
                                      this.selectedResident = resident;
-                                     this.formName = resident.full_name || "";
-                                     if (resident.date_of_birth) {
-                                         const bd = new Date(resident.date_of_birth);
-                                         this.formAge = String(new Date().getFullYear() - bd.getFullYear());
-                                     } else {
-                                         this.formAge = "";
-                                     }
+                                     this.formName = this.normalizeCertificateText(resident.full_name || "");
+                                     this.formAge = this.normalizeCertificateText(resident.document_age || "");
+                                     this.formCivilStatus = this.normalizeCertificateText(resident.document_civil_status || "");
                                  }
                                  this.$nextTick(() => this.recomputeLayout());
                              },
                              getFieldValue(id) {
                                  const key = this.fieldMap[id];
-                                 return key ? this[key] : "";
+                                 return key ? this.normalizeCertificateText(this[key]) : "";
                              },
                              recomputeLayout() {
-                                 if (this.layoutRafId) {
-                                     cancelAnimationFrame(this.layoutRafId);
-                                     this.layoutRafId = null;
-                                 }
-                                 document.querySelectorAll("svg text").forEach(el => {
-                                     if (!el.dataset.origTransform && el.hasAttribute("transform")) {
-                                         el.dataset.origTransform = el.getAttribute("transform");
-                                     }
-                                 });
-                                 const fieldIds = Object.keys(this.fieldMap);
-                                 fieldIds.forEach(id => {
-                                     const el = document.getElementById(id);
-                                     if (!el) return;
-                                     const tspan = el.querySelector("tspan");
-                                     if (!tspan) return;
-                                     if (!tspan.dataset.origX) {
-                                         tspan.dataset.origX = tspan.getAttribute("x") || "0";
-                                     }
-                                     if (!tspan.dataset.origText) {
-                                         tspan.dataset.origText = tspan.textContent;
-                                     }
-                                     const value = this.getFieldValue(id);
-                                     const firstX = tspan.dataset.origX.split(/\s+/)[0];
-                                     if (!value || String(value).trim() === "") {
-                                         tspan.textContent = tspan.dataset.origText;
-                                         tspan.setAttribute("x", tspan.dataset.origX);
-                                     } else {
-                                         const m = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
-                                         const prefix = m ? m[1] : "";
-                                         const suffix = m ? m[3] : "";
-                                         tspan.textContent = prefix + String(value) + suffix;
-                                         tspan.setAttribute("x", firstX);
-                                     }
-                                 });
-                                 document.querySelectorAll("svg text[data-orig-transform]").forEach(el => {
-                                     el.setAttribute("transform", el.dataset.origTransform);
-                                 });
-                                 this.layoutRafId = requestAnimationFrame(() => {
-                                     fieldIds.forEach(id => {
-                                         const el = document.getElementById(id);
-                                         if (!el) return;
-                                         const tspan = el.querySelector("tspan");
-                                         if (!tspan || !tspan.dataset.origX) return;
-                                         const value = this.getFieldValue(id);
-                                         if (!value || String(value).trim() === "") return;
-                                         const xCoords = tspan.dataset.origX.split(/\s+/).map(parseFloat).filter(n => !isNaN(n));
-                                         if (xCoords.length === 0) return;
-                                         const firstX = xCoords[0];
-                                         const lastX = xCoords[xCoords.length - 1];
-                                         const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
-                                         const blankWidth = (lastX - firstX) + charWidth;
-                                         let actualWidth = 0;
-                                         try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
-                                        const overflow = actualWidth - blankWidth;
-                                        if (overflow <= 0.5) return;
-                                         const origLineTransform = el.dataset.origTransform || el.getAttribute("transform");
-                                         const lineY = tspan.getAttribute("y");
-                                         const parent = el.parentElement;
-                                         if (!parent) return;
-                                         Array.from(parent.querySelectorAll("text")).forEach(t => {
-                                             if (t === el) return;
-                                             const ts = t.querySelector("tspan");
-                                             if (!ts) return;
-                                             const tBaseTransform = t.dataset.origTransform || t.getAttribute("transform") || "";
-                                             if (tBaseTransform !== origLineTransform) return;
-                                             if (ts.getAttribute("y") !== lineY) return;
-                                             const tOrigX = ts.dataset.origX || ts.getAttribute("x") || "0";
-                                             const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
-                                             if (isNaN(tFirstX) || tFirstX <= firstX) return;
-                                             const currentTransform = t.getAttribute("transform") || tBaseTransform;
-                                            t.setAttribute("transform", currentTransform + " translate(" + overflow + " 0)");
-                                        });
-                                    });
-                                     this.layoutRafId = null;
+                                 this.layoutRafId = window.CommunaLinkDocumentSvg.syncLayout({
+                                     fieldIds: Object.keys(this.fieldMap),
+                                     fieldGroups: this.fieldGroups || {},
+                                     getFieldValue: id => this.getFieldValue(id)
                                  });
                              },
                              printCertificate() {
@@ -291,6 +230,11 @@ display_flash_messages(); ?>
                                 $svg = str_replace(
                                     '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 299.79566)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="544.1788',
                                     '<text id="field-age" xml:space="preserve" transform="matrix(.75 0 0 .75 72 299.79566)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="544.1788',
+                                    $svg
+                                );
+                                $svg = str_replace(
+                                    '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 322.21876)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="79.939579 88.60364 92.4534 102.090488 111.72757 115.57733 125.21442 130.02873 144.4632 154.10028 159.87068 165.64109 169.49085 179.12793 188.76502 193.57933 206.09316 209.94292 219.58 229.21709">single/married/widow</tspan></text>',
+                                    '<text id="field-civil-status" xml:space="preserve" transform="matrix(.75 0 0 .75 72 322.21876)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="79.939579 88.60364 92.4534 102.090488 111.72757 115.57733 125.21442 130.02873 144.4632 154.10028 159.87068 165.64109 169.49085 179.12793 188.76502 193.57933 206.09316 209.94292 219.58 229.21709">single/married/widow</tspan></text>',
                                     $svg
                                 );
                                 $svg = str_replace(

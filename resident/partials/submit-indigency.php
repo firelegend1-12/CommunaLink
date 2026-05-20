@@ -47,6 +47,7 @@ try {
     $details = [
         'applicant_name' => $applicant_name,
         'age'            => $age,
+        'civil_status'   => sanitize_input($_POST['civil_status'] ?? ''),
         'day_issued'     => sanitize_input($_POST['day_issued'] ?? date('jS')),
         'month_issued'   => sanitize_input($_POST['month_issued'] ?? date('F')),
         'year_issued'    => date('Y')

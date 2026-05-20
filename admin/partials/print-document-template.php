@@ -124,6 +124,7 @@ $template_map = [
         'ids' => [
             'field-name' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 299.79566)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="206.88924',
             'field-age' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 299.79566)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="544.1788',
+            'field-civil-status' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 322.21876)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="79.939579 88.60364 92.4534 102.090488 111.72757 115.57733 125.21442 130.02873 144.4632 154.10028 159.87068 165.64109 169.49085 179.12793 188.76502 193.57933 206.09316 209.94292 219.58 229.21709">single/married/widow</tspan></text>',
             'field-day' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 456.75733)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="135.64756',
             'field-month' => '<text xml:space="preserve" transform="matrix(.75 0 0 .75 72 456.75733)" font-size="17.333334" font-family="Arial"><tspan y="16.258463" x="221.39139',
         ],
@@ -223,9 +224,6 @@ if ($template['type'] === 'document' && !document_request_requires_payment($temp
     print_redirect_with_error('Printing is only allowed after payment is completed.', $template['type']);
 }
 
-$reference_number = get_request_reference_number_from_row($row, $template['type']);
-$or_number = trim((string) ($row['or_number'] ?? ''));
-
 if ($template['type'] === 'document') {
     $details = print_decode_details($row['details'] ?? '');
     $resident_name = trim((string)($row['first_name'] ?? '') . ' ' . (string)($row['last_name'] ?? ''));
@@ -259,6 +257,7 @@ if ($template['type'] === 'document') {
         $values = [
             'field-name' => print_first($details, ['applicant_name', 'recipient_name', 'full_name'], $resident_name),
             'field-age' => print_first($details, ['age'], $age),
+            'field-civil-status' => print_first($details, ['civil_status'], $resident_civil_status),
             'field-day' => print_first($details, ['day_issued', 'day'], date('jS', strtotime($row['date_requested'] ?? 'now'))),
             'field-month' => print_first($details, ['month_issued', 'month'], date('F', strtotime($row['date_requested'] ?? 'now'))),
         ];
@@ -303,6 +302,8 @@ if ($template['type'] === 'document') {
     }
 }
 
+$values = array_map('normalize_document_text', $values);
+
 $page_title = $template['title'];
 $svg_html = print_svg_with_ids($template['svg'], $template['ids']);
 $field_groups = $template['field_groups'] ?? [];
@@ -315,6 +316,7 @@ $field_groups = $template['field_groups'] ?? [];
     <title><?php echo print_h($page_title); ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script defer src="../../assets/js/document-svg-layout.js"></script>
     <style>
         .printable-area { text-align: center; position: relative; }
         .printable-area svg {
@@ -323,38 +325,6 @@ $field_groups = $template['field_groups'] ?? [];
             max-width: 100%;
             height: auto;
         }
-        .document-meta {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            z-index: 20;
-            min-width: 180px;
-            padding: 10px 12px;
-            border: 1px solid rgba(15, 23, 42, 0.12);
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(6px);
-            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-            text-align: left;
-        }
-        .document-meta-label {
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 0.16em;
-            text-transform: uppercase;
-            color: #64748b;
-        }
-        .document-meta-value {
-            margin-top: 2px;
-            font-size: 12px;
-            font-weight: 700;
-            color: #0f172a;
-            word-break: break-word;
-        }
-        .document-meta-row + .document-meta-row {
-            margin-top: 8px;
-        }
-
         @page { size: A4 portrait; margin: 10mm; }
 
         @media print {
@@ -410,18 +380,6 @@ $field_groups = $template['field_groups'] ?? [];
         </div>
 
         <div class="printable-area max-w-4xl mx-auto p-8 bg-white shadow-lg overflow-auto text-center">
-            <div class="document-meta">
-                <div class="document-meta-row">
-                    <p class="document-meta-label">Reference No.</p>
-                    <p class="document-meta-value"><?php echo print_h($reference_number !== '' ? $reference_number : 'N/A'); ?></p>
-                </div>
-                <?php if ($or_number !== ''): ?>
-                    <div class="document-meta-row">
-                        <p class="document-meta-label">O.R. No.</p>
-                        <p class="document-meta-value"><?php echo print_h($or_number); ?></p>
-                    </div>
-                <?php endif; ?>
-            </div>
             <?php echo $svg_html; ?>
         </div>
     </div>
@@ -433,141 +391,25 @@ $field_groups = $template['field_groups'] ?? [];
     const autoPrint = <?php echo $auto_print ? 'true' : 'false'; ?>;
     const closeAfterPrint = <?php echo $close_after_print ? 'true' : 'false'; ?>;
     let printedOrCancelled = false;
+    let autoPrintScheduled = false;
 
     function getFieldValue(id) {
-        return values[id] || '';
-    }
-
-    function trackedFieldIds() {
-        return [...new Set(Object.keys(values).concat(...Object.values(fieldGroups)))];
-    }
-
-    function rememberFieldState(id) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const tspan = el.querySelector('tspan');
-        if (!tspan) return;
-        if (!tspan.dataset.origText) {
-            tspan.dataset.origText = tspan.textContent;
-        }
-        if (!tspan.dataset.origX) {
-            tspan.dataset.origX = tspan.getAttribute('x') || '0';
-        }
-    }
-
-    function resetTrackedText() {
-        trackedFieldIds().forEach(function(id) {
-            rememberFieldState(id);
-            const el = document.getElementById(id);
-            const tspan = el ? el.querySelector('tspan') : null;
-            if (!tspan) return;
-            tspan.textContent = tspan.dataset.origText || '';
-            tspan.setAttribute('x', tspan.dataset.origX || '0');
-        });
-    }
-
-    function fieldGroupIds(id) {
-        return [id].concat(fieldGroups[id] || []);
-    }
-
-    function measureFieldSpan(ids) {
-        let start = null;
-        let end = null;
-        ids.forEach(function(id) {
-            const el = document.getElementById(id);
-            const tspan = el ? el.querySelector('tspan') : null;
-            if (!tspan) return;
-            const xCoords = (tspan.dataset.origX || tspan.getAttribute('x') || '0').split(/\s+/).map(parseFloat).filter(function(n) { return !isNaN(n); });
-            if (xCoords.length === 0) return;
-            const firstX = xCoords[0];
-            const lastX = xCoords[xCoords.length - 1];
-            const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
-            start = start === null ? firstX : Math.min(start, firstX);
-            end = end === null ? (lastX + charWidth) : Math.max(end, lastX + charWidth);
-        });
-        if (start === null || end === null) return null;
-        return { start: start, width: end - start };
+        return window.CommunaLinkDocumentSvg.normalizeText(values[id] || '');
     }
 
     function recomputeLayout() {
-        document.querySelectorAll('svg text').forEach(function(el) {
-            if (!el.dataset.origTransform && el.hasAttribute('transform')) {
-                el.dataset.origTransform = el.getAttribute('transform');
-            }
-        });
-        resetTrackedText();
-
-        Object.keys(values).forEach(function(id) {
-            const el = document.getElementById(id);
-            if (!el) return;
-            const tspan = el.querySelector('tspan');
-            if (!tspan) return;
-
-            const value = getFieldValue(id);
-            const firstX = tspan.dataset.origX.split(/\s+/)[0];
-            if (!value || String(value).trim() === '') return;
-
-            const match = tspan.dataset.origText.match(/^([^_]*?)(_+)(.*)$/);
-            const prefix = match ? match[1] : '';
-            const suffix = match ? match[3] : '';
-            tspan.textContent = prefix + String(value) + suffix;
-            tspan.setAttribute('x', firstX);
-            (fieldGroups[id] || []).forEach(function(extraId) {
-                const extraEl = document.getElementById(extraId);
-                const extraTspan = extraEl ? extraEl.querySelector('tspan') : null;
-                if (!extraTspan) return;
-                extraTspan.textContent = '';
-                extraTspan.setAttribute('x', extraTspan.dataset.origX || '0');
-            });
-        });
-
-        document.querySelectorAll('svg text[data-orig-transform]').forEach(function(el) {
-            el.setAttribute('transform', el.dataset.origTransform);
-        });
-
-        requestAnimationFrame(function() {
-            Object.keys(values).forEach(function(id) {
-                const el = document.getElementById(id);
-                if (!el) return;
-                const tspan = el.querySelector('tspan');
-                if (!tspan || !tspan.dataset.origX) return;
-                const value = getFieldValue(id);
-                if (!value || String(value).trim() === '') return;
-
-                const groupIds = fieldGroupIds(id);
-                const span = measureFieldSpan(groupIds);
-                if (!span) return;
-                let actualWidth = 0;
-                try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
-                const shift = span.width - actualWidth;
-                if (Math.abs(shift) <= 0.5) return;
-
-                const origLineTransform = el.dataset.origTransform || el.getAttribute('transform');
-                const lineY = tspan.getAttribute('y');
-                const parent = el.parentElement;
-                if (!parent) return;
-                const groupIdSet = new Set(groupIds);
-
-                Array.from(parent.querySelectorAll('text')).forEach(function(t) {
-                    if (t === el || groupIdSet.has(t.id)) return;
-                    const ts = t.querySelector('tspan');
-                    if (!ts) return;
-                    const tBaseTransform = t.dataset.origTransform || t.getAttribute('transform') || '';
-                    if (tBaseTransform !== origLineTransform) return;
-                    if (ts.getAttribute('y') !== lineY) return;
-                    const tOrigX = ts.dataset.origX || ts.getAttribute('x') || '0';
-                    const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
-                    if (isNaN(tFirstX) || tFirstX <= span.start) return;
-                    const currentTransform = t.getAttribute('transform') || tBaseTransform;
-                    t.setAttribute('transform', currentTransform + ' translate(' + (-shift) + ' 0)');
-                });
-            });
-
-            if (autoPrint) {
-                setTimeout(function() {
-                    window.focus();
-                    window.print();
-                }, 250);
+        window.CommunaLinkDocumentSvg.syncLayout({
+            fieldIds: Object.keys(values),
+            fieldGroups: fieldGroups,
+            getFieldValue: getFieldValue,
+            afterLayout: function() {
+                if (autoPrint && !autoPrintScheduled) {
+                    autoPrintScheduled = true;
+                    setTimeout(function() {
+                        window.focus();
+                        window.print();
+                    }, 250);
+                }
             }
         });
     }

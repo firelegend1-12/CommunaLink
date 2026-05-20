@@ -34,7 +34,7 @@ if (!empty($resident['date_of_birth'])) {
     $age = $birthDate->diff($today)->y;
 }
 
-$full_name = htmlspecialchars($resident['first_name'] . ' ' . $resident['last_name']);
+$full_name = htmlspecialchars(normalize_document_text($resident['first_name'] . ' ' . $resident['last_name']));
 $document_gender = resident_document_gender_label($resident['gender'] ?? '');
 $document_civil_status = resident_document_civil_status_label($resident['civil_status'] ?? '');
 $document_locality = resident_document_locality_label($resident['address'] ?? '');
@@ -237,130 +237,14 @@ require_once 'partials/header.php';
         const inputId = fieldMap[id];
         if (!inputId) return '';
         const el = document.getElementById(inputId);
-        return el ? el.value : '';
-    }
-
-    function trackedFieldIds() {
-        return [...new Set(Object.keys(fieldMap).concat(...Object.values(fieldGroups)))];
-    }
-
-    function rememberFieldState(id) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const tspan = el.querySelector('tspan');
-        if (!tspan) return;
-        if (!tspan.dataset.origText) {
-            tspan.dataset.origText = tspan.textContent;
-        }
-        if (!tspan.dataset.origX) {
-            tspan.dataset.origX = tspan.getAttribute('x') || '0';
-        }
-    }
-
-    function resetTrackedText() {
-        trackedFieldIds().forEach(function(id) {
-            rememberFieldState(id);
-            const el = document.getElementById(id);
-            const tspan = el ? el.querySelector('tspan') : null;
-            if (!tspan) return;
-            tspan.textContent = tspan.dataset.origText || '';
-            tspan.setAttribute('x', tspan.dataset.origX || '0');
-        });
-    }
-
-    function fieldGroupIds(id) {
-        return [id].concat(fieldGroups[id] || []);
-    }
-
-    function measureFieldSpan(ids) {
-        let start = null;
-        let end = null;
-        ids.forEach(function(id) {
-            const el = document.getElementById(id);
-            const tspan = el ? el.querySelector('tspan') : null;
-            if (!tspan) return;
-            const xCoords = (tspan.dataset.origX || tspan.getAttribute('x') || '0').split(/\s+/).map(parseFloat).filter(function(n) { return !isNaN(n); });
-            if (xCoords.length === 0) return;
-            const firstX = xCoords[0];
-            const lastX = xCoords[xCoords.length - 1];
-            const charWidth = xCoords.length > 1 ? (xCoords[1] - xCoords[0]) : 8.33;
-            start = start === null ? firstX : Math.min(start, firstX);
-            end = end === null ? (lastX + charWidth) : Math.max(end, lastX + charWidth);
-        });
-        if (start === null || end === null) return null;
-        return { start: start, width: end - start };
+        return el ? window.CommunaLinkDocumentSvg.normalizeText(el.value) : '';
     }
 
     function recomputeLayout() {
-        // Pre-save original transforms for all text elements (once)
-        document.querySelectorAll('svg text').forEach(function(el) {
-            if (!el.dataset.origTransform && el.hasAttribute('transform')) {
-                el.dataset.origTransform = el.getAttribute('transform');
-            }
-        });
-        resetTrackedText();
-
-        // Step 1: set text content + reset x on each field, preserving trailing punctuation
-        Object.keys(fieldMap).forEach(function(id) {
-            const el = document.getElementById(id);
-            if (!el) return;
-            const tspan = el.querySelector('tspan');
-            if (!tspan) return;
-            const value = getFieldValue(id);
-            const firstX = tspan.dataset.origX.split(/\s+/)[0];
-            if (!value || String(value).trim() === '') return;
-            const suffix = tspan.dataset.origText.replace(/^[_\s]+/, '');
-            tspan.textContent = String(value) + suffix;
-            tspan.setAttribute('x', firstX);
-            (fieldGroups[id] || []).forEach(function(extraId) {
-                const extraEl = document.getElementById(extraId);
-                const extraTspan = extraEl ? extraEl.querySelector('tspan') : null;
-                if (!extraTspan) return;
-                extraTspan.textContent = '';
-                extraTspan.setAttribute('x', extraTspan.dataset.origX || '0');
-            });
-        });
-
-        // Step 2: reset every shifted text element back to original transform
-        document.querySelectorAll('svg text[data-orig-transform]').forEach(function(el) {
-            el.setAttribute('transform', el.dataset.origTransform);
-        });
-
-        // Step 3: after browser re-renders, measure and shift
-        requestAnimationFrame(function() {
-            Object.keys(fieldMap).forEach(function(id) {
-                const el = document.getElementById(id);
-                if (!el) return;
-                const tspan = el.querySelector('tspan');
-                if (!tspan || !tspan.dataset.origX) return;
-                const value = getFieldValue(id);
-                if (!value || String(value).trim() === '') return;
-                const groupIds = fieldGroupIds(id);
-                const span = measureFieldSpan(groupIds);
-                if (!span) return;
-                let actualWidth = 0;
-                try { actualWidth = tspan.getComputedTextLength(); } catch(e) {}
-                const shift = span.width - actualWidth;
-                if (Math.abs(shift) <= 0.5) return;
-                const origLineTransform = el.dataset.origTransform || el.getAttribute('transform');
-                const lineY = tspan.getAttribute('y');
-                const parent = el.parentElement;
-                if (!parent) return;
-                const groupIdSet = new Set(groupIds);
-                Array.from(parent.querySelectorAll('text')).forEach(function(t) {
-                    if (t === el || groupIdSet.has(t.id)) return;
-                    const ts = t.querySelector('tspan');
-                    if (!ts) return;
-                    const tBaseTransform = t.dataset.origTransform || t.getAttribute('transform') || '';
-                    if (tBaseTransform !== origLineTransform) return;
-                    if (ts.getAttribute('y') !== lineY) return;
-                    const tOrigX = ts.dataset.origX || ts.getAttribute('x') || '0';
-                    const tFirstX = parseFloat(tOrigX.split(/\s+/)[0]);
-                    if (isNaN(tFirstX) || tFirstX <= span.start) return;
-                    const currentTransform = t.getAttribute('transform') || tBaseTransform;
-                    t.setAttribute('transform', currentTransform + ' translate(' + (-shift) + ' 0)');
-                });
-            });
+        window.CommunaLinkDocumentSvg.syncLayout({
+            fieldIds: Object.keys(fieldMap),
+            fieldGroups: fieldGroups,
+            getFieldValue: getFieldValue
         });
     }
 
@@ -372,6 +256,7 @@ require_once 'partials/header.php';
             const input = document.getElementById(fieldMap[id]);
             if (input) {
                 input.addEventListener('input', recomputeLayout);
+                input.addEventListener('change', recomputeLayout);
             }
         });
     }
